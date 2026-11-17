@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import {
   View,
   Text,
@@ -148,6 +150,9 @@ export default function App() {
   const [lastGift, setLastGift] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [loginMethod, setLoginMethod] = useState('phone');
+  const [confirmation, setConfirmation] = useState(null);
+  const [smsCode, setSmsCode] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
 
   const betsRef = useRef({});
   const balanceRef = useRef(5010);
@@ -344,24 +349,45 @@ export default function App() {
     return () => clearGameTimers();
   }, []);
 
-  const login = () => {
-    if (!name.trim()) {
-      Alert.alert('تنبيه', 'أدخل اسم المستخدم');
-      return;
+  const login = async () => {
+    if (!name.trim()) return Alert.alert('تنبيه', 'أدخل اسم المستخدم');
+    const local = phone.replace(/\D/g, '').replace(/^0+/, '');
+    if (local.length < 7) return Alert.alert('تنبيه', 'أدخل رقم هاتف صحيح');
+    if (!accepted) return Alert.alert('الشروط', 'وافق على الشروط والأحكام');
+    setAuthBusy(true);
+    try {
+      const result = await auth().signInWithPhoneNumber(COUNTRIES[country][1] + local);
+      setConfirmation(result);
+      setSmsCode('');
+      navigate('verify');
+    } catch (error) {
+      Alert.alert('تعذر إرسال الرمز', error.message || 'تحقق من الرقم وإعدادات Firebase');
+    } finally {
+      setAuthBusy(false);
     }
+  };
 
-    if (phone.replace(/\D/g, '').length < 7) {
-      Alert.alert('تنبيه', 'أدخل رقم هاتف صحيح');
-      return;
+  const verifySms = async () => {
+    if (!confirmation || smsCode.trim().length < 6) {
+      return Alert.alert('تنبيه', 'أدخل رمز التحقق المكون من 6 أرقام');
     }
-
-    if (!accepted) {
-      Alert.alert('الشروط', 'وافق على الشروط والأحكام');
-      return;
+    setAuthBusy(true);
+    try {
+      const credential = await confirmation.confirm(smsCode.trim());
+      const user = credential.user;
+      await firestore().collection('users').doc(user.uid).set({
+        displayName: name.trim(),
+        phoneNumber: user.phoneNumber || null,
+        updatedAt: firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      setLoginMethod('phone');
+      setConfirmation(null);
+      navigate('home');
+    } catch (error) {
+      Alert.alert('تعذر إكمال التحقق', error.message || 'راجع الرمز وقواعد Firestore');
+    } finally {
+      setAuthBusy(false);
     }
-
-    setLoginMethod('phone');
-    navigate('home');
   };
 
   const socialLogin = provider => {
@@ -418,6 +444,29 @@ export default function App() {
     diamonds,
     openStore: () => navigate('store')
   };
+
+  if (screen === 'verify') {
+    return (
+      <View style={styles.page}>
+        <StatusBar barStyle="light-content" />
+        <ScrollView contentContainerStyle={styles.loginContent}>
+          <Text style={styles.bigLogo}>Clipi</Text>
+          <Text style={styles.subtitle}>أدخل رمز SMS الذي وصل إلى هاتفك</Text>
+          <TextInput
+            style={styles.input}
+            value={smsCode}
+            onChangeText={setSmsCode}
+            placeholder="رمز التحقق (6 أرقام)"
+            placeholderTextColor="#888"
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+          <Btn title={authBusy ? 'جارٍ التحقق...' : 'تأكيد الرمز'} disabled={authBusy} onPress={verifySms} />
+          <Btn title="تغيير رقم الهاتف" color="#472174" onPress={() => { setConfirmation(null); navigate('login'); }} />
+        </ScrollView>
+      </View>
+    );
+  }
 
   if (screen === 'login') {
     return (
@@ -498,7 +547,8 @@ export default function App() {
             />
 
             <Btn
-              title="تسجيل الدخول برقم الهاتف"
+              title={authBusy ? "جارٍ إرسال الرمز..." : "تسجيل الدخول برقم الهاتف"}
+              disabled={authBusy}
               onPress={login}
             />
 
@@ -519,7 +569,7 @@ export default function App() {
             />
 
             <Text style={styles.note}>
-              تسجيل الهاتف تجريبي، وجوجل وفيسبوك يحتاجان ربط OAuth.
+              تسجيل الهاتف يستخدم Firebase؛ وجوجل وفيسبوك يحتاجان ربط OAuth.
             </Text>
           </ScrollView>
         </KeyboardAvoidingView>
