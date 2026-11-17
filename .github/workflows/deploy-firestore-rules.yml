@@ -1,0 +1,36 @@
+name: Deploy Clipi Firestore Rules
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Firebase rules branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/firebase-phone-auth
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify required secret
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+        run: |
+          if [ -z "$FIREBASE_CREDENTIALS" ]; then
+            echo "::error::Missing FIREBASE_SERVICE_ACCOUNT_CLIPI repository secret"
+            exit 1
+          fi
+      - name: Deploy Firestore rules only
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+        run: |
+          printf '%s' "$FIREBASE_CREDENTIALS" > "$RUNNER_TEMP/clipi-service-account.json"
+          chmod 600 "$RUNNER_TEMP/clipi-service-account.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/clipi-service-account.json"
+          npx --yes firebase-tools deploy --only firestore:rules --project clipi-f67c0 --non-interactive
+          rm -f "$RUNNER_TEMP/clipi-service-account.json"
