@@ -349,13 +349,6 @@ export default function App() {
     return () => clearGameTimers();
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(user => {
-      if (user && screenRef.current === 'login') navigate('home');
-    });
-    return unsubscribe;
-  }, []);
-
   const login = async () => {
     if (!name.trim()) return Alert.alert('تنبيه', 'أدخل اسم المستخدم');
     const local = phone.replace(/\D/g, '').replace(/^0+/, '');
