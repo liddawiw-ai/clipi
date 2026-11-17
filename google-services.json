@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "108915209910",
+    "project_id": "clipi-f67c0",
+    "storage_bucket": "clipi-f67c0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:108915209910:android:2826e33aea61dd223fd817",
+        "android_client_info": {
+          "package_name": "com.walid.clipi"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
