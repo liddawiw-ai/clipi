@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 import {
   View,
   Text,
@@ -148,6 +150,10 @@ export default function App() {
   const [lastGift, setLastGift] = useState(null);
   const [accepted, setAccepted] = useState(false);
   const [loginMethod, setLoginMethod] = useState('phone');
+  const [confirmation, setConfirmation] = useState(null);
+  const [smsCode, setSmsCode] = useState('');
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const betsRef = useRef({});
   const balanceRef = useRef(5010);
@@ -344,24 +350,91 @@ export default function App() {
     return () => clearGameTimers();
   }, []);
 
-  const login = () => {
-    if (!name.trim()) {
-      Alert.alert('تنبيه', 'أدخل اسم المستخدم');
+  // Firebase Auth is the only authority for login. A local phone number is not proof of identity.
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async user => {
+      if (!user) {
+        setAuthReady(true);
+        navigate('login');
+        return;
+      }
+      try {
+        const profile = await firestore().collection('users').doc(user.uid).get();
+        if (profile.exists && profile.data()?.name) setName(profile.data().name);
+        setLoginMethod('phone');
+        navigate('home');
+      } catch (error) {
+        Alert.alert('تعذر تحميل الحساب', 'تحقق من اتصال الإنترنت وإعدادات Firestore.');
+        await auth().signOut();
+      } finally {
+        setAuthReady(true);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const normalizedPhone = () => {
+    const digits = phone.replace(/\\D/g, '');
+    const prefix = COUNTRIES[country][1];
+    const countryDigits = prefix.replace('+', '');
+    return '+' + (digits.startsWith(countryDigits)
+      ? digits
+      : countryDigits + digits.replace(/^0+/, ''));
+  };
+
+  const login = async () => {
+    if (!name.trim() || name.trim().length > 60) {
+      Alert.alert('تنبيه', 'أدخل اسماً من 1 إلى 60 حرفاً');
       return;
     }
-
-    if (phone.replace(/\D/g, '').length < 7) {
+    if (phone.replace(/\\D/g, '').length < 7) {
       Alert.alert('تنبيه', 'أدخل رقم هاتف صحيح');
       return;
     }
-
     if (!accepted) {
       Alert.alert('الشروط', 'وافق على الشروط والأحكام');
       return;
     }
+    setAuthBusy(true);
+    try {
+      const pending = await auth().signInWithPhoneNumber(normalizedPhone());
+      setConfirmation(pending);
+      setSmsCode('');
+    } catch (error) {
+      Alert.alert('تعذر إرسال الرمز', error?.message || 'تحقق من إعدادات Firebase ورقم الهاتف');
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
-    setLoginMethod('phone');
-    navigate('home');
+  const verifySms = async () => {
+    if (!confirmation || !/^\\d{6}$/.test(smsCode.trim()) || authBusy) return;
+    setAuthBusy(true);
+    try {
+      const credential = await confirmation.confirm(smsCode.trim());
+      const user = credential.user;
+      const ref = firestore().collection('users').doc(user.uid);
+      // Transaction prevents overwriting a previously created user profile.
+      await firestore().runTransaction(async tx => {
+        const existing = await tx.get(ref);
+        if (!existing.exists) {
+          tx.set(ref, {
+            name: name.trim(),
+            createdAt: firestore.FieldValue.serverTimestamp()
+          });
+        }
+      });
+      const profile = await ref.get();
+      if (profile.exists && profile.data()?.name) setName(profile.data().name);
+      setConfirmation(null);
+      setSmsCode('');
+      setLoginMethod('phone');
+      navigate('home');
+    } catch (error) {
+      Alert.alert('فشل التحقق', error?.message || 'تحقق من رمز الرسالة وحاول مجدداً');
+    } finally {
+      setAuthBusy(false);
+    }
   };
 
   const socialLogin = provider => {
@@ -418,6 +491,10 @@ export default function App() {
     diamonds,
     openStore: () => navigate('store')
   };
+
+  if (!authReady) {
+    return <View style={[styles.page, { justifyContent: 'center', alignItems: 'center' }]}><Text style={styles.white}>جاري التحقق من الجلسة...</Text></View>;
+  }
 
   if (screen === 'login') {
     return (
@@ -497,10 +574,29 @@ export default function App() {
               onPress={() => navigate('terms')}
             />
 
-            <Btn
-              title="تسجيل الدخول برقم الهاتف"
-              onPress={login}
-            />
+            {confirmation ? (
+              <>
+                <Text style={styles.label}>رمز التحقق المرسل عبر SMS</Text>
+                <TextInput
+                  style={styles.input}
+                  value={smsCode}
+                  onChangeText={setSmsCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  placeholder="رمز من 6 أرقام"
+                  placeholderTextColor="#888"
+                />
+                <Btn title={authBusy ? 'جاري التحقق...' : 'تأكيد الرمز'}
+                  disabled={authBusy || !/^\\d{6}$/.test(smsCode.trim())}
+                  onPress={verifySms} />
+                <Btn title="تغيير رقم الهاتف" color="#472174"
+                  disabled={authBusy}
+                  onPress={() => { setConfirmation(null); setSmsCode(''); }} />
+              </>
+            ) : (
+              <Btn title={authBusy ? 'جاري إرسال الرمز...' : 'إرسال رمز التحقق'}
+                disabled={authBusy} onPress={login} />
+            )}
 
             <Text style={styles.orText}>
               ───────── أو سجل باستخدام ─────────
@@ -519,7 +615,7 @@ export default function App() {
             />
 
             <Text style={styles.note}>
-              تسجيل الهاتف تجريبي، وجوجل وفيسبوك يحتاجان ربط OAuth.
+              تسجيل الهاتف يتطلب رسالة SMS حقيقية وتطبيق Expo Development Build. جوجل وفيسبوك غير مفعّلين.
             </Text>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -939,10 +1035,16 @@ export default function App() {
 
           <Btn
             title="حفظ التغييرات"
-            onPress={() => Alert.alert(
-              'تم',
-              'التغييرات محفوظة مؤقتاً أثناء تشغيل التطبيق.'
-            )}
+            onPress={async () => {
+              try {
+                const user = auth().currentUser;
+                if (!user) throw new Error('يجب تسجيل الدخول');
+                const nextName = name.trim();
+                if (!nextName || nextName.length > 60) throw new Error('اسم غير صالح');
+                await firestore().collection('users').doc(user.uid).update({ name: nextName });
+                Alert.alert('تم', 'حُفظ الاسم في Firestore');
+              } catch (error) { Alert.alert('فشل الحفظ', error.message); }
+            }}
           />
 
           <Btn
@@ -954,7 +1056,7 @@ export default function App() {
           <Btn
             title="تسجيل الخروج"
             color="#555"
-            onPress={() => navigate('login')}
+            onPress={async () => { await auth().signOut(); setConfirmation(null); navigate('login'); }}
           />
         </ScrollView>
 
