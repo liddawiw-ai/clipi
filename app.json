@@ -9,10 +9,12 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.walid.clipi"
+      "bundleIdentifier": "com.walid.clipi",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "package": "com.walid.clipi"
+      "package": "com.walid.clipi",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "bundler": "metro"
@@ -21,6 +23,10 @@
       "eas": {
         "projectId": "8b7b92e2-ebd2-48a4-a617-16b83bc83449"
       }
-    }
+    },
+    "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth"
+    ]
   }
 }
