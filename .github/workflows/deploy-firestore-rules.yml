@@ -1,0 +1,30 @@
+name: Deploy Clipi Firestore Rules
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check Firebase credentials secret
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+        run: |
+          if [ -z "$FIREBASE_CREDENTIALS" ]; then
+            echo "::error::Missing FIREBASE_SERVICE_ACCOUNT_CLIPI GitHub Actions secret"
+            exit 1
+          fi
+      - name: Deploy Firestore rules
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+        run: |
+          printf '%s' "$FIREBASE_CREDENTIALS" > "${RUNNER_TEMP}/firebase-service-account.json"
+          chmod 600 "${RUNNER_TEMP}/firebase-service-account.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="${RUNNER_TEMP}/firebase-service-account.json"
+          npx --yes firebase-tools deploy --project clipi-f67c0 --only firestore:rules --non-interactive
+          rm -f "${RUNNER_TEMP}/firebase-service-account.json"
