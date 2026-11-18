@@ -19,4 +19,6 @@ assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.o
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
 assert(source.includes('isHost&&cameraOn&&cameraPermission?.granted'), 'Viewer camera guard missing');
 assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
+assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
+assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
 console.log('Clipi release guards passed (static assertions only).');
