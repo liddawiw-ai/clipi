@@ -24,3 +24,5 @@ jobs:
         run: yarn install --frozen-lockfile --non-interactive --ignore-scripts
       - name: Verify Expo config and JSX
         run: npm run test:ci
+      - name: Bundle production Android JavaScript through Expo AppEntry
+        run: npx expo export --platform android --output-dir /tmp/clipi-android-bundle
