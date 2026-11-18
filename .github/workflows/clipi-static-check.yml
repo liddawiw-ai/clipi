@@ -1,0 +1,23 @@
+name: Clipi source guard checks
+on:
+  push:
+    branches:
+      - feature/clipi-integrated-cloud-rooms
+      - release/clipi-mvp-beta
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate release guards
+        run: npm run test:release
