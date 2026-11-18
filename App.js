@@ -103,9 +103,11 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const [chat,setChat]=useState([]),[message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const chatRef=useRef(null);
+  const sendingRef=useRef(false);
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
     if(!room?.id||!userId)return;
+    setChat([]);
     const roomUnsub=db.collection('rooms').doc(room.id).onSnapshot(d=>{
       if(!d.exists||d.data()?.status==='closed'){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
@@ -155,18 +157,21 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     try{await requestCameraPermission()}catch(e){Alert.alert('خطأ الكاميرا',e.message)}
   }
   async function sendMessage(){
-    const text=message.trim().slice(0,500);
-    if(!text||!userId||!room?.id||sending)return;
+    const text=message.trim();
+    if(!text||!userId||!room?.id||sendingRef.current)return;
+    if(text.length>500)return Alert.alert('الرسالة طويلة','الحد الأقصى 500 حرف');
+    sendingRef.current=true;
     setSending(true);
     try{
       await db.collection('rooms').doc(room.id).collection('messages').add({
-        text,userUid:userId,userName:username.slice(0,35)||'مستخدم',
+        text,userUid:userId,userName:username.trim().slice(0,35)||'مستخدم',
         createdAt:firestore.FieldValue.serverTimestamp()
       });
-      setMessage('');
+      // Do not erase edits typed while the network request was in flight.
+      setMessage(current=>current.trim()===text?'':current);
       setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
     }catch(e){Alert.alert('تعذر إرسال الرسالة',e.message)}
-    finally{setSending(false)}
+    finally{sendingRef.current=false;setSending(false)}
   }
   function send(gift){
     if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
@@ -196,7 +201,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     {!keyboardOn&&<View style={S.actions}><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'المقاعد معاينة تصميمية':'معاينة الكاميرا محلية فقط'}</Text></View>}
     {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>المحادثة مشتركة عبر Firebase. لا يوجد اتصال صوت/فيديو بين الأجهزة بعد. اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}><View style={S.drawerHeader}><Text style={S.gold}>🎁 مكتبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>{GIFTS.map((g,i)=><TouchableOpacity key={i} style={S.giftTile} onPress={()=>send(g)}><Text style={{fontSize:22}}>{g[0]}</Text><Text numberOfLines={1} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {g[2]}</Text></TouchableOpacity>)}</ScrollView></View>}
-    <View style={S.composer}>{SHOW_UNRELEASED_DEMOS&&<TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity>}<TextInput style={S.messageInput} value={message} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={[S.sendButton,sending&&{opacity:.5}]} disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
+    <View style={S.composer}>{SHOW_UNRELEASED_DEMOS&&<TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity>}<TextInput style={S.messageInput} value={message} maxLength={500} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={[S.sendButton,sending&&{opacity:.5}]} disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
     {fx&&<GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/>}
   </KeyboardAvoidingView>;
 }
@@ -278,25 +283,36 @@ export default function App(){
     GoogleSignin.configure({webClientId:GOOGLE_WEB_CLIENT_ID});
   },[]);
   useEffect(()=>{
+    let active=true;
     const unsub=auth().onAuthStateChanged(async u=>{
+      if(!active)return;
       setUser(u);
-      setRooms([]);setActiveRoom(null);setConfirmation(null);
+      setRooms([]);setActiveRoom(null);
       if(u){
         try{
           const doc=await firestore().collection('users').doc(u.uid).get();
-          if(doc.exists){const d=doc.data()||{};setName(d.displayName||u.displayName||'مستخدم');setAvatar(d.avatar||'👤')}
-          else if(u.displayName)setName(u.displayName);
+          if(!active||auth().currentUser?.uid!==u.uid)return;
+          if(doc.exists){
+            const d=doc.data()||{};
+            setName(d.displayName||u.displayName||'مستخدم');
+            setAvatar(d.avatar||'👤');
+          }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        go('home');
-      }else{setConfirmation(null);go('login')}
+        if(active&&auth().currentUser?.uid===u.uid)go('home');
+      }else{
+        setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
+        setName('');setRoomError('');
+        go('login');
+      }
     });
-    return unsub;
+    return ()=>{active=false;unsub()};
   },[]);
   useEffect(()=>{
     if(!user?.uid)return;
+    setRooms([]);setRoomError('');
     const unsub=db.collection('rooms').orderBy('createdAt','desc').limit(50).onSnapshot(snapshot=>{
       setRooms(snapshot.docs.map(d=>({id:d.id,...d.data()})));setRoomError('');
-    },e=>setRoomError('تعذر تحميل الغرف: '+e.message));
+    },e=>{setRooms([]);setRoomError('تعذر تحميل الغرف: '+e.message)});
     return unsub;
   },[user?.uid]);
   useEffect(()=>{
@@ -325,8 +341,8 @@ export default function App(){
   }
   async function saveProfile(u,label){
     if(!u?.uid)throw new Error('يرجى تسجيل الدخول أولًا');
-    const displayName=(label||u.displayName||'مستخدم').trim().slice(0,35);
-    if(!displayName)throw new Error('اسم المستخدم مطلوب');
+    const displayName=(label||u.displayName||'مستخدم').trim();
+    if(!displayName||displayName.length>35)throw new Error('اسم المستخدم يجب أن يكون بين 1 و35 حرفًا');
     await firestore().collection('users').doc(u.uid).set({
       displayName,avatar,updatedAt:firestore.FieldValue.serverTimestamp()
     },{merge:true});
@@ -334,7 +350,7 @@ export default function App(){
   }
   async function phoneLogin(){
     if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
-    if(!name.trim())return Alert.alert('الاسم','أدخل اسم المستخدم');
+    if(!name.trim()||name.trim().length>35)return Alert.alert('الاسم','أدخل اسمًا من 1 إلى 35 حرفًا');
     const local=phone.replace(/\D/g,'').replace(/^0+/,'');
     if(local.length<7)return Alert.alert('الهاتف','أدخل رقم هاتف صحيح');
     setBusy(true);setAuthError('');
@@ -343,9 +359,9 @@ export default function App(){
     finally{setBusy(false)}
   }
   async function verifySms(){
-    if(!confirmation||smsCode.trim().length!==6)return Alert.alert('رمز SMS','أدخل ستة أرقام');
+    if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert('رمز SMS','أدخل ستة أرقام');
     setBusy(true);
-    try{const credential=await confirmation.confirm(smsCode.trim());await saveProfile(credential.user,name.trim());setUser(credential.user);go('home')}
+    try{const credential=await confirmation.confirm(smsCode.trim());await saveProfile(credential.user,name.trim());setUser(credential.user);setConfirmation(null);go('home')}
     catch(e){Alert.alert('فشل التحقق',e.message||'الرمز غير صالح')}
     finally{setBusy(false)}
   }
