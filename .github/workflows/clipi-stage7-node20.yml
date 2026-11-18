@@ -1,0 +1,26 @@
+name: Clipi Stage 7 Expo Node 20 compatibility
+on:
+  push:
+    branches:
+      - feature/clipi-stage7-build-fix
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  expo-node20-install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Expo build Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.2'
+      - name: Install Yarn classic used by EAS Build
+        run: npm install --global yarn@1.22.22
+      - name: Reproduce Expo Yarn dependency install under Node 20
+        run: yarn install --frozen-lockfile --non-interactive --ignore-scripts
+      - name: Verify Expo config and JSX
+        run: npm run test:ci
