@@ -67,4 +67,17 @@ assert(source.includes('setMinimized(true)')&&source.includes('setCameraFacing')
 assert(source.includes('const exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
 assert(source.includes('✕ مغادرة الغرفة')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
+
+// The display catalog is larger than the server-authorized gift catalog.
+// Never mistake a client-side preview for a funded transaction.
+const clientCatalog=source.match(/const GIFTS=(\[[^;]+\]);/);
+const serverCatalog=backend.match(/const GIFT_PRICES=Object\.freeze\((\{[^;]+\})\);/);
+assert(clientCatalog&&serverCatalog,'Gift catalogs missing');
+const giftEntries=JSON.parse(clientCatalog[1]);
+const serverGiftIds=Object.keys(new Function('return ('+serverCatalog[1]+')')());
+const unsupportedGiftIds=[...new Set(giftEntries.map(g=>g[3]))].filter(id=>!serverGiftIds.includes(id));
+assert(unsupportedGiftIds.length>0,'Gift catalog contract changed: review server/client integration before declaring gifts live');
+assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room)'),
+ 'Gift send preview changed; audit payment ledger and server receipt before release');
+console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
 console.log('Clipi release guards passed (static assertions only).');
