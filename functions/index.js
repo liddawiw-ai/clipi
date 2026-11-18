@@ -256,6 +256,28 @@ const verifyPin=(pin,salt,stored)=>{
  const actual=Buffer.from(hashPin(pin,salt),'hex'),expected=Buffer.from(stored,'hex');
  return timingSafeEqual(actual,expected);
 };
+// Persist failed PIN attempts so a client cannot brute-force the wallet by restarting.
+const PIN_MAX_FAILURES=5,PIN_LOCK_MS=15*60*1000;
+async function checkWalletPin(ref,pin){
+ let verified=false,locked=false;
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref),d=snap.data()||{};
+  const now=Date.now(),until=d.pinLockedUntil?.toMillis?.()||0;
+  if(until>now){locked=true;return;}
+  if(!d.pinHash||!validatePin(pin)){return;}
+  verified=verifyPin(pin,d.pinSalt,d.pinHash);
+  if(verified){
+   tx.set(ref,{pinFailedAttempts:0,pinLockedUntil:FieldValue.delete()},{merge:true});
+  }else{
+   const count=(Number.isInteger(d.pinFailedAttempts)?Math.max(0,d.pinFailedAttempts):0)+1;
+   tx.set(ref,{pinFailedAttempts:count,pinLockedUntil:count>=PIN_MAX_FAILURES?
+    new Date(now+PIN_LOCK_MS):FieldValue.delete()},{merge:true});
+  }
+ });
+ if(locked)throw new HttpsError('resource-exhausted','Wallet PIN temporarily locked; try again in 15 minutes');
+ if(!verified)throw new HttpsError('permission-denied','Wallet PIN incorrect');
+}
+
 exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
  const uid=requireUser(request),role=await roleFor(uid);
  const doc=await db.collection('earningsWallets').doc(uid).get();
@@ -278,8 +300,7 @@ exports.setEarningsWalletPin=onCall({enforceAppCheck:true,maxInstances:5},async 
  if(!validatePin(pin))throw new HttpsError('invalid-argument','PIN must contain exactly 6 digits');
  const ref=db.collection('earningsWallets').doc(uid),snap=await ref.get(),data=snap.data()||{};
  if(data.pinHash){
-  if(!validatePin(currentPin)||!verifyPin(currentPin,data.pinSalt,data.pinHash))
-   throw new HttpsError('permission-denied','Current PIN incorrect');
+  await checkWalletPin(ref,currentPin);
  }else recentLogin(request);
  const salt=randomBytes(16).toString('hex'),pinHash=hashPin(pin,salt);
  // Initial PIN set must not silently replace another concurrent PIN.
@@ -296,8 +317,7 @@ exports.previewEarningsWithdrawal=onCall({enforceAppCheck:true,maxInstances:5},a
  if(!['cash','diamonds'].includes(method)||!validatePin(pin))
   throw new HttpsError('invalid-argument','Invalid method or wallet PIN');
  const doc=await db.collection('earningsWallets').doc(uid).get(),d=doc.data()||{};
- if(!d.pinHash||!verifyPin(pin,d.pinSalt,d.pinHash))
-  throw new HttpsError('permission-denied','Wallet PIN incorrect');
+ await checkWalletPin(db.collection('earningsWallets').doc(uid),pin);
  const points=Number.isSafeInteger(d.availablePoints)&&d.availablePoints>=0?d.availablePoints:0;
  const last=d.lastPayoutRequestAt?.toMillis?.()||0;
  const eligible=points>=POINTS_MIN&&Date.now()-last>=WITHDRAW_INTERVAL_MS;
@@ -344,6 +364,20 @@ exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSecon
  await redactReports('reportedUid',uid);
  // Firestore delete() alone leaves subcollections behind.
  await db.recursiveDelete(db.collection('users').doc(uid));
+ // Remove promotional gift receipts and balances; do not silently destroy unsettled financial records.
+ await db.recursiveDelete(db.collection('virtualWallets').doc(uid));
+ const earningsRef=db.collection('earningsWallets').doc(uid);
+ const earnings=await earningsRef.get();
+ if(earnings.exists){
+  const d=earnings.data()||{};
+  if((d.availablePoints||0)===0&&(d.pendingPoints||0)===0&&!d.lastPayoutRequestAt){
+   await earningsRef.delete();
+  }else{
+   await earningsRef.update({pinHash:FieldValue.delete(),pinSalt:FieldValue.delete(),
+    pinFailedAttempts:FieldValue.delete(),pinLockedUntil:FieldValue.delete(),
+    accountDeletedAt:FieldValue.serverTimestamp()});
+  }
+ }
  await getAuth().deleteUser(uid);
  return {ok:true};
 });
