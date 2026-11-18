@@ -34,6 +34,17 @@ test('redemption minimum and payout gates remain safe',()=>{
  assert.match(backend,/executable:false/);
 });
 
+test('support conversion policy is arithmetically consistent',()=>{
+ const policy=backend.match(/const SUPPORT_POLICY=Object\.freeze\((\{[^;]+\})\);/);
+ assert.ok(policy,'Support policy missing');
+ const p=new Function('return ('+policy[1]+')')();
+ assert.equal(p.hostPercent+p.agentPercent+p.platformPercent,100);
+ assert.equal(p.pointsPerUsd,100);
+ assert.equal(p.minConversionPoints,2000);
+ assert.equal(p.minConversionPoints/p.pointsPerUsd,20);
+ assert.equal(p.minConversionPoints/p.pointsPerUsd*p.diamondsPerConversionUsd,22000);
+});
+
 test('biometric wallet locks on background and ignores stale requests',()=>{
  assert.match(wallet,/LocalAuthentication\.authenticateAsync\(/);
  assert.match(wallet,/requestEpochRef\.current\+=1/);
