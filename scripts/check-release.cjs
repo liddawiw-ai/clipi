@@ -14,4 +14,9 @@ assert(rules.includes("resource.data.status == 'open'"), 'Closed room protection
 assert(rules.includes('reporterUid == request.auth.uid'), 'Report identity constraint missing');
 assert(pkg.dependencies['@react-native-firebase/auth']&&pkg.dependencies['@react-native-firebase/firestore']);
 assert(eas.build.preview.android.buildType==='apk');
+assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
+assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
+assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
+assert(source.includes('isHost&&cameraOn&&cameraPermission?.granted'), 'Viewer camera guard missing');
+assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
 console.log('Clipi release guards passed (static assertions only).');
