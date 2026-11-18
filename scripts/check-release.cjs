@@ -97,4 +97,5 @@ assert(source.includes('currentSessionUidRef.current!==u?.uid'),'Account switch 
 assert(source.includes('setPayoutDrafts([]);setPayoutAccount(\'\');setPayoutHolder(\'\');'),'Account switch must clear payout drafts and sensitive input');
 assert(source.includes('setSpent(0);setReceived(0);setSupportLog([]);'),'Account switch must clear local support history');
 assert(source.includes('setBalance({welcome:WELCOME,purchased:0,owner:0});'),'Account switch must reset local demo diamonds');
+assert(source.includes("if(page==='room')return activeRoom?.id&&user?.uid?<Room"),'Room must not render without an active room and signed-in user');
 console.log('Clipi release guards passed (static assertions only).');
