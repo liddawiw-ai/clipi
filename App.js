@@ -347,6 +347,7 @@ export default function App(){
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
   const smsConfirmingRef=useRef(false);
+  const currentSessionUidRef=useRef(undefined);
   // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
   const [wallet,setWallet]=useState({welcome:WELCOME,purchased:0,owner:0});
   const walletRef=useRef({welcome:WELCOME,purchased:0,owner:0});
@@ -421,6 +422,20 @@ export default function App(){
     let active=true;
     const unsub=auth().onAuthStateChanged(async u=>{
       if(!active)return;
+      // Local demo data must never leak between Firebase accounts on the same device.
+      if(currentSessionUidRef.current!==u?.uid){
+        currentSessionUidRef.current=u?.uid;
+        setBalance({welcome:WELCOME,purchased:0,owner:0});
+        setOwnerDemo(false);setOwnerGranted(false);
+        setInventory(['👑 إطار فاخر','🏎️ دخول سيارة فاخرة']);
+        setEquipped({frame:'👑 إطار فاخر',ride:'🏎️ دخول سيارة فاخرة'});
+        setSpent(0);setReceived(0);setSupportLog([]);
+        setPayoutDrafts([]);setPayoutAccount('');setPayoutHolder('');
+        setPayoutBankName('');setPayoutSwift('');setPayoutAmount('');
+        setHistory([]);setBets({});betsRef.current={};
+        phaseRef.current='betting';setPhase('betting');setSeconds(30);
+        clearTimeout(timerRef.current);
+      }
       setUser(u);
       setRooms([]);setActiveRoom(null);
       if(u){
