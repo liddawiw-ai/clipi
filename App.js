@@ -597,8 +597,10 @@ export default function App(){
   }
   function sendGift(g,room){
     const source=spend(g[2]);if(!source)return false;
-    setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);
-    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source,selfGift:(room.ownerUid||room.owner)===user?.uid,eligibleSupportPoints:0},...v].slice(0,50));
+    const selfGift=(room.ownerUid||room.owner)===user?.uid;
+    setSpent(v=>v+g[2]);
+    // Sending a gift is not receiving it. Self-support is visual only and cannot generate earnings.
+    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source,selfGift,eligibleSupportPoints:0},...v].slice(0,50));
     return true;
   }
   async function createRoom(){
