@@ -76,7 +76,7 @@ assert(clientCatalog&&serverCatalog,'Gift catalogs missing');
 const giftEntries=JSON.parse(clientCatalog[1]);
 const serverGiftIds=Object.keys(new Function('return ('+serverCatalog[1]+')')());
 const unsupportedGiftIds=[...new Set(giftEntries.map(g=>g[3]))].filter(id=>!serverGiftIds.includes(id));
-assert(unsupportedGiftIds.length>0,'Gift catalog contract changed: review server/client integration before declaring gifts live');
+assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'),'Unsupported gift previews must remain hidden from release builds');
 assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room)'),
  'Gift send preview changed; audit payment ledger and server receipt before release');
 console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
