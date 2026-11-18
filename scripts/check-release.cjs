@@ -93,4 +93,8 @@ assert(sendStart>=0&&sendLuck>sendStart,'Luck gifts must remain a development pr
 assert(!source.slice(sendStart,sendLuck).includes("if(isHost)return"),'Host should be able to gift own room in preview');
 assert(source.includes('const selfGift=(room.ownerUid||room.owner)===user?.uid;')&&source.includes('selfGift,eligibleSupportPoints:0'),'Self-gifts must be marked as ineligible for support points');
 assert(!source.includes('setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);'),'Gift sender must not be credited as recipient');
+assert(source.includes('currentSessionUidRef.current!==u?.uid'),'Account switch must reset local demo data');
+assert(source.includes('setPayoutDrafts([]);setPayoutAccount(\'\');setPayoutHolder(\'\');'),'Account switch must clear payout drafts and sensitive input');
+assert(source.includes('setSpent(0);setReceived(0);setSupportLog([]);'),'Account switch must clear local support history');
+assert(source.includes('setBalance({welcome:WELCOME,purchased:0,owner:0});'),'Account switch must reset local demo diamonds');
 console.log('Clipi release guards passed (static assertions only).');
