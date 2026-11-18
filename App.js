@@ -1,1569 +1,468 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React,{useEffect,useRef,useState} from 'react';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,Share} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Alert,
-  StatusBar,
-  Share,
-  KeyboardAvoidingView,
-  Platform
-} from 'react-native';
+import {GoogleSignin} from '@react-native-google-signin/google-signin';
+import {LoginManager,AccessToken,AuthenticationToken} from 'react-native-fbsdk-next';
+import * as Crypto from 'expo-crypto';
+import {CameraView,useCameraPermissions} from 'expo-camera';
 
-const FOODS = [
-  { icon: '🥕', name: 'جزر', multi: 5 },
-  { icon: '🦐', name: 'جمبري', multi: 10 },
-  { icon: '🥦', name: 'بروكلي', multi: 5 },
-  { icon: '🥩', name: 'لحم', multi: 15 },
-  { icon: '🥬', name: 'خضار ورقية', multi: 5 },
-  { icon: '🍗', name: 'ستيك', multi: 25 },
-  { icon: '🌽', name: 'ذرة', multi: 5 },
-  { icon: '🐟', name: 'سمك', multi: 45 }
+const {width:WIDTH,height:HEIGHT}=Dimensions.get('window');
+const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
+const WELCOME=1000,OWNER_DEMO=5000000;
+// ضع Web OAuth Client ID من Firebase/Google Cloud بعد تفعيل Google.
+const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
+const GIFTS=[['🌹','وردة',10,'rose'],['💖','قلب',50,'heart'],['🎂','كيكة',100,'cake'],['🧸','دبدوب',300,'bear'],['💍','خاتم',500,'ring'],['🏎️','سيارة فاخرة',1000,'car'],['🚀','صاروخ',2500,'rocket'],['👑','تاج ملكي',5000,'crown'],['🏰','قصر',10000,'castle'],['🐉','تنين ذهبي',25000,'dragon']];
+const GOODS=[['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
+const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
+const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
+const AVATARS=['👤','😎','👩','👨','🧑','👸','🤴','🦁','🐼','🦊','🌸','⭐'];
+const PACKS=[1000,2000,5000,10000,20000,50000];
+
+// قنوات استقبال الأرباح المعروضة للمستخدم؛ لا توجد تحويلات حقيقية مفعلة.
+// القوائم إرشادية ويمكن تحديثها من الخادم عند إتاحة مزود دفع.
+const PAYOUT_COUNTRIES=[
+  ['JO','الأردن','JOD'],['EG','مصر','EGP'],
+  ['IQ','العراق','IQD'],['SA','السعودية','SAR'],
+  ['AE','الإمارات','AED'],['PS','فلسطين','ILS'],
+  ['LB','لبنان','USD'],['OTHER','دولة أخرى','USD']
 ];
+const PAYOUT_WALLETS={
+  JO:[
+    'Zain Cash الأردن','Orange Money الأردن','UWallet الأردن',
+    'Dinarak','Alawneh Pay','GateToPay Wallet',
+    'MEPS National Wallet','Mad Pay'
+  ],
+  EG:[
+    'Vodafone Cash','Orange Cash','e& money / Etisalat Cash',
+    'WE Pay','الأهلي فون كاش','BM Wallet - بنك مصر',
+    'QNB Wallet','CIB Smart Wallet','ALEXBANK Wallet',
+    'محفظة بنك مصري أخرى'
+  ],
+  IQ:['ZainCash العراق','محفظة عراقية أخرى'],
+  SA:['stc pay / STC Bank','محفظة سعودية أخرى'],
+  AE:['e& money','محفظة إماراتية أخرى'],
+  PS:['محفظة فلسطينية محلية'],
+  LB:['محفظة لبنانية محلية'],
+  OTHER:['محفظة أخرى - اكتب اسمها']
+};
 
-const COUNTRIES = [
-  ['🇯🇴 الأردن', '+962'],
-  ['🇸🇦 السعودية', '+966'],
-  ['🇦🇪 الإمارات', '+971'],
-  ['🇪🇬 مصر', '+20'],
-  ['🇱🇧 لبنان', '+961'],
-  ['🇸🇾 سوريا', '+963'],
-  ['🇮🇶 العراق', '+964'],
-  ['🇵🇸 فلسطين', '+970']
-];
+const fmt=x=>Number(x||0).toLocaleString('en-US');
 
-const AMOUNTS = [10, 100, 500, 1000, 10000];
+function Btn({title,onPress,color=PINK,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[S.btn,{backgroundColor:disabled?'#666':color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
+function Small({title,onPress,color='#295098'}){return <TouchableOpacity onPress={onPress} style={[S.small,{backgroundColor:color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 
-const PACKAGES = [
-  { diamonds: 100, price: '0.99' },
-  { diamonds: 500, price: '4.99' },
-  { diamonds: 1200, price: '9.99' },
-  { diamonds: 6500, price: '49.99' },
-  { diamonds: 14000, price: '99.99' }
-];
-
-const GIFTS = [
-  { icon: '🌹', name: 'وردة', cost: 10 },
-  { icon: '❤️', name: 'قلب', cost: 50 },
-  { icon: '🎂', name: 'كيكة', cost: 100 },
-  { icon: '💍', name: 'خاتم', cost: 500 },
-  { icon: '🚗', name: 'سيارة', cost: 1000 },
-  { icon: '👑', name: 'تاج', cost: 5000 }
-];
-
-const WHEEL_SIZE = 296;
-const SLOT_SIZE = 70;
-const CENTER = WHEEL_SIZE / 2;
-const RADIUS = 104;
-
-const WHEEL_POS = FOODS.map((_, i) => {
-  const angle = (i * 45 - 90) * Math.PI / 180;
-
-  return {
-    left: CENTER + Math.cos(angle) * RADIUS - SLOT_SIZE / 2,
-    top: CENTER + Math.sin(angle) * RADIUS - SLOT_SIZE / 2
-  };
-});
-
-function Btn({
-  title,
-  onPress,
-  color = '#ff3267',
-  disabled = false
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.8}
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.button,
-        { backgroundColor: disabled ? '#777' : color }
-      ]}
-    >
-      <Text style={styles.buttonText}>{title}</Text>
-    </TouchableOpacity>
-  );
+function GiftFX({gift,onDone}){
+  const progress=useRef(new Animated.Value(0)).current;
+  const kind=gift[3];
+  useEffect(()=>{
+    progress.setValue(0);
+    const duration=kind==='dragon'?6300:kind==='rose'?4600:kind==='rocket'?4200:3300;
+    const animation=Animated.timing(progress,{toValue:1,duration,useNativeDriver:true});
+    animation.start(({finished})=>{if(finished)onDone()});
+    return ()=>animation.stop();
+  },[gift]);
+  const move=(inputRange,outputRange)=>progress.interpolate({inputRange,outputRange});
+  const opacity=move([0,.08,.87,1],[0,1,1,0]);
+  const scale=move([0,.42,.8,1],[.2,1.2,1,1.15]);
+  const glow=move([0,.2,.5,.8,1],[0,1,.2,1,0]);
+  let shape;
+  if(kind==='rose') shape=<View style={S.fxCenter}>
+    <Animated.Text style={[S.fxIcon,{opacity:move([0,.3,.65,1],[1,1,0,0]),transform:[{scale}]}]}>🌷</Animated.Text>
+    <Animated.Text style={[S.fxIcon,{position:'absolute',opacity:move([0,.3,.65,1],[0,0,1,1]),transform:[{scale:move([0,1],[.2,1.7])}]}]}>🌹</Animated.Text>
+  </View>;
+  else if(kind==='rocket') shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,1],[HEIGHT*.7,-HEIGHT*.95])}]}]}><Text style={S.fxIcon}>🚀</Text><Text style={S.fxFire}>🔥</Text></Animated.View>;
+  else if(kind==='car') shape=<Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.35,.7,1],[-WIDTH,0,0,WIDTH])}]}]}><Text style={S.fxIcon}>🏎️</Text></Animated.View>;
+  else if(kind==='crown') shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,.6,1],[-HEIGHT*.45,0,0])},{scale}]}]}><Text style={S.fxIcon}>👑</Text></Animated.View>;
+  else if(kind==='dragon') shape=<>
+    <Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.22,.48,.72,1],[-WIDTH,WIDTH*.3,WIDTH*.4,-WIDTH*.3,0])},{translateY:move([0,.22,.48,.72,1],[HEIGHT*.2,-HEIGHT*.2,HEIGHT*.1,HEIGHT*.15,-20])},{rotate:move([0,.25,.5,.75,1],['-25deg','30deg','155deg','320deg','360deg'])},{scale}]}]}>
+      <Text style={[S.fxIcon,{fontSize:170,textShadowColor:GOLD,textShadowRadius:22}]}>🐉</Text><Text style={S.fxSpark}>✦ ✨ ✦</Text>
+    </Animated.View>
+    <Animated.Text style={[S.fxFire,{position:'absolute',top:'45%',opacity:move([0,.73,.84,.95,1],[0,0,1,1,0]),transform:[{scale:move([0,.8,1],[.3,1,2.1])}]}]}>🔥🔥🔥</Animated.Text>
+  </>;
+  else shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:kind==='ring'?move([0,1],['0deg','360deg']):'0deg'}]}]}><Text style={S.fxIcon}>{gift[0]}</Text></Animated.View>;
+  return <Animated.View pointerEvents="none" style={[S.fxOverlay,{opacity}]}>{shape}<Animated.Text style={[S.fxSpark,{opacity:glow}]}>✧ ✨ ✧</Animated.Text></Animated.View>;
 }
 
-function Header({ title, back, diamonds, openStore }) {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={back}>
-        <Text style={styles.headerBack}>❮ رجوع</Text>
-      </TouchableOpacity>
-
-      <Text style={styles.headerTitle}>{title}</Text>
-
-      <TouchableOpacity onPress={openStore}>
-        <Text style={styles.balance}>💎 {diamonds}</Text>
-      </TouchableOpacity>
-    </View>
-  );
+function Room({room,username,avatar,diamonds,onSendGift,onExit}){
+  const audio=room.type==='audio';
+  const [cameraPermission,requestCameraPermission]=useCameraPermissions();
+  const [cameraOn,setCameraOn]=useState(true);
+  const [cameraFacing,setCameraFacing]=useState('front');
+  const [role,setRole]=useState('host');
+  const isHost=role==='host';
+  const [guest,setGuest]=useState('');
+  const [guestCamera,setGuestCamera]=useState(true);
+  const [callRequest,setCallRequest]=useState('');
+  const [seats,setSeats]=useState(()=>Array.from({length:8},(_,i)=>({id:i+1,user:i===0?room.host:null,locked:false,request:null})));
+  const [chat,setChat]=useState([]),[message,setMessage]=useState('');
+  const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
+  const chatRef=useRef(null);
+  useEffect(()=>{
+    const s=Keyboard.addListener('keyboardDidShow',()=>setKeyboardOn(true));
+    const h=Keyboard.addListener('keyboardDidHide',()=>setKeyboardOn(false));
+    return ()=>{s.remove();h.remove()};
+  },[]);
+  async function turnCameraOn(){
+    if(cameraOn){setCameraOn(false);return}
+    if(!cameraPermission?.granted){const p=await requestCameraPermission();if(!p.granted){Alert.alert('الكاميرا','امنح إذن الكاميرا');return}}
+    setCameraOn(true);
+  }
+  async function openCameraPermission(){
+    try{await requestCameraPermission()}catch(e){Alert.alert('خطأ الكاميرا',e.message)}
+  }
+  function sendMessage(){
+    if(!message.trim())return;
+    setChat(v=>[...v,{id:String(Date.now())+Math.random(),user:isHost?username:'مشاهد تجريبي',text:message.trim()}].slice(-80));
+    setMessage('');setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
+  }
+  function send(gift){
+    if(diamonds<gift[2])return Alert.alert('رصيد غير كافٍ');
+    if(!onSendGift(gift,room))return;
+    setGiftOpen(false);setFxId(v=>v+1);setFx(gift);
+  }
+  function seatAction(x){
+    if(x.locked)return Alert.alert('المقعد مغلق');
+    if(isHost){setSeats(v=>v.map(a=>a.id===x.id?{...a,user:a.user?null:username,request:null}:a));return}
+    if(x.user)return Alert.alert('المقعد مشغول');
+    setSeats(v=>v.map(a=>a.id===x.id?{...a,request:'مشاهد تجريبي'}:a));
+  }
+  function approveSeat(id,accept){setSeats(v=>v.map(x=>x.id===id?{...x,user:accept?x.request:x.user,request:null}:x))}
+  return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?BLUE:'#071324'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
+    <StatusBar barStyle="light-content"/>
+    {audio?<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><Text style={S.bgCrown}>♛</Text></View>:
+      <View style={StyleSheet.absoluteFillObject}>
+        {cameraOn&&cameraPermission?.granted?<CameraView style={StyleSheet.absoluteFillObject} facing={cameraFacing} active={true}/>:
+          <View style={S.videoBlank}><Text style={{fontSize:70}}>📹</Text><Text style={S.white}>{cameraOn?'اسمح باستخدام كاميرا المضيف':'كاميرا المضيف مغلقة'}</Text>{cameraOn&&!cameraPermission?.granted&&<Btn title="السماح بالكاميرا" onPress={openCameraPermission}/>}</View>}
+      </View>}
+    <View style={S.liveHeader}><Small title="✕" onPress={onExit}/><View style={{flex:1,alignItems:'center'}}><Text style={S.title}>{room.name}</Text><Text style={S.tiny}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'} · #{room.id}</Text></View><View style={S.liveTag}><Text style={S.white}>● LIVE</Text></View></View>
+    {!audio?<>
+      <View style={S.avatars}><View style={S.guestAvatar}><Text style={{fontSize:23}}>{avatar}</Text><Text style={S.tiny}>المضيف</Text></View>{guest?<View style={S.guestAvatar}><Text style={{fontSize:23}}>👤</Text><Text style={S.tiny}>الضيف</Text></View>:null}<Text style={[S.tiny,{marginLeft:'auto'}]}>معاينة: {isHost?'مضيف':'مشاهد'}</Text></View>
+      <View style={S.videoControls}><Small title={cameraOn?'📷 إغلاق الكاميرا':'📷 تشغيل الكاميرا'} onPress={turnCameraOn}/><Small title="🔄 تبديل" onPress={()=>setCameraFacing(v=>v==='front'?'back':'front')}/></View>
+      {guest?<View style={S.pip}><View style={S.pipPreview}><Text style={{fontSize:37}}>{guestCamera?'👤':'📷'}</Text><Text style={S.tiny}>{guestCamera?'مكان بث الضيف (RTC مطلوب)':'الكاميرا مغلقة'}</Text></View><Text style={S.white}>{guest}</Text><Small title={guestCamera?'🚫 إغلاق كاميرا الضيف':'📷 فتح كاميرا الضيف'} onPress={()=>setGuestCamera(v=>!v)}/>{isHost&&<Small title="✕ إنهاء الاتصال" color="#96334f" onPress={()=>setGuest('')}/>}</View>:null}
+      {isHost&&callRequest?<View style={S.callPanel}><Text style={S.white}>📞 {callRequest} يطلب الاتصال</Text><View style={S.row}><Small title="✔ قبول" color="#138a54" onPress={()=>{setGuest(callRequest);setGuestCamera(true);setCallRequest('')}}/><Small title="✕ رفض" color="#96334f" onPress={()=>setCallRequest('')}/></View></View>:null}
+    </>:<>
+      <Text style={S.seatHeading}>✦ المقاعد الملكية ✦</Text>
+      <View style={S.seatGrid}>{seats.map(x=><TouchableOpacity key={x.id} style={S.seatItem} onPress={()=>seatAction(x)} onLongPress={()=>{if(isHost)setSeats(v=>v.map(a=>a.id===x.id?{...a,locked:!a.locked}:a))}}><View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{x.locked?'🔒':x.user?'🎙️':'💺'}</Text></View><Text numberOfLines={1} style={S.tiny}>{x.user||`مقعد ${x.id}`}</Text><Text style={S.tiny}>{x.request?'✋ طلب':x.locked?'مغلق':x.user?'يتحدث':'متاح'}</Text></TouchableOpacity>)}</View>
+      {isHost&&seats.filter(x=>x.request).map(x=><View key={x.id} style={S.seatRequest}><Text style={S.white}>مقعد {x.id}</Text><Small title="✔ قبول" color="#138a54" onPress={()=>approveSeat(x.id,true)}/><Small title="✕ رفض" color="#96334f" onPress={()=>approveSeat(x.id,false)}/></View>)}
+    </>}
+    <View style={{flex:1}}/>
+    {!keyboardOn&&<View style={S.actions}><Small title={isHost?'🔀 تجربة كمشاهد':'🔀 العودة للمضيف'} onPress={()=>setRole(v=>v==='host'?'viewer':'host')}/>{!audio&&(isHost?<Small title={`👥 الضيوف ${guest?1:0}`} onPress={()=>Alert.alert('تجربة','بدّل إلى وضع المشاهد لطلب الاتصال')}/>:<Small title="📞 طلب اتصال" color={PINK} onPress={()=>{if(guest)return Alert.alert('يوجد ضيف متصل');setCallRequest('مشاهد تجريبي');Alert.alert('تم إرسال الطلب','عد لوضع المضيف للقبول')}}/>)}</View>}
+    {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>المحادثة والضيوف على هذا الجهاز فقط؛ RTC لم يربط بعد.</Text>{chat.map(m=><View key={m.id} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.user}: </Text>{m.text}</Text></View>)}</ScrollView>}
+    {giftOpen&&!keyboardOn&&<View style={S.giftDrawer}><View style={S.drawerHeader}><Text style={S.gold}>🎁 مكتبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>{GIFTS.map((g,i)=><TouchableOpacity key={i} style={S.giftTile} onPress={()=>send(g)}><Text style={{fontSize:22}}>{g[0]}</Text><Text numberOfLines={1} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {g[2]}</Text></TouchableOpacity>)}</ScrollView></View>}
+    <View style={S.composer}><TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity><TextInput style={S.messageInput} value={message} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={S.sendButton} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
+    {fx&&<GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/>}
+  </KeyboardAvoidingView>;
 }
 
-function BottomNav({ navigate }) {
-  return (
-    <View style={styles.nav}>
-      <TouchableOpacity onPress={() => navigate('home')}>
-        <Text style={styles.navText}>🏠 الرئيسية</Text>
-      </TouchableOpacity>
+export default function App(){
+  const [page,setPage]=useState('loading');
+  const [user,setUser]=useState(null);
+  const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
+  const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
+  const [avatar,setAvatar]=useState('👤');
+  // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
+  const [wallet,setWallet]=useState({welcome:WELCOME,purchased:0,owner:0});
+  const walletRef=useRef({welcome:WELCOME,purchased:0,owner:0});
+  const [ownerDemo,setOwnerDemo]=useState(false),[ownerGranted,setOwnerGranted]=useState(false);
+  const [inventory,setInventory]=useState(['👑 إطار ملكي','🏎️ سيارة فاخرة']);
+  const [equipped,setEquipped]=useState({frame:'👑 إطار ملكي',ride:'🏎️ سيارة فاخرة'});
+  const [spent,setSpent]=useState(0),[received,setReceived]=useState(0),[supportLog,setSupportLog]=useState([]);
+  const [payoutCountry,setPayoutCountry]=useState('JO');
+  const [payoutOtherCountry,setPayoutOtherCountry]=useState('');
+  const [payoutMethod,setPayoutMethod]=useState('wallet');
+  const [payoutProvider,setPayoutProvider]=useState('Zain Cash الأردن');
+  const [payoutOtherProvider,setPayoutOtherProvider]=useState('');
+  const [payoutHolder,setPayoutHolder]=useState('');
+  const [payoutAccount,setPayoutAccount]=useState('');
+  const [payoutBankName,setPayoutBankName]=useState('');
+  const [payoutSwift,setPayoutSwift]=useState('');
+  const [payoutAmount,setPayoutAmount]=useState('');
+  const [payoutDrafts,setPayoutDrafts]=useState([]);
 
-      <TouchableOpacity onPress={() => navigate('games')}>
-        <Text style={styles.navText}>🎮 الألعاب</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigate('store')}>
-        <Text style={styles.navText}>💎 المتجر</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => navigate('profile')}>
-        <Text style={styles.navText}>👤 حسابي</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-export default function App() {
-  const [screen, setScreen] = useState('login');
-  const [name, setName] = useState('Walid');
-  const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState(0);
-  const [showCountries, setShowCountries] = useState(false);
-  const [diamonds, setDiamonds] = useState(5010);
-  const [liveTitle, setLiveTitle] = useState('My Live');
-  const [comment, setComment] = useState('');
-  const [comments, setComments] = useState([]);
-  const [bets, setBets] = useState({});
-  const [selectedBet, setSelectedBet] = useState(10);
-  const [seconds, setSeconds] = useState(30);
-  const [phase, setPhase] = useState('betting');
-  const [highlight, setHighlight] = useState(-1);
-  const [result, setResult] = useState(null);
-  const [history, setHistory] = useState([]);
-  const [lastGift, setLastGift] = useState(null);
-  const [accepted, setAccepted] = useState(false);
-  const [loginMethod, setLoginMethod] = useState('phone');
-  const [confirmation, setConfirmation] = useState(null);
-  const [smsCode, setSmsCode] = useState('');
-  const [authBusy, setAuthBusy] = useState(false);
-
-  const betsRef = useRef({});
-  const balanceRef = useRef(5010);
-  const phaseRef = useRef('betting');
-  const screenRef = useRef('login');
-  const spinTimer = useRef(null);
-  const resultTimer = useRef(null);
-  const locked = useRef(false);
-  const spinFunction = useRef(null);
-
-  const navigate = next => {
-    screenRef.current = next;
-    setScreen(next);
-  };
-
-  const setGamePhase = next => {
-    phaseRef.current = next;
-    setPhase(next);
-  };
-
-  const updateBalance = next => {
-    balanceRef.current = next;
-    setDiamonds(next);
-  };
-
-  const clearGameTimers = () => {
-    if (spinTimer.current) clearTimeout(spinTimer.current);
-    if (resultTimer.current) clearTimeout(resultTimer.current);
-
-    spinTimer.current = null;
-    resultTimer.current = null;
-  };
-
-  const resetGame = () => {
-    clearGameTimers();
-    betsRef.current = {};
-    locked.current = false;
-    setBets({});
-    setSeconds(30);
-    setHighlight(-1);
-    setResult(null);
-    setGamePhase('betting');
-  };
-
-  const openGame = () => {
-    resetGame();
-    navigate('game');
-  };
-
-  const leaveGame = () => {
-    if (phaseRef.current === 'spinning') {
-      Alert.alert('انتظر', 'الجولة قيد التشغيل');
-      return;
+  const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[roomPass,setRoomPass]=useState(''),[activeRoom,setActiveRoom]=useState(null),[pendingRoom,setPendingRoom]=useState(null),[joinPass,setJoinPass]=useState('');
+  const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
+  const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
+  const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
+  const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
+  const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
+  const go=p=>{pageRef.current=p;setPage(p)};
+  const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
+  const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
+  function choosePayoutCountry(code){
+    setPayoutCountry(code);
+    setPayoutProvider((PAYOUT_WALLETS[code]||PAYOUT_WALLETS.OTHER)[0]);
+    setPayoutAccount('');setPayoutBankName('');setPayoutSwift('');
+  }
+  function createPayoutDraft(){
+    // متعمد: لا يرسل بيانات بنكية لخادم ولا يسحب أموالًا.
+    const amount=Number(payoutAmount.replace(',','.'));
+    const provider=payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -')
+      ?payoutOtherProvider.trim():payoutProvider;
+    if(payoutCountry==='OTHER'&&!payoutOtherCountry.trim()){Alert.alert('الدولة','اكتب اسم الدولة');return;}
+    if(!payoutHolder.trim()||payoutHolder.trim().length<3){
+      Alert.alert('اسم المستفيد','أدخل الاسم الحقيقي للمستفيد');return;
     }
-
-    resetGame();
-    navigate('games');
-  };
-
-  const placeBet = index => {
-    if (phaseRef.current !== 'betting') return;
-
-    const current = betsRef.current;
-
-    const count = Object.keys(current).filter(
-      key => current[key] > 0
-    ).length;
-
-    if (!current[index] && count >= 6) {
-      Alert.alert('تنبيه', 'الحد الأقصى 6 خانات');
-      return;
+    if(!Number.isFinite(amount)||amount<=0){
+      Alert.alert('المبلغ','أدخل مبلغًا موجبًا بالدولار للمعاينة');return;
     }
-
-    if (balanceRef.current < selectedBet) {
-      Alert.alert('رصيد غير كافٍ', 'راجع متجر الماسات');
-      return;
+    if(payoutMethod==='wallet'&&(!provider||payoutAccount.replace(/\D/g,'').length<7)){
+      Alert.alert('بيانات المحفظة','اختر المحفظة وأدخل رقم هاتف صحيحًا');return;
     }
+    if(payoutMethod==='bank'&&(!payoutBankName.trim()||payoutAccount.trim().length<8)){
+      Alert.alert('بيانات البنك','أدخل اسم البنك ورقم الحساب/IBAN');return;
+    }
+    // حفظ مسودة محلية فقط. لا نخزن أرقام حسابات كاملة في سجل المسودات.
+    const masked=payoutAccount.length>4
+      ?'••••'+payoutAccount.slice(-4):'••••';
+    setPayoutDrafts(v=>[{
+      id:String(Date.now()),country:payoutCountry==='OTHER'?payoutOtherCountry.trim():payoutCountryInfo[1],
+      method:payoutMethod,provider:payoutMethod==='bank'?payoutBankName:provider,
+      amount,masked,status:'مسودة فقط - غير مرسلة'
+    },...v].slice(0,12));
+    setPayoutAccount('');setPayoutSwift('');
+    Alert.alert('مسودة فقط','تم تجهيز معاينة طلب السحب، ولم يتم إرسال طلب أو تحويل أي مبلغ. الرصيد القابل للسحب حاليًا صفر.');
+  }
 
-    const next = {
-      ...current,
-      [index]: (current[index] || 0) + selectedBet
-    };
+  const setBalance=w=>{walletRef.current=w;setWallet(w)};
 
-    betsRef.current = next;
-    setBets(next);
-    updateBalance(balanceRef.current - selectedBet);
-  };
-
-  const finishRound = (winner, roundBets) => {
-    const item = FOODS[winner];
-    const stake = roundBets[winner] || 0;
-    const payout = stake * item.multi;
-
-    updateBalance(balanceRef.current + payout);
-    setHighlight(winner);
-
-    setResult({
-      icon: item.icon,
-      name: item.name,
-      payout
+  useEffect(()=>{
+    if(!GOOGLE_WEB_CLIENT_ID)return;
+    GoogleSignin.configure({webClientId:GOOGLE_WEB_CLIENT_ID});
+  },[]);
+  useEffect(()=>{
+    const unsub=auth().onAuthStateChanged(async u=>{
+      setUser(u);
+      if(u){
+        try{
+          const doc=await firestore().collection('users').doc(u.uid).get();
+          if(doc.exists){const d=doc.data()||{};setName(d.displayName||u.displayName||'مستخدم');setAvatar(d.avatar||'👤')}
+          else if(u.displayName)setName(u.displayName);
+        }catch(e){console.warn('Profile load failed',e.message)}
+        go('home');
+      }else{setConfirmation(null);go('login')}
     });
-
-    setHistory(old => [
-      {
-        icon: item.icon,
-        name: item.name,
-        payout,
-        time: new Date().toLocaleTimeString()
-      },
-      ...old
-    ].slice(0, 15));
-
-    setGamePhase('result');
-
-    resultTimer.current = setTimeout(() => {
-      betsRef.current = {};
-      setBets({});
-      setHighlight(-1);
-      setResult(null);
-      setSeconds(30);
-      locked.current = false;
-      setGamePhase('betting');
-    }, 3000);
-  };
-
-  const startSpin = () => {
-    if (phaseRef.current !== 'betting' || locked.current) {
-      return;
-    }
-
-    const roundBets = { ...betsRef.current };
-
-    locked.current = true;
-    setGamePhase('spinning');
-    setResult(null);
-
-    // تدور العجلة حتى لو لم يضع اللاعب رهاناً.
-    // لا توجد رسالة تطلب وضع رهان أولاً.
-    const winner = Math.floor(Math.random() * FOODS.length);
-    const totalSteps = 40 + winner;
-    let step = 0;
-
-    const advance = () => {
-      if (screenRef.current !== 'game') return;
-
-      if (step >= totalSteps) {
-        spinTimer.current = null;
-        finishRound(winner, roundBets);
-        return;
+    return unsub;
+  },[]);
+  async function saveProfile(u,label){
+    // بيانات الحساب فقط. لا تحفظ الرصيد أو أرباح السحب من الهاتف في الإنتاج.
+    const ref=firestore().collection('users').doc(u.uid);
+    await ref.set({displayName:label||u.displayName||'مستخدم',updatedAt:firestore.FieldValue.serverTimestamp()},{merge:true});
+  }
+  async function phoneLogin(){
+    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
+    if(!name.trim())return Alert.alert('الاسم','أدخل اسم المستخدم');
+    const local=phone.replace(/\D/g,'').replace(/^0+/,'');
+    if(local.length<7)return Alert.alert('الهاتف','أدخل رقم هاتف صحيح');
+    setBusy(true);setAuthError('');
+    try{const c=await auth().signInWithPhoneNumber(COUNTRIES[country][1]+local);setConfirmation(c);setSmsCode('');go('verify')}
+    catch(e){setAuthError(e.message||'تعذر إرسال الرمز');Alert.alert('تعذر إرسال SMS',e.message||'راجع إعداد Firebase')}
+    finally{setBusy(false)}
+  }
+  async function verifySms(){
+    if(!confirmation||smsCode.trim().length!==6)return Alert.alert('رمز SMS','أدخل ستة أرقام');
+    setBusy(true);
+    try{const credential=await confirmation.confirm(smsCode.trim());await saveProfile(credential.user,name.trim());setUser(credential.user);go('home')}
+    catch(e){Alert.alert('فشل التحقق',e.message||'الرمز غير صالح')}
+    finally{setBusy(false)}
+  }
+  async function googleLogin(){
+    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
+    if(!GOOGLE_WEB_CLIENT_ID)return Alert.alert('إعداد Google','أضف EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID في بيئة EAS، وفعّل Google في Firebase');
+    setBusy(true);
+    try{
+      if(Platform.OS==='android')await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
+      const result=await GoogleSignin.signIn();
+      const token=result.data?.idToken||result.idToken;
+      if(!token)throw new Error('Google لم يرجع ID Token');
+      const credential=auth.GoogleAuthProvider.credential(token);
+      const signed=await auth().signInWithCredential(credential);
+      await saveProfile(signed.user,signed.user.displayName||name.trim());
+      setUser(signed.user);go('home');
+    }catch(e){if(e.code!=='SIGN_IN_CANCELLED'&&e.code!=='12501')Alert.alert('فشل تسجيل Google',e.message)}finally{setBusy(false)}
+  }
+  async function facebookLogin(){
+    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
+    setBusy(true);
+    try{
+      let credential;
+      if(Platform.OS==='ios'){
+        const rawNonce=Crypto.randomUUID();
+        const hashedNonce=await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,rawNonce);
+        const response=await LoginManager.logInWithPermissions(['public_profile','email'],'limited',hashedNonce);
+        if(response.isCancelled)return;
+        const token=await AuthenticationToken.getAuthenticationTokenIOS();
+        if(!token?.authenticationToken)throw new Error('Facebook Limited Login لم يرجع رمزًا');
+        credential=auth.FacebookAuthProvider.credential(token.authenticationToken,rawNonce);
+      }else{
+        const response=await LoginManager.logInWithPermissions(['public_profile','email']);
+        if(response.isCancelled)return;
+        const token=await AccessToken.getCurrentAccessToken();
+        if(!token?.accessToken)throw new Error('Facebook لم يرجع Access Token');
+        credential=auth.FacebookAuthProvider.credential(token.accessToken);
       }
-
-      setHighlight(step % FOODS.length);
-      step += 1;
-
-      const delay =
-        step > 35 ? 290 :
-        step > 27 ? 190 :
-        step > 18 ? 120 : 70;
-
-      spinTimer.current = setTimeout(advance, delay);
-    };
-
-    advance();
-  };
-
-  spinFunction.current = startSpin;
-
-  useEffect(() => {
-    if (screen !== 'game' || phase !== 'betting') return;
-
-    const interval = setInterval(() => {
-      setSeconds(previous => {
-        if (previous <= 1) {
-          setTimeout(() => {
-            if (
-              screenRef.current === 'game' &&
-              phaseRef.current === 'betting'
-            ) {
-              spinFunction.current();
-            }
-          }, 0);
-
-          return 0;
-        }
-
-        return previous - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [screen, phase]);
-
-  useEffect(() => {
-    return () => clearGameTimers();
-  }, []);
-
-  const login = async () => {
-    if (!name.trim()) return Alert.alert('تنبيه', 'أدخل اسم المستخدم');
-    const local = phone.replace(/\D/g, '').replace(/^0+/, '');
-    if (local.length < 7) return Alert.alert('تنبيه', 'أدخل رقم هاتف صحيح');
-    if (!accepted) return Alert.alert('الشروط', 'وافق على الشروط والأحكام');
-    setAuthBusy(true);
-    try {
-      const result = await auth().signInWithPhoneNumber(COUNTRIES[country][1] + local);
-      setConfirmation(result);
-      setSmsCode('');
-      navigate('verify');
-    } catch (error) {
-      Alert.alert('تعذر إرسال الرمز', error.message || 'تحقق من الرقم وإعدادات Firebase');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const verifySms = async () => {
-    if (!confirmation || smsCode.trim().length < 6) {
-      return Alert.alert('تنبيه', 'أدخل رمز التحقق المكون من 6 أرقام');
-    }
-    setAuthBusy(true);
-    try {
-      const credential = await confirmation.confirm(smsCode.trim());
-      const user = credential.user;
-      await firestore().collection('users').doc(user.uid).set({
-        displayName: name.trim(),
-        phoneNumber: user.phoneNumber || null,
-        updatedAt: firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      setLoginMethod('phone');
-      setConfirmation(null);
-      navigate('home');
-    } catch (error) {
-      Alert.alert('تعذر إكمال التحقق', error.message || 'راجع الرمز وقواعد Firestore');
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
-  const socialLogin = provider => {
-    Alert.alert(
-      'تسجيل الدخول عبر ' + provider,
-      'الزر موجود، لكن تسجيل الدخول الحقيقي يحتاج إعداد OAuth وربط التطبيق بحساب مطور ' + provider + '.'
-    );
-  };
-
-  const sendComment = () => {
-    if (!comment.trim()) return;
-
-    setComments(old => [
-      ...old,
-      { user: name, text: comment.trim() }
-    ].slice(-100));
-
-    setComment('');
-  };
-
-  const sendGift = gift => {
-    if (balanceRef.current < gift.cost) {
-      Alert.alert('رصيد غير كافٍ', 'لا تملك ماسات كافية');
-      return;
-    }
-
-    updateBalance(balanceRef.current - gift.cost);
-    setLastGift(gift);
-
-    Alert.alert(
-      'تم إرسال هدية تجريبية',
-      gift.icon + ' ' + gift.name
-    );
-  };
-
-  const shareApp = async () => {
-    try {
-      await Share.share({
-        message: 'تطبيق Clipi'
-      });
-    } catch (error) {
-      Alert.alert('خطأ', 'تعذرت المشاركة');
-    }
-  };
-
-  const showUnavailable = service => {
-    Alert.alert(
-      service,
-      'الواجهة موجودة، لكن الخدمة تحتاج ربط خادم حقيقي.'
-    );
-  };
-
-  const headerProps = {
-    diamonds,
-    openStore: () => navigate('store')
-  };
-
-  if (screen === 'verify') {
-    return (
-      <View style={styles.page}>
-        <StatusBar barStyle="light-content" />
-        <ScrollView contentContainerStyle={styles.loginContent}>
-          <Text style={styles.bigLogo}>Clipi</Text>
-          <Text style={styles.subtitle}>أدخل رمز SMS الذي وصل إلى هاتفك</Text>
-          <TextInput
-            style={styles.input}
-            value={smsCode}
-            onChangeText={setSmsCode}
-            placeholder="رمز التحقق (6 أرقام)"
-            placeholderTextColor="#888"
-            keyboardType="number-pad"
-            maxLength={6}
-          />
-          <Btn title={authBusy ? 'جارٍ التحقق...' : 'تأكيد الرمز'} disabled={authBusy} onPress={verifySms} />
-          <Btn title="تغيير رقم الهاتف" color="#472174" onPress={() => { setConfirmation(null); navigate('login'); }} />
-        </ScrollView>
-      </View>
-    );
+      const signed=await auth().signInWithCredential(credential);
+      await saveProfile(signed.user,signed.user.displayName||name.trim());
+      setUser(signed.user);go('home');
+    }catch(e){Alert.alert('فشل تسجيل Facebook',e.message||'راجع Facebook App ID وإعداد Firebase')}
+    finally{setBusy(false)}
   }
-
-  if (screen === 'login') {
-    return (
-      <View style={styles.page}>
-        <StatusBar barStyle="light-content" />
-
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <ScrollView contentContainerStyle={styles.loginContent}>
-            <Text style={styles.bigLogo}>Clipi</Text>
-
-            <Text style={styles.subtitle}>
-              عالم البث المباشر والألعاب
-            </Text>
-
-            <Text style={styles.label}>اسم المستخدم</Text>
-
-            <TextInput
-              style={styles.input}
-              value={name}
-              onChangeText={setName}
-              placeholder="اسم المستخدم"
-              placeholderTextColor="#888"
-            />
-
-            <Text style={styles.label}>الدولة</Text>
-
-            <TouchableOpacity
-              style={styles.input}
-              onPress={() => setShowCountries(!showCountries)}
-            >
-              <Text style={styles.inputText}>
-                {COUNTRIES[country][0]} {COUNTRIES[country][1]} ▾
-              </Text>
-            </TouchableOpacity>
-
-            {showCountries && COUNTRIES.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                style={styles.countryRow}
-                onPress={() => {
-                  setCountry(index);
-                  setShowCountries(false);
-                }}
-              >
-                <Text style={styles.white}>
-                  {item[0]} {item[1]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            <Text style={styles.label}>رقم الهاتف</Text>
-
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="أدخل رقم الهاتف"
-              placeholderTextColor="#888"
-              keyboardType="phone-pad"
-            />
-
-            <TouchableOpacity
-              style={styles.agreeRow}
-              onPress={() => setAccepted(!accepted)}
-            >
-              <Text style={styles.white}>
-                {accepted ? '☑' : '☐'} أوافق على الشروط والأحكام
-              </Text>
-            </TouchableOpacity>
-
-            <Btn
-              title="عرض الشروط والأحكام"
-              color="#472174"
-              onPress={() => navigate('terms')}
-            />
-
-            <Btn
-              title={authBusy ? "جارٍ إرسال الرمز..." : "تسجيل الدخول برقم الهاتف"}
-              disabled={authBusy}
-              onPress={login}
-            />
-
-            <Text style={styles.orText}>
-              ───────── أو سجل باستخدام ─────────
-            </Text>
-
-            <Btn
-              title="🌐 المتابعة باستخدام Google"
-              color="#4285F4"
-              onPress={() => socialLogin('Google')}
-            />
-
-            <Btn
-              title="📘 المتابعة باستخدام Facebook"
-              color="#1877F2"
-              onPress={() => socialLogin('Facebook')}
-            />
-
-            <Text style={styles.note}>
-              تسجيل الهاتف يستخدم Firebase؛ وجوجل وفيسبوك يحتاجان ربط OAuth.
-            </Text>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-    );
+  async function logout(){
+    try{await auth().signOut();try{await GoogleSignin.signOut()}catch(_e){}try{LoginManager.logOut()}catch(_e){}setOwnerDemo(false);setOwnerGranted(false);setBalance({welcome:WELCOME,purchased:0,owner:0});setPayoutDrafts([]);setSupportLog([]);setReceived(0);setSpent(0);go('login')}
+    catch(e){Alert.alert('تعذر الخروج',e.message)}
   }
-
-  if (screen === 'terms') {
-    return (
-      <View style={styles.page}>
-        <Header
-          title="الشروط والأحكام"
-          back={() => navigate('login')}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionTitle}>
-            شروط استخدام Clipi - النسخة التجريبية
-          </Text>
-
-          <Text style={styles.terms}>
-            1. هذا التطبيق نسخة تجريبية غير مخصصة للمعاملات المالية.
-            {'\n\n'}
-            2. الماسات افتراضية ولا يمكن استبدالها بأموال.
-            {'\n\n'}
-            3. لعبة Greedy Star تستخدم نتائج عشوائية تجريبية، ولا تتضمن مراهنات مالية حقيقية.
-            {'\n\n'}
-            4. يمنع استخدام التطبيق للإساءة أو المضايقة أو نشر محتوى مخالف.
-            {'\n\n'}
-            5. البث المباشر وتسجيل الدخول الاجتماعي والدفع الحقيقي يحتاجون إلى تكاملات وخوادم خارجية.
-            {'\n\n'}
-            6. يجب إعداد سياسة خصوصية وشروط قانونية مناسبة قبل النشر التجاري.
-          </Text>
-
-          <Btn
-            title="أوافق على الشروط"
-            onPress={() => {
-              setAccepted(true);
-              navigate('login');
-            }}
-          />
-        </ScrollView>
-      </View>
-    );
+  function toggleOwnerDemo(){
+    if(!__DEV__){Alert.alert('غير متاح','معاينة المالك متاحة في وضع التطوير فقط');return;}
+    if(!ownerGranted){setBalance({...walletRef.current,owner:OWNER_DEMO});setOwnerGranted(true)}
+    setOwnerDemo(v=>!v);
   }
-
-  if (screen === 'game') {
-    const total = Object.values(bets).reduce(
-      (sum, value) => sum + value, 0
-    );
-
-    return (
-      <View style={styles.gamePage}>
-        <StatusBar barStyle="light-content" />
-
-        <Header
-          title="Greedy Star"
-          back={leaveGame}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.gameContent}>
-          <Text style={styles.gameHeading}>
-            ⭐ GREEDY STAR ⭐
-          </Text>
-
-          <Text style={styles.gameHint}>
-            {phase === 'betting'
-              ? 'وقت الرهان: ' + seconds + ' ثانية'
-              : phase === 'spinning'
-                ? 'العجلة تدور...'
-                : 'نتيجة الجولة'}
-          </Text>
-
-          <View style={styles.wheel}>
-            <View style={styles.wheelPointer}>
-              <Text style={styles.pointerText}>▼</Text>
-            </View>
-
-            {FOODS.map((item, index) => (
-              <TouchableOpacity
-                key={index}
-                disabled={phase !== 'betting'}
-                onPress={() => placeBet(index)}
-                style={[
-                  styles.food,
-                  WHEEL_POS[index],
-                  highlight === index && styles.foodActive
-                ]}
-              >
-                <Text style={styles.foodIcon}>
-                  {item.icon}
-                </Text>
-
-                <Text style={styles.foodName}>
-                  {item.name}
-                </Text>
-
-                <Text style={styles.foodMulti}>
-                  ×{item.multi}
-                </Text>
-
-                {bets[index] > 0 && (
-                  <Text style={styles.foodBet}>
-                    💎{bets[index]}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            ))}
-
-            <View style={styles.wheelCenter}>
-              <Text style={styles.centerStar}>⭐</Text>
-
-              <Text style={styles.centerText}>
-                {phase === 'betting'
-                  ? seconds
-                  : phase === 'spinning'
-                    ? '...'
-                    : 'WIN'}
-              </Text>
-            </View>
-          </View>
-
-          {result && (
-            <View style={styles.resultBox}>
-              <Text style={styles.resultTitle}>
-                {result.icon} {result.name}
-              </Text>
-
-              <Text style={styles.resultMoney}>
-                {result.payout > 0
-                  ? 'ربحت ' + result.payout + ' 💎'
-                  : 'لم تربح هذه الجولة'}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.betPanel}>
-            <Text style={styles.panelTitle}>
-              اختر قيمة الرهان
-            </Text>
-
-            <View style={styles.amountRow}>
-              {AMOUNTS.map(amount => (
-                <TouchableOpacity
-                  key={amount}
-                  disabled={phase !== 'betting'}
-                  onPress={() => setSelectedBet(amount)}
-                  style={[
-                    styles.amount,
-                    selectedBet === amount && styles.amountActive
-                  ]}
-                >
-                  <Text style={styles.amountText}>
-                    {amount}
-                  </Text>
-
-                  <Text style={styles.small}>💎</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={styles.stats}>
-              <Text style={styles.stat}>
-                الرهان: {total}
-              </Text>
-
-              <Text style={styles.stat}>
-                الرصيد: {diamonds}
-              </Text>
-            </View>
-
-            <Btn
-              title={
-                phase === 'betting'
-                  ? 'ابدأ الجولة'
-                  : phase === 'spinning'
-                    ? 'جاري الدوران...'
-                    : 'انتظر الجولة التالية'
-              }
-              color="#087e42"
-              disabled={phase !== 'betting'}
-              onPress={startSpin}
-            />
-
-            <Text style={styles.note}>
-              جميع الرهانات والجوائز افتراضية للتجربة.
-            </Text>
-          </View>
-
-          <Text style={styles.sectionTitle}>
-            آخر النتائج
-          </Text>
-
-          {history.length === 0 ? (
-            <Text style={styles.muted}>
-              لا توجد نتائج بعد
-            </Text>
-          ) : history.map((item, index) => (
-            <View key={index} style={styles.historyRow}>
-              <Text style={styles.white}>
-                {item.icon} {item.name}
-              </Text>
-
-              <Text style={styles.gold}>
-                {item.payout} 💎
-              </Text>
-            </View>
-          ))}
-        </ScrollView>
-      </View>
-    );
+  function spend(cost){
+    const old=walletRef.current;const next={...old};let remain=cost;
+    if(next.welcome+next.purchased+(ownerDemo?next.owner:0)<cost)return null;
+    if(ownerDemo){const n=Math.min(remain,next.owner);next.owner-=n;remain-=n}
+    const n=Math.min(remain,next.welcome);next.welcome-=n;remain-=n;
+    const m=Math.min(remain,next.purchased);next.purchased-=m;remain-=m;
+    if(remain!==0)return null;
+    setBalance(next);
+    return {owner:old.owner-next.owner,welcome:old.welcome-next.welcome,purchased:old.purchased-next.purchased};
   }
-
-  if (screen === 'games') {
-    return (
-      <View style={styles.page}>
-        <Header
-          title="الألعاب"
-          back={() => navigate('home')}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.content}>
-          <View style={styles.gameCard}>
-            <Text style={styles.cardEmoji}>🎰</Text>
-
-            <Text style={styles.cardTitle}>
-              Greedy Star
-            </Text>
-
-            <Text style={styles.muted}>
-              عجلة الحظ - 8 خانات - مضاعفات مختلفة
-            </Text>
-
-            <Btn
-              title="العب الآن"
-              onPress={openGame}
-            />
-          </View>
-        </ScrollView>
-
-        <BottomNav navigate={navigate} />
-      </View>
-    );
+  function sendGift(g,room){
+    const source=spend(g[2]);if(!source)return false;
+    setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);
+    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source},...v].slice(0,50));
+    return true;
   }
-
-  if (screen === 'store') {
-    return (
-      <View style={styles.page}>
-        <Header
-          title="متجر الماسات"
-          back={() => navigate('home')}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionTitle}>
-            💎 رصيدك: {diamonds}
-          </Text>
-
-          <Text style={styles.muted}>
-            الأسعار للعرض فقط. الدفع الحقيقي غير مفعّل.
-          </Text>
-
-          {PACKAGES.map((pack, index) => (
-            <View key={index} style={styles.storeCard}>
-              <View>
-                <Text style={styles.gold}>
-                  💎 {pack.diamonds.toLocaleString()}
-                </Text>
-
-                <Text style={styles.muted}>
-                  ${pack.price} USD
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.buyButton}
-                onPress={() => Alert.alert(
-                  'متجر تجريبي',
-                  'يجب ربط مزود دفع معتمد قبل تفعيل الشراء.'
-                )}
-              >
-                <Text style={styles.white}>
-                  شراء
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>
-              🪙 الدفع بعملة Pi
-            </Text>
-
-            <Text style={styles.muted}>
-              الدفع بعملة Pi غير متصل حالياً، ولا يوجد سعر مباشر للعملة في هذه النسخة.
-            </Text>
-          </View>
-        </ScrollView>
-
-        <BottomNav navigate={navigate} />
-      </View>
-    );
+  function createRoom(){
+    if(!roomName.trim())return Alert.alert('اسم الغرفة','أدخل الاسم');
+    const room={id:String(Date.now()).slice(-7),name:roomName.trim(),type:roomType,pass:roomPass.trim(),host:name||user?.displayName||'مضيف',owner:user?.uid};
+    setRooms(v=>[room,...v]);setActiveRoom(room);go('room');
   }
-
-  if (screen === 'gifts') {
-    return (
-      <View style={styles.page}>
-        <Header
-          title="الهدايا"
-          back={() => navigate('home')}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.sectionTitle}>
-            🎁 إرسال هدية تجريبية
-          </Text>
-
-          {GIFTS.map((gift, index) => (
-            <View key={index} style={styles.giftRow}>
-              <Text style={styles.giftEmoji}>
-                {gift.icon}
-              </Text>
-
-              <View style={{ flex: 1 }}>
-                <Text style={styles.white}>
-                  {gift.name}
-                </Text>
-
-                <Text style={styles.gold}>
-                  💎 {gift.cost}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.buyButton}
-                onPress={() => sendGift(gift)}
-              >
-                <Text style={styles.white}>
-                  إرسال
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          {lastGift && (
-            <View style={styles.resultBox}>
-              <Text style={styles.cardEmoji}>
-                {lastGift.icon}
-              </Text>
-
-              <Text style={styles.white}>
-                آخر هدية: {lastGift.name}
-              </Text>
-            </View>
-          )}
-        </ScrollView>
-
-        <BottomNav navigate={navigate} />
-      </View>
-    );
+  function enterRoom(room){if(room.pass){setPendingRoom(room);setJoinPass('');go('password')}else{setActiveRoom(room);go('room')}}
+  function buyGood(g){if(inventory.includes(g[1]))return Alert.alert('مملوكة');if(!spend(g[2]))return Alert.alert('رصيد غير كافٍ');setInventory(v=>[...v,g[1]])}
+  function purchase(pack){
+    const usd=pack/1000;
+    if(paymentMethod==='usd')Alert.alert('معاينة شراء',`${fmt(pack)} ماسة بسعر $${usd}. الدفع الحقيقي غير مربوط.`);
+    else{const rate=Number(piRate);if(!Number.isFinite(rate)||rate<=0)return Alert.alert('سعر Pi','أدخل سعر Pi الحالي بالدولار');Alert.alert('معاينة Pi',`${fmt(pack*1.2)} ماسة مقابل ${(usd/rate).toFixed(6)} Pi. لا يتم تحصيل أي دفع.`)}
   }
-
-  if (screen === 'profile') {
-    return (
-      <View style={styles.page}>
-        <Header
-          title="حسابي"
-          back={() => navigate('home')}
-          {...headerProps}
-        />
-
-        <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.avatar}>👤</Text>
-
-          <Text style={styles.label}>
-            اسم المستخدم
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-          />
-
-          <Text style={styles.label}>
-            عنوان البث
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            value={liveTitle}
-            onChangeText={setLiveTitle}
-          />
-
-          <Text style={styles.label}>
-            رصيد الماسات
-          </Text>
-
-          <Text style={styles.gold}>
-            💎 {diamonds}
-          </Text>
-
-          <Text style={styles.label}>
-            طريقة الدخول
-          </Text>
-
-          <Text style={styles.white}>
-            {loginMethod === 'phone'
-              ? 'الهاتف - تجريبي'
-              : loginMethod}
-          </Text>
-
-          <Btn
-            title="حفظ التغييرات"
-            onPress={() => Alert.alert(
-              'تم',
-              'التغييرات محفوظة مؤقتاً أثناء تشغيل التطبيق.'
-            )}
-          />
-
-          <Btn
-            title="متجر الماسات"
-            color="#7032be"
-            onPress={() => navigate('store')}
-          />
-
-          <Btn
-            title="تسجيل الخروج"
-            color="#555"
-            onPress={() => navigate('login')}
-          />
-        </ScrollView>
-
-        <BottomNav navigate={navigate} />
-      </View>
-    );
+  function resetGame(){clearTimeout(timerRef.current);betsRef.current={};setBets({});setSeconds(30);setLit(-1);setGameResult(null);phaseRef.current='betting';setPhase('betting')}
+  function placeBet(i){
+    if(phaseRef.current!=='betting')return;
+    if(!betsRef.current[i]&&Object.keys(betsRef.current).length>=6)return Alert.alert('الحد الأقصى ست خانات');
+    if(!spend(betAmount))return Alert.alert('رصيد غير كافٍ');
+    const b={...betsRef.current,[i]:(betsRef.current[i]||0)+betAmount};betsRef.current=b;setBets(b);
   }
+  function spin(){
+    if(phaseRef.current!=='betting')return;
+    phaseRef.current='spinning';setPhase('spinning');
+    const placed={...betsRef.current},winner=Math.floor(Math.random()*8),steps=40+winner;let i=0;
+    const tick=()=>{
+      if(pageRef.current!=='game')return;
+      if(i>=steps){
+        const prize=(placed[winner]||0)*FOOD[winner][2];
+        setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});
+        setLit(winner);setGameResult({item:FOOD[winner],prize});setHistory(v=>[{item:FOOD[winner],prize},...v].slice(0,10));
+        phaseRef.current='result';setPhase('result');timerRef.current=setTimeout(()=>{if(pageRef.current==='game')resetGame()},3200);return;
+      }
+      setLit(i%8);i++;timerRef.current=setTimeout(tick,i>35?220:i>25?130:70);
+    };tick();
+  }
+  useEffect(()=>{if(page!=='game'||phase!=='betting')return;const t=setInterval(()=>setSeconds(v=>Math.max(0,v-1)),1000);return()=>clearInterval(t)},[page,phase]);
+  useEffect(()=>{if(page==='game'&&phase==='betting'&&seconds===0)spin()},[page,phase,seconds]);
+  useEffect(()=>()=>clearTimeout(timerRef.current),[]);
+  function leaveGame(){
+    if(phaseRef.current==='spinning')return Alert.alert('انتظر انتهاء الجولة');
+    if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
+    resetGame();go('games');
+  }
+  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>❮ رجوع</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>💎 {fmt(total)}</Text></TouchableOpacity></View>}
+  function nav(){return <View style={S.nav}>{[['🏠','home'],['🎮','games'],['🎁','gifts'],['💎','wallet'],['👤','profile']].map(([icon,p])=><TouchableOpacity key={p} onPress={()=>go(p)}><Text style={{fontSize:24}}>{icon}</Text></TouchableOpacity>)}</View>}
+  function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="light-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
+  const myProfile=<View style={S.card}><Text style={{fontSize:54}}>{avatar}</Text><Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {user?.uid?.slice(0,12)}</Text><Text style={S.big}>💎 {fmt(total)}</Text><Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text><Text style={S.muted}>دعم تم إرساله: {fmt(spent)} ماسة</Text></View>;
 
-  return (
-    <View style={styles.page}>
-      <StatusBar barStyle="light-content" />
-
-      <View style={styles.homeHeader}>
-        <Text style={styles.homeLogo}>
-          Clipi
-        </Text>
-
-        <Text style={styles.headerTitle}>
-          الرئيسية
-        </Text>
-
-        <TouchableOpacity onPress={() => navigate('store')}>
-          <Text style={styles.balance}>
-            💎 {diamonds}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.banner}>
-          <Text style={styles.bannerTitle}>
-            أهلاً {name} 👋
-          </Text>
-
-          <Text style={styles.white}>
-            مرحباً بك في عالم Clipi
-          </Text>
-
-          <Btn
-            title="🎮 ادخل الألعاب"
-            color="#7024bf"
-            onPress={() => navigate('games')}
-          />
-        </View>
-
-        <View style={styles.quickRow}>
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={() => navigate('games')}
-          >
-            <Text style={styles.quickEmoji}>🎰</Text>
-            <Text style={styles.white}>الألعاب</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={() => showUnavailable('البث المباشر')}
-          >
-            <Text style={styles.quickEmoji}>📹</Text>
-            <Text style={styles.white}>لايف</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={() => showUnavailable('الغرف الصوتية')}
-          >
-            <Text style={styles.quickEmoji}>🎤</Text>
-            <Text style={styles.white}>صوتي</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.quickRow}>
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={() => navigate('gifts')}
-          >
-            <Text style={styles.quickEmoji}>🎁</Text>
-            <Text style={styles.white}>الهدايا</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={() => navigate('store')}
-          >
-            <Text style={styles.quickEmoji}>💎</Text>
-            <Text style={styles.white}>المتجر</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quick}
-            onPress={shareApp}
-          >
-            <Text style={styles.quickEmoji}>📤</Text>
-            <Text style={styles.white}>مشاركة</Text>
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.sectionTitle}>
-          🔴 الغرف المباشرة
-        </Text>
-
-        <View style={styles.card}>
-          <Text style={styles.muted}>
-            لا توجد غرف بث متصلة حالياً
-          </Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>
-          💬 التعليقات
-        </Text>
-
-        <View style={styles.card}>
-          {comments.map((item, index) => (
-            <Text key={index} style={styles.comment}>
-              <Text style={styles.gold}>
-                {item.user}:
-              </Text>
-              {' '}{item.text}
-            </Text>
-          ))}
-
-          <TextInput
-            style={styles.input}
-            value={comment}
-            onChangeText={setComment}
-            placeholder="اكتب تعليقاً"
-            placeholderTextColor="#888"
-          />
-
-          <Btn
-            title="إرسال التعليق"
-            onPress={sendComment}
-          />
-        </View>
-
-        <Text style={styles.note}>
-          هذه نسخة تجريبية. البيانات لا تُحفظ على خادم.
-        </Text>
-      </ScrollView>
-
-      <BottomNav navigate={navigate} />
+  if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
+  if(page==='login'||page==='verify'||page==='terms')return <View style={S.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
+    <Text style={S.logo}>Clipi</Text>
+    {page==='terms'?<><Text style={S.white}>الماس والأرباح في هذه النسخة تجريبية. لا يوجد دفع أو سحب مالي. المحتوى والبث بين الأجهزة يحتاجان خدمة مخصصة. يجب نشر سياسة خصوصية وشروط قانونية قبل الإطلاق.</Text><Btn title="أوافق" onPress={()=>{setAccepted(true);go('login')}}/><Btn title="رجوع" color="#49306b" onPress={()=>go('login')}/></>:
+    page==='verify'?<><Text style={S.label}>رمز التحقق SMS</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder="ستة أرقام"/><Btn title={busy?'جارٍ التحقق...':'تأكيد الرمز'} disabled={busy} onPress={verifySms}/><Btn title="تغيير رقم الهاتف" color="#49306b" onPress={()=>go('login')}/></>:
+    <><Text style={S.muted}>تسجيل الدخول الحقيقي عبر Firebase</Text><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder="اسم المستخدم"/><Text style={S.label}>الدولة</Text><Btn title={COUNTRIES[country].join(' ')} color="#49306b" onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={c.join(' ')} color="#382050" onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>الهاتف</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder="رقم الهاتف" keyboardType="phone-pad"/><Btn title={accepted?'☑ أوافق على الشروط':'☐ أوافق على الشروط'} color="#49306b" onPress={()=>setAccepted(v=>!v)}/><Btn title="قراءة الشروط" color="#49306b" onPress={()=>go('terms')}/><Btn title={busy?'جارٍ العمل...':'📱 تسجيل بالهاتف (SMS)'} disabled={busy} onPress={phoneLogin}/><Btn title="🌐 متابعة باستخدام Google" color="#4285f4" disabled={busy} onPress={googleLogin}/><Btn title="📘 متابعة باستخدام Facebook" color="#1877f2" disabled={busy} onPress={facebookLogin}/><Text style={S.muted}>Google وFacebook يحتاجان إعداد OAuth وبيانات المطور قبل تشغيلهما.</Text>{authError?<Text style={{color:'#ffa6a6'}}>{authError}</Text>:null}</>}
+  </ScrollView></View>;
+  if(page==='home')return layout('Clipi',<><View style={S.banner}><Text style={S.title}>أهلًا {name||'بك'} 👋</Text><Text style={S.white}>الغرف والصوت والفيديو والهدايا</Text></View>{myProfile}<View style={S.panel}><Text style={S.title}>🎉 مكافأة الترحيب التجريبية</Text><Text style={S.white}>💎 1,000 ماسة · 👑 إطار ملكي · 🏎️ سيارة فاخرة</Text></View><Btn title="📹 إنشاء غرفة صوتية أو فيديو" onPress={()=>go('create')}/><Btn title="🚪 استعراض الغرف" color="#7040a7" onPress={()=>go('rooms')}/><Btn title="💎 شراء الماسات" color="#7040a7" onPress={()=>go('wallet')}/><Btn title="🛍 المتجر" color="#7040a7" onPress={()=>go('store')}/><Btn title="💰 أرباح المضيف وقنوات السحب" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star" color="#7040a7" onPress={()=>go('games')}/><Btn title="📤 مشاركة Clipi" color="#7040a7" onPress={()=>Share.share({message:'Clipi'})}/></>);
+  if(page==='create')return layout('إنشاء غرفة',<><Text style={S.label}>اسم الغرفة</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>نوع الغرفة</Text><View style={S.row}><Btn title="📹 فيديو" color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title="🎙 صوت" color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.label}>كلمة مرور للمعاينة</Text><TextInput style={S.input} value={roomPass} onChangeText={setRoomPass} secureTextEntry placeholder="اختيارية"/><Btn title="فتح الغرفة" onPress={createRoom}/></>);
+  if(page==='rooms')return layout('الغرف',<><Btn title="➕ إنشاء غرفة" onPress={()=>go('create')}/>{rooms.length===0?<Text style={S.muted}>أنشئ غرفة جديدة</Text>:rooms.map(r=><TouchableOpacity key={r.id} style={S.panel} onPress={()=>enterRoom(r)}><Text style={S.title}>{r.type==='video'?'📹':'🎙'} {r.name}</Text><Text style={S.gold}>#{r.id} {r.pass?'🔒':'🌐'}</Text></TouchableOpacity>)}</>);
+  if(page==='password')return layout('غرفة مقفلة',<><TextInput style={S.input} value={joinPass} onChangeText={setJoinPass} secureTextEntry placeholder="كلمة مرور الغرفة"/><Btn title="دخول" onPress={()=>{if(joinPass!==pendingRoom?.pass)return Alert.alert('كلمة المرور غير صحيحة');setActiveRoom(pendingRoom);go('room')}}/></>,()=>go('rooms'));
+  if(page==='room')return <Room key={activeRoom?.id||'room'} room={activeRoom} username={name||'مستخدم'} avatar={avatar} diamonds={available} onSendGift={sendGift} onExit={()=>{setActiveRoom(null);go('rooms')}}/>;
+  if(page==='wallet')return layout('محفظة Clipi',<><View style={S.card}><Text style={S.title}>💎 الرصيد التجريبي</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>هدية الترحيب: {fmt(wallet.welcome)}</Text><Text style={S.white}>المشتَرى: {fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>معاينة المالك: {fmt(wallet.owner)}</Text>}</View><Text style={S.title}>طريقة الشراء</Text><View style={S.row}><Btn title="💵 دولار" color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>سعر Pi بالدولار (يدوي للمعاينة)</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder="مثال: 0.50"/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?pack*1.2:pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`$${pack/1000}`:Number(piRate)>0?`${((pack/1000)/Number(piRate)).toFixed(6)} Pi`:'أدخل سعر Pi'}</Text></View><Small title="شراء" color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>هذه الباقات معاينة للأسعار فقط. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.</Text></>);
+  if(page==='earnings')return layout('أرباح المضيف',<>
+    <View style={S.card}>
+      <Text style={S.title}>🎁 الدعم التجريبي: {fmt(received)} 💎</Text>
+      <Text style={S.big}>💰 القابل للسحب: $0.00</Text>
+      <Text style={S.muted}>رصيد الهدايا لا يساوي أرباحًا ممولة. لن يكتمل السحب إلا بعد ربط خادم مالي، والتحقق من الهوية، ومزود تحويل معتمد.</Text>
+      <Btn title="🌍 اختيار قناة السحب" onPress={()=>go('payout')}/>
     </View>
-  );
+    <Text style={S.title}>سجل الدعم داخل المعاينة</Text>
+    {supportLog.map(x=><View key={x.id} style={S.panel}>
+      <Text style={S.white}>{x.gift} — {fmt(x.value)} 💎</Text>
+      <Text style={S.muted}>المضيف: {x.host} · المصدر: {x.source.owner?'رصيد مالك':x.source.welcome?'ترحيبي':'مدفوع'}</Text>
+    </View>)}
+  </>);
+
+  if(page==='payout')return layout('قنوات سحب الأرباح',<>
+    <View style={S.panel}>
+      <Text style={S.gold}>التحويل المالي غير مفعّل</Text>
+      <Text style={S.muted}>هذه شاشة اختيار وتجهيز طلب، لا تتم عبرها أي مدفوعات أو إيداعات. يجب التحقق من اعتماد المزود في دولة المستفيد أولًا.</Text>
+      <Text style={S.white}>الرصيد القابل للسحب: $0.00</Text>
+    </View>
+    <Text style={S.label}>الدولة / البلد</Text>
+    <View style={S.choiceWrap}>
+      {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.choice,payoutCountry===c[0]&&S.choiceActive]}>
+        <Text style={S.white}>{c[1]}</Text>
+      </TouchableOpacity>)}
+    </View>
+    {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder="اسم الدولة" value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
+    <Text style={S.muted}>البلد المختار: {payoutCountryInfo[1]} · العملة المرجعية: {payoutCountryInfo[2]} (دون احتساب صرف فعلي)</Text>
+    <Text style={S.label}>طريقة الاستلام</Text>
+    <View style={S.row}>
+      <Btn title="📱 محفظة هاتف" color={payoutMethod==='wallet'?PINK:'#49306b'} onPress={()=>setPayoutMethod('wallet')}/>
+      <Btn title="🏦 بنك / IBAN" color={payoutMethod==='bank'?PINK:'#49306b'} onPress={()=>setPayoutMethod('bank')}/>
+    </View>
+    {payoutMethod==='wallet'?<>
+      <Text style={S.label}>المحفظة</Text>
+      <View style={S.choiceWrap}>{payoutOptions.map(option=><TouchableOpacity key={option} onPress={()=>setPayoutProvider(option)} style={[S.choice,payoutProvider===option&&S.choiceActive]}>
+        <Text style={S.white}>{option}</Text>
+      </TouchableOpacity>)}</View>
+      {(payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -'))&&<TextInput style={S.input} placeholder="اسم المحفظة الأخرى" value={payoutOtherProvider} onChangeText={setPayoutOtherProvider}/>}
+      <Text style={S.label}>رقم الهاتف المرتبط بالمحفظة (مع رمز الدولة)</Text>
+      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} keyboardType="phone-pad" placeholder="مثال: +9627..."/>
+    </>:<>
+      <Text style={S.label}>اسم البنك (أي بنك في الدولة المختارة)</Text>
+      <TextInput style={S.input} value={payoutBankName} onChangeText={setPayoutBankName} placeholder="أدخل اسم البنك كما هو رسميًا"/>
+      <Text style={S.label}>رقم الحساب / IBAN</Text>
+      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} autoCapitalize="characters" placeholder="IBAN أو رقم الحساب"/>
+      <Text style={S.label}>SWIFT / BIC (اختياري في المعاينة)</Text>
+      <TextInput style={S.input} value={payoutSwift} onChangeText={setPayoutSwift} autoCapitalize="characters" placeholder="رمز البنك"/>
+    </>}
+    <Text style={S.label}>الاسم القانوني للمستفيد</Text>
+    <TextInput style={S.input} value={payoutHolder} onChangeText={setPayoutHolder} placeholder="كما هو مسجل بالمحفظة أو البنك"/>
+    <Text style={S.label}>المبلغ المطلوب بالدولار (تجريبي)</Text>
+    <TextInput style={S.input} keyboardType="decimal-pad" value={payoutAmount} onChangeText={setPayoutAmount} placeholder="0.00"/>
+    <Btn title="حفظ مسودة طلب السحب فقط" onPress={createPayoutDraft}/>
+    <Text style={S.muted}>لا تتاح الموافقة أو التحويل حتى يكون لديك رصيد مستحق تم تأكيده من الخادم، مع التحقق من الهوية والبلد والأهلية ورسوم التحويل.</Text>
+    {payoutDrafts.length>0&&<Text style={S.title}>مسودات الطلبات في هذه الجلسة</Text>}
+    {payoutDrafts.map(d=><View key={d.id} style={S.panel}>
+      <Text style={S.white}>{d.country} · {d.provider} · ${d.amount.toFixed(2)}</Text>
+      <Text style={S.muted}>{d.masked} · {d.status}</Text>
+    </View>)}
+  </>,()=>go('earnings'));
+
+  if(page==='store')return layout('المتجر',<><View style={S.panel}><Text style={S.gold}>هدايا الترحيب: 👑 إطار ملكي · 🏎️ سيارة فاخرة</Text></View>{GOODS.map((g,i)=><View key={i} style={S.shop}><Text style={{fontSize:25}}>{g[0]}</Text><View style={{flex:1}}><Text style={S.white}>{g[1]}</Text><Text style={S.gold}>{g[2]} 💎</Text></View>{inventory.includes(g[1])?<Small title={equipped[g[3]]===g[1]?'إزالة':'تفعيل'} onPress={()=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>:<Small title="شراء" color={PINK} onPress={()=>buyGood(g)}/>}</View>)}</>);
+  if(page==='gifts')return layout('الهدايا',<><Text style={S.muted}>الهدايا تُرسل من داخل غرفة صوت أو فيديو</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title="استعراض الغرف" onPress={()=>go('rooms')}/></>);
+  if(page==='profile')return layout('الملف الشخصي',<>{myProfile}<Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>الصورة الرمزية</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title="حفظ الاسم على Firebase" onPress={async()=>{try{await saveProfile(user,name.trim());Alert.alert('تم الحفظ')}catch(e){Alert.alert('خطأ',e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 5,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<Btn title="تسجيل الخروج" color="#555" onPress={logout}/></>);
+  if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
+  if(page==='game')return <View style={S.gamePage}>{header('Greedy Star',leaveGame)}<ScrollView contentContainerStyle={S.content}><Text style={[S.title,{textAlign:'center'}]}>⭐ GREEDY STAR ⭐</Text><Text style={[S.gold,{textAlign:'center'}]}>{phase==='betting'?`وقت الرهان: ${seconds}`:phase==='spinning'?'العجلة تدور...':'النتيجة'}</Text><View style={S.wheel}>{FOOD.map((f,i)=>{const angle=(i*45-90)*Math.PI/180;return <TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={[S.slot,{left:112+Math.cos(angle)*99,top:112+Math.sin(angle)*99},lit===i&&S.slotLit]}><Text style={{fontSize:23}}>{f[0]}</Text><Text style={S.slotLabel}>{f[1]}</Text><Text style={S.slotLabel}>×{f[2]}</Text>{bets[i]?<Text style={S.slotLabel}>{bets[i]}💎</Text>:null}</TouchableOpacity>})}<View style={S.wheelMiddle}><Text style={{fontSize:26}}>⭐</Text><Text style={S.white}>{phase==='betting'?seconds:'WIN'}</Text></View></View>{gameResult&&<View style={S.card}><Text style={S.title}>{gameResult.item[0]} {gameResult.item[1]}</Text><Text style={S.gold}>الربح: {fmt(gameResult.prize)} 💎 تجريبي</Text></View>}<Text style={S.title}>قيمة الرهان</Text><View style={S.row}>{[10,100,500,1000,10000].map(n=><Small key={n} title={String(n)} color={betAmount===n?PINK:'#754322'} onPress={()=>setBetAmount(n)}/>)}</View><Text style={S.gold}>مجموع الرهانات: {fmt(Object.values(bets).reduce((a,b)=>a+b,0))} 💎</Text><Btn title={phase==='betting'?'ابدأ الجولة':'انتظر النتيجة'} disabled={phase!=='betting'} color="#138551" onPress={spin}/><Text style={S.muted}>للترفيه فقط؛ النتائج ليست أموالًا قابلة للسحب.</Text>{history.map((h,i)=><Text key={i} style={S.white}>{h.item[0]} {h.item[1]} — {h.prize} 💎</Text>)}</ScrollView></View>;
+  return <View style={S.page}><Btn title="الرئيسية" onPress={()=>go('home')}/></View>;
 }
 
-const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#14052c'
-  },
-  gamePage: {
-    flex: 1,
-    backgroundColor: '#8b431e'
-  },
-  loginContent: {
-    padding: 22,
-    paddingTop: 70,
-    paddingBottom: 45
-  },
-  content: {
-    padding: 15,
-    paddingBottom: 40
-  },
-  bigLogo: {
-    color: '#fff',
-    fontSize: 48,
-    fontWeight: '900',
-    textAlign: 'center'
-  },
-  subtitle: {
-    color: '#cbb6e9',
-    textAlign: 'center',
-    fontSize: 16,
-    marginBottom: 25
-  },
-  label: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginTop: 15,
-    marginBottom: 8
-  },
-  input: {
-    backgroundColor: '#fff',
-    color: '#111',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 9
-  },
-  inputText: {
-    color: '#111',
-    fontSize: 15
-  },
-  countryRow: {
-    backgroundColor: '#392060',
-    padding: 12,
-    borderRadius: 7,
-    marginBottom: 3
-  },
-  agreeRow: {
-    padding: 14,
-    alignItems: 'center'
-  },
-  button: {
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 11
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold'
-  },
-  note: {
-    color: '#ddd',
-    textAlign: 'center',
-    fontSize: 12,
-    marginTop: 15
-  },
-  orText: {
-    color: '#d2c6df',
-    textAlign: 'center',
-    marginTop: 22,
-    marginBottom: 8
-  },
-  white: {
-    color: '#fff',
-    fontWeight: '600'
-  },
-  muted: {
-    color: '#c8bdd4',
-    marginVertical: 7
-  },
-  gold: {
-    color: '#ffdc57',
-    fontWeight: 'bold',
-    fontSize: 16
-  },
-  header: {
-    backgroundColor: '#260c49',
-    paddingTop: 46,
-    paddingBottom: 15,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  homeHeader: {
-    backgroundColor: '#260c49',
-    paddingTop: 46,
-    paddingBottom: 15,
-    paddingHorizontal: 13,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  homeLogo: {
-    color: '#fff',
-    fontSize: 23,
-    fontWeight: '900'
-  },
-  headerBack: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 14
-  },
-  headerTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16
-  },
-  balance: {
-    color: '#ffdc57',
-    fontWeight: 'bold',
-    fontSize: 14
-  },
-  banner: {
-    backgroundColor: '#ec326a',
-    borderRadius: 18,
-    padding: 20,
-    marginBottom: 15
-  },
-  bannerTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 9
-  },
-  quickRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10
-  },
-  quick: {
-    flex: 1,
-    backgroundColor: '#35165b',
-    borderRadius: 12,
-    alignItems: 'center',
-    paddingVertical: 17,
-    marginHorizontal: 3
-  },
-  quickEmoji: {
-    fontSize: 28,
-    marginBottom: 7
-  },
-  sectionTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18,
-    marginTop: 19,
-    marginBottom: 11
-  },
-  card: {
-    backgroundColor: '#291349',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12
-  },
-  nav: {
-    backgroundColor: '#260c49',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 15
-  },
-  navText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 11
-  },
-  comment: {
-    color: '#fff',
-    marginBottom: 9
-  },
-  avatar: {
-    fontSize: 70,
-    textAlign: 'center',
-    marginVertical: 20
-  },
-  gameCard: {
-    backgroundColor: '#291349',
-    borderRadius: 20,
-    padding: 23,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#ffcf54'
-  },
-  cardEmoji: {
-    fontSize: 54
-  },
-  cardTitle: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginTop: 12
-  },
-  storeCard: {
-    backgroundColor: '#291349',
-    borderRadius: 13,
-    padding: 17,
-    marginBottom: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  buyButton: {
-    backgroundColor: '#ff3267',
-    borderRadius: 9,
-    paddingHorizontal: 20,
-    paddingVertical: 11
-  },
-  giftRow: {
-    backgroundColor: '#291349',
-    borderRadius: 13,
-    padding: 15,
-    marginBottom: 9,
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  giftEmoji: {
-    fontSize: 35,
-    marginRight: 16
-  },
-  terms: {
-    color: '#fff',
-    fontSize: 15,
-    lineHeight: 27
-  },
-  gameContent: {
-    padding: 12,
-    alignItems: 'center',
-    paddingBottom: 40
-  },
-  gameHeading: {
-    color: '#ffdf64',
-    fontSize: 22,
-    fontWeight: '900',
-    marginTop: 12
-  },
-  gameHint: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginVertical: 14
-  },
-  wheel: {
-    width: WHEEL_SIZE,
-    height: WHEEL_SIZE,
-    backgroundColor: '#b96a23',
-    borderRadius: WHEEL_SIZE / 2,
-    borderWidth: 8,
-    borderColor: '#ffdc57',
-    position: 'relative',
-    marginBottom: 20
-  },
-  wheelPointer: {
-    position: 'absolute',
-    top: -26,
-    left: 123,
-    zIndex: 12
-  },
-  pointerText: {
-    color: '#ffed43',
-    fontSize: 28,
-    fontWeight: 'bold'
-  },
-  food: {
-    position: 'absolute',
-    width: SLOT_SIZE,
-    height: SLOT_SIZE,
-    borderRadius: SLOT_SIZE / 2,
-    backgroundColor: '#ffbd50',
-    borderWidth: 3,
-    borderColor: '#fff1ac',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  foodActive: {
-    backgroundColor: '#6feb83',
-    borderColor: '#00ff77',
-    borderWidth: 5
-  },
-  foodIcon: {
-    fontSize: 23
-  },
-  foodName: {
-    color: '#6c2d0b',
-    fontSize: 9,
-    fontWeight: 'bold'
-  },
-  foodMulti: {
-    color: '#9b2b0c',
-    fontSize: 12,
-    fontWeight: '900'
-  },
-  foodBet: {
-    position: 'absolute',
-    top: -9,
-    backgroundColor: '#220747',
-    color: '#fff',
-    fontSize: 10,
-    borderRadius: 8,
-    overflow: 'hidden',
-    paddingHorizontal: 5
-  },
-  wheelCenter: {
-    position: 'absolute',
-    top: 97,
-    left: 97,
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: '#09a34e',
-    borderWidth: 5,
-    borderColor: '#ffdc45',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  centerStar: {
-    fontSize: 24
-  },
-  centerText: {
-    color: '#fff',
-    fontSize: 21,
-    fontWeight: '900'
-  },
-  betPanel: {
-    width: '100%',
-    backgroundColor: '#743317',
-    borderRadius: 14,
-    padding: 12
-  },
-  panelTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 17,
-    textAlign: 'center',
-    marginBottom: 12
-  },
-  amountRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  },
-  amount: {
-    flex: 1,
-    backgroundColor: '#ffdf9e',
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#d99836',
-    alignItems: 'center',
-    paddingVertical: 9,
-    marginHorizontal: 2
-  },
-  amountActive: {
-    backgroundColor: '#fff',
-    borderColor: '#00d26b'
-  },
-  amountText: {
-    color: '#683111',
-    fontSize: 11,
-    fontWeight: 'bold'
-  },
-  small: {
-    fontSize: 11
-  },
-  stats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginVertical: 14
-  },
-  stat: {
-    color: '#ffdf79',
-    fontWeight: 'bold'
-  },
-  resultBox: {
-    width: '100%',
-    backgroundColor: '#08713d',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 15
-  },
-  resultTitle: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold'
-  },
-  resultMoney: {
-    color: '#ffe54d',
-    fontSize: 23,
-    fontWeight: '900',
-    marginTop: 7
-  },
-  historyRow: {
-    width: '100%',
-    backgroundColor: '#693017',
-    padding: 13,
-    borderRadius: 10,
-    marginBottom: 6,
-    flexDirection: 'row',
-    justifyContent: 'space-between'
-  }
+const S=StyleSheet.create({
+  choiceWrap:{flexDirection:'row',flexWrap:'wrap',marginVertical:5},choice:{paddingHorizontal:10,paddingVertical:10,borderRadius:12,backgroundColor:'#32245b',margin:3,borderWidth:1,borderColor:'#4e4770'},choiceActive:{backgroundColor:'#7c2866',borderColor:GOLD},
+  page:{flex:1,backgroundColor:'#170b2c'},gamePage:{flex:1,backgroundColor:'#7d391d'},content:{padding:16,paddingBottom:40},white:{color:'white',fontWeight:'700'},gold:{color:GOLD,fontWeight:'900'},muted:{color:'#c5bdd3',marginVertical:8,lineHeight:19},title:{color:'white',fontSize:19,fontWeight:'900',marginVertical:10},label:{color:'white',fontWeight:'800',marginTop:13,marginBottom:6},logo:{color:'white',fontSize:52,fontWeight:'900',textAlign:'center',marginTop:46},big:{color:GOLD,fontSize:28,fontWeight:'900',marginVertical:9},input:{backgroundColor:'white',color:'#111',padding:13,borderRadius:12,marginVertical:5},btn:{padding:13,borderRadius:12,alignItems:'center',marginVertical:6,minWidth:82},small:{paddingVertical:8,paddingHorizontal:10,borderRadius:10,marginHorizontal:3,alignItems:'center',justifyContent:'center'},header:{paddingTop:48,paddingBottom:15,paddingHorizontal:12,backgroundColor:'#2c104b',flexDirection:'row',justifyContent:'space-between',alignItems:'center'},headerTitle:{color:'white',fontWeight:'900',fontSize:17},nav:{backgroundColor:'#260d45',flexDirection:'row',justifyContent:'space-around',paddingVertical:15},banner:{backgroundColor:PINK,padding:19,borderRadius:16,marginBottom:12},card:{backgroundColor:'#321752',padding:18,borderRadius:16,alignItems:'center',marginVertical:9},panel:{backgroundColor:'#302051',padding:14,borderRadius:13,marginVertical:9},row:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',flexWrap:'wrap'},shop:{backgroundColor:'#302051',padding:12,borderRadius:12,marginBottom:8,flexDirection:'row',alignItems:'center'},avatarChoice:{backgroundColor:'#321752',padding:10,margin:5,borderRadius:10},room:{flex:1},audioBackdrop:{...StyleSheet.absoluteFillObject,overflow:'hidden'},blueGlow:{position:'absolute',top:-150,left:-180,width:500,height:500,borderRadius:250,backgroundColor:'#2088ef',opacity:.63},bgCrown:{position:'absolute',top:'35%',alignSelf:'center',fontSize:155,color:'white',opacity:.08},videoBlank:{...StyleSheet.absoluteFillObject,backgroundColor:'#142246',alignItems:'center',justifyContent:'center',padding:20},liveHeader:{paddingTop:49,paddingBottom:9,paddingHorizontal:11,flexDirection:'row',alignItems:'center',backgroundColor:'rgba(0,17,48,.65)'},tiny:{color:'#d2e1fa',fontSize:10,textAlign:'center',fontWeight:'600'},liveTag:{backgroundColor:PINK,borderRadius:17,padding:9},avatars:{flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:8,backgroundColor:'rgba(0,18,47,.35)'},guestAvatar:{width:59,height:58,borderRadius:13,borderWidth:1,borderColor:GOLD,backgroundColor:'rgba(4,27,70,.85)',marginRight:8,alignItems:'center',justifyContent:'center'},videoControls:{flexDirection:'row',justifyContent:'center',marginTop:8},pip:{position:'absolute',bottom:205,right:12,width:142,borderRadius:13,borderWidth:2,borderColor:GOLD,backgroundColor:'#24375d',padding:5,alignItems:'center',zIndex:8},pipPreview:{height:112,width:'100%',backgroundColor:'#364d77',borderRadius:8,alignItems:'center',justifyContent:'center'},callPanel:{position:'absolute',top:175,left:12,right:12,backgroundColor:'#11264b',borderWidth:1,borderColor:GOLD,padding:15,borderRadius:15,alignItems:'center',zIndex:20},seatHeading:{color:GOLD,fontSize:18,fontWeight:'900',textAlign:'center',marginTop:20,marginBottom:18},seatGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',paddingHorizontal:12},seatItem:{width:'24%',alignItems:'center',marginBottom:20},throne:{width:66,height:69,borderWidth:2,borderColor:GOLD,borderRadius:20,backgroundColor:'#0a398a',alignItems:'center',justifyContent:'center'},throneCrown:{position:'absolute',top:-19,fontSize:25,color:GOLD},seatRequest:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',backgroundColor:'#16396c',padding:8,marginHorizontal:12,marginBottom:5,borderRadius:12},actions:{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:9,marginBottom:5},chat:{maxHeight:125,minHeight:45,marginHorizontal:9,marginBottom:5},bubble:{backgroundColor:'rgba(0,20,56,.82)',borderRadius:10,padding:8,alignSelf:'flex-start',marginTop:4},composer:{flexDirection:'row',alignItems:'center',paddingHorizontal:10,paddingTop:8,paddingBottom:Platform.OS==='ios'?20:10,backgroundColor:'rgba(0,18,51,.94)'},composerGift:{width:43,height:43,borderRadius:22,backgroundColor:'#235398',alignItems:'center',justifyContent:'center',marginRight:7},messageInput:{flex:1,height:43,borderRadius:22,backgroundColor:'#1b3d78',color:'white',paddingHorizontal:14,textAlign:'right'},sendButton:{width:43,height:43,borderRadius:22,backgroundColor:PINK,justifyContent:'center',alignItems:'center',marginLeft:7},giftDrawer:{position:'absolute',bottom:Platform.OS==='ios'?78:63,left:8,right:8,height:260,padding:9,borderRadius:18,borderWidth:1,borderColor:'#578ad7',backgroundColor:'#0d265c',zIndex:25,elevation:15},drawerHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:9},giftGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',paddingBottom:10},giftTile:{width:'19%',height:72,marginBottom:7,borderRadius:9,backgroundColor:'#21498d',alignItems:'center',justifyContent:'center',padding:2},giftName:{color:'white',fontSize:9,fontWeight:'800',textAlign:'center'},giftCost:{color:GOLD,fontSize:9},fxOverlay:{...StyleSheet.absoluteFillObject,zIndex:100,elevation:100,alignItems:'center',justifyContent:'center'},fxCenter:{alignItems:'center',justifyContent:'center'},fxIcon:{fontSize:112,textAlign:'center'},fxSpark:{color:GOLD,fontSize:28,textAlign:'center',textShadowColor:'#fff5bb',textShadowRadius:10},fxFire:{fontSize:75,textAlign:'center'},wheel:{width:296,height:296,borderRadius:148,borderWidth:8,borderColor:GOLD,backgroundColor:'#b16a29',alignSelf:'center',marginVertical:24,position:'relative'},slot:{position:'absolute',width:64,height:64,borderRadius:32,backgroundColor:'#ffc970',borderWidth:2,borderColor:'white',alignItems:'center',justifyContent:'center'},slotLit:{backgroundColor:'#78ed8e',borderColor:'#00f74e',borderWidth:4},slotLabel:{fontSize:10,color:'#51240c',fontWeight:'900'},wheelMiddle:{position:'absolute',left:99,top:99,width:82,height:82,borderRadius:41,backgroundColor:'#079e52',borderWidth:4,borderColor:GOLD,alignItems:'center',justifyContent:'center'}
 });
