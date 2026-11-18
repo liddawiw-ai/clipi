@@ -80,4 +80,5 @@ assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'),'Unsupported gift previe
 assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room)'),
  'Gift send preview changed; audit payment ledger and server receipt before release');
 console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
+assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
 console.log('Clipi release guards passed (static assertions only).');
