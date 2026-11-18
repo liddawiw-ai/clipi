@@ -36,4 +36,20 @@ assert(source.includes(String.raw`!/^\d{6}$/.test(smsCode.trim())`), 'SMS code v
 assert(source.includes('auth().currentUser?.uid!==u.uid'), 'Session-switch safety missing');
 assert(source.includes("displayName.length>35"), 'Profile name length validation missing');
 assert(source.includes("setRooms([]);setRoomError('')"), 'Room-list stale error reset missing');
+
+// Stage 15: prevent regressions in wallet authentication and financial safety.
+const walletScreen=fs.readFileSync('EarningsWalletScreen.js','utf8');
+const backend=fs.readFileSync('functions/index.js','utf8');
+const legacyStore=fs.readFileSync('components/Store.js','utf8');
+assert(walletScreen.includes('LocalAuthentication.authenticateAsync('),'Wallet biometric authentication missing');
+assert(walletScreen.includes('requestEpochRef.current+=1'),'Wallet stale-request protection missing');
+assert(walletScreen.includes("state==='background'"),'Wallet background lock missing');
+assert(backend.includes(String.raw`/^\d{6}$/`),'Server PIN must accept exactly six numeric digits');
+assert(!backend.includes(String.raw`/^\\d{6}$/`),'Server PIN incorrectly matches literal backslash');
+assert(backend.includes('PIN_MAX_FAILURES=5')&&backend.includes('PIN_LOCK_MS='),'PIN lockout missing');
+assert(backend.includes('minConversionPoints:2000')&&backend.includes('POINTS_MIN=2000'),'Wallet minimum must be 2000 points');
+assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must remain disabled');
+assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
+assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');
+
 console.log('Clipi release guards passed (static assertions only).');
