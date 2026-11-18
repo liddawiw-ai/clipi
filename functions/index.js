@@ -273,7 +273,9 @@ async function checkWalletPin(ref,pin){
   if(verified){
    tx.set(ref,{pinFailedAttempts:0,pinLockedUntil:FieldValue.delete()},{merge:true});
   }else{
-   const count=(Number.isInteger(d.pinFailedAttempts)?Math.max(0,d.pinFailedAttempts):0)+1;
+   // Once a previous lock expires, restart the attempt counter instead of instantly re-locking.
+   const previous=until>0&&until<=now?0:(Number.isInteger(d.pinFailedAttempts)?Math.max(0,d.pinFailedAttempts):0);
+   const count=previous+1;
    tx.set(ref,{pinFailedAttempts:count,pinLockedUntil:count>=PIN_MAX_FAILURES?
     new Date(now+PIN_LOCK_MS):FieldValue.delete()},{merge:true});
   }
