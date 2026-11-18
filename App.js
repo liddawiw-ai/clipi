@@ -22,7 +22,10 @@ const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
 // Facebook client tokens are mobile SDK configuration, not app secrets.
 const FACEBOOK_CONFIGURED=Boolean(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID&&process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN);
 const GIFTS=[["🌹","وردة حمراء",10,"rose","رومانسي"],["💙","وردة زرقاء",30,"rose","رومانسي"],["💖","قلب",50,"heart","رومانسي"],["🫶","قلب الأصابع",100,"heart","رومانسي"],["💋","قبلة",150,"kiss","رومانسي"],["💞","أحبك",200,"heart","رومانسي"],["💘","قفل الحب",80,"heart","رومانسي"],["👏","تصفيق",5,"clap","تفاعل"],["🍭","مصاص",100,"candy","تفاعل"],["🧊","برودة الصيف",105,"ice","تفاعل"],["🔥","نسر ناري",120,"phoenix","تفاعل"],["🎂","كيكة",100,"cake","تفاعل"],["🍰","كعكة ماكرون",150,"cake","تفاعل"],["🧸","دبدوب",300,"bear","تفاعل"],["🎁","صندوق الكنز",100,"treasure","تفاعل"],["💰","حقيبة ذهبية",500,"gold","تفاعل"],["🪄","صولجان",2000,"magic","فاخر"],["👑","تاج الجواهر",60,"crown","فاخر"],["👑","تاج ملكي",5000,"crown","فاخر"],["👑","التاج الأعلى",5000,"crown","فاخر"],["💍","خاتم",500,"ring","فاخر"],["🧚","مرافقة مدى الحياة",190000,"fairy","فاخر"],["🏰","قصر",10000,"castle","فاخر"],["🗼","صاروخ أعلى",10000,"rocket","فاخر"],["🛸","مركبة فضائية",3000,"spaceship","مركبات"],["🚁","مروحية الماس",9990,"helicopter","مركبات"],["✈️","الطائرات الماسية",19990,"plane","مركبات"],["🚀","هدية الصاروخ",100,"rocket","مركبات"],["🚀","صاروخ",2500,"rocket","مركبات"],["🏎️","سيارة سباق ذهبية",1000,"car","مركبات"],["🚙","سيارة لينكولن بيضاء",7000,"car","مركبات"],["🚘","رولز رويس الماسية",19990,"car","مركبات"],["🏎️","سيارة فاخرة",1000,"car","مركبات"],["🐉","تنين ذهبي",25000,"dragon","أسطوري"],["🦅","نسر",120,"phoenix","أسطوري"],["🤖","روبوت خارق",1000,"robot","أسطوري"],["🐈‍⬛","قطة تحت النجوم",500,"cat","أسطوري"],["🦆","بطة ساحرة",300,"duck","أسطوري"],["🐹","Capybara",1000,"animal","أسطوري"],["🎊","Happy",3000,"party","تفاعل"],["🎉","حفلة البخت",50000,"party","فاخر"],["🌸","أزهار الكرز",200,"flower","رومانسي"],["🌺","زهرة بيضاء",200,"flower","رومانسي"],["🍓","عصير فواكه",100,"fruit","تفاعل"],["🌵","نرقص سويا",300,"dance","تفاعل"],["🔫","مسدس الماء",1700,"water","تفاعل"],["💸","طابع الأموال",1350,"money","فاخر"],["🪙","نيزك",10,"meteor","تفاعل"],["🧑‍🚀","مسافر الفضاء",2000,"space","مركبات"],["🐑","غنم",2000,"animal","أسطوري"],["🏳️","علم",50,"flag","تفاعل"],["🍽️","طاولة الوجبات",50,"dinner","تفاعل"],["🎀","حزمة حمراء",100,"bundle","تفاعل"],["🧁","Pistachio",20,"candy","تفاعل"],["💐","باقة ورد",500,"flower","رومانسي"],["🧴","عطر",50,"perfume","رومانسي"],["🎸","سيجارة",50,"smoke","تفاعل"],["🪅","علم الوطن",50,"flag","تفاعل"],["🦋","فراشة لامعة",500,"butterfly","أسطوري"],["💎","نيرز",10,"gem","تفاعل"]];
-const GIFT_CATEGORIES=['الكل','رومانسي','تفاعل','فاخر','مركبات','أسطوري'];
+const LUCK_GIFTS=[['🌌','بوابة النجوم',100,'space','الحظ'],['🔮','بلورة المصير',300,'magic','الحظ'],['🌠','شهاب الأمنيات',500,'meteor','الحظ'],['🪐','مدار الكواكب',1000,'space','الحظ']];
+const LUCK_ODDS=Object.freeze({noBonus:60,small:25,medium:12,grand:3});
+// Decorative luck previews only: no paid stakes, prizes, points, wallet changes or cash value.
+const GIFT_CATEGORIES=['الكل','الحظ','رومانسي','تفاعل','فاخر','مركبات','أسطوري'];
 const GOODS=[['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
 const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
 const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
@@ -225,6 +228,15 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     finally{sendingRef.current=false;setSending(false)}
   }
   function send(gift){
+    if(gift[4]==='الحظ'){
+      if(!__DEV__)return Alert.alert('غير متاح','هدايا الحظ التجريبية غير متاحة في النسخة المنشورة');
+      const roll=Math.random()*100;
+      const outcome=roll<LUCK_ODDS.grand?'grand':roll<LUCK_ODDS.grand+LUCK_ODDS.medium?'medium':roll<LUCK_ODDS.grand+LUCK_ODDS.medium+LUCK_ODDS.small?'small':'none';
+      const title=outcome==='grand'?'✨ تأثير أسطوري':outcome==='medium'?'🌟 تأثير مميز':outcome==='small'?'⭐ تأثير بسيط':'🌙 لا توجد مكافأة';
+      if(outcome!=='none'){setFxId(v=>v+1);setFx(gift)}
+      Alert.alert('تجربة الحظ',title+' — نتيجة شكلية فقط، دون خصم ماسات أو منح نقاط أو أرباح.');
+      setGiftOpen(false);return;
+    }
     if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
     if(diamonds<gift[2]*giftQuantity)return Alert.alert('رصيد غير كافٍ');
     // Preview only; each send uses the existing gift accounting pathway.
@@ -260,10 +272,11 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
         {GIFT_CATEGORIES.map(c=><TouchableOpacity key={c} onPress={()=>setGiftCategory(c)} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,marginRight:6,backgroundColor:giftCategory===c?'#6f3db1':'#26123d'}}>
           <Text style={{color:giftCategory===c?'#fff2a6':'white',fontWeight:'700'}}>{c}</Text></TouchableOpacity>)}
       </ScrollView>
+      {giftCategory==='الحظ'&&<Text style={[S.muted,{paddingHorizontal:12}]}>تجربة مؤثرات فقط: 60% بلا مكافأة، 25% بسيط، 12% مميز، 3% أسطوري. لا خصم أو ربح مالي.</Text>}
       <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>
-        {GIFTS.filter(g=>giftCategory==='الكل'||g[4]===giftCategory).map((g,i)=><TouchableOpacity key={g[1]+i} style={S.giftTile} onPress={()=>send(g)}>
+        {[...GIFTS,...LUCK_GIFTS].filter(g=>giftCategory==='الكل'||g[4]===giftCategory).map((g,i)=><TouchableOpacity key={g[1]+i} style={S.giftTile} onPress={()=>send(g)}>
           <Text style={{fontSize:35,textShadowColor:'#e0b5ff',textShadowRadius:12}}>{g[0]}</Text>
-          <Text numberOfLines={2} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {fmt(g[2]*giftQuantity)}</Text>
+          <Text numberOfLines={2} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[4]==='الحظ'?'🎲 تجربة مجانية':'💎 '+fmt(g[2]*giftQuantity)}</Text>
         </TouchableOpacity>)}
       </ScrollView>
       <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'center',paddingVertical:8,backgroundColor:'#261438'}}>
