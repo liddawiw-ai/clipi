@@ -18,6 +18,8 @@ function checkJavaScript(filename, options = {}) {
 }
 const app = checkJavaScript('App.js', {jsx: true});
 const earningsWallet = checkJavaScript('EarningsWalletScreen.js', {jsx: true});
+checkJavaScript('components/Store.js', {jsx: true});
+checkJavaScript('tests/wallet-safety.test.cjs');
 checkJavaScript('functions/index.js');
 checkJavaScript('app.config.js');
 checkJavaScript('scripts/check-release.cjs');
