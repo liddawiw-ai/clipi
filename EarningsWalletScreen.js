@@ -7,18 +7,22 @@ const money=n=>'$'+((n||0)/100).toFixed(2);
 export default function EarningsWalletScreen({onBack}){
  const [unlocked,setUnlocked]=useState(false),[unlocking,setUnlocking]=useState(false),[lockError,setLockError]=useState('');
  const lockRef=useRef(false);
+ const authenticatingRef=useRef(false);
+ const requestEpochRef=useRef(0);
  const [data,setData]=useState(null),[pin,setPin]=useState(''),[oldPin,setOldPin]=useState(''),[busy,setBusy]=useState(false);
  async function load(){
   setBusy(true);
-  try{const r=await call('getEarningsWallet')({});setData(r.data)}
+  const epoch=requestEpochRef.current;
+  try{const r=await call('getEarningsWallet')({});if(epoch===requestEpochRef.current&&!lockRef.current)setData(r.data)}
   catch(e){Alert.alert('تعذر تحميل المحفظة',e.message)}
   finally{setBusy(false)}
  }
  useEffect(()=>{
   let active=true;
   const subscription=AppState.addEventListener('change',state=>{
-   if(state==='background'||state==='inactive'){
+   if(state==='background'||(state==='inactive'&&!authenticatingRef.current)){
     lockRef.current=true;
+    requestEpochRef.current+=1;
     if(active){setUnlocked(false);setData(null);setPin('');setOldPin('')}
    }
   });
@@ -27,26 +31,21 @@ export default function EarningsWalletScreen({onBack}){
  async function unlockWallet(){
   if(unlocking)return;
   setUnlocking(true);setLockError('');
+  lockRef.current=false;
+  authenticatingRef.current=true;
   try{
-   const supported=await LocalAuthentication.hasHardwareAsync();
-   const enrolled=await LocalAuthentication.isEnrolledAsync();
-   if(!supported&&!enrolled){
-    setLockError('لا توجد وسيلة تحقق محلية مهيأة على هذا الجهاز. فعّل قفل الجهاز أو البصمة من الإعدادات.');
-    return;
-   }
    const result=await LocalAuthentication.authenticateAsync({
     promptMessage:'فتح محفظة Clipi',
     cancelLabel:'إلغاء',
     disableDeviceFallback:false,
     fallbackLabel:'رمز الجهاز',
    });
-   if(result.success){
-    lockRef.current=false;
+   if(result.success&&!lockRef.current){
     setUnlocked(true);
     await load();
    }else setLockError('لم ينجح التحقق. حاول مجددًا أو استخدم وسيلة قفل الجهاز إذا عرضها النظام.');
   }catch(e){setLockError('تعذر التحقق من الجهاز: '+e.message)}
-  finally{setUnlocking(false)}
+  finally{authenticatingRef.current=false;setUnlocking(false)}
  }
  if(!unlocked)return <View style={[S.page,S.lockScreen]}>
   <Text style={S.lockIcon}>🔐</Text>
