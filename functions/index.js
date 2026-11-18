@@ -122,11 +122,30 @@ exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async requ
 // Gift accounting policy: 2,000 eligible paid diamonds = 100 support points.
 // Points are denominated in hundredths of a USD reference unit, not a cash balance.
 // Distribution: host 55%, agent 10%, platform 35%. Actual cash settlement remains OFF.
-const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35});
+const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35,pointsPerUsd:100,minConversionPoints:10000,diamondsPerConversionUsd:1100});
 exports.getSupportPolicy=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
  requireUser(request);
  return {...SUPPORT_POLICY,ownerPromotionalDiamonds:100000000,
   promotionalDiamondsGeneratePoints:false,payoutsEnabled:false};
+});
+// Preview a points redemption without trusting any client-supplied balance.
+// The authoritative earnings ledger and settlement provider are not live yet.
+exports.quoteSupportPointRedemption=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ const {points,method}=request.data||{};
+ if(!Number.isSafeInteger(points)||points<0||!['cash','diamonds'].includes(method))
+  throw new HttpsError('invalid-argument','Invalid redemption quote');
+ const eligible=points>=SUPPORT_POLICY.minConversionPoints;
+ const usdMinor=eligible?points:0; // 100 points = USD 1; each point is one cent.
+ const diamonds=eligible&&method==='diamonds'
+  ?Math.floor(usdMinor*SUPPORT_POLICY.diamondsPerConversionUsd/100):0;
+ return {eligible,minimumPoints:SUPPORT_POLICY.minConversionPoints,
+  method,points,usdMinor,diamonds,executable:false,
+  reason:eligible?'Quote only; verified earnings ledger and redemption are not active':'Below the 10,000-point minimum'};
+});
+exports.redeemSupportPoints=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ throw new HttpsError('failed-precondition','Point redemption is disabled until a verified earnings ledger, settlement and compliant payouts are deployed');
 });
 // One-time 100 million promotional diamonds for an account explicitly marked owner
 // through Firebase Auth custom claims. Never trust an owner flag from the client.
