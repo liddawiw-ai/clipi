@@ -50,6 +50,12 @@ assert(backend.includes('PIN_MAX_FAILURES=5')&&backend.includes('PIN_LOCK_MS='),
 assert(backend.includes('minConversionPoints:2000')&&backend.includes('POINTS_MIN=2000'),'Wallet minimum must be 2000 points');
 assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must remain disabled');
 assert(!source.includes("'الطاووس الملكي',30000,'peacock'"),'Unrequested peacock gift must be removed');
+assert(source.includes("const GIFT_CATEGORIES=")&&source.includes("giftCategory==='الكل'"),'Gift bag category filtering missing');
+assert(source.includes("giftQuantity,setGiftQuantity")&&source.includes("[1,7,17,37,77]"),'Gift bag quantity selector missing');
+assert(source.includes("['")===false || source.includes('const GIFTS='),'Gift catalog missing');
+assert(source.includes('مركبة فضائية')&&source.includes('رولز رويس الماسية')&&source.includes('وردة حمراء'),'Reference-inspired gift groups missing');
+assert(source.includes("kind==='dragon'")&&source.includes("['plane','helicopter','spaceship','space']"),'Distinct gift animations missing');
+
 assert(source.includes('kind===\'dragon\'')&&source.includes('const beams=Array.from({length:12}'),'Existing gifts must retain animations and full-screen lighting');
 assert(source.includes('setMinimized(true)')&&source.includes('setMinimized(false)'),'Room minimize/restore controls missing');
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
