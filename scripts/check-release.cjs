@@ -49,8 +49,9 @@ assert(!backend.includes(String.raw`/^\\d{6}$/`),'Server PIN incorrectly matches
 assert(backend.includes('PIN_MAX_FAILURES=5')&&backend.includes('PIN_LOCK_MS='),'PIN lockout missing');
 assert(backend.includes('minConversionPoints:2000')&&backend.includes('POINTS_MIN=2000'),'Wallet minimum must be 2000 points');
 assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must remain disabled');
-assert(source.includes("'الطاووس الملكي',30000,'peacock'")&&source.includes("kind==='peacock'"),'Royal peacock gift or animation missing');
-assert(backend.includes('peacock:30000'),'Server peacock gift price missing');
+assert(!source.includes("'الطاووس الملكي',30000,'peacock'"),'Unrequested peacock gift must be removed');
+assert(source.includes('kind===\'dragon\'')&&source.includes('const beams=Array.from({length:12}'),'Existing gifts must retain animations and full-screen lighting');
+assert(source.includes('setMinimized(true)')&&source.includes('setMinimized(false)'),'Room minimize/restore controls missing');
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
 assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');
 
