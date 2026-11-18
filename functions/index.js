@@ -155,7 +155,12 @@ exports.claimOwnerPromotionalDiamonds=onCall({enforceAppCheck:true,maxInstances:
 const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000});
 exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
  const senderUid=requireUser(request);
- const {roomId,giftId,requestId}=request.data||{};
+ const {roomId,giftId,requestId,source='paid'}=request.data||{};
+ if(!['paid','ownerPromo'].includes(source))throw new HttpsError('invalid-argument','Invalid balance source');
+ if(source==='ownerPromo'){
+  const identity=await getAuth().getUser(senderUid);
+  if(identity.customClaims?.clipiOwner!==true)throw new HttpsError('permission-denied','Verified owner required');
+ }
  if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId)||
     typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,80}$/.test(requestId)||
     !Object.prototype.hasOwnProperty.call(GIFT_PRICES,giftId))
@@ -168,7 +173,7 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
  await db.runTransaction(async tx=>{
   const [room,sender,receipt]=await Promise.all([tx.get(roomRef),tx.get(senderRef),tx.get(receiptRef)]);
   if(receipt.exists){
-   if(receipt.get('roomId')!==roomId||receipt.get('giftId')!==giftId)
+   if(receipt.get('roomId')!==roomId||receipt.get('giftId')!==giftId||receipt.get('source')!==source)
     throw new HttpsError('already-exists','Request ID reused with different gift');
    outcome={ok:true,duplicate:true,price};return;
   }
@@ -177,9 +182,15 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
   const hostUid=room.get('ownerUid');
   if(typeof hostUid!=='string'||!hostUid||hostUid===senderUid)
    throw new HttpsError('failed-precondition','Invalid gift recipient');
-  const balance=sender.get('balance');
+  const balance=sender.get(source==='ownerPromo'?'promotionalBalance':'balance');
   if(!Number.isSafeInteger(balance)||balance<price)
    throw new HttpsError('failed-precondition','Insufficient funded virtual balance');
+  if(source==='ownerPromo'){
+   tx.update(senderRef,{promotionalBalance:balance-price,updatedAt:FieldValue.serverTimestamp()});
+   tx.create(receiptRef,{roomId,giftId,price,source,recipientUid:hostUid,
+    eligibleSupportPoints:0,cashValueMinor:0,createdAt:FieldValue.serverTimestamp()});
+   outcome={ok:true,duplicate:false,price,eligibleSupportPoints:0};return;
+  }
   const hostRef=db.collection('virtualWallets').doc(hostUid);
   const host=await tx.get(hostRef);
   const hostBalance=host.exists?host.get('balance'):0;
@@ -187,7 +198,7 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
    throw new HttpsError('failed-precondition','Recipient balance unavailable');
   tx.update(senderRef,{balance:balance-price,updatedAt:FieldValue.serverTimestamp()});
   tx.set(hostRef,{balance:hostBalance+price,updatedAt:FieldValue.serverTimestamp()},{merge:true});
-  tx.create(receiptRef,{roomId,giftId,price,recipientUid:hostUid,createdAt:FieldValue.serverTimestamp()});
+  tx.create(receiptRef,{roomId,giftId,price,source,recipientUid:hostUid,createdAt:FieldValue.serverTimestamp()});
   outcome={ok:true,duplicate:false,price};
  });
  return outcome;
