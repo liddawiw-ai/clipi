@@ -91,5 +91,6 @@ const sendStart=source.indexOf('function send(gift)');
 const sendLuck=source.indexOf("if(gift[4]==='الحظ')",sendStart);
 assert(sendStart>=0&&sendLuck>sendStart,'Luck gifts must remain a development preview');
 assert(!source.slice(sendStart,sendLuck).includes("if(isHost)return"),'Host should be able to gift own room in preview');
-assert(source.includes('selfGift:(room.ownerUid||room.owner)===user?.uid,eligibleSupportPoints:0'),'Self-gifts must be marked as ineligible for support points');
+assert(source.includes('const selfGift=(room.ownerUid||room.owner)===user?.uid;')&&source.includes('selfGift,eligibleSupportPoints:0'),'Self-gifts must be marked as ineligible for support points');
+assert(!source.includes('setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);'),'Gift sender must not be credited as recipient');
 console.log('Clipi release guards passed (static assertions only).');
