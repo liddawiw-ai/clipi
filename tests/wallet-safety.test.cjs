@@ -19,6 +19,7 @@ test('six-digit PIN validation is not double escaped',()=>{
 test('PIN brute-force lockout and safe hash verification exist',()=>{
  assert.match(backend,/PIN_MAX_FAILURES=5/);
  assert.match(backend,/PIN_LOCK_MS=15\*60\*1000/);
+ assert.match(backend,/until>0&&until<=now\?0:/,'Expired PIN lock must reset failed-attempt count');
  assert.match(backend,/timingSafeEqual\(actual,expected\)/);
  assert.match(backend,/checkWalletPin\(ref,currentPin\)/);
  assert.match(backend,/checkWalletPin\(db\.collection\('earningsWallets'\)/);
