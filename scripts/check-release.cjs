@@ -52,7 +52,7 @@ assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must re
 assert(!source.includes("'الطاووس الملكي',30000,'peacock'"),'Unrequested peacock gift must be removed');
 assert(source.includes("const GIFT_CATEGORIES=")&&source.includes("giftCategory==='الكل'"),'Gift bag category filtering missing');
 assert(source.includes("giftQuantity,setGiftQuantity")&&source.includes("[1,7,17,37,77]"),'Gift bag quantity selector missing');
-assert(source.includes("['")===false || source.includes('const GIFTS='),'Gift catalog missing');
+assert(source.includes('const GIFTS='),'Gift catalog missing');
 assert(source.includes('مركبة فضائية')&&source.includes('رولز رويس الماسية')&&source.includes('وردة حمراء'),'Reference-inspired gift groups missing');
 assert(source.includes("kind==='dragon'")&&source.includes("['plane','helicopter','spaceship','space']"),'Distinct gift animations missing');
 
