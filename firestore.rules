@@ -16,11 +16,14 @@ service cloud.firestore {
     match /rooms/{roomId} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.keys().hasOnly(['name','type','ownerUid','ownerName','createdAt','status']) && request.resource.data.ownerUid == request.auth.uid && validText(request.resource.data.name,55) && validText(request.resource.data.ownerName,35) && request.resource.data.type in ['audio','video'] && request.resource.data.status == 'open' && request.resource.data.createdAt == request.time;
-      allow update: if false;
-      allow delete: if signedIn() && resource.data.ownerUid == request.auth.uid;
+      allow update: if signedIn() && resource.data.ownerUid == request.auth.uid
+        && resource.data.status == 'open'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'closed';
+      allow delete: if false; // Preserve reports/evidence; backend retention and cleanup are required.
       match /messages/{messageId} {
         allow read: if signedIn();
-        allow create: if signedIn() && exists(/databases/$(database)/documents/rooms/$(roomId)) && request.resource.data.keys().hasOnly(['text','userUid','userName','createdAt']) && request.resource.data.userUid == request.auth.uid && validText(request.resource.data.userName,35) && validText(request.resource.data.text,500) && request.resource.data.createdAt == request.time;
+        allow create: if signedIn() && exists(/databases/$(database)/documents/rooms/$(roomId)) && get(/databases/$(database)/documents/rooms/$(roomId)).data.status == 'open' && request.resource.data.keys().hasOnly(['text','userUid','userName','createdAt']) && request.resource.data.userUid == request.auth.uid && validText(request.resource.data.userName,35) && validText(request.resource.data.text,500) && request.resource.data.createdAt == request.time;
         allow update: if false;
         allow delete: if signedIn() && (resource.data.userUid == request.auth.uid || get(/databases/$(database)/documents/rooms/$(roomId)).data.ownerUid == request.auth.uid);
       }
