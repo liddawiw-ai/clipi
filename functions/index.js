@@ -119,6 +119,38 @@ exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async requ
  });
  return {ok:true};
 });
+// Gift accounting policy: 2,000 eligible paid diamonds = 100 support points.
+// Points are denominated in hundredths of a USD reference unit, not a cash balance.
+// Distribution: host 55%, agent 10%, platform 35%. Actual cash settlement remains OFF.
+const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35});
+exports.getSupportPolicy=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ return {...SUPPORT_POLICY,ownerPromotionalDiamonds:100000000,
+  promotionalDiamondsGeneratePoints:false,payoutsEnabled:false};
+});
+// One-time 100 million promotional diamonds for an account explicitly marked owner
+// through Firebase Auth custom claims. Never trust an owner flag from the client.
+exports.claimOwnerPromotionalDiamonds=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ const uid=requireUser(request);
+ const identity=await getAuth().getUser(uid);
+ if(identity.customClaims?.clipiOwner!==true)
+  throw new HttpsError('permission-denied','Verified owner role required');
+ const walletRef=db.collection('virtualWallets').doc(uid);
+ let balance;
+ await db.runTransaction(async tx=>{
+  const wallet=await tx.get(walletRef);
+  if(wallet.get('ownerPromoGranted')===true){
+   balance=wallet.get('promotionalBalance')||0;return;
+  }
+  // Do not grant if the wallet already carries an unverified legacy promotion.
+  if(wallet.exists&&wallet.get('promotionalBalance')!==undefined)
+   throw new HttpsError('failed-precondition','Promotional balance requires review');
+  balance=100000000;
+  tx.set(walletRef,{promotionalBalance:balance,ownerPromoGranted:true,
+   updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ });
+ return {ok:true,promotionalBalance:balance};
+});
 // Stage 12: virtual-only gift ledger. No client minting, purchases or cash-outs.
 const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000});
 exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
