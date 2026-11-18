@@ -14,7 +14,7 @@ const WELCOME=1000,OWNER_DEMO=5000000;
 const RTC_ENABLED=false,REAL_PURCHASES_ENABLED=false,REAL_PAYOUTS_ENABLED=false;
 // Hide financial/game/gift simulations in release builds. They remain available for development testing.
 const SHOW_UNRELEASED_DEMOS=__DEV__;
-const db=firestore();
+// Initialize Firestore only when an authenticated feature needs it.
 // ضع Web OAuth Client ID من Firebase/Google Cloud بعد تفعيل Google.
 const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
 const FACEBOOK_CONFIGURED=Boolean(process.env.FACEBOOK_APP_ID&&process.env.FACEBOOK_CLIENT_TOKEN);
@@ -110,17 +110,17 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     if(!room?.id||!userId)return;
     setChat([]);
     roomClosedRef.current=false;
-    const roomUnsub=db.collection('rooms').doc(room.id).onSnapshot(d=>{
+    const roomUnsub=firestore().collection('rooms').doc(room.id).onSnapshot(d=>{
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
         onExit();
       }
     },e=>console.warn('Room status:',e.message));
-    const un1=db.collection('rooms').doc(room.id).collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
+    const un1=firestore().collection('rooms').doc(room.id).collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
       setChat(snapshot.docs.map(d=>({id:d.id,...d.data()})));
     },e=>Alert.alert('المحادثة',e.message));
-    const un2=db.collection('users').doc(userId).collection('blocked').onSnapshot(snapshot=>setBlocked(snapshot.docs.map(d=>d.id)),e=>console.warn('Blocked list:',e.message));
+    const un2=firestore().collection('users').doc(userId).collection('blocked').onSnapshot(snapshot=>setBlocked(snapshot.docs.map(d=>d.id)),e=>console.warn('Blocked list:',e.message));
     return()=>{roomUnsub();un1();un2()};
   },[room?.id,userId]);
   async function moderateMessage(m){
@@ -130,16 +130,16 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     if(ownMessage||isHost)options.push({text:'حذف الرسالة',style:'destructive',onPress:()=>Alert.alert('حذف الرسالة','هل تريد حذف هذه الرسالة للجميع؟',[
       {text:'إلغاء',style:'cancel'},
       {text:'حذف',style:'destructive',onPress:async()=>{
-        try{await db.collection('rooms').doc(room.id).collection('messages').doc(m.id).delete()}
+        try{await firestore().collection('rooms').doc(room.id).collection('messages').doc(m.id).delete()}
         catch(e){Alert.alert('تعذر حذف الرسالة',e.message)}
       }}])});
     if(m.userUid&&!ownMessage){
       options.push({text:'إبلاغ',onPress:async()=>{
-        try{await db.collection('reports').add({roomId:room.id,reportedUid:m.userUid,messageId:m.id,reporterUid:userId,reason:'رسالة مسيئة',createdAt:firestore.FieldValue.serverTimestamp(),status:'new'});Alert.alert('تم إرسال البلاغ')}
+        try{await firestore().collection('reports').add({roomId:room.id,reportedUid:m.userUid,messageId:m.id,reporterUid:userId,reason:'رسالة مسيئة',createdAt:firestore.FieldValue.serverTimestamp(),status:'new'});Alert.alert('تم إرسال البلاغ')}
         catch(e){Alert.alert('تعذر الإبلاغ',e.message)}
       }});
       options.push({text:'حظر المستخدم',onPress:async()=>{
-        try{await db.collection('users').doc(userId).collection('blocked').doc(m.userUid).set({createdAt:firestore.FieldValue.serverTimestamp()});Alert.alert('تم الحظر')}
+        try{await firestore().collection('users').doc(userId).collection('blocked').doc(m.userUid).set({createdAt:firestore.FieldValue.serverTimestamp()});Alert.alert('تم الحظر')}
         catch(e){Alert.alert('تعذر الحظر',e.message)}
       }});
     }
@@ -167,7 +167,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     sendingRef.current=true;
     setSending(true);
     try{
-      await db.collection('rooms').doc(room.id).collection('messages').add({
+      await firestore().collection('rooms').doc(room.id).collection('messages').add({
         text,userUid:userId,userName:username.trim().slice(0,35)||'مستخدم',
         createdAt:firestore.FieldValue.serverTimestamp()
       });
@@ -317,14 +317,14 @@ export default function App(){
   useEffect(()=>{
     if(!user?.uid)return;
     setRooms([]);setRoomError('');
-    const unsub=db.collection('rooms').orderBy('createdAt','desc').limit(50).onSnapshot(snapshot=>{
+    const unsub=firestore().collection('rooms').orderBy('createdAt','desc').limit(50).onSnapshot(snapshot=>{
       setRooms(snapshot.docs.map(d=>({id:d.id,...d.data()})));setRoomError('');
     },e=>{setRooms([]);setRoomError('تعذر تحميل الغرف: '+e.message)});
     return unsub;
   },[user?.uid]);
   useEffect(()=>{
     if(!user?.uid){setBlockedUsers([]);return;}
-    const unsub=db.collection('users').doc(user.uid).collection('blocked').onSnapshot(
+    const unsub=firestore().collection('users').doc(user.uid).collection('blocked').onSnapshot(
       snapshot=>setBlockedUsers(snapshot.docs.map(doc=>doc.id)),
       error=>console.warn('Blocked users:',error.message)
     );
@@ -333,7 +333,7 @@ export default function App(){
   async function unblockUser(uid){
     if(!user?.uid||!uid)return;
     try{
-      await db.collection('users').doc(user.uid).collection('blocked').doc(uid).delete();
+      await firestore().collection('users').doc(user.uid).collection('blocked').doc(uid).delete();
       Alert.alert('تم','أزلنا هذا الحساب من قائمة الحظر لديك');
     }catch(error){Alert.alert('تعذر إلغاء الحظر',error.message)}
   }
@@ -341,7 +341,7 @@ export default function App(){
     Alert.alert('حذف الحساب','سيُحذف ملف حسابك وتسجيل الدخول. قد تبقى الرسائل والبلاغات التي يجب إدارتها وفق سياسة الاحتفاظ. تحتاج هذه النسخة إلى خدمة حذف شاملة قبل النشر العام.',[
       {text:'إلغاء',style:'cancel'},
       {text:'حذف',style:'destructive',onPress:async()=>{
-        try{await db.collection('users').doc(user.uid).delete();await auth().currentUser.delete();setUser(null);go('login')}
+        try{await firestore().collection('users').doc(user.uid).delete();await auth().currentUser.delete();setUser(null);go('login')}
         catch(e){Alert.alert('تعذر حذف الحساب','أعد تسجيل الدخول ثم حاول مجددًا. '+e.message)}
       }}
     ]);
@@ -466,7 +466,7 @@ export default function App(){
     try{
       const host=(name||user.displayName||'مستخدم').slice(0,35);
       const data={name:label,type:roomType,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
-      const doc=await db.collection('rooms').add(data);
+      const doc=await firestore().collection('rooms').add(data);
       setActiveRoom({id:doc.id,...data,host,owner:user.uid});go('room');
     }catch(e){Alert.alert('تعذر إنشاء الغرفة',e.message)}finally{setBusy(false)}
   }
@@ -479,7 +479,7 @@ export default function App(){
     Alert.alert('إغلاق الغرفة','سيُمنع إرسال رسائل جديدة إلى الغرفة بعد إغلاقها، وتبقى الرسائل السابقة محفوظة للإشراف. هل توافق؟',[
       {text:'إلغاء',style:'cancel'},
       {text:'إغلاق',style:'destructive',onPress:async()=>{
-        try{await db.collection('rooms').doc(room.id).update({status:'closed'});if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms')}}
+        try{await firestore().collection('rooms').doc(room.id).update({status:'closed'});if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms')}}
         catch(e){Alert.alert('تعذر الإغلاق',e.message)}
       }}]);
   }
