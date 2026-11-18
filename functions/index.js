@@ -241,6 +241,70 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
  });
  return outcome;
 });
+// Earnings wallets: separate from diamonds. No cash can be paid from this draft.
+const {randomBytes,scryptSync,timingSafeEqual}=require('node:crypto');
+const POINTS_MIN=2000,WITHDRAW_INTERVAL_MS=15*24*60*60*1000;
+const roleFor=async uid=>{
+ const identity=await getAuth().getUser(uid);
+ return identity.customClaims?.clipiOwner===true?'owner':
+  identity.customClaims?.clipiAgent===true?'agent':'host';
+};
+const validatePin=pin=>typeof pin==='string'&&/^\\d{6}$/.test(pin);
+const hashPin=(pin,salt)=>scryptSync(pin,salt,64).toString('hex');
+const verifyPin=(pin,salt,stored)=>{
+ const actual=Buffer.from(hashPin(pin,salt),'hex'),expected=Buffer.from(stored,'hex');
+ return actual.length===expected.length&&timingSafeEqual(actual,expected);
+};
+exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request),role=await roleFor(uid);
+ const doc=await db.collection('earningsWallets').doc(uid).get();
+ const data=doc.data()||{};
+ // Unfunded balances are never inferred from gift totals or local diamonds.
+ const available=Number.isSafeInteger(data.availablePoints)&&data.availablePoints>=0?data.availablePoints:0;
+ const pending=Number.isSafeInteger(data.pendingPoints)&&data.pendingPoints>=0?data.pendingPoints:0;
+ const last=data.lastPayoutRequestAt?.toMillis?.()||0;
+ const nextEligibleAt=last?new Date(last+WITHDRAW_INTERVAL_MS).toISOString():null;
+ const waitMs=Math.max(0,last+WITHDRAW_INTERVAL_MS-Date.now());
+ return {role,availablePoints:available,pendingPoints:pending,
+  availableUsdMinor:available,pendingUsdMinor:pending,
+  minimumPoints:POINTS_MIN,remainingPoints:Math.max(0,POINTS_MIN-available),
+  pinConfigured:typeof data.pinHash==='string',nextEligibleAt,
+  canRequest:available>=POINTS_MIN&&waitMs===0,
+  payoutProcessingBusinessDays:5,payoutsEnabled:false};
+});
+exports.setEarningsWalletPin=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ const uid=requireUser(request),{pin,currentPin}=request.data||{};
+ if(!validatePin(pin))throw new HttpsError('invalid-argument','PIN must contain exactly 6 digits');
+ const ref=db.collection('earningsWallets').doc(uid),snap=await ref.get(),data=snap.data()||{};
+ if(data.pinHash){
+  if(!validatePin(currentPin)||!verifyPin(currentPin,data.pinSalt,data.pinHash))
+   throw new HttpsError('permission-denied','Current PIN incorrect');
+ }else recentLogin(request);
+ const salt=randomBytes(16).toString('hex'),pinHash=hashPin(pin,salt);
+ // Initial PIN set must not silently replace another concurrent PIN.
+ await db.runTransaction(async tx=>{
+  const current=await tx.get(ref);
+  if((current.get('pinHash')||null)!==(data.pinHash||null))
+   throw new HttpsError('aborted','Wallet PIN changed; retry');
+  tx.set(ref,{pinSalt:salt,pinHash,pinUpdatedAt:FieldValue.serverTimestamp()},{merge:true});
+ });
+ return {ok:true};
+});
+exports.previewEarningsWithdrawal=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ const uid=requireUser(request),{pin,method}=request.data||{};
+ if(!['cash','diamonds'].includes(method)||!validatePin(pin))
+  throw new HttpsError('invalid-argument','Invalid method or wallet PIN');
+ const doc=await db.collection('earningsWallets').doc(uid).get(),d=doc.data()||{};
+ if(!d.pinHash||!verifyPin(pin,d.pinSalt,d.pinHash))
+  throw new HttpsError('permission-denied','Wallet PIN incorrect');
+ const points=Number.isSafeInteger(d.availablePoints)?d.availablePoints:0;
+ const last=d.lastPayoutRequestAt?.toMillis?.()||0;
+ const eligible=points>=POINTS_MIN&&Date.now()-last>=WITHDRAW_INTERVAL_MS;
+ return {eligible,points,remainingPoints:Math.max(0,POINTS_MIN-points),
+  usdMinor:eligible?points:0,diamonds:eligible&&method==='diamonds'?points*11:0,
+  method,processingBusinessDays:5,executable:false,
+  reason:'Preview only; no verified financial ledger or payout provider deployed'};
+});
 // Stage 13 safety gate: money movement is OFF until provider, compliance and store approval.
 const REAL_PAYMENTS_ENABLED=false;
 const REAL_PAYOUTS_ENABLED=false;
