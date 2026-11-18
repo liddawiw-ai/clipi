@@ -25,7 +25,7 @@ assert(source.includes('const sendingRef=useRef(false)'), 'Synchronous message s
 assert(source.includes('sendingRef.current=true')&&source.includes('sendingRef.current=false'), 'Duplicate message send locking missing');
 assert(source.includes("setMessage(current=>current.trim()===text?'':current)"), 'Chat draft race protection missing');
 assert(source.includes('maxLength={500}'), 'Chat composer length guard missing');
-assert(source.includes("!/^\d{6}$/.test(smsCode.trim())"), 'SMS code validation missing');
+assert(source.includes(String.raw`!/^\d{6}$/.test(smsCode.trim())`), 'SMS code validation missing');
 assert(source.includes('auth().currentUser?.uid!==u.uid'), 'Session-switch safety missing');
 assert(source.includes("displayName.length>35"), 'Profile name length validation missing');
 assert(source.includes("setRooms([]);setRoomError('')"), 'Room-list stale error reset missing');
