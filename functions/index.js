@@ -180,6 +180,12 @@ exports.requestCashPayout=onCall({enforceAppCheck:true,maxInstances:5},async req
   throw new HttpsError('failed-precondition','Cash payouts are not available');
  throw new HttpsError('unimplemented','A licensed payout provider and compliance workflow are required');
 });
+// Stage 14: never run monetary or withdrawable Greedy Star rounds on this backend.
+exports.getGreedyStarAvailability=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ return {realMoneyEnabled:false,paidStakesEnabled:false,withdrawablePrizesEnabled:false,
+  reason:'Greedy Star is a development-only simulation; no paid wagers or cash prizes.'};
+});
 exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSeconds:540},async request=>{
  const uid=requireUser(request);recentLogin(request);
  // Delete authored messages across all rooms before removing the auth identity.
