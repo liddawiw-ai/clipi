@@ -13,3 +13,11 @@ This integrates the existing full Clipi screens with Firebase shared room direct
 
 ## Intended release policy
 This is a DEVELOPMENT CANDIDATE, not a certified finished public product. Build success means compilation only, not functional correctness. Keep the existing `release/clipi-mvp-beta` as the safer small chat-only release.
+
+## Follow-on hardening (2026-11-18)
+- Room owners can close rooms; Firestore rules prevent further writes to closed rooms.
+- Message authors and room owners can delete messages; users can report/block abusive chat messages.
+- Duplicate rapid sends are prevented in room UI, and the fake role/remote guest controls have been removed.
+- Financial, gifts and betting *demo* screens are hidden in non-development builds (`SHOW_UNRELEASED_DEMOS=__DEV__`). Existing prototypes remain in source for future development.
+- Run `npm run test:release` for static guard checks. This DOES NOT replace a native build, Firestore emulator tests, or real device testing.
+- Consult `RELEASE-CHECKLIST.md` for blockers and external dependencies.
