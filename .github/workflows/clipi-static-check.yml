@@ -24,3 +24,22 @@ jobs:
         run: npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
       - name: Validate JSX, Expo config and release guards
         run: npm run test:ci
+  firestore-rules-emulator:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+      - name: Set up Java 21 for Firestore emulator
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install JS testing dependencies
+        run: npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+      - name: Test rules in isolated Firebase emulator
+        run: npm run test:firestore:emulator
