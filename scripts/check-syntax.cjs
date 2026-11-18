@@ -35,4 +35,18 @@ assert.equal(configured.android.package, 'com.walid.clipi');
 assert.equal(configured.ios.bundleIdentifier, 'com.walid.clipi');
 assert.ok(configured.plugins.includes('@react-native-firebase/app'));
 assert.ok(configured.plugins.includes('@react-native-firebase/auth'));
+const androidFirebase=JSON.parse(fs.readFileSync('google-services.json','utf8'));
+const iosFirebase=fs.readFileSync('GoogleService-Info.plist','utf8');
+const extractPlistString=(key)=>{
+  const pattern=new RegExp('<key>'+key+'</key>\\s*<string>([^<]+)</string>');
+  const match=iosFirebase.match(pattern);
+  assert.ok(match, 'Missing iOS Firebase config key: '+key);
+  return match[1];
+};
+assert.equal(androidFirebase.project_info.project_id,'clipi-f67c0','Android Firebase project mismatch');
+assert.ok(androidFirebase.client.some(c=>c.client_info?.android_client_info?.package_name==='com.walid.clipi'),
+  'Android Firebase package mismatch');
+assert.equal(extractPlistString('PROJECT_ID'),'clipi-f67c0','iOS Firebase project mismatch');
+assert.equal(extractPlistString('BUNDLE_ID'),'com.walid.clipi','iOS Firebase bundle mismatch');
+console.log('PASS: Android/iOS Firebase config matches same project and app IDs');
 console.log('PASS: App JSX parse, direct dependencies and Expo identifiers');
