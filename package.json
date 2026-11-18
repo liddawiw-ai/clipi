@@ -21,6 +21,7 @@
     "react-native": "0.79.2",
     "expo-camera": "~16.1.5",
     "expo-crypto": "~14.1.5",
+    "expo-local-authentication": "~16.0.5",
     "expo-dev-client": "~5.2.0",
     "expo-build-properties": "~0.14.8",
     "@react-native-firebase/app": "^22.1.0",
