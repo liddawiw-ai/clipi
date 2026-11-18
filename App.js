@@ -104,12 +104,15 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const chatRef=useRef(null);
   const sendingRef=useRef(false);
+  const roomClosedRef=useRef(false);
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
     if(!room?.id||!userId)return;
     setChat([]);
+    roomClosedRef.current=false;
     const roomUnsub=db.collection('rooms').doc(room.id).onSnapshot(d=>{
-      if(!d.exists||d.data()?.status==='closed'){
+      roomClosedRef.current=!d.exists||d.data()?.status==='closed';
+      if(roomClosedRef.current){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
         onExit();
       }
@@ -159,6 +162,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   async function sendMessage(){
     const text=message.trim();
     if(!text||!userId||!room?.id||sendingRef.current)return;
+    if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة','لا يمكن إرسال رسائل بعد إغلاق الغرفة');
     if(text.length>500)return Alert.alert('الرسالة طويلة','الحد الأقصى 500 حرف');
     sendingRef.current=true;
     setSending(true);
