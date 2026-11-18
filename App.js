@@ -17,7 +17,9 @@ const SHOW_UNRELEASED_DEMOS=__DEV__;
 // Initialize Firestore only when an authenticated feature needs it.
 // ضع Web OAuth Client ID من Firebase/Google Cloud بعد تفعيل Google.
 const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
-const FACEBOOK_CONFIGURED=Boolean(process.env.FACEBOOK_APP_ID&&process.env.FACEBOOK_CLIENT_TOKEN);
+// Expo only embeds EXPO_PUBLIC_* variables into the JavaScript bundle.
+// Facebook client tokens are mobile SDK configuration, not app secrets.
+const FACEBOOK_CONFIGURED=Boolean(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID&&process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN);
 const GIFTS=[['🌹','وردة',10,'rose'],['💖','قلب',50,'heart'],['🎂','كيكة',100,'cake'],['🧸','دبدوب',300,'bear'],['💍','خاتم',500,'ring'],['🏎️','سيارة فاخرة',1000,'car'],['🚀','صاروخ',2500,'rocket'],['👑','تاج ملكي',5000,'crown'],['🏰','قصر',10000,'castle'],['🐉','تنين ذهبي',25000,'dragon']];
 const GOODS=[['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
 const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
