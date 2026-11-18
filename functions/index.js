@@ -119,6 +119,47 @@ exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async requ
  });
  return {ok:true};
 });
+// Stage 12: virtual-only gift ledger. No client minting, purchases or cash-outs.
+const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000});
+exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const senderUid=requireUser(request);
+ const {roomId,giftId,requestId}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId)||
+    typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,80}$/.test(requestId)||
+    !Object.prototype.hasOwnProperty.call(GIFT_PRICES,giftId))
+  throw new HttpsError('invalid-argument','Invalid gift request');
+ const price=GIFT_PRICES[giftId];
+ const roomRef=db.collection('rooms').doc(roomId);
+ const senderRef=db.collection('virtualWallets').doc(senderUid);
+ const receiptRef=senderRef.collection('giftReceipts').doc(requestId);
+ let outcome;
+ await db.runTransaction(async tx=>{
+  const [room,sender,receipt]=await Promise.all([tx.get(roomRef),tx.get(senderRef),tx.get(receiptRef)]);
+  if(receipt.exists){
+   if(receipt.get('roomId')!==roomId||receipt.get('giftId')!==giftId)
+    throw new HttpsError('already-exists','Request ID reused with different gift');
+   outcome={ok:true,duplicate:true,price};return;
+  }
+  if(!room.exists||room.get('status')!=='open')
+   throw new HttpsError('failed-precondition','Room is not open');
+  const hostUid=room.get('ownerUid');
+  if(typeof hostUid!=='string'||!hostUid||hostUid===senderUid)
+   throw new HttpsError('failed-precondition','Invalid gift recipient');
+  const balance=sender.get('balance');
+  if(!Number.isSafeInteger(balance)||balance<price)
+   throw new HttpsError('failed-precondition','Insufficient funded virtual balance');
+  const hostRef=db.collection('virtualWallets').doc(hostUid);
+  const host=await tx.get(hostRef);
+  const hostBalance=host.exists?host.get('balance'):0;
+  if(!Number.isSafeInteger(hostBalance)||hostBalance<0||hostBalance>Number.MAX_SAFE_INTEGER-price)
+   throw new HttpsError('failed-precondition','Recipient balance unavailable');
+  tx.update(senderRef,{balance:balance-price,updatedAt:FieldValue.serverTimestamp()});
+  tx.set(hostRef,{balance:hostBalance+price,updatedAt:FieldValue.serverTimestamp()},{merge:true});
+  tx.create(receiptRef,{roomId,giftId,price,recipientUid:hostUid,createdAt:FieldValue.serverTimestamp()});
+  outcome={ok:true,duplicate:false,price};
+ });
+ return outcome;
+});
 exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSeconds:540},async request=>{
  const uid=requireUser(request);recentLogin(request);
  // Delete authored messages across all rooms before removing the auth identity.
