@@ -1,5 +1,6 @@
-const fbId = process.env.FACEBOOK_APP_ID;
-const fbToken = process.env.FACEBOOK_CLIENT_TOKEN;
+// Native Facebook plugin configuration must match the values visible to App.js.
+const fbId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
+const fbToken = process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN;
 const plugins = [
   '@react-native-firebase/app',
   '@react-native-firebase/auth',
