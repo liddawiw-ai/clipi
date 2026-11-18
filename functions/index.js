@@ -47,10 +47,30 @@ exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSecon
  await getAuth().deleteUser(uid);
  return {ok:true};
 });
-exports.reviewReport=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+async function requireModerator(request){
  const uid=requireUser(request);
  const admin=await getAuth().getUser(uid);
  if(admin.customClaims?.moderator!==true)throw new HttpsError('permission-denied','Moderator access required');
+ return uid;
+}
+exports.listReports=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ await requireModerator(request);
+ const status=request.data?.status||'new';
+ if(!['new','reviewing','resolved','dismissed'].includes(status))
+  throw new HttpsError('invalid-argument','Invalid report status');
+ const limit=Math.min(50,Math.max(1,Number(request.data?.limit)||20));
+ if(!Number.isInteger(limit))throw new HttpsError('invalid-argument','Invalid page size');
+ // Bound result size. Avoid exposing reports through public Firestore rules.
+ const snapshot=await db.collection('reports').where('status','==',status).limit(limit).get();
+ return {reports:snapshot.docs.map(doc=>({
+  id:doc.id,roomId:doc.get('roomId')||null,messageId:doc.get('messageId')||null,
+  reportedUid:doc.get('reportedUid')||null,reporterUid:doc.get('reporterUid')||null,
+  reason:doc.get('reason')||'',status:doc.get('status')||'new',
+  createdAt:doc.get('createdAt')?.toDate?.().toISOString?.()||null
+ }))};
+});
+exports.reviewReport=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ const uid=await requireModerator(request);
  const {reportId,status}=request.data||{};
  if(typeof reportId!=='string'||!/^[a-zA-Z0-9_-]{1,128}$/.test(reportId)||!['reviewing','resolved','dismissed'].includes(status))
   throw new HttpsError('invalid-argument','Invalid report or status');
