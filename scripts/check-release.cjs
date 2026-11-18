@@ -84,4 +84,11 @@ assert(source.includes('closingByHostRef.current=true')&&source.includes('if(clo
 assert(source.includes('if(exitHandledRef.current)return;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
 assert(source.includes("if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة'"),'Gift sending must reject closed rooms');
 assert(source.includes("if(isHost)return Alert.alert('لا يمكن دعم نفسك'"),'Self-gifting must be blocked in preview');
+assert(source.includes("if(!Number.isSafeInteger(cost)||cost<=0)return null;"),'Preview wallet must reject invalid spending amounts');
+assert(source.includes("if(![next.welcome,next.purchased,next.owner].every"),'Preview wallet must reject corrupted balances');
+assert(source.includes("if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)"),'Gift total must be a safe integer');
+const sendStart=source.indexOf('function send(gift)');
+const sendLuck=source.indexOf("if(gift[4]==='الحظ')",sendStart);
+const sendSelf=source.indexOf("if(isHost)return Alert.alert('لا يمكن دعم نفسك'",sendStart);
+assert(sendStart>=0&&sendSelf>sendStart&&sendSelf<sendLuck,'Self gifting must also be blocked for luck previews');
 console.log('Clipi release guards passed (static assertions only).');
