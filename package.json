@@ -8,7 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "check": "expo install --check",
-    "test:release": "node scripts/check-release.cjs"
+    "test:release": "node scripts/check-release.cjs",
+    "test:syntax": "node scripts/check-syntax.cjs",
+    "test:ci": "npm run test:syntax && npm run test:release"
   },
   "dependencies": {
     "expo": "~53.0.0",
@@ -24,5 +26,8 @@
     "@react-native-firebase/firestore": "^22.1.0",
     "@react-native-google-signin/google-signin": "^14.0.2",
     "react-native-fbsdk-next": "^13.4.1"
+  },
+  "devDependencies": {
+    "@babel/parser": "^7.26.10"
   }
 }
