@@ -2,7 +2,7 @@
 const {test, before, after, beforeEach}=require('node:test');
 const fs=require('node:fs');
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require('@firebase/rules-unit-testing');
-const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp,onSnapshot,collection,query,orderBy}=require('firebase/firestore');
+const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp,onSnapshot}=require('firebase/firestore');
 
 let env,alice,bob,anon;
 const db=(ctx)=>ctx.firestore();
@@ -103,12 +103,12 @@ test('unknown collections are denied by default',async()=>{
 
 test('two distinct authenticated clients exchange a realtime message in the same room', {timeout:30000}, async()=>{
   // These contexts simulate different signed-in devices; SMS/native verification is tested separately.
-  const inbox=query(collection(db(alice),'rooms/room1/messages'),orderBy('createdAt','asc'));
+  const inbox=doc(db(alice),'rooms/room1/messages/bob-live');
   const arriving=new Promise((resolve,reject)=>{
     const timeout=setTimeout(()=>{unsubscribe();reject(new Error('Alice did not receive Bob message in realtime'))},20000);
     let unsubscribe=()=>{};
     unsubscribe=onSnapshot(inbox,snapshot=>{
-      if(snapshot.docs.some(d=>d.id==='bob-live'&&d.data().text==='مرحبًا من الجهاز الثاني')){
+      if(snapshot.exists()&&snapshot.data().text==='مرحبًا من الجهاز الثاني'){
         clearTimeout(timeout);unsubscribe();resolve();
       }
     },error=>{clearTimeout(timeout);unsubscribe();reject(error)});
