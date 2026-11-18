@@ -12,6 +12,8 @@ const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
 const WELCOME=1000,OWNER_DEMO=5000000;
 // Display-only prototypes; no external RTC, in-app purchases or payouts are enabled.
 const RTC_ENABLED=false,REAL_PURCHASES_ENABLED=false,REAL_PAYOUTS_ENABLED=false;
+// Hide financial/game/gift simulations in release builds. They remain available for development testing.
+const SHOW_UNRELEASED_DEMOS=__DEV__;
 const db=firestore();
 // ضع Web OAuth Client ID من Firebase/Google Cloud بعد تفعيل Google.
 const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
@@ -92,30 +94,51 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const [cameraPermission,requestCameraPermission]=useCameraPermissions();
   const [cameraOn,setCameraOn]=useState(false);
   const [cameraFacing,setCameraFacing]=useState('front');
-  const [role,setRole]=useState(room.owner===userId?'host':'viewer');
-  const isHost=room.owner===userId;
+  const isHost=(room.ownerUid||room.owner)===userId;
   const [guest,setGuest]=useState('');
   const [guestCamera,setGuestCamera]=useState(true);
   const [callRequest,setCallRequest]=useState('');
   const [seats,setSeats]=useState(()=>Array.from({length:8},(_,i)=>({id:i+1,user:i===0?room.host:null,locked:false,request:null})));
-  const [chat,setChat]=useState([]),[message,setMessage]=useState('');
+  const [chat,setChat]=useState([]),[message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const chatRef=useRef(null);
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
     if(!room?.id||!userId)return;
+    const roomUnsub=db.collection('rooms').doc(room.id).onSnapshot(d=>{
+      if(!d.exists||d.data()?.status==='closed'){
+        Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
+        onExit();
+      }
+    },e=>console.warn('Room status:',e.message));
     const un1=db.collection('rooms').doc(room.id).collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
       setChat(snapshot.docs.map(d=>({id:d.id,...d.data()})));
     },e=>Alert.alert('المحادثة',e.message));
     const un2=db.collection('users').doc(userId).collection('blocked').onSnapshot(snapshot=>setBlocked(snapshot.docs.map(d=>d.id)),e=>console.warn('Blocked list:',e.message));
-    return()=>{un1();un2()};
+    return()=>{roomUnsub();un1();un2()};
   },[room?.id,userId]);
   async function moderateMessage(m){
-    if(!m.userUid||m.userUid===userId)return;
-    Alert.alert('إجراءات الرسالة',m.userName||'مستخدم',[
-      {text:'إبلاغ',onPress:async()=>{try{await db.collection('reports').add({roomId:room.id,reportedUid:m.userUid,messageId:m.id,reporterUid:userId,reason:'رسالة مسيئة',createdAt:firestore.FieldValue.serverTimestamp(),status:'new'});Alert.alert('تم إرسال البلاغ')}catch(e){Alert.alert('تعذر الإبلاغ',e.message)}}},
-      {text:'حظر',onPress:async()=>{try{await db.collection('users').doc(userId).collection('blocked').doc(m.userUid).set({createdAt:firestore.FieldValue.serverTimestamp()});Alert.alert('تم الحظر')}catch(e){Alert.alert('تعذر الحظر',e.message)}}},
-      {text:'إلغاء',style:'cancel'}]);
+    if(!m?.id||!userId)return;
+    const ownMessage=m.userUid===userId;
+    const options=[];
+    if(ownMessage||isHost)options.push({text:'حذف الرسالة',style:'destructive',onPress:()=>Alert.alert('حذف الرسالة','هل تريد حذف هذه الرسالة للجميع؟',[
+      {text:'إلغاء',style:'cancel'},
+      {text:'حذف',style:'destructive',onPress:async()=>{
+        try{await db.collection('rooms').doc(room.id).collection('messages').doc(m.id).delete()}
+        catch(e){Alert.alert('تعذر حذف الرسالة',e.message)}
+      }}])});
+    if(m.userUid&&!ownMessage){
+      options.push({text:'إبلاغ',onPress:async()=>{
+        try{await db.collection('reports').add({roomId:room.id,reportedUid:m.userUid,messageId:m.id,reporterUid:userId,reason:'رسالة مسيئة',createdAt:firestore.FieldValue.serverTimestamp(),status:'new'});Alert.alert('تم إرسال البلاغ')}
+        catch(e){Alert.alert('تعذر الإبلاغ',e.message)}
+      }});
+      options.push({text:'حظر المستخدم',onPress:async()=>{
+        try{await db.collection('users').doc(userId).collection('blocked').doc(m.userUid).set({createdAt:firestore.FieldValue.serverTimestamp()});Alert.alert('تم الحظر')}
+        catch(e){Alert.alert('تعذر الحظر',e.message)}
+      }});
+    }
+    if(!options.length)return;
+    Alert.alert('إدارة الرسالة',m.userName||'مستخدم',[...options,{text:'إلغاء',style:'cancel'}]);
   }
   useEffect(()=>{
     const s=Keyboard.addListener('keyboardDidShow',()=>setKeyboardOn(true));
@@ -132,7 +155,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   }
   async function sendMessage(){
     const text=message.trim().slice(0,500);
-    if(!text||!userId||!room?.id)return;
+    if(!text||!userId||!room?.id||sending)return;
+    setSending(true);
     try{
       await db.collection('rooms').doc(room.id).collection('messages').add({
         text,userUid:userId,userName:username.slice(0,35)||'مستخدم',
@@ -141,19 +165,17 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       setMessage('');
       setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
     }catch(e){Alert.alert('تعذر إرسال الرسالة',e.message)}
+    finally{setSending(false)}
   }
   function send(gift){
+    if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
     if(diamonds<gift[2])return Alert.alert('رصيد غير كافٍ');
     if(!onSendGift(gift,room))return;
     setGiftOpen(false);setFxId(v=>v+1);setFx(gift);
   }
   function seatAction(x){
-    if(x.locked)return Alert.alert('المقعد مغلق');
-    if(isHost){setSeats(v=>v.map(a=>a.id===x.id?{...a,user:a.user?null:username,request:null}:a));return}
-    if(x.user)return Alert.alert('المقعد مشغول');
-    setSeats(v=>v.map(a=>a.id===x.id?{...a,request:'مشاهد تجريبي'}:a));
+    Alert.alert('معاينة المقاعد','المقاعد الثمانية تصميم تجريبي، ولا تتصل بالصوت بعد. ستُفعّل صلاحيات الجلوس بعد ربط خادم RTC.');
   }
-  function approveSeat(id,accept){setSeats(v=>v.map(x=>x.id===id?{...x,user:accept?x.request:x.user,request:null}:x))}
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?BLUE:'#071324'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio?<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><Text style={S.bgCrown}>♛</Text></View>:
@@ -165,18 +187,15 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     {!audio?<>
       <View style={S.avatars}><View style={S.guestAvatar}><Text style={{fontSize:23}}>{avatar}</Text><Text style={S.tiny}>المضيف</Text></View>{guest?<View style={S.guestAvatar}><Text style={{fontSize:23}}>👤</Text><Text style={S.tiny}>الضيف</Text></View>:null}<Text style={[S.tiny,{marginLeft:'auto'}]}>معاينة: {isHost?'مضيف':'مشاهد'}</Text></View>
       <View style={S.videoControls}><Small title={cameraOn?'📷 إغلاق الكاميرا':'📷 تشغيل الكاميرا'} onPress={turnCameraOn}/><Small title="🔄 تبديل" onPress={()=>setCameraFacing(v=>v==='front'?'back':'front')}/></View>
-      {guest?<View style={S.pip}><View style={S.pipPreview}><Text style={{fontSize:37}}>{guestCamera?'👤':'📷'}</Text><Text style={S.tiny}>{guestCamera?'مكان بث الضيف (RTC مطلوب)':'الكاميرا مغلقة'}</Text></View><Text style={S.white}>{guest}</Text><Small title={guestCamera?'🚫 إغلاق كاميرا الضيف':'📷 فتح كاميرا الضيف'} onPress={()=>setGuestCamera(v=>!v)}/>{isHost&&<Small title="✕ إنهاء الاتصال" color="#96334f" onPress={()=>setGuest('')}/>}</View>:null}
-      {isHost&&callRequest?<View style={S.callPanel}><Text style={S.white}>📞 {callRequest} يطلب الاتصال</Text><View style={S.row}><Small title="✔ قبول" color="#138a54" onPress={()=>{setGuest(callRequest);setGuestCamera(true);setCallRequest('')}}/><Small title="✕ رفض" color="#96334f" onPress={()=>setCallRequest('')}/></View></View>:null}
     </>:<>
       <Text style={S.seatHeading}>✦ المقاعد الملكية ✦</Text>
-      <View style={S.seatGrid}>{seats.map(x=><TouchableOpacity key={x.id} style={S.seatItem} onPress={()=>seatAction(x)} onLongPress={()=>{if(isHost)setSeats(v=>v.map(a=>a.id===x.id?{...a,locked:!a.locked}:a))}}><View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{x.locked?'🔒':x.user?'🎙️':'💺'}</Text></View><Text numberOfLines={1} style={S.tiny}>{x.user||`مقعد ${x.id}`}</Text><Text style={S.tiny}>{x.request?'✋ طلب':x.locked?'مغلق':x.user?'يتحدث':'متاح'}</Text></TouchableOpacity>)}</View>
-      {isHost&&seats.filter(x=>x.request).map(x=><View key={x.id} style={S.seatRequest}><Text style={S.white}>مقعد {x.id}</Text><Small title="✔ قبول" color="#138a54" onPress={()=>approveSeat(x.id,true)}/><Small title="✕ رفض" color="#96334f" onPress={()=>approveSeat(x.id,false)}/></View>)}
+      <View style={S.seatGrid}>{seats.map(x=><TouchableOpacity key={x.id} style={S.seatItem} onPress={()=>seatAction(x)} onLongPress={()=>seatAction(x)}><View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{x.locked?'🔒':x.user?'🎙️':'💺'}</Text></View><Text numberOfLines={1} style={S.tiny}>{x.user||`مقعد ${x.id}`}</Text><Text style={S.tiny}>{x.request?'✋ طلب':x.locked?'مغلق':x.user?'يتحدث':'متاح'}</Text></TouchableOpacity>)}</View>
     </>}
     <View style={{flex:1}}/>
-    {!keyboardOn&&<View style={S.actions}><Small title={isHost?'🔀 تجربة كمشاهد':'🔀 العودة للمضيف'} onPress={()=>setRole(v=>v==='host'?'viewer':'host')}/>{!audio&&(isHost?<Small title={`👥 الضيوف ${guest?1:0}`} onPress={()=>Alert.alert('تجربة','بدّل إلى وضع المشاهد لطلب الاتصال')}/>:<Small title="📞 طلب اتصال" color={PINK} onPress={()=>{if(guest)return Alert.alert('يوجد ضيف متصل');setCallRequest('مشاهد تجريبي');Alert.alert('تم إرسال الطلب','عد لوضع المضيف للقبول')}}/>)}</View>}
-    {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>المحادثة مشتركة عبر Firebase. الصوت والفيديو بين الهواتف غير متاحين بعد؛ الكاميرا تعرض معاينة هذا الهاتف فقط. اضغط مطولًا للإبلاغ أو الحظر.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    {giftOpen&&!keyboardOn&&<View style={S.giftDrawer}><View style={S.drawerHeader}><Text style={S.gold}>🎁 مكتبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>{GIFTS.map((g,i)=><TouchableOpacity key={i} style={S.giftTile} onPress={()=>send(g)}><Text style={{fontSize:22}}>{g[0]}</Text><Text numberOfLines={1} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {g[2]}</Text></TouchableOpacity>)}</ScrollView></View>}
-    <View style={S.composer}><TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity><TextInput style={S.messageInput} value={message} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={S.sendButton} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
+    {!keyboardOn&&<View style={S.actions}><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'المقاعد معاينة تصميمية':'معاينة الكاميرا محلية فقط'}</Text></View>}
+    {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>المحادثة مشتركة عبر Firebase. لا يوجد اتصال صوت/فيديو بين الأجهزة بعد. اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
+    {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}><View style={S.drawerHeader}><Text style={S.gold}>🎁 مكتبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>{GIFTS.map((g,i)=><TouchableOpacity key={i} style={S.giftTile} onPress={()=>send(g)}><Text style={{fontSize:22}}>{g[0]}</Text><Text numberOfLines={1} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {g[2]}</Text></TouchableOpacity>)}</ScrollView></View>}
+    <View style={S.composer}>{SHOW_UNRELEASED_DEMOS&&<TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity>}<TextInput style={S.messageInput} value={message} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={[S.sendButton,sending&&{opacity:.5}]} disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
     {fx&&<GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/>}
   </KeyboardAvoidingView>;
 }
@@ -212,7 +231,7 @@ export default function App(){
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
-  const go=p=>{pageRef.current=p;setPage(p)};
+  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['wallet','earnings','payout','store','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
@@ -259,6 +278,7 @@ export default function App(){
   useEffect(()=>{
     const unsub=auth().onAuthStateChanged(async u=>{
       setUser(u);
+      setRooms([]);setActiveRoom(null);setConfirmation(null);
       if(u){
         try{
           const doc=await firestore().collection('users').doc(u.uid).get();
@@ -388,7 +408,17 @@ export default function App(){
     }catch(e){Alert.alert('تعذر إنشاء الغرفة',e.message)}finally{setBusy(false)}
   }
   function enterRoom(room){
+    if(room.status==='closed')return Alert.alert('غرفة مغلقة','هذه الغرفة مغلقة الآن');
     setActiveRoom({...room,host:room.ownerName||room.host||'مضيف',owner:room.ownerUid||room.owner});go('room');
+  }
+  function closeMyRoom(room){
+    if(!user?.uid||room.ownerUid!==user.uid)return;
+    Alert.alert('إغلاق الغرفة','سيُمنع إرسال رسائل جديدة إلى الغرفة بعد إغلاقها، وتبقى الرسائل السابقة محفوظة للإشراف. هل توافق؟',[
+      {text:'إلغاء',style:'cancel'},
+      {text:'إغلاق',style:'destructive',onPress:async()=>{
+        try{await db.collection('rooms').doc(room.id).update({status:'closed'});if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms')}}
+        catch(e){Alert.alert('تعذر الإغلاق',e.message)}
+      }}]);
   }
   function buyGood(g){if(inventory.includes(g[1]))return Alert.alert('مملوكة');if(!spend(g[2]))return Alert.alert('رصيد غير كافٍ');setInventory(v=>[...v,g[1]])}
   function purchase(pack){
@@ -426,10 +456,10 @@ export default function App(){
     if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
     resetGame();go('games');
   }
-  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>❮ رجوع</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>💎 {fmt(total)}</Text></TouchableOpacity></View>}
-  function nav(){return <View style={S.nav}>{[['🏠','home'],['🎮','games'],['🎁','gifts'],['💎','wallet'],['👤','profile']].map(([icon,p])=><TouchableOpacity key={p} onPress={()=>go(p)}><Text style={{fontSize:24}}>{icon}</Text></TouchableOpacity>)}</View>}
+  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>❮ رجوع</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity disabled={!SHOW_UNRELEASED_DEMOS} onPress={()=>go('wallet')}><Text style={S.gold}>{SHOW_UNRELEASED_DEMOS?'💎 '+fmt(total):'Clipi'}</Text></TouchableOpacity></View>}
+  function nav(){const destinations=SHOW_UNRELEASED_DEMOS?[['🏠','home'],['🎮','games'],['🎁','gifts'],['💎','wallet'],['👤','profile']]:[['🏠','home'],['🚪','rooms'],['👤','profile']];return <View style={S.nav}>{destinations.map(([icon,p])=><TouchableOpacity key={p} onPress={()=>go(p)}><Text style={{fontSize:24}}>{icon}</Text></TouchableOpacity>)}</View>}
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="light-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
-  const myProfile=<View style={S.card}><Text style={{fontSize:54}}>{avatar}</Text><Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {user?.uid?.slice(0,12)}</Text><Text style={S.big}>💎 {fmt(total)}</Text><Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text><Text style={S.muted}>دعم تم إرساله: {fmt(spent)} ماسة</Text></View>;
+  const myProfile=<View style={S.card}><Text style={{fontSize:54}}>{avatar}</Text><Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {user?.uid?.slice(0,12)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
 
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
   if(page==='login'||page==='verify'||page==='terms')return <View style={S.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
@@ -438,9 +468,9 @@ export default function App(){
     page==='verify'?<><Text style={S.label}>رمز التحقق SMS</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder="ستة أرقام"/><Btn title={busy?'جارٍ التحقق...':'تأكيد الرمز'} disabled={busy} onPress={verifySms}/><Btn title="تغيير رقم الهاتف" color="#49306b" onPress={()=>go('login')}/></>:
     <><Text style={S.muted}>تسجيل الدخول الحقيقي عبر Firebase</Text><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder="اسم المستخدم"/><Text style={S.label}>الدولة</Text><Btn title={COUNTRIES[country].join(' ')} color="#49306b" onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={c.join(' ')} color="#382050" onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>الهاتف</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder="رقم الهاتف" keyboardType="phone-pad"/><Btn title={accepted?'☑ أوافق على الشروط':'☐ أوافق على الشروط'} color="#49306b" onPress={()=>setAccepted(v=>!v)}/><Btn title="قراءة الشروط" color="#49306b" onPress={()=>go('terms')}/><Btn title={busy?'جارٍ العمل...':'📱 تسجيل بالهاتف (SMS)'} disabled={busy} onPress={phoneLogin}/><Btn title="🌐 متابعة باستخدام Google" color="#4285f4" disabled={busy} onPress={googleLogin}/><Btn title="📘 متابعة باستخدام Facebook" color="#1877f2" disabled={busy} onPress={facebookLogin}/><Text style={S.muted}>Google وFacebook يحتاجان إعداد OAuth وبيانات المطور قبل تشغيلهما. الغرف مشتركة، لكن نقل الصوت والفيديو غير مفعّل.</Text>{authError?<Text style={{color:'#ffa6a6'}}>{authError}</Text>:null}</>}
   </ScrollView></View>;
-  if(page==='home')return layout('Clipi',<><View style={S.banner}><Text style={S.title}>أهلًا {name||'بك'} 👋</Text><Text style={S.white}>غرف ومحادثات مشتركة · معاينة الصوت والفيديو · هدايا وألعاب تجريبية</Text></View>{myProfile}<View style={S.panel}><Text style={S.title}>🎉 مكافأة الترحيب التجريبية</Text><Text style={S.white}>💎 1,000 ماسة · 👑 إطار ملكي · 🏎️ سيارة فاخرة</Text></View><Btn title="📹 إنشاء غرفة صوتية أو فيديو" onPress={()=>go('create')}/><Btn title="🚪 استعراض الغرف" color="#7040a7" onPress={()=>go('rooms')}/><Btn title="💎 شراء الماسات" color="#7040a7" onPress={()=>go('wallet')}/><Btn title="🛍 المتجر" color="#7040a7" onPress={()=>go('store')}/><Btn title="💰 أرباح المضيف وقنوات السحب" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star" color="#7040a7" onPress={()=>go('games')}/><Btn title="📤 مشاركة Clipi" color="#7040a7" onPress={()=>Share.share({message:'Clipi'})}/></>);
+  if(page==='home')return layout('Clipi',<><View style={S.banner}><Text style={S.title}>أهلًا {name||'بك'} 👋</Text><Text style={S.white}>غرف ومحادثات مشتركة · تصميم غرفة صوت وفيديو (دون بث مباشر)</Text></View>{myProfile}{SHOW_UNRELEASED_DEMOS&&<View style={S.panel}><Text style={S.title}>🎉 مكافأة الترحيب التجريبية</Text><Text style={S.white}>💎 1,000 ماسة · 👑 إطار ملكي · 🏎️ سيارة فاخرة</Text></View>}<Btn title="📹 إنشاء غرفة صوتية أو فيديو" onPress={()=>go('create')}/><Btn title="🚪 استعراض الغرف" color="#7040a7" onPress={()=>go('rooms')}/>{SHOW_UNRELEASED_DEMOS&&<><Btn title="💎 شراء الماسات (تجريبي)" color="#7040a7" onPress={()=>go('wallet')}/><Btn title="🛍 المتجر (تجريبي)" color="#7040a7" onPress={()=>go('store')}/><Btn title="💰 أرباح المضيف (تجريبي)" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star (تجريبي)" color="#7040a7" onPress={()=>go('games')}/></>}<Btn title="📤 مشاركة Clipi" color="#7040a7" onPress={()=>Share.share({message:'Clipi'})}/></>);
   if(page==='create')return layout('إنشاء غرفة',<><Text style={S.label}>اسم الغرفة</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>نوع الغرفة</Text><View style={S.row}><Btn title="📹 فيديو" color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title="🎙 صوت" color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.label}>كلمة مرور (غير متاحة في الإصدار الحالي)</Text><TextInput style={S.input} value={roomPass} onChangeText={setRoomPass} secureTextEntry placeholder="اختيارية"/><Btn title="فتح الغرفة" onPress={createRoom}/></>);
-  if(page==='rooms')return layout('الغرف',<><Btn title="➕ إنشاء غرفة" onPress={()=>go('create')}/>{rooms.length===0?<Text style={S.muted}>أنشئ غرفة جديدة</Text>:rooms.map(r=><TouchableOpacity key={r.id} style={S.panel} onPress={()=>enterRoom(r)}><Text style={S.title}>{r.type==='video'?'📹':'🎙'} {r.name}</Text><Text style={S.gold}>#{r.id.slice(0,9)} 🌐 · دردشة مباشرة</Text></TouchableOpacity>)}</>);
+  if(page==='rooms')return layout('الغرف',<><Btn title="➕ إنشاء غرفة" onPress={()=>go('create')}/>{rooms.filter(r=>r.status==='open').length===0?<Text style={S.muted}>لا توجد غرف مفتوحة بعد</Text>:rooms.filter(r=>r.status==='open').map(r=><View key={r.id} style={S.panel}><TouchableOpacity onPress={()=>enterRoom(r)}><Text style={S.title}>{r.type==='video'?'📹':'🎙'} {r.name}</Text><Text style={S.gold}>#{r.id.slice(0,9)} 🌐 · دردشة مباشرة (البث غير مفعّل)</Text></TouchableOpacity>{r.ownerUid===user?.uid&&<Btn title="إغلاق غرفتي" color="#96334f" onPress={()=>closeMyRoom(r)}/>}</View>)}</>);
   if(page==='password')return layout('غرفة مقفلة',<><TextInput style={S.input} value={joinPass} onChangeText={setJoinPass} secureTextEntry placeholder="كلمة مرور الغرفة"/><Btn title="دخول" onPress={()=>{if(joinPass!==pendingRoom?.pass)return Alert.alert('كلمة المرور غير صحيحة');setActiveRoom(pendingRoom);go('room')}}/></>,()=>go('rooms'));
   if(page==='room')return <Room key={activeRoom?.id||'room'} room={activeRoom} userId={user?.uid} username={name||'مستخدم'} avatar={avatar} diamonds={available} onSendGift={sendGift} onExit={()=>{setActiveRoom(null);go('rooms')}}/>;
   if(page==='wallet')return layout('محفظة Clipi',<><View style={S.card}><Text style={S.title}>💎 الرصيد التجريبي</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>هدية الترحيب: {fmt(wallet.welcome)}</Text><Text style={S.white}>المشتَرى: {fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>معاينة المالك: {fmt(wallet.owner)}</Text>}</View><Text style={S.title}>طريقة الشراء</Text><View style={S.row}><Btn title="💵 دولار" color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>سعر Pi بالدولار (يدوي للمعاينة)</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder="مثال: 0.50"/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?pack*1.2:pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`$${pack/1000}`:Number(piRate)>0?`${((pack/1000)/Number(piRate)).toFixed(6)} Pi`:'أدخل سعر Pi'}</Text></View><Small title="شراء" color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>هذه الباقات معاينة للأسعار فقط. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.</Text></>);
