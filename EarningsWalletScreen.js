@@ -1,9 +1,12 @@
-import React,{useEffect,useState} from 'react';
-import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet} from 'react-native';
+import React,{useEffect,useState,useRef} from 'react';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
 import functions from '@react-native-firebase/functions';
+import * as LocalAuthentication from 'expo-local-authentication';
 const call=name=>functions().httpsCallable(name);
 const money=n=>'$'+((n||0)/100).toFixed(2);
 export default function EarningsWalletScreen({onBack}){
+ const [unlocked,setUnlocked]=useState(false),[unlocking,setUnlocking]=useState(false),[lockError,setLockError]=useState('');
+ const lockRef=useRef(false);
  const [data,setData]=useState(null),[pin,setPin]=useState(''),[oldPin,setOldPin]=useState(''),[busy,setBusy]=useState(false);
  async function load(){
   setBusy(true);
@@ -11,7 +14,49 @@ export default function EarningsWalletScreen({onBack}){
   catch(e){Alert.alert('تعذر تحميل المحفظة',e.message)}
   finally{setBusy(false)}
  }
- useEffect(()=>{load()},[]);
+ useEffect(()=>{
+  let active=true;
+  const subscription=AppState.addEventListener('change',state=>{
+   if(state==='background'||state==='inactive'){
+    lockRef.current=true;
+    if(active){setUnlocked(false);setData(null);setPin('');setOldPin('')}
+   }
+  });
+  return ()=>{active=false;subscription.remove()};
+ },[]);
+ async function unlockWallet(){
+  if(unlocking)return;
+  setUnlocking(true);setLockError('');
+  try{
+   const supported=await LocalAuthentication.hasHardwareAsync();
+   const enrolled=await LocalAuthentication.isEnrolledAsync();
+   if(!supported&&!enrolled){
+    setLockError('لا توجد وسيلة تحقق محلية مهيأة على هذا الجهاز. فعّل قفل الجهاز أو البصمة من الإعدادات.');
+    return;
+   }
+   const result=await LocalAuthentication.authenticateAsync({
+    promptMessage:'فتح محفظة Clipi',
+    cancelLabel:'إلغاء',
+    disableDeviceFallback:false,
+    fallbackLabel:'رمز الجهاز',
+   });
+   if(result.success){
+    lockRef.current=false;
+    setUnlocked(true);
+    await load();
+   }else setLockError('لم ينجح التحقق. حاول مجددًا أو استخدم وسيلة قفل الجهاز إذا عرضها النظام.');
+  }catch(e){setLockError('تعذر التحقق من الجهاز: '+e.message)}
+  finally{setUnlocking(false)}
+ }
+ if(!unlocked)return <View style={[S.page,S.lockScreen]}>
+  <Text style={S.lockIcon}>🔐</Text>
+  <Text style={S.heading}>محفظة Clipi محمية</Text>
+  <Text style={S.label}>افتح المحفظة ببصمة الوجه أو الإصبع أو رمز قفل الجهاز عند إتاحته من نظام التشغيل.</Text>
+  <TouchableOpacity disabled={unlocking} onPress={unlockWallet} style={S.button}><Text style={S.buttonText}>{unlocking?'جارٍ التحقق...':'فتح المحفظة بأمان'}</Text></TouchableOpacity>
+  {!!lockError&&<Text style={S.error}>{lockError}</Text>}
+  <TouchableOpacity onPress={onBack} style={S.button}><Text style={S.buttonText}>رجوع</Text></TouchableOpacity>
+ </View>;
+
  async function savePin(){
   if(!/^\d{6}$/.test(pin))return Alert.alert('الرقم السري','أدخل 6 أرقام');
   setBusy(true);
@@ -52,6 +97,7 @@ export default function EarningsWalletScreen({onBack}){
  </ScrollView>
 }
 const S=StyleSheet.create({
+ lockScreen:{justifyContent:'center',padding:24,alignItems:'center'},lockIcon:{fontSize:62,marginBottom:18},error:{color:'#ffb6c1',textAlign:'center',marginTop:12},
  page:{flex:1,backgroundColor:'#170b2c'},body:{padding:18,paddingTop:45,paddingBottom:35},
  panel:{backgroundColor:'#302051',padding:18,borderRadius:14,marginVertical:10},
  heading:{fontSize:21,fontWeight:'900',color:'white',marginBottom:12},
