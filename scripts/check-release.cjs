@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+const fs=require('fs'),assert=require('assert');
+const source=fs.readFileSync('App.js','utf8');
+const rules=fs.readFileSync('firestore.rules','utf8');
+const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));
+const app=JSON.parse(fs.readFileSync('app.json','utf8'));
+const eas=JSON.parse(fs.readFileSync('eas.json','utf8'));
+assert(source.includes("collection('rooms')")&&source.includes("collection('messages')"), 'Shared rooms/messages missing');
+assert(source.includes('isHost')&&source.includes('حذف الرسالة'), 'Host moderation missing');
+assert(source.includes('closeMyRoom'), 'Close room action missing');
+assert(!source.includes('setRole('), 'Unsecured fake moderator role toggle remains');
+assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'), 'Unreleased demos are not hidden');
+assert(rules.includes("resource.data.status == 'open'"), 'Closed room protections missing');
+assert(rules.includes('reporterUid == request.auth.uid'), 'Report identity constraint missing');
+assert(pkg.dependencies['@react-native-firebase/auth']&&pkg.dependencies['@react-native-firebase/firestore']);
+assert(eas.build.preview.android.buildType==='apk');
+console.log('Clipi release guards passed (static assertions only).');
