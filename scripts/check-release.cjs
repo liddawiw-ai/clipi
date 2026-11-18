@@ -13,6 +13,8 @@ assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'), 'Unreleased demos are n
 assert(rules.includes("resource.data.status == 'open'"), 'Closed room protections missing');
 assert(rules.includes('reporterUid == request.auth.uid'), 'Report identity constraint missing');
 assert(pkg.dependencies['@react-native-firebase/auth']&&pkg.dependencies['@react-native-firebase/firestore']);
+assert(pkg.main==='node_modules/expo/AppEntry.js', 'Expo entry must call registerRootComponent; direct App.js main causes launch crash');
+assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App.js default component export');
 assert(eas.build.preview.android.buildType==='apk');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
