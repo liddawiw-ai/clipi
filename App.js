@@ -93,6 +93,17 @@ function GiftFX({gift,onDone}){
     </Animated.View>
     <Animated.Text style={[S.fxFire,{position:'absolute',top:'45%',opacity:move([0,.73,.84,.95,1],[0,0,1,1,0]),transform:[{scale:move([0,.8,1],[.3,1,2.1])}]}]}>🔥🔥🔥</Animated.Text>
   </>;
+  else if(['plane','helicopter','spaceship','space'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.3,.65,1],[-WIDTH,WIDTH*.18,0,WIDTH*1.4])},{translateY:move([0,.3,.7,1],[HEIGHT*.5,0,-HEIGHT*.2,-HEIGHT*.65])},{rotate:move([0,.5,1],['-18deg','5deg','-22deg'])},{scale}]}]}>
+    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#56d6ff',textShadowRadius:30}]}>{gift[0]}</Text><Text style={S.fxFire}>✦ ✧ ✦</Text></Animated.View>;
+  else if(['phoenix','butterfly','fairy','animal','cat','duck','robot'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,.3,.7,1],[HEIGHT*.4,0,-60,-HEIGHT*.2])},{rotate:move([0,.5,1],['-12deg','12deg','-12deg'])},{scale}]}]}>
+    <Text style={[S.fxIcon,{fontSize:155,textShadowColor:'#ffa954',textShadowRadius:30}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:45}]}>✨ ✨ ✨</Text></Animated.View>;
+  else if(['kiss','flower','heart','perfume'].includes(kind))shape=<View style={S.fxCenter}>
+    <Animated.Text style={[S.fxIcon,{fontSize:155,transform:[{scale:move([0,.4,.8,1],[.1,1.7,1.3,2])}],opacity:move([0,.2,.8,1],[0,1,1,0])}]}>{gift[0]}</Animated.Text>
+    <Animated.Text style={[S.fxSpark,{fontSize:60,opacity:glow,transform:[{translateY:move([0,1],[120,-230])}]}]}>💕 🌸 ✨</Animated.Text></View>;
+  else if(['treasure','gold','money','gem','bundle'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:move([0,.45,1],['-15deg','12deg','0deg'])}]}]}>
+    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#ffe25e',textShadowRadius:40}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:46}]}>💎 ✨ 💰 ✨ 💎</Text></Animated.View>;
+  else if(['ice','water','meteor','magic','party','dance','clap','flag','dinner','fruit','candy','smoke'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:move([0,.4,.8,1],['-25deg','20deg','-15deg','0deg'])}]}]}>
+    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#f9aaff',textShadowRadius:32}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:44}]}>✦ ✨ ✦ ✨ ✦</Text></Animated.View>;
   else shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:kind==='ring'?move([0,1],['0deg','360deg']):'0deg'}]}]}><Text style={S.fxIcon}>{gift[0]}</Text></Animated.View>;
   // All existing gifts use a full-screen animated light stage; no new peacock gift.
   const beams=Array.from({length:12},(_,i)=><Animated.View key={i} style={{
