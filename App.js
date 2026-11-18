@@ -405,7 +405,7 @@ export default function App(){
     if(busy)return;
     if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
     if(!GOOGLE_WEB_CLIENT_ID)return Alert.alert('إعداد Google','أضف EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID في بيئة EAS، وفعّل Google في Firebase');
-    setBusy(true);
+    setBusy(true);setAuthError('');
     try{
       if(Platform.OS==='android')await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
       const result=await GoogleSignin.signIn();
@@ -413,15 +413,18 @@ export default function App(){
       if(!token)throw new Error('Google لم يرجع ID Token');
       const credential=auth.GoogleAuthProvider.credential(token);
       const signed=await auth().signInWithCredential(credential);
-      await saveProfile(signed.user,signed.user.displayName||name.trim());
+      try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
+      catch(profileError){console.warn('Google profile sync:',profileError.message)}
       setUser(signed.user);go('home');
-    }catch(e){if(e.code!=='SIGN_IN_CANCELLED'&&e.code!=='12501')Alert.alert('فشل تسجيل Google',e.message)}finally{setBusy(false)}
+    }catch(e){if(e.code!=='SIGN_IN_CANCELLED'&&e.code!=='12501'&&e.code!=='SIGN_IN_CANCELLED'){
+      const detail=e?.message||'تحقق من إعدادات Google وFirebase';setAuthError(detail);Alert.alert('فشل تسجيل Google',detail)
+    }}finally{setBusy(false)}
   }
   async function facebookLogin(){
     if(busy)return;
     if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
-    if(!FACEBOOK_CONFIGURED)return Alert.alert('إعداد Facebook','أكمل FACEBOOK_APP_ID وFACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول');
-    setBusy(true);
+    if(!FACEBOOK_CONFIGURED)return Alert.alert('إعداد Facebook','أكمل EXPO_PUBLIC_FACEBOOK_APP_ID وEXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول');
+    setBusy(true);setAuthError('');
     try{
       let credential;
       if(Platform.OS==='ios'){
@@ -440,9 +443,12 @@ export default function App(){
         credential=auth.FacebookAuthProvider.credential(token.accessToken);
       }
       const signed=await auth().signInWithCredential(credential);
-      await saveProfile(signed.user,signed.user.displayName||name.trim());
+      try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
+      catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
       setUser(signed.user);go('home');
-    }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501')Alert.alert('فشل تسجيل Facebook',e.message||'راجع Facebook App ID وإعداد Firebase')}
+    }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
+      const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(detail);Alert.alert('فشل تسجيل Facebook',detail)
+    }}
     finally{setBusy(false)}
   }
   async function logout(){
