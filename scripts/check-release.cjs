@@ -64,4 +64,7 @@ assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must
 assert(source.includes('const hostSettings=<Modal')&&source.includes('hostSettingsOpen&&isHost'),'Host-only settings sheet missing');
 assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
 assert(source.includes('setMinimized(true)')&&source.includes('setCameraFacing'),'Host settings controls missing');
+assert(source.includes('const exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
+assert(source.includes('✕ مغادرة الغرفة')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
+assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
 console.log('Clipi release guards passed (static assertions only).');
