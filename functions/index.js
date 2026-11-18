@@ -127,6 +127,31 @@ exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async requ
 // Points are denominated in hundredths of a USD reference unit, not a cash balance.
 // Distribution: host 55%, agent 10%, platform 35%. Actual cash settlement remains OFF.
 const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35,pointsPerUsd:100,minConversionPoints:2000,diamondsPerConversionUsd:1100});
+// Quote only: one half-point is the smallest allocation unit, so 27.5 points
+// are represented exactly without rounding or creating money from floating-point values.
+function quoteLuckGiftSupport(diamonds,source='paid'){
+ if(!Number.isSafeInteger(diamonds)||diamonds<0||diamonds>1000000000)
+  throw new HttpsError('invalid-argument','Invalid diamond amount');
+ if(!['paid','welcome','ownerPromo','redeemed'].includes(source))
+  throw new HttpsError('invalid-argument','Invalid gift source');
+ const eligible=source==='paid';
+ // 2000 paid diamonds = 100 gross points = 200 half-point units.
+ const grossHalfPoints=eligible?Math.floor(diamonds/10):0;
+ const hostHalfPoints=Math.floor(grossHalfPoints*SUPPORT_POLICY.hostPercent/100);
+ const agentHalfPoints=Math.floor(grossHalfPoints*SUPPORT_POLICY.agentPercent/100);
+ const ownerHalfPoints=grossHalfPoints-hostHalfPoints-agentHalfPoints;
+ return {diamonds,source,grossHalfPoints,hostHalfPoints,agentHalfPoints,ownerHalfPoints,
+  pointUnitDenominator:2,settlementEnabled:false};
+}
+exports.quoteLuckGiftSupport=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ const {diamonds,source='paid',outcome='none'}=request.data||{};
+ if(!['none','small','medium','grand'].includes(outcome))
+  throw new HttpsError('invalid-argument','Invalid luck outcome');
+ return {...quoteLuckGiftSupport(diamonds,source),outcome,
+  senderBonusDiamonds:0,executable:false,
+  reason:'Illustrative quote only; paid luck gifting, point issuance and withdrawable prizes are disabled'};
+});
 exports.getSupportPolicy=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
  requireUser(request);
  return {...SUPPORT_POLICY,ownerPromotionalDiamonds:100000000,
