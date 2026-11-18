@@ -32,6 +32,41 @@ async function redactReports(field,uid){
   await batch.commit();
  }
 }
+// Server-authoritative occupancy; audio media requires a separate RTC provider.
+exports.joinAudioSeat=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const {roomId,seat}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId)||!Number.isInteger(seat)||seat<1||seat>8)
+  throw new HttpsError('invalid-argument','Invalid room or seat');
+ const roomRef=db.collection('rooms').doc(roomId);
+ const seatRef=roomRef.collection('audioSeats').doc(String(seat));
+ await db.runTransaction(async tx=>{
+  const room=await tx.get(roomRef);
+  const existing=await tx.get(seatRef);
+  if(!room.exists||room.get('status')!=='open'||room.get('type')!=='audio')
+   throw new HttpsError('failed-precondition','Audio room is not open');
+  if(seat===1&&room.get('ownerUid')!==uid)
+   throw new HttpsError('permission-denied','Seat one belongs to the host');
+  if(existing.exists&&existing.get('uid')!==uid)
+   throw new HttpsError('already-exists','Seat occupied');
+  tx.set(seatRef,{uid,joinedAt:FieldValue.serverTimestamp()},{merge:true});
+ });
+ return {ok:true,seat};
+});
+exports.leaveAudioSeat=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const {roomId,seat}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId)||!Number.isInteger(seat)||seat<1||seat>8)
+  throw new HttpsError('invalid-argument','Invalid room or seat');
+ const ref=db.collection('rooms').doc(roomId).collection('audioSeats').doc(String(seat));
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  if(!snap.exists)return;
+  if(snap.get('uid')!==uid)throw new HttpsError('permission-denied','Not your seat');
+  tx.delete(ref);
+ });
+ return {ok:true};
+});
 exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSeconds:540},async request=>{
  const uid=requireUser(request);recentLogin(request);
  // Delete authored messages across all rooms before removing the auth identity.
