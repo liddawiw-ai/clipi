@@ -21,3 +21,11 @@ This is a DEVELOPMENT CANDIDATE, not a certified finished public product. Build 
 - Financial, gifts and betting *demo* screens are hidden in non-development builds (`SHOW_UNRELEASED_DEMOS=__DEV__`). Existing prototypes remain in source for future development.
 - Run `npm run test:release` for static guard checks. This DOES NOT replace a native build, Firestore emulator tests, or real device testing.
 - Consult `RELEASE-CHECKLIST.md` for blockers and external dependencies.
+## Stage 4 — Firestore authorization tests (18 Nov 2026)
+- Firestore rules test suite: `tests/firestore.rules.test.cjs`.
+- CI: `.github/workflows/clipi-static-check.yml` runs Java 21, Firebase Firestore Emulator, and the tests.
+- Local: `npm install --legacy-peer-deps`, then `npm run test:firestore:emulator`.
+- Tested intents: guest access denied; profile isolation; room owner create/close; text validation; closed-room send denial; message author/host deletion; block collection isolation; report write-only identity; default-deny paths.
+- Updated `firestore.rules` limits blocked records to timestamp fields and validates report target IDs. These edits are **only in the GitHub branch** until explicitly deployed.
+- **Do not deploy rules just because GitHub test runs green**: review the full collection layout, user data deletion and operational policies. Firebase Emulator tests do not test real SMS sign-in, live devices, or production migration.
+- Results status: source and CI test files committed; await a green **firestore-rules-emulator** job in the newest GitHub Actions run before declaring the stage passed.
