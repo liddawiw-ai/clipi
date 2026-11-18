@@ -151,12 +151,31 @@ exports.claimOwnerPromotionalDiamonds=onCall({enforceAppCheck:true,maxInstances:
  });
  return {ok:true,promotionalBalance:balance};
 });
+// Each authenticated account can claim its 100 welcome diamonds once.
+// Welcome diamonds are real in-app gift credits but have zero cash/point value.
+exports.claimWelcomeDiamonds=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const walletRef=db.collection('virtualWallets').doc(uid);
+ let balance;
+ await db.runTransaction(async tx=>{
+  const wallet=await tx.get(walletRef);
+  if(wallet.get('welcomeGranted')===true){
+   balance=wallet.get('welcomeBalance')||0;return;
+  }
+  if(wallet.exists&&wallet.get('welcomeBalance')!==undefined)
+   throw new HttpsError('failed-precondition','Existing welcome balance needs review');
+  balance=100;
+  tx.set(walletRef,{welcomeBalance:balance,welcomeGranted:true,
+   updatedAt:FieldValue.serverTimestamp()},{merge:true});
+ });
+ return {ok:true,welcomeBalance:balance};
+});
 // Stage 12: virtual-only gift ledger. No client minting, purchases or cash-outs.
 const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000});
 exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
  const senderUid=requireUser(request);
  const {roomId,giftId,requestId,source='paid'}=request.data||{};
- if(!['paid','ownerPromo'].includes(source))throw new HttpsError('invalid-argument','Invalid balance source');
+ if(!['paid','ownerPromo','welcome'].includes(source))throw new HttpsError('invalid-argument','Invalid balance source');
  if(source==='ownerPromo'){
   const identity=await getAuth().getUser(senderUid);
   if(identity.customClaims?.clipiOwner!==true)throw new HttpsError('permission-denied','Verified owner required');
@@ -182,11 +201,11 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
   const hostUid=room.get('ownerUid');
   if(typeof hostUid!=='string'||!hostUid||hostUid===senderUid)
    throw new HttpsError('failed-precondition','Invalid gift recipient');
-  const balance=sender.get(source==='ownerPromo'?'promotionalBalance':'balance');
+  const balance=sender.get(source==='ownerPromo'?'promotionalBalance':source==='welcome'?'welcomeBalance':'balance');
   if(!Number.isSafeInteger(balance)||balance<price)
    throw new HttpsError('failed-precondition','Insufficient funded virtual balance');
-  if(source==='ownerPromo'){
-   tx.update(senderRef,{promotionalBalance:balance-price,updatedAt:FieldValue.serverTimestamp()});
+  if(source==='ownerPromo'||source==='welcome'){
+   tx.update(senderRef,{[source==='ownerPromo'?'promotionalBalance':'welcomeBalance']:balance-price,updatedAt:FieldValue.serverTimestamp()});
    tx.create(receiptRef,{roomId,giftId,price,source,recipientUid:hostUid,
     eligibleSupportPoints:0,cashValueMinor:0,createdAt:FieldValue.serverTimestamp()});
    outcome={ok:true,duplicate:false,price,eligibleSupportPoints:0};return;
