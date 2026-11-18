@@ -31,11 +31,12 @@ module.exports = {
       supportsTablet: true,
       infoPlist: {ITSAppUsesNonExemptEncryption: false},
       bundleIdentifier: 'com.walid.clipi',
+      buildNumber: '1',
       googleServicesFile: './GoogleService-Info.plist'
     },
     android: {
       package: 'com.walid.clipi',
-      versionCode: 2,
+      versionCode: 3,
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
