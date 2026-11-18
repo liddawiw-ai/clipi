@@ -160,6 +160,26 @@ exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async requ
  });
  return outcome;
 });
+// Stage 13 safety gate: money movement is OFF until provider, compliance and store approval.
+const REAL_PAYMENTS_ENABLED=false;
+const REAL_PAYOUTS_ENABLED=false;
+exports.getFinancialAvailability=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ return {
+  purchasesEnabled:REAL_PAYMENTS_ENABLED,
+  payoutsEnabled:REAL_PAYOUTS_ENABLED,
+  withdrawableBalanceMinor:0,
+  currency:'USD',
+  reason:'Payments and cash withdrawals are not activated. Virtual gifts have no cash value.'
+ };
+});
+exports.requestCashPayout=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
+ requireUser(request);
+ // Never accept client-side balances, bank account details or payment destinations.
+ if(!REAL_PAYOUTS_ENABLED)
+  throw new HttpsError('failed-precondition','Cash payouts are not available');
+ throw new HttpsError('unimplemented','A licensed payout provider and compliance workflow are required');
+});
 exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSeconds:540},async request=>{
  const uid=requireUser(request);recentLogin(request);
  // Delete authored messages across all rooms before removing the auth identity.
