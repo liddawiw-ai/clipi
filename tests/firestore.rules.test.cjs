@@ -2,7 +2,7 @@
 const {test, before, after, beforeEach}=require('node:test');
 const fs=require('node:fs');
 const {initializeTestEnvironment,assertSucceeds,assertFails}=require('@firebase/rules-unit-testing');
-const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp}=require('firebase/firestore');
+const {doc,getDoc,setDoc,updateDoc,deleteDoc,serverTimestamp,onSnapshot,collection,query,orderBy}=require('firebase/firestore');
 
 let env,alice,bob,anon;
 const db=(ctx)=>ctx.firestore();
@@ -99,4 +99,24 @@ test('reports are write-only and reporter cannot impersonate another user',async
 test('unknown collections are denied by default',async()=>{
   await assertFails(setDoc(doc(db(alice),'admin/settings'),{owner:'alice'}));
   await assertFails(getDoc(doc(db(alice),'admin/settings')));
+});
+
+test('two distinct authenticated clients exchange a realtime message in the same room', {timeout:30000}, async()=>{
+  // These contexts simulate different signed-in devices; SMS/native verification is tested separately.
+  const inbox=query(collection(db(alice),'rooms/room1/messages'),orderBy('createdAt','asc'));
+  const arriving=new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>{unsubscribe();reject(new Error('Alice did not receive Bob message in realtime'))},20000);
+    let unsubscribe=()=>{};
+    unsubscribe=onSnapshot(inbox,snapshot=>{
+      if(snapshot.docs.some(d=>d.id==='bob-live'&&d.data().text==='مرحبًا من الجهاز الثاني')){
+        clearTimeout(timeout);unsubscribe();resolve();
+      }
+    },error=>{clearTimeout(timeout);unsubscribe();reject(error)});
+  });
+  await assertSucceeds(setDoc(doc(db(bob),'rooms/room1/messages/bob-live'),{
+    ...message('bob'),text:'مرحبًا من الجهاز الثاني'
+  }));
+  await arriving;
+  await assertSucceeds(deleteDoc(doc(db(alice),'rooms/room1/messages/bob-live')));
+  await assertFails(getDoc(doc(db(anon),'rooms/room1/messages/msg1')));
 });
