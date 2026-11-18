@@ -7,7 +7,7 @@ This integrates the existing full Clipi screens with Firebase shared room direct
 2. Deploy `firestore.rules` **only after verifying** against existing collections and testing them with Firebase Emulator. The GitHub workflow deployment requires the existing repo secret `FIREBASE_SERVICE_ACCOUNT_CLIPI`. Updating this file in git does not deploy it.
 3. Test `npm install && npx expo install --check`, then EAS preview build. iOS requires Apple credentials.
 4. Verify two phones can log in, see the same room and exchange chat text. Moderation reports need an operator inbox and removal process. Account deletion needs a backend cascade and legal retention policy before a public store release.
-5. Configure native Google/Facebook auth OAuth and app IDs in EAS environment before enabling. The Facebook scheme requires `FACEBOOK_APP_ID` and `FACEBOOK_CLIENT_TOKEN`; Google requires `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
+5. Configure native Google/Facebook auth OAuth and app IDs in EAS environment before enabling. The Facebook scheme requires `EXPO_PUBLIC_FACEBOOK_APP_ID` and `EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN`; Google requires `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`.
 6. Before making audio/video fully functional, integrate an audited RTC provider with server-generated short-lived tokens, actual remote streams, moderator controls and user consent. Never issue RTC tokens from the mobile app.
 7. Before enabling payments/payouts or stakes, integrate store-compliant billing and a secure backend ledger, KYC/AML or gambling compliance where applicable, abuse controls and actual processor integrations.
 
@@ -26,6 +26,13 @@ This is a DEVELOPMENT CANDIDATE, not a certified finished public product. Build 
 - CI: `.github/workflows/clipi-static-check.yml` runs Java 21, Firebase Firestore Emulator, and the tests.
 - Local: `npm install --legacy-peer-deps`, then `npm run test:firestore:emulator`.
 - Tested intents: guest access denied; profile isolation; room owner create/close; text validation; closed-room send denial; message author/host deletion; block collection isolation; report write-only identity; default-deny paths.
-- Updated `firestore.rules` limits blocked records to timestamp fields and validates report target IDs. These edits are **only in the GitHub branch** until explicitly deployed.
+- Updated `firestore.rules` limits blocked records to timestamp fields and validates report target IDs. Those rules were subsequently deployed to Firebase `clipi-f67c0` and verified; future changes still require authorized deployment.
 - **Do not deploy rules just because GitHub test runs green**: review the full collection layout, user data deletion and operational policies. Firebase Emulator tests do not test real SMS sign-in, live devices, or production migration.
 - Results status: source and CI test files committed; await a green **firestore-rules-emulator** job in the newest GitHub Actions run before declaring the stage passed.
+
+## Wallet and safety audit (18 Nov 2026)
+- New earnings wallet screen uses device biometric/passcode authentication and Firebase callable functions; deployment and native tests pending.
+- Fixed PIN validation and added a temporary lockout after repeated wrong PINs.
+- Archived `components/Store.js` no longer mints diamonds locally or implies a successful purchase.
+- Server Functions must be deployed separately; updating the repository does not activate them.
+- The approved app icon is still deferred and not configured in Expo assets.
