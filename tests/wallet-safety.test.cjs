@@ -45,6 +45,32 @@ test('support conversion policy is arithmetically consistent',()=>{
  assert.equal(p.minConversionPoints/p.pointsPerUsd*p.diamondsPerConversionUsd,22000);
 });
 
+test('luck gifts allocate the same support regardless of outcome',()=>{
+ const start=backend.indexOf('function quoteLuckGiftSupport(');
+ const end=backend.indexOf('exports.quoteLuckGiftSupport=',start);
+ assert.ok(start>=0&&end>start);
+ const policyMatch=backend.match(/const SUPPORT_POLICY=Object\\.freeze\\((\\{[^;]+\\})\\);/);
+ assert.ok(policyMatch);
+ const policy=new Function('return ('+policyMatch[1]+')')();
+ const quote=new Function('SUPPORT_POLICY','HttpsError',backend.slice(start,end)+'; return quoteLuckGiftSupport;')(
+  policy,class extends Error{});
+ const paid=quote(1000,'paid');
+ assert.equal(paid.grossHalfPoints,100);
+ assert.equal(paid.hostHalfPoints,55);
+ assert.equal(paid.agentHalfPoints,10);
+ assert.equal(paid.ownerHalfPoints,35);
+ assert.equal(paid.hostHalfPoints/2,27.5);
+ assert.equal(paid.agentHalfPoints/2,5);
+ assert.equal(paid.ownerHalfPoints/2,17.5);
+ for(const source of ['welcome','ownerPromo','redeemed']){
+  const free=quote(1000,source);
+  assert.equal(free.grossHalfPoints,0);
+  assert.equal(free.hostHalfPoints,0);
+ }
+ assert.match(backend,/senderBonusDiamonds:0,executable:false/);
+ assert.doesNotMatch(backend.slice(start,end),/outcome/);
+});
+
 test('biometric wallet locks on background and ignores stale requests',()=>{
  assert.match(wallet,/LocalAuthentication\.authenticateAsync\(/);
  assert.match(wallet,/requestEpochRef\.current\+=1/);
