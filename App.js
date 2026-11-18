@@ -101,6 +101,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const [guest,setGuest]=useState('');
   const [guestCamera,setGuestCamera]=useState(true);
   const [callRequest,setCallRequest]=useState('');
+  const [videoGuestUid,setVideoGuestUid]=useState(null);
+  const [videoGuestRequestUid,setVideoGuestRequestUid]=useState(null);
   const [seats,setSeats]=useState(()=>Array.from({length:8},(_,i)=>({id:i+1,user:i===0?room.host:null,locked:false,request:null})));
   const [chat,setChat]=useState([]),[message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
@@ -113,6 +115,9 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     setChat([]);
     roomClosedRef.current=false;
     const roomUnsub=firestore().collection('rooms').doc(room.id).onSnapshot(d=>{
+      const current=d.data()||{};
+      setVideoGuestUid(current.guestUid||null);
+      setVideoGuestRequestUid(current.guestRequestUid||null);
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
@@ -197,7 +202,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       </View>}
     <View style={S.liveHeader}><Small title="✕" onPress={onExit}/><View style={{flex:1,alignItems:'center'}}><Text style={S.title}>{room.name}</Text><Text style={S.tiny}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'} · #{room.id}</Text></View><View style={S.liveTag}><Text style={S.white}>● معاينة</Text></View></View>
     {!audio?<>
-      <View style={S.avatars}><View style={S.guestAvatar}><Text style={{fontSize:23}}>{avatar}</Text><Text style={S.tiny}>المضيف</Text></View>{guest?<View style={S.guestAvatar}><Text style={{fontSize:23}}>👤</Text><Text style={S.tiny}>الضيف</Text></View>:null}<Text style={[S.tiny,{marginLeft:'auto'}]}>معاينة: {isHost?'مضيف':'مشاهد'}</Text></View>
+      <View style={S.avatars}><View style={S.guestAvatar}><Text style={{fontSize:23}}>{avatar}</Text><Text style={S.tiny}>المضيف</Text></View>{videoGuestUid?<View style={S.guestAvatar}><Text style={{fontSize:23}}>👤</Text><Text style={S.tiny}>{videoGuestUid===userId?'أنت الضيف':'ضيف مقبول · دون فيديو'}</Text></View>:null}<Text style={[S.tiny,{marginLeft:'auto'}]}>معاينة: {isHost?'مضيف':'مشاهد'}</Text></View>
+      {videoGuestRequestUid&&isHost?<Text style={S.tiny}>✋ يوجد طلب ضيف بانتظار الموافقة من خدمة الخادم (غير مفعلة في هذه النسخة)</Text>:null}
       {isHost?<View style={S.videoControls}><Small title={cameraOn?'📷 إغلاق الكاميرا':'📷 تشغيل الكاميرا'} onPress={turnCameraOn}/><Small title="🔄 تبديل" onPress={()=>setCameraFacing(v=>v==='front'?'back':'front')}/></View>:null}
     </>:<>
       <Text style={S.seatHeading}>✦ المقاعد الملكية ✦</Text>
