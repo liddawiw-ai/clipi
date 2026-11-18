@@ -4,6 +4,7 @@ const fbToken = process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN;
 const plugins = [
   '@react-native-firebase/app',
   '@react-native-firebase/auth',
+  ['expo-local-authentication', {faceIDPermission: 'السماح لـ Clipi باستخدام Face ID لفتح محفظة النقاط والأرباح بأمان'}],
   '@react-native-google-signin/google-signin',
   ['expo-camera', {
     cameraPermission: 'السماح لـ Clipi باستخدام الكاميرا للبث المباشر',
