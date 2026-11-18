@@ -17,6 +17,8 @@ function checkJavaScript(filename, options = {}) {
   return ast;
 }
 const app = checkJavaScript('App.js', {jsx: true});
+const earningsWallet = checkJavaScript('EarningsWalletScreen.js', {jsx: true});
+checkJavaScript('functions/index.js');
 checkJavaScript('app.config.js');
 checkJavaScript('scripts/check-release.cjs');
 const imports = app.program.body.filter(x => x.type === 'ImportDeclaration').map(x => x.source.value);
@@ -24,6 +26,12 @@ for (const required of ['react', 'react-native', '@react-native-firebase/auth', 
   assert.ok(imports.includes(required), 'Missing required import: ' + required);
 }
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const walletImports=earningsWallet.program.body.filter(x=>x.type==='ImportDeclaration').map(x=>x.source.value);
+for(const name of walletImports){if(name.startsWith('.')||name.startsWith('node:'))continue;assert.ok(pkg.dependencies[name]||pkg.devDependencies?.[name], 'Undeclared wallet dependency: '+name)}
+assert.ok(walletImports.includes('expo-local-authentication'),'Wallet biometric dependency missing');
+assert.ok(walletImports.includes('@react-native-firebase/functions'),'Wallet functions dependency missing');
+assert.ok(fs.readFileSync('EarningsWalletScreen.js','utf8').includes('authenticateAsync'),'Wallet authentication gate missing');
+assert.ok(fs.readFileSync('App.js','utf8').includes("page==='earningsWallet'"),'Wallet navigation missing');
 const dependencies = {...pkg.dependencies, ...pkg.devDependencies};
 for (const name of imports) {
   if (name.startsWith('.') || name.startsWith('node:')) continue;
