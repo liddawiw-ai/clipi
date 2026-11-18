@@ -154,6 +154,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const chatRef=useRef(null);
   const sendingRef=useRef(false);
   const roomClosedRef=useRef(false);
+  const exitHandledRef=useRef(false);
+  function exitRoomOnce(){if(exitHandledRef.current)return;exitHandledRef.current=true;onExit()}
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
     if(!room?.id||!userId)return;
@@ -166,7 +168,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
-        onExit();
+        exitRoomOnce();
       }
     },e=>console.warn('Room status:',e.message));
     const un1=firestore().collection('rooms').doc(room.id).collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
@@ -251,7 +253,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     try{
       await firestore().collection('rooms').doc(room.id).update({status:'closed'});
       setHostSettingsOpen(false);
-      onExit();
+      exitRoomOnce();
     }catch(e){Alert.alert('تعذر إغلاق الغرفة',e.message)}
     finally{setClosingRoom(false)}
   }
@@ -286,7 +288,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   function seatAction(x){
     Alert.alert('معاينة المقاعد','المقاعد الثمانية تصميم تجريبي، ولا تتصل بالصوت بعد. ستُفعّل صلاحيات الجلوس بعد ربط خادم RTC.');
   }
-  if(minimized)return <View style={S.miniRoom}><StatusBar barStyle="light-content"/><Text style={S.title}>🎙️ {room.name}</Text><Text style={S.white}>الغرفة مصغّرة داخل Clipi — المعاينة لا تبث صوتًا بالخلفية.</Text><Btn title="⛶ تكبير الغرفة" onPress={()=>setMinimized(false)}/><Btn title="✕ إغلاق الغرفة" color="#65315c" onPress={onExit}/></View>;
+  if(minimized)return <View style={S.miniRoom}><StatusBar barStyle="light-content"/><Text style={S.title}>🎙️ {room.name}</Text><Text style={S.white}>الغرفة مصغّرة داخل Clipi — المعاينة لا تبث صوتًا بالخلفية.</Text><Btn title="⛶ تكبير الغرفة" onPress={()=>setMinimized(false)}/><Btn title="✕ مغادرة الغرفة" color="#65315c" onPress={exitRoomOnce}/></View>;
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?'#291d43':'#10132e'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio?<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><View style={S.royalGlow}/><Text style={S.bgCrown}>♛</Text><Text style={S.bgOrnament}>✦ ✧ ♛ ✧ ✦</Text></View>:
@@ -295,7 +297,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
           <View style={S.videoBlank}><Text style={{fontSize:70}}>📹</Text><Text style={S.white}>{!isHost?'بث المضيف غير متصل بعد (بانتظار خدمة RTC)':cameraOn?'اسمح باستخدام كاميرا المضيف':'كاميرا المضيف مغلقة'}</Text>{isHost&&cameraOn&&!cameraPermission?.granted&&<Btn title="السماح بالكاميرا" onPress={openCameraPermission}/>}</View>}
       </View>}
     {hostSettings}
-    <View style={S.liveHeader}>{isHost&&<Small title="⚙️" onPress={()=>setHostSettingsOpen(true)}/>}<Small title="✕ إغلاق" onPress={onExit}/><Small title="▣ تصغير" onPress={()=>{Keyboard.dismiss();setMinimized(true)}}/><View style={{flex:1,alignItems:'center'}}><Text style={S.title}>{room.name}</Text><Text style={S.tiny}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'} · #{room.id}</Text></View><View style={S.liveTag}><Text style={S.white}>● معاينة</Text></View></View>
+    <View style={S.liveHeader}>{isHost&&<Small title="⚙️" onPress={()=>setHostSettingsOpen(true)}/>}<Small title="✕ خروج" onPress={exitRoomOnce}/><Small title="▣ تصغير" onPress={()=>{Keyboard.dismiss();setMinimized(true)}}/><View style={{flex:1,alignItems:'center'}}><Text style={S.title}>{room.name}</Text><Text style={S.tiny}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'} · #{room.id}</Text></View><View style={S.liveTag}><Text style={S.white}>● معاينة</Text></View></View>
     {!audio?<>
       <View style={S.avatars}><View style={S.guestAvatar}><Text style={{fontSize:23}}>{avatar}</Text><Text style={S.tiny}>المضيف</Text></View>{videoGuestUid?<View style={S.guestAvatar}><Text style={{fontSize:23}}>👤</Text><Text style={S.tiny}>{videoGuestUid===userId?'أنت الضيف':'ضيف مقبول · دون فيديو'}</Text></View>:null}<Text style={[S.tiny,{marginLeft:'auto'}]}>معاينة: {isHost?'مضيف':'مشاهد'}</Text></View>
       {videoGuestRequestUid&&isHost?<Text style={S.tiny}>✋ يوجد طلب ضيف بانتظار الموافقة من خدمة الخادم (غير مفعلة في هذه النسخة)</Text>:null}
