@@ -155,6 +155,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const sendingRef=useRef(false);
   const roomClosedRef=useRef(false);
   const exitHandledRef=useRef(false);
+  const closingByHostRef=useRef(false);
   function exitRoomOnce(){if(exitHandledRef.current)return;exitHandledRef.current=true;onExit()}
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
@@ -167,6 +168,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       setVideoGuestRequestUid(current.guestRequestUid||null);
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current){
+        if(closingByHostRef.current){exitRoomOnce();return;}
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
         exitRoomOnce();
       }
@@ -250,11 +252,12 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   async function closeHostedRoom(){
     if(!isHost||!room?.id||closingRoom)return;
     setClosingRoom(true);
+    closingByHostRef.current=true;
     try{
       await firestore().collection('rooms').doc(room.id).update({status:'closed'});
       setHostSettingsOpen(false);
       exitRoomOnce();
-    }catch(e){Alert.alert('تعذر إغلاق الغرفة',e.message)}
+    }catch(e){closingByHostRef.current=false;Alert.alert('تعذر إغلاق الغرفة',e.message)}
     finally{setClosingRoom(false)}
   }
   function confirmCloseHostedRoom(){
