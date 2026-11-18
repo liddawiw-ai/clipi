@@ -49,7 +49,7 @@ test('luck gifts allocate the same support regardless of outcome',()=>{
  const start=backend.indexOf('function quoteLuckGiftSupport(');
  const end=backend.indexOf('exports.quoteLuckGiftSupport=',start);
  assert.ok(start>=0&&end>start);
- const policyMatch=backend.match(/const SUPPORT_POLICY=Object\\.freeze\\((\\{[^;]+\\})\\);/);
+ const policyMatch=backend.match(/const SUPPORT_POLICY=Object\.freeze\((\{[^;]+\})\);/);
  assert.ok(policyMatch);
  const policy=new Function('return ('+policyMatch[1]+')')();
  const quote=new Function('SUPPORT_POLICY','HttpsError',backend.slice(start,end)+'; return quoteLuckGiftSupport;')(
