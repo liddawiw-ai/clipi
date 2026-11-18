@@ -584,7 +584,9 @@ export default function App(){
     setOwnerDemo(v=>!v);
   }
   function spend(cost){
+    if(!Number.isSafeInteger(cost)||cost<=0)return null;
     const old=walletRef.current;const next={...old};let remain=cost;
+    if(![next.welcome,next.purchased,next.owner].every(n=>Number.isSafeInteger(n)&&n>=0))return null;
     if(next.welcome+next.purchased+(ownerDemo?next.owner:0)<cost)return null;
     if(ownerDemo){const n=Math.min(remain,next.owner);next.owner-=n;remain-=n}
     const n=Math.min(remain,next.welcome);next.welcome-=n;remain-=n;
