@@ -340,12 +340,13 @@ export default function App(){
     }catch(error){Alert.alert('تعذر إلغاء الحظر',error.message)}
   }
   async function deleteAccount(){
-    Alert.alert('حذف الحساب','سيُحذف ملف حسابك وتسجيل الدخول. قد تبقى الرسائل والبلاغات التي يجب إدارتها وفق سياسة الاحتفاظ. تحتاج هذه النسخة إلى خدمة حذف شاملة قبل النشر العام.',[
+    if(!user?.uid)return Alert.alert('تسجيل الدخول','سجل الدخول أولاً لإدارة حسابك');
+    // Client-only deletion cannot remove nested Firestore collections, messages,
+    // reports or storage objects. Never claim full erasure or leave partial state.
+    Alert.alert('طلب حذف الحساب',
+      'الحذف الشامل غير متاح آليًا في هذه النسخة. لحماية بياناتك لن نحذف ملفك جزئيًا أو نترك بيانات مرتبطة بحساب محذوف. أرسل طلب حذف إلى Liddawiw@gmail.com مع معرّف حسابك الظاهر أدناه. لا ترسل رمز SMS أو كلمة مرور.',[
       {text:'إلغاء',style:'cancel'},
-      {text:'حذف',style:'destructive',onPress:async()=>{
-        try{await firestore().collection('users').doc(user.uid).delete();await auth().currentUser.delete();setUser(null);go('login')}
-        catch(e){Alert.alert('تعذر حذف الحساب','أعد تسجيل الدخول ثم حاول مجددًا. '+e.message)}
-      }}
+      {text:'نسخ معرّف الحساب',onPress:()=>Share.share({message:'طلب حذف حساب Clipi\\nمعرّف الحساب: '+user.uid+'\\nيرجى تأكيد إجراءات حذف البيانات المرتبطة بالحساب.'})}
     ]);
   }
   async function saveProfile(u,label){
