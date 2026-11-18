@@ -67,6 +67,58 @@ exports.leaveAudioSeat=onCall({enforceAppCheck:true,maxInstances:10},async reque
  });
  return {ok:true};
 });
+// Video guest signaling only: no RTC media or token is issued here.
+exports.requestVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const {roomId}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId))
+  throw new HttpsError('invalid-argument','Invalid room');
+ const ref=db.collection('rooms').doc(roomId);
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  if(!snap.exists||snap.get('type')!=='video'||snap.get('status')!=='open')
+   throw new HttpsError('failed-precondition','Video room unavailable');
+  if(snap.get('ownerUid')===uid)throw new HttpsError('failed-precondition','Host cannot request guest seat');
+  if(snap.get('guestUid'))throw new HttpsError('resource-exhausted','Guest seat occupied');
+  const pending=snap.get('guestRequestUid');
+  if(pending&&pending!==uid)throw new HttpsError('resource-exhausted','A guest request is pending');
+  tx.update(ref,{guestRequestUid:uid,guestRequestAt:FieldValue.serverTimestamp()});
+ });
+ return {ok:true};
+});
+exports.respondVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const {roomId,accept}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId)||typeof accept!=='boolean')
+  throw new HttpsError('invalid-argument','Invalid request');
+ const ref=db.collection('rooms').doc(roomId);
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  if(!snap.exists||snap.get('ownerUid')!==uid||snap.get('type')!=='video'||snap.get('status')!=='open')
+   throw new HttpsError('permission-denied','Only active host may respond');
+  const guestUid=snap.get('guestRequestUid');
+  if(!guestUid)throw new HttpsError('failed-precondition','No pending guest request');
+  if(accept&&snap.get('guestUid'))throw new HttpsError('resource-exhausted','Guest seat occupied');
+  tx.update(ref,{guestRequestUid:FieldValue.delete(),guestRequestAt:FieldValue.delete(),
+   ...(accept?{guestUid,guestJoinedAt:FieldValue.serverTimestamp()}:{})});
+ });
+ return {ok:true};
+});
+exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+ const uid=requireUser(request);
+ const {roomId}=request.data||{};
+ if(typeof roomId!=='string'||!/^[A-Za-z0-9]{1,128}$/.test(roomId))
+  throw new HttpsError('invalid-argument','Invalid room');
+ const ref=db.collection('rooms').doc(roomId);
+ await db.runTransaction(async tx=>{
+  const snap=await tx.get(ref);
+  if(!snap.exists)throw new HttpsError('not-found','Room not found');
+  if(snap.get('guestUid')!==uid&&snap.get('ownerUid')!==uid)
+   throw new HttpsError('permission-denied','Only guest or host may end guest session');
+  tx.update(ref,{guestUid:FieldValue.delete(),guestJoinedAt:FieldValue.delete()});
+ });
+ return {ok:true};
+});
 exports.deleteMyAccount=onCall({enforceAppCheck:true,maxInstances:5,timeoutSeconds:540},async request=>{
  const uid=requireUser(request);recentLogin(request);
  // Delete authored messages across all rooms before removing the auth identity.
