@@ -234,7 +234,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       const outcome=roll<LUCK_ODDS.grand?'grand':roll<LUCK_ODDS.grand+LUCK_ODDS.medium?'medium':roll<LUCK_ODDS.grand+LUCK_ODDS.medium+LUCK_ODDS.small?'small':'none';
       const title=outcome==='grand'?'✨ تأثير أسطوري':outcome==='medium'?'🌟 تأثير مميز':outcome==='small'?'⭐ تأثير بسيط':'🌙 لا توجد مكافأة';
       if(outcome!=='none'){setFxId(v=>v+1);setFx(gift)}
-      Alert.alert('تجربة الحظ',title+' — نتيجة شكلية فقط، دون خصم ماسات أو منح نقاط أو أرباح.');
+      Alert.alert('تجربة الحظ',title+' — سياسة التوزيع عند تفعيل الهدايا المدفوعة: 55% للمضيف، 10% للوكيل، 35% للمالك من النقاط المؤهلة، سواء فاز المرسل أو خسر. هذه معاينة فقط؛ لا خصم أو نقاط فعلية الآن.');
       setGiftOpen(false);return;
     }
     if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
@@ -272,7 +272,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
         {GIFT_CATEGORIES.map(c=><TouchableOpacity key={c} onPress={()=>setGiftCategory(c)} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,marginRight:6,backgroundColor:giftCategory===c?'#6f3db1':'#26123d'}}>
           <Text style={{color:giftCategory===c?'#fff2a6':'white',fontWeight:'700'}}>{c}</Text></TouchableOpacity>)}
       </ScrollView>
-      {giftCategory==='الحظ'&&<Text style={[S.muted,{paddingHorizontal:12}]}>تجربة مؤثرات فقط: 60% بلا مكافأة، 25% بسيط، 12% مميز، 3% أسطوري. لا خصم أو ربح مالي.</Text>}
+      {giftCategory==='الحظ'&&<Text style={[S.muted,{paddingHorizontal:12}]}>تجربة مؤثرات فقط: 60% بلا مكافأة، 25% بسيط، 12% مميز، 3% أسطوري. عند التفعيل المستقبلي لا تتغير حصة المضيف أو الوكيل أو المالك بنتيجة الحظ. لا خصم أو أرباح فعلية الآن.</Text>}
       <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>
         {[...GIFTS,...LUCK_GIFTS].filter(g=>giftCategory==='الكل'||g[4]===giftCategory).map((g,i)=><TouchableOpacity key={g[1]+i} style={S.giftTile} onPress={()=>send(g)}>
           <Text style={{fontSize:35,textShadowColor:'#e0b5ff',textShadowRadius:12}}>{g[0]}</Text>
