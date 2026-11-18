@@ -4,6 +4,7 @@ on:
     branches:
       - feature/clipi-integrated-cloud-rooms
       - feature/clipi-step-by-step-release
+      - feature/clipi-stage7-build-fix
       - release/clipi-mvp-beta
   pull_request:
   workflow_dispatch:
