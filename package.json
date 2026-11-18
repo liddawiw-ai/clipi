@@ -10,7 +10,9 @@
     "check": "expo install --check",
     "test:release": "node scripts/check-release.cjs",
     "test:syntax": "node scripts/check-syntax.cjs",
-    "test:ci": "npm run test:syntax && npm run test:release"
+    "test:ci": "npm run test:syntax && npm run test:release",
+    "test:firestore": "node --test tests/firestore.rules.test.cjs",
+    "test:firestore:emulator": "firebase emulators:exec --project demo-clipi-rules --only firestore \"npm run test:firestore\""
   },
   "dependencies": {
     "expo": "~53.0.0",
@@ -28,6 +30,9 @@
     "react-native-fbsdk-next": "^13.4.1"
   },
   "devDependencies": {
-    "@babel/parser": "^7.26.10"
+    "@babel/parser": "^7.26.10",
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.6.0",
+    "firebase-tools": "^14.2.1"
   }
 }
