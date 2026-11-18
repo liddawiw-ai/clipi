@@ -212,6 +212,7 @@ export default function App(){
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
+  const smsConfirmingRef=useRef(false);
   // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
   const [wallet,setWallet]=useState({welcome:WELCOME,purchased:0,owner:0});
   const walletRef=useRef({welcome:WELCOME,purchased:0,owner:0});
@@ -289,6 +290,8 @@ export default function App(){
       setUser(u);
       setRooms([]);setActiveRoom(null);
       if(u){
+        // SMS confirmation owns profile creation and navigation until it finishes.
+        if(smsConfirmingRef.current)return;
         try{
           const doc=await firestore().collection('users').doc(u.uid).get();
           if(!active||auth().currentUser?.uid!==u.uid)return;
@@ -373,10 +376,17 @@ export default function App(){
   async function verifySms(){
     if(busy)return;
     if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert('رمز SMS','أدخل ستة أرقام');
+    smsConfirmingRef.current=true;
     setBusy(true);setAuthError('');
-    try{const credential=await confirmation.confirm(smsCode.trim());await saveProfile(credential.user,name.trim());setUser(credential.user);setConfirmation(null);go('home')}
+    try{
+      const credential=await confirmation.confirm(smsCode.trim());
+      // A valid SMS code must not be reported as invalid if Firestore is unavailable.
+      try{await saveProfile(credential.user,name.trim())}
+      catch(e){console.warn('Profile save failed:',e.message);Alert.alert('تعذر حفظ الملف الشخصي','تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.');}
+      setUser(credential.user);setConfirmation(null);go('home');
+    }
     catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('فشل التحقق',message)}
-    finally{setBusy(false)}
+    finally{smsConfirmingRef.current=false;setBusy(false)}
   }
   async function googleLogin(){
     if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
