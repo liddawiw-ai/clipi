@@ -16,6 +16,11 @@ assert(pkg.dependencies['@react-native-firebase/auth']&&pkg.dependencies['@react
 assert(pkg.main==='node_modules/expo/AppEntry.js', 'Expo entry must call registerRootComponent; direct App.js main causes launch crash');
 assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App.js default component export');
 assert(eas.build.preview.android.buildType==='apk');
+assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
+const configured=require('../app.config.js').expo;
+assert(configured.android.versionCode===3, 'Android versionCode must be incremented for new release');
+assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
+assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
