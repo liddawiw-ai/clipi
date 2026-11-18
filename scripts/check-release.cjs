@@ -61,4 +61,7 @@ assert(source.includes('setMinimized(true)')&&source.includes('setMinimized(fals
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
 assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');
 
+assert(source.includes('const hostSettings=<Modal')&&source.includes('hostSettingsOpen&&isHost'),'Host-only settings sheet missing');
+assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
+assert(source.includes('setMinimized(true)')&&source.includes('setCameraFacing'),'Host settings controls missing');
 console.log('Clipi release guards passed (static assertions only).');
