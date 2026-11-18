@@ -42,7 +42,11 @@ exports.joinAudioSeat=onCall({enforceAppCheck:true,maxInstances:10},async reques
  const seatRef=roomRef.collection('audioSeats').doc(String(seat));
  await db.runTransaction(async tx=>{
   const room=await tx.get(roomRef);
-  const existing=await tx.get(seatRef);
+  const seats=await Promise.all(Array.from({length:8},(_,i)=>
+   tx.get(roomRef.collection('audioSeats').doc(String(i+1)))));
+  const existing=seats[seat-1];
+  if(seats.some((snap,i)=>i!==seat-1&&snap.exists&&snap.get('uid')===uid))
+   throw new HttpsError('already-exists','You already occupy another audio seat');
   if(!room.exists||room.get('status')!=='open'||room.get('type')!=='audio')
    throw new HttpsError('failed-precondition','Audio room is not open');
   if(seat===1&&room.get('ownerUid')!==uid)
@@ -292,7 +296,8 @@ exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async re
   availableUsdMinor:available,pendingUsdMinor:pending,
   minimumPoints:POINTS_MIN,remainingPoints:Math.max(0,POINTS_MIN-available),
   pinConfigured:typeof data.pinHash==='string',nextEligibleAt,
-  canRequest:available>=POINTS_MIN&&waitMs===0,
+  meetsWithdrawalPolicy:available>=POINTS_MIN&&waitMs===0,
+  canRequest:false, // No payout provider or settlement ledger is active.
   payoutProcessingBusinessDays:5,payoutsEnabled:false};
 });
 exports.setEarningsWalletPin=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
