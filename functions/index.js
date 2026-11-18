@@ -11,7 +11,7 @@ const requireUser=request=>{
 };
 const recentLogin=request=>{
  const t=Number(request.auth?.token?.auth_time||0);
- if(!t||Date.now()/1000-t>300)throw new HttpsError('failed-precondition','Please sign in again before deleting your account');
+ if(!t||Date.now()/1000-t>300)throw new HttpsError('failed-precondition','Please sign in again before this sensitive operation');
 };
 async function deleteQuery(query){
  while(true){
@@ -249,11 +249,12 @@ const roleFor=async uid=>{
  return identity.customClaims?.clipiOwner===true?'owner':
   identity.customClaims?.clipiAgent===true?'agent':'host';
 };
-const validatePin=pin=>typeof pin==='string'&&/^\\d{6}$/.test(pin);
+const validatePin=pin=>typeof pin==='string'&&/^\d{6}$/.test(pin);
 const hashPin=(pin,salt)=>scryptSync(pin,salt,64).toString('hex');
 const verifyPin=(pin,salt,stored)=>{
+ if(typeof salt!=='string'||!/^[0-9a-f]{32}$/.test(salt)||typeof stored!=='string'||!/^[0-9a-f]{128}$/.test(stored))return false;
  const actual=Buffer.from(hashPin(pin,salt),'hex'),expected=Buffer.from(stored,'hex');
- return actual.length===expected.length&&timingSafeEqual(actual,expected);
+ return timingSafeEqual(actual,expected);
 };
 exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
  const uid=requireUser(request),role=await roleFor(uid);
@@ -297,11 +298,11 @@ exports.previewEarningsWithdrawal=onCall({enforceAppCheck:true,maxInstances:5},a
  const doc=await db.collection('earningsWallets').doc(uid).get(),d=doc.data()||{};
  if(!d.pinHash||!verifyPin(pin,d.pinSalt,d.pinHash))
   throw new HttpsError('permission-denied','Wallet PIN incorrect');
- const points=Number.isSafeInteger(d.availablePoints)?d.availablePoints:0;
+ const points=Number.isSafeInteger(d.availablePoints)&&d.availablePoints>=0?d.availablePoints:0;
  const last=d.lastPayoutRequestAt?.toMillis?.()||0;
  const eligible=points>=POINTS_MIN&&Date.now()-last>=WITHDRAW_INTERVAL_MS;
  return {eligible,points,remainingPoints:Math.max(0,POINTS_MIN-points),
-  usdMinor:eligible?points:0,diamonds:eligible&&method==='diamonds'?points*11:0,
+  usdMinor:eligible?points:0,diamonds:eligible&&method==='diamonds'&&points<=Math.floor(Number.MAX_SAFE_INTEGER/11)?points*11:0,
   method,processingBusinessDays:5,executable:false,
   reason:'Preview only; no verified financial ledger or payout provider deployed'};
 });
