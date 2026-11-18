@@ -194,7 +194,7 @@ exports.claimWelcomeDiamonds=onCall({enforceAppCheck:true,maxInstances:10},async
  return {ok:true,welcomeBalance:balance};
 });
 // Stage 12: virtual-only gift ledger. No client minting, purchases or cash-outs.
-const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000});
+const GIFT_PRICES=Object.freeze({rose:10,heart:50,cake:100,bear:300,ring:500,car:1000,rocket:2500,crown:5000,castle:10000,dragon:25000,peacock:30000});
 exports.sendVirtualGift=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
  const senderUid=requireUser(request);
  const {roomId,giftId,requestId,source='paid'}=request.data||{};
