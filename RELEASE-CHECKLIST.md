@@ -23,3 +23,11 @@
 - Do not call the camera preview a live video broadcast.
 - Do not imply the gifts or balance are cash or redeemable.
 - Do not claim public store approval or support for real money, or fully compliant account deletion.
+
+## Incremental code completion (18 Nov 2026)
+- Profile screen lists blocked account IDs and allows unblock via Firestore (current user only).
+- Shared room discovery supports name search and hides rooms owned by blocked accounts.
+- Profile display name is validated (1–35 characters), and avatar selection is saved to Firestore.
+- Google and Facebook login buttons are disabled when required public/native configuration is missing.
+- Viewer cannot activate a misleading local host-camera preview; only the signed-in room owner can preview their own camera. Remote media remains disabled.
+- `npm run test:release` and local JSX parse tests pass; **no device/RTC/payment integration test is implied**.
