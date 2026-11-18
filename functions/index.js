@@ -122,7 +122,7 @@ exports.leaveVideoGuest=onCall({enforceAppCheck:true,maxInstances:10},async requ
 // Gift accounting policy: 2,000 eligible paid diamonds = 100 support points.
 // Points are denominated in hundredths of a USD reference unit, not a cash balance.
 // Distribution: host 55%, agent 10%, platform 35%. Actual cash settlement remains OFF.
-const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35,pointsPerUsd:100,minConversionPoints:10000,diamondsPerConversionUsd:1100});
+const SUPPORT_POLICY=Object.freeze({diamondsPerHundredPoints:2000,hostPercent:55,agentPercent:10,platformPercent:35,pointsPerUsd:100,minConversionPoints:2000,diamondsPerConversionUsd:1100});
 exports.getSupportPolicy=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
  requireUser(request);
  return {...SUPPORT_POLICY,ownerPromotionalDiamonds:100000000,
@@ -141,7 +141,7 @@ exports.quoteSupportPointRedemption=onCall({enforceAppCheck:true,maxInstances:5}
   ?Math.floor(usdMinor*SUPPORT_POLICY.diamondsPerConversionUsd/100):0;
  return {eligible,minimumPoints:SUPPORT_POLICY.minConversionPoints,
   method,points,usdMinor,diamonds,executable:false,
-  reason:eligible?'Quote only; verified earnings ledger and redemption are not active':'Below the 10,000-point minimum'};
+  reason:eligible?'Quote only; verified earnings ledger and redemption are not active':'Below the 2,000-point minimum'};
 });
 exports.redeemSupportPoints=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
  requireUser(request);
