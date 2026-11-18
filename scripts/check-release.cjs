@@ -21,4 +21,12 @@ assert(source.includes('isHost&&cameraOn&&cameraPermission?.granted'), 'Viewer c
 assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
 assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
 assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
+assert(source.includes('const sendingRef=useRef(false)'), 'Synchronous message send guard missing');
+assert(source.includes('sendingRef.current=true')&&source.includes('sendingRef.current=false'), 'Duplicate message send locking missing');
+assert(source.includes("setMessage(current=>current.trim()===text?'':current)"), 'Chat draft race protection missing');
+assert(source.includes('maxLength={500}'), 'Chat composer length guard missing');
+assert(source.includes("!/^\\d{6}$/.test(smsCode.trim())"), 'SMS code validation missing');
+assert(source.includes('auth().currentUser?.uid!==u.uid'), 'Session-switch safety missing');
+assert(source.includes("displayName.length>35"), 'Profile name length validation missing');
+assert(source.includes("setRooms([]);setRoomError('')"), 'Room-list stale error reset missing');
 console.log('Clipi release guards passed (static assertions only).');
