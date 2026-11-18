@@ -168,6 +168,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       setVideoGuestRequestUid(current.guestRequestUid||null);
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current){
+        if(exitHandledRef.current)return;
         if(closingByHostRef.current){exitRoomOnce();return;}
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
         exitRoomOnce();
@@ -234,6 +235,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     finally{sendingRef.current=false;setSending(false)}
   }
   function send(gift){
+    if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة','لا يمكن إرسال هدايا بعد إغلاق الغرفة');
+    if(!Array.isArray(gift)||!Number.isSafeInteger(gift[2])||gift[2]<=0)return Alert.alert('هدية غير صالحة');
     if(gift[4]==='الحظ'){
       if(!__DEV__)return Alert.alert('غير متاح','هدايا الحظ التجريبية غير متاحة في النسخة المنشورة');
       const roll=Math.random()*100;
@@ -244,6 +247,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       setGiftOpen(false);return;
     }
     if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
+    if(isHost)return Alert.alert('لا يمكن دعم نفسك','لا يمكنك إرسال هدية إلى غرفتك الخاصة');
     if(diamonds<gift[2]*giftQuantity)return Alert.alert('رصيد غير كافٍ');
     // Preview only; each send uses the existing gift accounting pathway.
     if(!onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room))return;
