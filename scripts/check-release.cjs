@@ -81,4 +81,7 @@ assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]
  'Gift send preview changed; audit payment ledger and server receipt before release');
 console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
 assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
+assert(source.includes('if(exitHandledRef.current)return;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
+assert(source.includes("if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة'"),'Gift sending must reject closed rooms');
+assert(source.includes("if(isHost)return Alert.alert('لا يمكن دعم نفسك'"),'Self-gifting must be blocked in preview');
 console.log('Clipi release guards passed (static assertions only).');
