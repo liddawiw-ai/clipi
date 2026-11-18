@@ -83,12 +83,13 @@ console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.lengt
 assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
 assert(source.includes('if(exitHandledRef.current)return;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
 assert(source.includes("if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة'"),'Gift sending must reject closed rooms');
-assert(source.includes("if(isHost)return Alert.alert('لا يمكن دعم نفسك'"),'Self-gifting must be blocked in preview');
+assert(source.includes('Self-gifts never mint cash-eligible earnings or support points'),'Self-gift safety disclosure missing');
 assert(source.includes("if(!Number.isSafeInteger(cost)||cost<=0)return null;"),'Preview wallet must reject invalid spending amounts');
 assert(source.includes("if(![next.welcome,next.purchased,next.owner].every"),'Preview wallet must reject corrupted balances');
 assert(source.includes("if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)"),'Gift total must be a safe integer');
 const sendStart=source.indexOf('function send(gift)');
 const sendLuck=source.indexOf("if(gift[4]==='الحظ')",sendStart);
-const sendSelf=source.indexOf("if(isHost)return Alert.alert('لا يمكن دعم نفسك'",sendStart);
-assert(sendStart>=0&&sendSelf>sendStart&&sendSelf<sendLuck,'Self gifting must also be blocked for luck previews');
+assert(sendStart>=0&&sendLuck>sendStart,'Luck gifts must remain a development preview');
+assert(!source.slice(sendStart,sendLuck).includes("if(isHost)return"),'Host should be able to gift own room in preview');
+assert(source.includes('selfGift:(room.ownerUid||room.owner)===user?.uid,eligibleSupportPoints:0'),'Self-gifts must be marked as ineligible for support points');
 console.log('Clipi release guards passed (static assertions only).');
