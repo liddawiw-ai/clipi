@@ -348,21 +348,34 @@ export default function App(){
     },{merge:true});
     setName(displayName);
   }
+  function phoneAuthMessage(e){
+    switch(e?.code){
+      case 'auth/invalid-phone-number': return 'رقم الهاتف غير صحيح. تحقق من رمز الدولة والرقم.';
+      case 'auth/too-many-requests': return 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.';
+      case 'auth/quota-exceeded': return 'تم تجاوز حد رسائل التحقق. حاول لاحقًا.';
+      case 'auth/invalid-verification-code': return 'رمز التحقق غير صحيح.';
+      case 'auth/code-expired': return 'انتهت صلاحية الرمز. اطلب رمزًا جديدًا.';
+      case 'auth/network-request-failed': return 'تعذر الاتصال بالشبكة. تحقق من الإنترنت.';
+      default: return e?.message||'حدث خطأ في التحقق. حاول مرة أخرى.';
+    }
+  }
   async function phoneLogin(){
+    if(busy)return;
     if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
     if(!name.trim()||name.trim().length>35)return Alert.alert('الاسم','أدخل اسمًا من 1 إلى 35 حرفًا');
     const local=phone.replace(/\D/g,'').replace(/^0+/,'');
-    if(local.length<7)return Alert.alert('الهاتف','أدخل رقم هاتف صحيح');
+    if(local.length<7||local.length>15)return Alert.alert('الهاتف','أدخل رقم هاتف صحيح من 7 إلى 15 رقمًا');
     setBusy(true);setAuthError('');
     try{const c=await auth().signInWithPhoneNumber(COUNTRIES[country][1]+local);setConfirmation(c);setSmsCode('');go('verify')}
-    catch(e){setAuthError(e.message||'تعذر إرسال الرمز');Alert.alert('تعذر إرسال SMS',e.message||'راجع إعداد Firebase')}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('تعذر إرسال SMS',message)}
     finally{setBusy(false)}
   }
   async function verifySms(){
+    if(busy)return;
     if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert('رمز SMS','أدخل ستة أرقام');
-    setBusy(true);
+    setBusy(true);setAuthError('');
     try{const credential=await confirmation.confirm(smsCode.trim());await saveProfile(credential.user,name.trim());setUser(credential.user);setConfirmation(null);go('home')}
-    catch(e){Alert.alert('فشل التحقق',e.message||'الرمز غير صالح')}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('فشل التحقق',message)}
     finally{setBusy(false)}
   }
   async function googleLogin(){
