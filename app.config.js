@@ -28,6 +28,7 @@ module.exports = {
     userInterfaceStyle: 'automatic', newArchEnabled: true,
     ios: {
       supportsTablet: true,
+      infoPlist: {ITSAppUsesNonExemptEncryption: false},
       bundleIdentifier: 'com.walid.clipi',
       googleServicesFile: './GoogleService-Info.plist'
     },
