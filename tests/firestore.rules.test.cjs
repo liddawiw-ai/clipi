@@ -41,6 +41,7 @@ test('signed-in users can read open room, but only their profile',async()=>{
   await assertFails(getDoc(doc(db(bob),'users/alice')));
 });
 test('users can create their own limited profile, not impersonate or add admin flags',async()=>{
+  await assertSucceeds(setDoc(doc(db(alice),'users/alice'),profile('alice')));
   await assertFails(setDoc(doc(db(alice),'users/alice2'),profile('alice2')));
   await assertFails(setDoc(doc(db(alice),'users/bob'),profile('bob')));
   await assertFails(updateDoc(doc(db(alice),'users/alice'),{isAdmin:true}));
@@ -86,10 +87,12 @@ test('block list belongs to account owner only',async()=>{
   await assertFails(getDoc(doc(db(bob),'users/alice/blocked/bob')));
   await assertFails(deleteDoc(doc(db(bob),'users/alice/blocked/bob')));
   await assertFails(setDoc(doc(db(alice),'users/alice/blocked/alice'),{createdAt:serverTimestamp()}));
+  await assertFails(setDoc(doc(db(alice),'users/alice/blocked/eve'),{createdAt:serverTimestamp(),admin:true}));
 });
 test('reports are write-only and reporter cannot impersonate another user',async()=>{
   await assertSucceeds(setDoc(doc(db(bob),'reports/good'),report('bob')));
   await assertFails(setDoc(doc(db(bob),'reports/fake'),report('alice')));
+  await assertFails(setDoc(doc(db(bob),'reports/badid'),{...report('bob'),messageId:42}));
   await assertFails(getDoc(doc(db(bob),'reports/good')));
   await assertFails(updateDoc(doc(db(bob),'reports/good'),{status:'resolved'}));
 });
