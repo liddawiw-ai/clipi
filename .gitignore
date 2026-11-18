@@ -1,0 +1,32 @@
+# Clipi source and Expo build exclusions
+node_modules/
+.expo/
+.expo-shared/
+dist/
+build/
+coverage/
+*.log
+npm-debug.log*
+.DS_Store
+*.tmp
+*.bak
+
+# Runtime secrets must be configured in EAS/GitHub encrypted credentials,
+# never bundled with the application or tracked in Git.
+.env
+.env.*
+!.env.example
+*service-account*.json
+*service_account*.json
+*firebase-admin*.json
+*credentials-private*.json
+*.p8
+*.p12
+*.mobileprovision
+*.keystore
+*.jks
+*.pem
+*.key
+
+# Firebase client app configuration files (google-services.json,
+# GoogleService-Info.plist) are intentionally tracked and are not admin credentials.
