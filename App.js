@@ -21,7 +21,7 @@ const GOOGLE_WEB_CLIENT_ID=process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID||'';
 // Expo only embeds EXPO_PUBLIC_* variables into the JavaScript bundle.
 // Facebook client tokens are mobile SDK configuration, not app secrets.
 const FACEBOOK_CONFIGURED=Boolean(process.env.EXPO_PUBLIC_FACEBOOK_APP_ID&&process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN);
-const GIFTS=[['🌹','وردة',10,'rose'],['💖','قلب',50,'heart'],['🎂','كيكة',100,'cake'],['🧸','دبدوب',300,'bear'],['💍','خاتم',500,'ring'],['🏎️','سيارة فاخرة',1000,'car'],['🚀','صاروخ',2500,'rocket'],['👑','تاج ملكي',5000,'crown'],['🏰','قصر',10000,'castle'],['🐉','تنين ذهبي',25000,'dragon']];
+const GIFTS=[['🌹','وردة',10,'rose'],['💖','قلب',50,'heart'],['🎂','كيكة',100,'cake'],['🧸','دبدوب',300,'bear'],['💍','خاتم',500,'ring'],['🏎️','سيارة فاخرة',1000,'car'],['🚀','صاروخ',2500,'rocket'],['👑','تاج ملكي',5000,'crown'],['🏰','قصر',10000,'castle'],['🐉','تنين ذهبي',25000,'dragon'],['🦚','الطاووس الملكي',30000,'peacock']];
 const GOODS=[['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
 const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
 const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
@@ -69,7 +69,7 @@ function GiftFX({gift,onDone}){
   const kind=gift[3];
   useEffect(()=>{
     progress.setValue(0);
-    const duration=kind==='dragon'?6300:kind==='rose'?4600:kind==='rocket'?4200:3300;
+    const duration=kind==='peacock'?6800:kind==='dragon'?6300:kind==='rose'?4600:kind==='rocket'?4200:3300;
     const animation=Animated.timing(progress,{toValue:1,duration,useNativeDriver:true});
     animation.start(({finished})=>{if(finished)onDone()});
     return ()=>animation.stop();
@@ -82,6 +82,27 @@ function GiftFX({gift,onDone}){
   if(kind==='rose') shape=<View style={S.fxCenter}>
     <Animated.Text style={[S.fxIcon,{opacity:move([0,.3,.65,1],[1,1,0,0]),transform:[{scale}]}]}>🌷</Animated.Text>
     <Animated.Text style={[S.fxIcon,{position:'absolute',opacity:move([0,.3,.65,1],[0,0,1,1]),transform:[{scale:move([0,1],[.2,1.7])}]}]}>🌹</Animated.Text>
+  </View>;
+  else if(kind==='peacock') shape=<View style={S.fxCenter}>
+    <Animated.View style={{position:'absolute',alignItems:'center',justifyContent:'center',opacity:move([0,.12,.82,1],[0,1,1,0]),transform:[{scale:move([0,.2,.55,1],[.08,.7,1.5,1.75])}]}}>
+      {Array.from({length:13},(_,i)=>{
+        const angle=(i-6)*13;
+        return <Animated.View key={i} style={{position:'absolute',width:48,height:172,borderRadius:28,
+          backgroundColor:i%2?'#06b5aa':'#0876c8',borderWidth:2,borderColor:'#8af9d3',
+          alignItems:'center',paddingTop:8,
+          transform:[{translateY:-78},{rotate:angle+'deg'},{translateY:-54}],
+          opacity:move([0,.12,.35,1],[0,.2,1,1])}}>
+          <Text style={{fontSize:30}}>🦚</Text>
+          <Text style={{fontSize:28,color:'#ffe990'}}>✦</Text>
+        </Animated.View>
+      })}
+    </Animated.View>
+    <Animated.Text style={{fontSize:142,textShadowColor:'#29f3e1',textShadowRadius:35,
+      transform:[{scale:move([0,.25,.5,.9,1],[.2,.8,1.3,1.25,1.6])},{translateY:move([0,.3,.8,1],[180,0,0,-55])}]}}>🦚</Animated.Text>
+    <Animated.Text style={{fontSize:35,color:'#fff6bd',textShadowColor:'#40e8ff',textShadowRadius:18,
+      opacity:glow}}>✧ ✦ ✨ ✦ ✧</Animated.Text>
+    <Animated.Text style={{color:'#ffe39a',fontSize:24,fontWeight:'900',textShadowColor:'#152d8a',textShadowRadius:10,
+      opacity:move([0,.3,.8,1],[0,1,1,0])}}>الطاووس الملكي</Animated.Text>
   </View>;
   else if(kind==='rocket') shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,1],[HEIGHT*.7,-HEIGHT*.95])}]}]}><Text style={S.fxIcon}>🚀</Text><Text style={S.fxFire}>🔥</Text></Animated.View>;
   else if(kind==='car') shape=<Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.35,.7,1],[-WIDTH,0,0,WIDTH])}]}]}><Text style={S.fxIcon}>🏎️</Text></Animated.View>;
