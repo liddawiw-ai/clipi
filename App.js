@@ -237,7 +237,6 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   function send(gift){
     if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة','لا يمكن إرسال هدايا بعد إغلاق الغرفة');
     if(!Array.isArray(gift)||!Number.isSafeInteger(gift[2])||gift[2]<=0)return Alert.alert('هدية غير صالحة');
-    if(isHost)return Alert.alert('لا يمكن دعم نفسك','لا يمكنك إرسال هدية إلى غرفتك الخاصة');
     if(gift[4]==='الحظ'){
       if(!__DEV__)return Alert.alert('غير متاح','هدايا الحظ التجريبية غير متاحة في النسخة المنشورة');
       const roll=Math.random()*100;
@@ -250,7 +249,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
     if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)return Alert.alert('عدد هدايا غير صالح');
     if(diamonds<gift[2]*giftQuantity)return Alert.alert('رصيد غير كافٍ');
-    // Preview only; each send uses the existing gift accounting pathway.
+    // Host may send a gift to their own room in the development preview.
+    // Self-gifts never mint cash-eligible earnings or support points.
     if(!onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room))return;
     setGiftOpen(false);setFxId(v=>v+1);setFx(gift);
   }
@@ -598,7 +598,7 @@ export default function App(){
   function sendGift(g,room){
     const source=spend(g[2]);if(!source)return false;
     setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);
-    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source},...v].slice(0,50));
+    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source,selfGift:(room.ownerUid||room.owner)===user?.uid,eligibleSupportPoints:0},...v].slice(0,50));
     return true;
   }
   async function createRoom(){
