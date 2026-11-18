@@ -1,0 +1,80 @@
+name: Clipi Firestore verified one-time deployment
+on:
+  push:
+    paths:
+      - .github/workflows/clipi-verified-deploy.yml
+permissions:
+  contents: read
+jobs:
+  reviewed-deploy:
+    if: ${{ github.event.head_commit.message == 'AUTHORIZE CLIPI FIRESTORE DEPLOY 2026-11-18' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout audit scripts and known baseline snapshots
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Checkout immutable tested candidate
+        uses: actions/checkout@v4
+        with:
+          ref: 2da8b069003a5d8dc71da28db0de226c67f4780f
+          path: tested
+          persist-credentials: false
+      - name: Confirm candidate source revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C tested rev-parse HEAD)" = "2da8b069003a5d8dc71da28db0de226c67f4780f"
+          test -s tested/firestore.rules
+          test -s deploy/baselines/legacy.rules
+          test -s deploy/baselines/mvp.rules
+          echo "Using immutable reviewed Clipi Firestore candidate."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install isolated source dependencies
+        working-directory: tested
+        run: npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+      - name: Re-test source and Firestore rules in isolated emulator
+        working-directory: tested
+        run: |
+          npm run test:ci
+          npm run test:firestore:emulator
+      - name: Install Google read-only audit libraries
+        run: python -m pip install --disable-pip-version-check --quiet 'google-auth>=2,<3' 'requests>=2,<3'
+      - name: Configure secure Firebase authentication
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$FIREBASE_CREDENTIALS" ]; then echo "::error::Firebase credential secret is missing"; exit 1; fi
+          umask 077
+          keyfile="$RUNNER_TEMP/clipi-verified-deploy-service-account.json"
+          printf '%s' "$FIREBASE_CREDENTIALS" > "$keyfile"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$keyfile" >> "$GITHUB_ENV"
+      - name: Compare live Firestore rules with reviewed approved baselines
+        run: |
+          python deploy/live-rules-audit.py audit \
+            --candidate tested/firestore.rules \
+            --legacy deploy/baselines/legacy.rules \
+            --mvp deploy/baselines/mvp.rules \
+            --backup "$RUNNER_TEMP/clipi-previous-live.rules"
+      - name: Deploy only if live release is a known approved baseline
+        working-directory: tested
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./node_modules/.bin/firebase deploy --project clipi-f67c0 --only firestore:rules --non-interactive
+      - name: Independently verify rules in Firebase after deployment
+        run: python deploy/live-rules-audit.py verify --candidate tested/firestore.rules
+      - name: Erase temporary service account and live-rules backup
+        if: always()
+        shell: bash
+        run: |
+          rm -f "$RUNNER_TEMP/clipi-verified-deploy-service-account.json" "$RUNNER_TEMP/clipi-previous-live.rules"
