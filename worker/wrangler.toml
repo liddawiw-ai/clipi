@@ -1,3 +1,4 @@
+# Cloudflare Workers Builds uses this configuration from the worker directory.
 name = "clipi-voice-server"
 main = "worker.mjs"
 compatibility_date = "2026-11-19"
