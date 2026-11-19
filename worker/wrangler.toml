@@ -1,4 +1,4 @@
-name = "clipi-voice"
+name = "clipi-voice-server"
 main = "worker.mjs"
 compatibility_date = "2026-11-19"
 
