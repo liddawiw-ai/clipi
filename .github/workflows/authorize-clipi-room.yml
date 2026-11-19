@@ -1,0 +1,39 @@
+name: Authorize Clipi room domain
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/authorize-clipi-room.yml']
+  workflow_dispatch:
+permissions: {}
+concurrency: authorize-clipi-room-domain
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        id: login
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_CLIPI }}
+          token_format: access_token
+          create_credentials_file: false
+      - name: Add and verify the room hostname
+        env:
+          ACCESS_TOKEN: ${{ steps.login.outputs.access_token }}
+        shell: python
+        run: |
+          import json, os, urllib.request
+          url = 'https://identitytoolkit.googleapis.com/admin/v2/projects/clipi-f67c0/config'
+          domain = 'clipi-voice-server.liddawiw.workers.dev'
+          headers = {'Authorization': 'Bearer ' + os.environ['ACCESS_TOKEN'], 'Content-Type': 'application/json'}
+          def read_domains():
+              request = urllib.request.Request(url, headers=headers)
+              with urllib.request.urlopen(request) as response:
+                  return json.load(response)['authorizedDomains']
+          previous = read_domains()
+          if domain not in previous:
+              update = urllib.request.Request(url + '?updateMask=authorizedDomains', method='PATCH', headers=headers,
+                  data=json.dumps({'authorizedDomains': previous + [domain]}).encode())
+              with urllib.request.urlopen(update) as response:
+                  assert response.status == 200
+          assert set(previous + [domain]).issubset(read_domains())
+          print('Verified Clipi room hostname')
