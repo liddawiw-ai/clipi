@@ -27,7 +27,11 @@ export default {
         headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' },
       });
     }
-    if (path === '/room' && request.method === 'GET') return new Response(roomPage, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
+    if (request.method === 'GET' && (path === '/room' || (path === '/' && env.CLIPI_WEB_ENTRY === 'room'))) {
+      return new Response(roomPage, {
+        headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
+      });
+    }
     if (path === '/' && request.method === 'GET') return json({ service: 'clipi-livekit' });
     if (!['/token', '/remove-guest', '/close-room'].includes(path) || request.method !== 'POST') return json({ error: 'Not found' }, 404);
     if (!env.FIREBASE_PROJECT_ID || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET ||
