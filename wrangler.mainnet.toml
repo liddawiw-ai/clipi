@@ -1,0 +1,8 @@
+name = "clipi-mainnet"
+main = "worker/worker.mjs"
+compatibility_date = "2025-10-01"
+workers_dev = true
+keep_vars = true
+
+[vars]
+CLIPI_WEB_ENTRY = "room"
