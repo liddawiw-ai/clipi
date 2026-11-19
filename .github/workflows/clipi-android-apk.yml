@@ -1,0 +1,43 @@
+name: Clipi Android test APK
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/clipi-stage7-build-fix
+    paths:
+      - .github/workflows/clipi-android-apk.yml
+permissions:
+  contents: read
+jobs:
+  android-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: npm ci --no-audit --no-fund
+      - run: npx expo prebuild --platform android --no-install
+        env:
+          CI: '1'
+      - run: ./gradlew --no-daemon :app:assembleRelease
+        working-directory: android
+      - name: Check APK signing
+        run: |
+          set -euo pipefail
+          apk=android/app/build/outputs/apk/release/app-release.apk
+          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          "$apksigner" verify "$apk"
+          cp "$apk" Clipi-Android-test.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clipi-Android-test
+          path: Clipi-Android-test.apk
+          if-no-files-found: error
+          retention-days: 14
