@@ -95,32 +95,40 @@ function GiftFX({gift,onDone}){
   return <Animated.View pointerEvents="none" style={[S.fxOverlay,{opacity}]}>{shape}<Animated.Text style={[S.fxSpark,{opacity:glow}]}>✧ ✨ ✧</Animated.Text></Animated.View>;
 }
 
-function RoomMedia({room,userId,isHost,audio,blocked}){
+async function mediaRequest(path,body,signal){
+  if(!MEDIA_CONFIGURED)throw new Error('عنوان خدمة البث غير مضبوط');
+  const user=auth().currentUser;
+  if(!user)throw new Error('انتهت جلسة الدخول');
+  const idToken=await user.getIdToken();
+  const response=await fetch(MEDIA_ENDPOINT+path,{
+    method:'POST',signal,
+    headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
+    body:JSON.stringify(body),
+  });
+  if(!response.ok)throw new Error('تعذر الاتصال بخدمة البث ('+response.status+')');
+  return response.json();
+}
+
+function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
   const [credentials,setCredentials]=useState(null);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
   useEffect(()=>{
     if(!MEDIA_CONFIGURED)return;
+    const start=AudioSession.startAudioSession();
+    void start.catch(()=>setError('تعذر بدء جلسة الصوت'));
+    return()=>{void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
+  },[]);
+  useEffect(()=>{
+    if(!MEDIA_CONFIGURED)return;
     const controller=new AbortController();
     let active=true;
-    let audioStart;
     const timeout=setTimeout(()=>controller.abort(),12000);
     (async()=>{
-      const user=auth().currentUser;
-      if(user?.uid!==userId)throw new Error('انتهت جلسة الدخول');
-      const idToken=await user.getIdToken();
-      const response=await fetch(MEDIA_ENDPOINT+'/token',{
-        method:'POST',signal:controller.signal,
-        headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
-        body:JSON.stringify({roomId:room.id}),
-      });
-      if(!response.ok)throw new Error('تعذر الاتصال بخدمة البث ('+response.status+')');
-      const result=await response.json();
+      if(auth().currentUser?.uid!==userId)throw new Error('انتهت جلسة الدخول');
+      const result=await mediaRequest('/token',{roomId:room.id},controller.signal);
       if(typeof result.token!=='string'||!/^wss:\/\//i.test(result.serverUrl))throw new Error('إعدادات البث غير صالحة');
-      if(!active)return;
-      audioStart=AudioSession.startAudioSession();
-      await audioStart;
-      if(active)setCredentials(result);
+      if(active)setCredentials({...result,canPublish});
     })().catch(e=>{
       if(active)setError(e.name==='AbortError'?'انتهت مهلة الاتصال بالبث':e.message);
     }).finally(()=>clearTimeout(timeout));
@@ -128,26 +136,28 @@ function RoomMedia({room,userId,isHost,audio,blocked}){
       active=false;
       controller.abort();
       clearTimeout(timeout);
-      if(audioStart)void audioStart.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});
     };
-  },[room.id,userId,attempt]);
+  },[room.id,userId,attempt,canPublish]);
+  useEffect(()=>{setError('');},[canPublish]);
 
   if(!MEDIA_CONFIGURED)return <Text style={mediaStyles.status}>عنوان خدمة البث غير مضبوط</Text>;
   if(error)return <View style={mediaStyles.notice}><Text style={mediaStyles.status}>{error}</Text><Small title="إعادة الاتصال" onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
-  if(!credentials)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
+  if(!credentials||credentials.canPublish!==canPublish)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false}
     onError={()=>setError('تعذر الاتصال بالبث')}
     onDisconnected={()=>setError('انقطع اتصال البث')}>
-    <ConnectedMedia room={room} isHost={isHost} audio={audio} blocked={blocked}/>
+    <ConnectedMedia room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests}/>
   </LiveKitRoom>;
 }
 
-function ConnectedMedia({room,isHost,audio,blocked}){
+function ConnectedMedia({room,canPublish,audio,blocked,guests}){
   const state=useConnectionState();
   const {localParticipant,isMicrophoneEnabled,isCameraEnabled}=useLocalParticipant();
   const tracks=useTracks([Track.Source.Camera],{onlySubscribed:true});
   const participants=useParticipants();
-  const host=participants.find(person=>person.identity===room.ownerUid);
+  const guestCamera=tracks.find(track=>Object.prototype.hasOwnProperty.call(guests,track.participant.identity)&&!blocked.includes(track.participant.identity)&&isTrackReference(track));
+  const seats=[[room.ownerUid,room.ownerName||'المضيف'],...Object.entries(guests)];
+
   const camera=tracks.find(track=>track.participant.identity===room.ownerUid&&isTrackReference(track));
   const [busy,setBusy]=useState(false);
   const pending=useRef(false);
@@ -167,14 +177,18 @@ function ConnectedMedia({room,isHost,audio,blocked}){
   }
   return <>
     {!audio&&camera&&!blocked.includes(room.ownerUid)&&<VideoTrack trackRef={camera} style={StyleSheet.absoluteFillObject}/>}
+    {!audio&&guestCamera&&<View pointerEvents="none" style={mediaStyles.guest}><VideoTrack trackRef={guestCamera} style={StyleSheet.absoluteFillObject}/></View>}
     {state!==ConnectionState.Connected?<Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>:
       audio?<><Text style={S.seatHeading}>✦ المقاعد الملكية ✦</Text>
-        <View style={S.seatGrid}>{Array.from({length:8},(_,i)=><View key={i} style={S.seatItem}>
-          <View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{i===0&&host?.isMicrophoneEnabled?'🎙️':'💺'}</Text></View>
-          <Text numberOfLines={1} style={S.tiny}>{i===0?room.ownerName||'المضيف':`مقعد ${i+1}`}</Text>
-        </View>)}</View></>:
+        <View style={S.seatGrid}>{Array.from({length:8},(_,i)=>{
+          const [uid,label]=seats[i]||[];
+          const person=participants.find(participant=>participant.identity===uid);
+          return <View key={i} style={S.seatItem}>
+          <View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{person?.isMicrophoneEnabled?'🎙️':'💺'}</Text></View>
+          <Text numberOfLines={1} style={S.tiny}>{label||`مقعد ${i+1}`}</Text>
+        </View>})}</View></>:
         !camera&&<Text style={mediaStyles.status}>كاميرا المضيف مغلقة</Text>}
-    {isHost&&state===ConnectionState.Connected&&!busy&&<View style={mediaStyles.controls}>
+    {canPublish&&state===ConnectionState.Connected&&!busy&&<View style={mediaStyles.controls}>
       <Small title={isMicrophoneEnabled?'كتم الميكروفون':'تشغيل الميكروفون'} onPress={()=>toggle('microphone')}/>
       {!audio&&<Small title={isCameraEnabled?'إغلاق الكاميرا':'تشغيل الكاميرا'} onPress={()=>toggle('camera')}/>}
     </View>}
@@ -184,6 +198,8 @@ function ConnectedMedia({room,isHost,audio,blocked}){
 const mediaStyles=StyleSheet.create({
   status:{textAlign:'center',color:'white',padding:10,backgroundColor:'#142338'},
   notice:{alignItems:'center'},
+  requests:{maxHeight:110,backgroundColor:"#142338"},
+  guest:{position:'absolute',right:12,bottom:185,width:116,height:150,zIndex:2,overflow:'hidden',borderRadius:12,borderWidth:2,borderColor:GOLD},
   controls:{flexDirection:'row',justifyContent:'center',gap:8,padding:8},
 });
 
@@ -192,6 +208,15 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   const isHost=room.ownerUid===userId;
   const [chat,setChat]=useState([]),[message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
+  const roomRef=db.collection('rooms').doc(room.id);
+  const requestsRef=roomRef.collection('stageRequests');
+  const [guests,setGuests]=useState({});
+  const [requests,setRequests]=useState([]);
+  const [requested,setRequested]=useState(false);
+  const [stageBusy,setStageBusy]=useState(false);
+  const [stagePanelVisible,setStagePanelVisible]=useState(false);
+  const stageLock=useRef(false);
+  const isGuest=Object.prototype.hasOwnProperty.call(guests,userId);
   const chatRef=useRef(null);
   const [blocked,setBlocked]=useState([]);
   useEffect(()=>{
@@ -200,14 +225,54 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       if(!d.exists||d.data()?.status==='closed'){
         Alert.alert('تم إغلاق الغرفة','أغلق المضيف الغرفة، لا يمكن إرسال رسائل جديدة.');
         onExit();
-      }
+      }else{setGuests(d.data()?.stageGuests||{});}
     },e=>console.warn('Room status:',e.message));
     const un1=db.collection('rooms').doc(room.id).collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
       setChat(snapshot.docs.map(d=>({id:d.id,...d.data()})));
     },e=>Alert.alert('المحادثة',e.message));
     const un2=db.collection('users').doc(userId).collection('blocked').onSnapshot(snapshot=>setBlocked(snapshot.docs.map(d=>d.id)),e=>console.warn('Blocked list:',e.message));
-    return()=>{roomUnsub();un1();un2()};
+    const onStageError=e=>console.warn('Stage requests:',e.message);
+    const stageUnsub=isHost
+      ?requestsRef.orderBy('createdAt').limit(30).onSnapshot(snapshot=>setRequests(snapshot.docs.map(d=>({uid:d.id,...d.data()}))),onStageError)
+      :requestsRef.doc(userId).onSnapshot(snapshot=>setRequested(snapshot.exists),onStageError);
+    return()=>{roomUnsub();un1();un2();stageUnsub()};
   },[room?.id,userId]);
+  async function stageAction(action,uid=userId){
+    if(stageLock.current)return;
+    stageLock.current=true;
+    setStageBusy(true);
+    try{
+      const requestRef=requestsRef.doc(uid);
+      if(action==='request'){
+        await requestRef.set({name:username.slice(0,35)||'مستخدم',createdAt:firestore.FieldValue.serverTimestamp()});
+      }else if(action==='approve'){
+        await db.runTransaction(async tx=>{
+          const live=await tx.get(roomRef);
+          const request=await tx.get(requestRef);
+          if(live.data()?.status!=='open'||!request.exists)throw new Error('الطلب لم يعد متاحًا');
+          const members=live.data().stageGuests||{};
+          if(Object.keys(members).length>=(audio?7:1))throw new Error('كل المقاعد المتاحة ممتلئة');
+          tx.update(roomRef,{stageGuests:{...members,[uid]:request.data().name}});
+          tx.delete(requestRef);
+        });
+      }else if(action==='remove'){
+        await db.runTransaction(async tx=>{
+          const live=await tx.get(roomRef);
+          const members={...live.data()?.stageGuests};
+          delete members[uid];
+          tx.update(roomRef,{stageGuests:members});
+        });
+        if(MEDIA_CONFIGURED)await mediaRequest('/remove-guest',{roomId:room.id,uid});
+      }else{
+        await requestRef.delete();
+      }
+    }catch(e){Alert.alert('إدارة المقاعد',e.message);}
+    finally{stageLock.current=false;setStageBusy(false);}
+  }
+  function stagePanel(){
+    if(!isHost)return isGuest?null:<Small title={requested?'إلغاء الطلب':audio?'طلب مقعد':'طلب الانضمام كضيف'} onPress={()=>stageAction(requested?'cancel':'request')}/>;
+    return <Small title={`المقاعد (${Object.keys(guests).length}) · الطلبات (${requests.length})`} onPress={()=>setStagePanelVisible(v=>!v)}/>;
+  }
   async function moderateMessage(m){
     if(!m?.id||!userId)return;
     const ownMessage=m.userUid===userId;
@@ -259,10 +324,18 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?BLUE:'#071324'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio&&<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><Text style={S.bgCrown}>♛</Text></View>}
-    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} isHost={isHost} audio={audio} blocked={blocked}/></View>}
+    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests}/></View>}
     <View style={S.liveHeader}><Small title="✕" onPress={onExit}/><View style={{flex:1,alignItems:'center'}}><Text style={S.title}>{room.name}</Text><Text style={S.tiny}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'} · #{room.id}</Text></View></View>
-    {audio&&<RoomMedia room={room} userId={userId} isHost={isHost} audio={audio} blocked={blocked}/>}
+    {audio&&<RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests}/>}
     <View pointerEvents="none" style={{flex:1}}/>
+    {!keyboardOn&&!stageBusy&&stagePanel()}
+    {isHost&&stagePanelVisible&&!keyboardOn&&<ScrollView style={mediaStyles.requests} keyboardShouldPersistTaps="handled">
+      {Object.entries(guests).map(([uid,label])=><Small key={uid} title={'إنزال '+label} onPress={()=>stageAction('remove',uid)}/>)}
+      {requests.filter(item=>!blocked.includes(item.uid)).map(item=><View key={item.uid} style={S.row}>
+        <Small title={'قبول '+item.name} onPress={()=>stageAction('approve',item.uid)}/>
+        <Small title="رفض" onPress={()=>stageAction('reject',item.uid)}/>
+      </View>)}
+    </ScrollView>}
     {!keyboardOn&&<View style={S.actions}><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'غرفة صوتية':'بث فيديو'}</Text></View>}
     {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك. يستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}><View style={S.drawerHeader}><Text style={S.gold}>🎁 مكتبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View><ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>{GIFTS.map((g,i)=><TouchableOpacity key={i} style={S.giftTile} onPress={()=>send(g)}><Text style={{fontSize:22}}>{g[0]}</Text><Text numberOfLines={1} style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>💎 {g[2]}</Text></TouchableOpacity>)}</ScrollView></View>}
@@ -502,12 +575,26 @@ export default function App(){
     if(room.status==='closed')return Alert.alert('غرفة مغلقة','هذه الغرفة مغلقة الآن');
     setActiveRoom({...room,host:room.ownerName||room.host||'مضيف',owner:room.ownerUid||room.owner});go('room');
   }
+  async function endLiveRoom(roomId){
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),12000);
+    try{await mediaRequest('/close-room',{roomId},controller.signal);}
+    catch{Alert.alert('الغرفة مغلقة','تعذر إنهاء جلسة البث على الخادم.',[
+      {text:'إغلاق',style:'cancel'},
+      {text:'إعادة المحاولة',onPress:()=>endLiveRoom(roomId)},
+    ]);}
+    finally{clearTimeout(timeout);}
+  }
   function closeMyRoom(room){
     if(!user?.uid||room.ownerUid!==user.uid)return;
     Alert.alert('إغلاق الغرفة','سيُمنع إرسال رسائل جديدة إلى الغرفة بعد إغلاقها، وتبقى الرسائل السابقة محفوظة للإشراف. هل توافق؟',[
       {text:'إلغاء',style:'cancel'},
       {text:'إغلاق',style:'destructive',onPress:async()=>{
-        try{await db.collection('rooms').doc(room.id).update({status:'closed'});if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms')}}
+        try{
+          await db.collection('rooms').doc(room.id).update({status:'closed'});
+          if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms');}
+          if(MEDIA_CONFIGURED)await endLiveRoom(room.id);
+        }
         catch(e){Alert.alert('تعذر الإغلاق',e.message)}
       }}]);
   }

@@ -8,11 +8,20 @@ function json(data, status = 200) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
+async function signToken(env, payload) {
+  const unsigned = [{ alg: 'HS256', typ: 'JWT' }, payload].map(value => base64url(encoder.encode(JSON.stringify(value)))).join('.');
+  const key = await crypto.subtle.importKey(
+    'raw', encoder.encode(env.LIVEKIT_API_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(unsigned));
+  return `${unsigned}.${base64url(new Uint8Array(signature))}`;
+}
+
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if (path === '/' && request.method === 'GET') return json({ service: 'clipi-livekit' });
-    if (path !== '/token' || request.method !== 'POST') return json({ error: 'Not found' }, 404);
+    if (!['/token', '/remove-guest', '/close-room'].includes(path) || request.method !== 'POST') return json({ error: 'Not found' }, 404);
     if (!env.FIREBASE_PROJECT_ID || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET ||
         !/^wss:\/\/[^/]+\/?$/.test(env.LIVEKIT_URL ?? '')) {
       return json({ error: 'Service configuration incomplete' }, 503);
@@ -22,11 +31,11 @@ export default {
     const match = /^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/.exec(authorization ?? '');
     if (!match || authorization.length > 8192) return json({ error: 'Unauthorized' }, 401);
 
-    let roomId;
+    let roomId, uid;
     try {
       const body = await request.text();
       if (body.length > 1024) return json({ error: 'Request too large' }, 413);
-      ({ roomId } = JSON.parse(body));
+      ({ roomId, uid } = JSON.parse(body));
     } catch {
       return json({ error: 'Invalid request' }, 400);
     }
@@ -53,27 +62,46 @@ export default {
       }
       const { fields } = await roomResponse.json();
       const type = fields?.type?.stringValue;
-      if (fields?.status?.stringValue !== 'open' || !['audio', 'video'].includes(type)) {
+      const status = fields?.status?.stringValue;
+      if (!['audio', 'video'].includes(type) || status !== (path === '/close-room' ? 'closed' : 'open')) {
         return json({ error: 'Room unavailable' }, 404);
       }
 
       const host = fields.ownerUid?.stringValue === claims.sub;
+      const guests = fields.stageGuests?.mapValue?.fields ?? {};
+      const liveRoom = `clipi-${roomId}`;
       const now = Math.floor(Date.now() / 1000);
+      if (path !== '/token') {
+        if (!host) return json({ error: 'Forbidden' }, 403);
+        const closing = path === '/close-room';
+        if (!closing && (typeof uid !== 'string' || !uid || uid.length > 128 || uid === claims.sub || Object.hasOwn(guests, uid))) {
+          return json({ error: 'Invalid guest' }, 400);
+        }
+        const admin = await signToken(env, {
+          iss: env.LIVEKIT_API_KEY, sub: claims.sub, nbf: now - 5, exp: now + 30,
+          video: closing ? { roomCreate: true } : { roomAdmin: true, room: liveRoom },
+        });
+        const origin = new URL(env.LIVEKIT_URL.replace('wss:', 'https:')).origin;
+        const method = closing ? 'DeleteRoom' : 'RemoveParticipant';
+        const result = await fetch(origin + '/twirp/livekit.RoomService/' + method, {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + admin, 'Content-Type': 'application/json' },
+          body: JSON.stringify(closing ? { room: liveRoom } : { room: liveRoom, identity: uid }),
+          signal: AbortSignal.timeout(8000),
+        });
+        return result.ok || result.status === 404 ? json({ removed: true }) : json({ error: 'Removal failed' }, 502);
+      }
+      const publisher = host || typeof guests[claims.sub]?.stringValue === 'string';
       const video = {
         roomJoin: true,
-        room: `clipi-${roomId}`,
+        room: liveRoom,
         canSubscribe: true,
-        canPublish: host,
+        canPublish: publisher,
         canPublishData: false,
       };
-      if (host) video.canPublishSources = type === 'audio' ? ['microphone'] : ['microphone', 'camera'];
+      if (publisher) video.canPublishSources = type === 'audio' ? ['microphone'] : ['microphone', 'camera'];
       const payload = { iss: env.LIVEKIT_API_KEY, sub: claims.sub, nbf: now - 5, exp: now + 120, video };
-      const unsigned = [{ alg: 'HS256', typ: 'JWT' }, payload].map(value => base64url(encoder.encode(JSON.stringify(value)))).join('.');
-      const key = await crypto.subtle.importKey(
-        'raw', encoder.encode(env.LIVEKIT_API_SECRET), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-      );
-      const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(unsigned));
-      return json({ serverUrl: env.LIVEKIT_URL, token: `${unsigned}.${base64url(new Uint8Array(signature))}` });
+      return json({ serverUrl: env.LIVEKIT_URL, token: await signToken(env, payload) });
     } catch {
       return json({ error: 'Media service temporarily unavailable' }, 502);
     }

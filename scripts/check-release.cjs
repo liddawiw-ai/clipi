@@ -17,6 +17,6 @@ assert(eas.build.preview.android.buildType==='apk');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
-assert(source.includes('isHost&&state===ConnectionState.Connected'), 'Host media controls missing');
+assert(source.includes('canPublish&&state===ConnectionState.Connected'), 'Host media controls missing');
 assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
 console.log('Clipi release guards passed (static assertions only).');
