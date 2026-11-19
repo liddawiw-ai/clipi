@@ -446,3 +446,6 @@ exports.reviewReport=onCall({enforceAppCheck:true,maxInstances:5},async request=
  await ref.update({status,reviewedBy:uid,reviewedAt:FieldValue.serverTimestamp()});
  return {ok:true};
 });
+
+// LiveKit voice-room access, scoped to authenticated audio rooms.
+exports.issueVoiceToken=require('./voiceToken').issueVoiceToken;
