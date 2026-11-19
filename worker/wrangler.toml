@@ -1,6 +1,7 @@
 name = "clipi-voice-server"
 main = "worker.mjs"
 compatibility_date = "2026-11-19"
+keep_vars = true
 
 [vars]
 FIREBASE_PROJECT_ID = "clipi-f67c0"
