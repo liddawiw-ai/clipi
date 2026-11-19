@@ -1,6 +1,8 @@
 const fbId = process.env.FACEBOOK_APP_ID;
 const fbToken = process.env.FACEBOOK_CLIENT_TOKEN;
 const plugins = [
+  '@livekit/react-native-expo-plugin',
+  '@config-plugins/react-native-webrtc',
   '@react-native-firebase/app',
   '@react-native-firebase/auth',
   '@react-native-google-signin/google-signin',

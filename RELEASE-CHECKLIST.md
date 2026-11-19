@@ -11,7 +11,7 @@
 
 ## Not done (needs verification / providers / authorized operators)
 1. **Firebase rules deployment**: Rules in GitHub are not deployed automatically. Test with Firebase Emulator, review other live collections/clients, then use an authorized deploy. The `FIREBASE_SERVICE_ACCOUNT_CLIPI` GitHub secret is not confirmed.
-2. **Live audio/video**: No RTC provider, token minting service, relay/SFU infrastructure, moderation or cross-device media transports are integrated. Only the local camera preview is functional by design.
+2. **Live audio/video**: LiveKit host broadcasting and viewer playback are implemented in source. Deploy the token Worker, configure the native app, and run the two-device checks in worker/README.md. Guest promotion and server-side room termination are pending.
 3. **Google/Facebook login**: Requires configured and tested provider/native OAuth values and app review settings. SMS sign-in requires enabled phone auth and correct platform verification settings.
 4. **Payments / Pi / diamonds / payouts / games of chance**: Need store-approved billing and secured server-side ledger, payment providers, regulatory and platform review; intentionally unavailable in release build.
 5. **Account deletion**: Current app deletes sign-in credentials and a user profile document but not all associated content/subcollections; requires complete backend deletion/retention workflow and documented privacy process before launch.
@@ -29,5 +29,5 @@
 - Shared room discovery supports name search and hides rooms owned by blocked accounts.
 - Profile display name is validated (1–35 characters), and avatar selection is saved to Firestore.
 - Google and Facebook login buttons are disabled when required public/native configuration is missing.
-- Viewer cannot activate a misleading local host-camera preview; only the signed-in room owner can preview their own camera. Remote media remains disabled.
+- Media publication is limited to the signed-in room owner. Viewers subscribe to the host stream.
 - `npm run test:release` and local JSX parse tests pass; **no device/RTC/payment integration test is implied**.

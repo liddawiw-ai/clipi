@@ -1,0 +1,6 @@
+name = "clipi-voice"
+main = "worker.mjs"
+compatibility_date = "2026-11-19"
+
+[vars]
+FIREBASE_PROJECT_ID = "clipi-f67c0"
