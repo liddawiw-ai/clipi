@@ -24,7 +24,7 @@ checkJavaScript('functions/index.js');
 checkJavaScript('app.config.js');
 checkJavaScript('scripts/check-release.cjs');
 const imports = app.program.body.filter(x => x.type === 'ImportDeclaration').map(x => x.source.value);
-for (const required of ['react', 'react-native', '@react-native-firebase/auth', '@react-native-firebase/firestore', 'expo-camera']) {
+for (const required of ['react', 'react-native', '@react-native-firebase/auth', '@react-native-firebase/firestore', '@livekit/react-native', 'livekit-client']) {
   assert.ok(imports.includes(required), 'Missing required import: ' + required);
 }
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));

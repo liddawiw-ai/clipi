@@ -2,6 +2,8 @@
 const fbId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
 const fbToken = process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN;
 const plugins = [
+  '@livekit/react-native-expo-plugin',
+  '@config-plugins/react-native-webrtc',
   '@react-native-firebase/app',
   '@react-native-firebase/auth',
   ['expo-local-authentication', {faceIDPermission: 'السماح لـ Clipi باستخدام Face ID لفتح محفظة النقاط والأرباح بأمان'}],

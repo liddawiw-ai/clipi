@@ -24,7 +24,7 @@ assert(configured.android.package===configured.ios.bundleIdentifier, 'App identi
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
-assert(source.includes('isHost&&cameraOn&&cameraPermission?.granted'), 'Viewer camera guard missing');
+assert(source.includes('canPublish&&state===ConnectionState.Connected')&&source.includes('canPublish={isHost||isGuest}'), 'Viewer camera guard missing');
 assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
 assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
 assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
@@ -63,7 +63,7 @@ assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must
 
 assert(source.includes('const hostSettings=<Modal')&&source.includes('hostSettingsOpen&&isHost'),'Host-only settings sheet missing');
 assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
-assert(source.includes('setMinimized(true)')&&source.includes('setCameraFacing'),'Host settings controls missing');
+assert(source.includes('setMinimized(true)')&&source.includes('setHostSettingsOpen(true)'),'Host settings controls missing');
 assert(source.includes('const exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
 assert(source.includes('✕ مغادرة الغرفة')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
