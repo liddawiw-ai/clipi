@@ -132,7 +132,103 @@ function GiftFX({gift,onDone}){
   </Animated.View>;
 }
 
+
+/* Global visual preview: UTC clock drives identical rounds in every room.
+   No server bets, balances, or cash rewards. Production requires authoritative backend. */
+const GLOBAL_ROUND_MS=36000;
+const GLOBAL_BET_MS=30000;
+function globalRoundAt(now){
+  const round=Math.floor(now/GLOBAL_ROUND_MS);
+  const elapsed=now%GLOBAL_ROUND_MS;
+  // Deterministic display result shared across devices with synchronized clocks.
+  let hash=(Math.imul(round,1664525)+1013904223)>>>0;
+  hash^=hash>>>16;
+  return {round,elapsed,winner:hash%8,betting:elapsed<GLOBAL_BET_MS,
+    remaining:Math.ceil(Math.max(0,GLOBAL_BET_MS-elapsed)/1000)};
+}
+function GlobalGreedyPreview({onClose,roomName}){
+  const [now,setNow]=useState(Date.now());
+  const [chosen,setChosen]=useState([]);
+  const [amount,setAmount]=useState(10);
+  const [demoBalance,setDemoBalance]=useState(1000000);
+  const [roundHistory,setRoundHistory]=useState([]);
+  const lastRound=useRef(globalRoundAt(Date.now()).round);
+  useEffect(()=>{
+    const tick=setInterval(()=>setNow(Date.now()),500);
+    return ()=>clearInterval(tick);
+  },[]);
+  const state=globalRoundAt(now);
+  useEffect(()=>{
+    if(state.round!==lastRound.current){
+      const previous=globalRoundAt((state.round-1)*GLOBAL_ROUND_MS);
+      setRoundHistory(h=>[{round:previous.round,winner:previous.winner},...h].slice(0,8));
+      setChosen([]);
+      lastRound.current=state.round;
+    }
+  },[state.round]);
+  const choose=i=>{
+    if(!state.betting)return;
+    if(chosen.includes(i)){setChosen(v=>v.filter(x=>x!==i));return;}
+    if(chosen.length>=6)return Alert.alert('الحد الأقصى','اختر حتى ست خانات');
+    setChosen(v=>[...v,i]);
+  };
+  const size=Math.min(WIDTH-24,326),foodSize=size*78/326,radius=size*107/326;
+  const mid=size/2,centerSize=size*98/326;
+  const visibleWinner=state.betting?-1:state.winner;
+  return <View style={S.starPage}>
+    <StatusBar barStyle="dark-content"/>
+    <View style={S.starTopBar}>
+      <TouchableOpacity onPress={onClose} style={S.starClose}><Text style={S.starCloseText}>×</Text></TouchableOpacity>
+      <Text style={S.starRules}>🌍 كل غرف Clipi</Text>
+      <View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View>
+      <Text style={S.starRound}>#{state.round}</Text>
+    </View>
+    <ScrollView contentContainerStyle={S.starScroll}>
+      <Text style={{color:'#78350f',fontWeight:'900',textAlign:'center',marginTop:8}}>{roomName} · معاينة عالمية متزامنة</Text>
+      <View style={[S.starWheel,{width:size,height:size}]}>
+        <View style={[S.starWheelRing,{width:size*.75,height:size*.75,left:size*.125,top:size*.125,borderRadius:size*.375}]}/>
+        {FOOD.map((f,i)=>{
+          const angle=(i*45-90)*Math.PI/180;
+          return <TouchableOpacity key={i} disabled={!state.betting} onPress={()=>choose(i)}
+            style={[S.starFood,{width:foodSize,height:foodSize,borderRadius:foodSize/2,
+              left:mid+Math.cos(angle)*radius-foodSize/2,top:mid+Math.sin(angle)*radius-foodSize/2},
+              (visibleWinner===i||chosen.includes(i))&&S.starFoodLit]}>
+            <Text style={S.starFoodEmoji}>{f[0]}</Text>
+            <Text style={S.starFoodLabel}>{f[2]} أضعاف</Text>
+            {chosen.includes(i)&&<Text style={S.starStake}>✓ {amount} 💎</Text>}
+          </TouchableOpacity>;
+        })}
+        <View style={[S.starCenter,{width:centerSize,height:centerSize,borderRadius:centerSize/2,
+          left:mid-centerSize/2,top:mid-centerSize/2}]}>
+          <Text style={S.starCenterTop}>{state.betting?'الوقت المتبقي':'النتيجة العالمية'}</Text>
+          <Text style={S.starCenterTime}>{state.betting?state.remaining+'S':FOOD[state.winner][0]}</Text>
+        </View>
+      </View>
+      <View style={S.starBanner}><Text style={S.starBannerText}>
+        {state.betting?'الجولة نفسها في جميع الغرف · اختر خاناتك':
+          'النتيجة الموحدة: '+FOOD[state.winner][1]+' ×'+FOOD[state.winner][2]}
+      </Text></View>
+      <View style={S.starBetTray}>{[10000,1000,500,100,10].map(n=>
+        <TouchableOpacity key={n} disabled={!state.betting} onPress={()=>setAmount(n)}
+          style={[S.starBetChip,amount===n&&S.starBetActive]}>
+          <Text style={S.starBetText}>{n} 💎</Text>
+        </TouchableOpacity>)}</View>
+      <View style={S.starInfoRow}>
+        <View style={S.starInfoPill}><Text style={S.starInfoText}>ماسات المعاينة</Text><Text style={S.starInfoValue}>{fmt(demoBalance)}</Text></View>
+        <View style={S.starInfoPill}><Text style={S.starInfoText}>خاناتي</Text><Text style={S.starInfoValue}>{chosen.length}/6</Text></View>
+        <View style={[S.starInfoPill,{backgroundColor:'#0ba66c'}]}><Text style={S.starInfoText}>الجولة</Text><Text style={S.starInfoValue}>#{state.round}</Text></View>
+      </View>
+      <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i}
+        disabled={!state.betting} onPress={()=>choose(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
+      <Text style={S.starDisclaimer}>معاينة متزامنة بالوقت العالمي: الاختيارات محلية ولا تخصم الماسات ولا تمنح جوائز. الساعة غير المضبوطة قد تسبب اختلافًا مؤقتًا. اللعب الجماعي الحقيقي يتطلب خادمًا.</Text>
+      {roundHistory.map(h=><Text key={h.round} style={{color:'#813d16',textAlign:'center'}}>#{h.round}: {FOOD[h.winner][0]} {FOOD[h.winner][1]}</Text>)}
+      <Btn title="إغلاق اللعبة والعودة إلى الغرفة" color="#0c9b69" onPress={onClose}/>
+    </ScrollView>
+  </View>;
+}
+
 function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
+  const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const audio=room.type==='audio';
   const [cameraPermission,requestCameraPermission]=useCameraPermissions();
   const [cameraOn,setCameraOn]=useState(false);
@@ -296,6 +392,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
   function seatAction(x){
     Alert.alert('معاينة المقاعد','المقاعد الثمانية تصميم تجريبي، ولا تتصل بالصوت بعد. ستُفعّل صلاحيات الجلوس بعد ربط خادم RTC.');
   }
+  if(globalGameOpen)return <GlobalGreedyPreview roomName={room.name} onClose={()=>setGlobalGameOpen(false)}/>;
   if(minimized)return <View style={S.miniRoom}><StatusBar barStyle="light-content"/><Text style={S.title}>🎙️ {room.name}</Text><Text style={S.white}>الغرفة مصغّرة داخل Clipi — المعاينة لا تبث صوتًا بالخلفية.</Text><Btn title="⛶ تكبير الغرفة" onPress={()=>setMinimized(false)}/><Btn title="✕ مغادرة الغرفة" color="#65315c" onPress={exitRoomOnce}/></View>;
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?'#291d43':'#10132e'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
@@ -315,7 +412,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       <View style={S.seatGrid}>{seats.map(x=><TouchableOpacity key={x.id} style={S.seatItem} onPress={()=>seatAction(x)} onLongPress={()=>seatAction(x)}><View style={S.throne}><Text style={S.throneCrown}>♛</Text><Text style={{fontSize:27}}>{x.locked?'🔒':x.user?'🎙️':'💺'}</Text><Text style={S.seatGem}>◆</Text></View><Text numberOfLines={1} style={S.tiny}>{x.user||`مقعد ${x.id}`}</Text><Text style={S.tiny}>{x.request?'✋ طلب':x.locked?'مغلق':x.user?'يتحدث':'متاح'}</Text></TouchableOpacity>)}</View>
     </>}
     <View style={{flex:1}}/>
-    {!keyboardOn&&<View style={S.actions}><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'المقاعد معاينة تصميمية':'معاينة الكاميرا محلية فقط'}</Text></View>}
+    {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true)}}/><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'المقاعد معاينة تصميمية':'معاينة الكاميرا محلية فقط'}</Text></View>}
     {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>المحادثة مشتركة عبر Firebase. لا يوجد اتصال صوت/فيديو بين الأجهزة بعد. اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
       <View style={S.drawerHeader}><Text style={S.gold}>🎁 حقيبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
