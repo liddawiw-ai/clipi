@@ -1,0 +1,4 @@
+name = "clipi-voice-server"
+main = "worker/worker.mjs"
+compatibility_date = "2025-10-01"
+keep_vars = true
