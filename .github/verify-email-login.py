@@ -24,12 +24,14 @@ def auth(operation, data):
 def adb(*args):
     return subprocess.check_output(['adb', *args], text=True, stderr=subprocess.DEVNULL)
 
-def locate(label, attempts=15):
+def locate(label, attempts=15, editable=False):
     for _ in range(attempts):
         try:
             adb('shell', 'uiautomator', 'dump', '/sdcard/clipi-test-view.xml')
             root = ET.fromstring(adb('shell', 'cat', '/sdcard/clipi-test-view.xml').strip())
             for node in root.iter('node'):
+                if editable and node.get('class') != 'android.widget.EditText':
+                    continue
                 if any(label in node.get(attr, '') for attr in ('text', 'content-desc')):
                     x1,y1,x2,y2 = map(int,re.findall(r'\d+',node.get('bounds','')))
                     return str((x1+x2)//2),str((y1+y2)//2)
@@ -42,7 +44,7 @@ def tap(label):
     adb('shell','input','tap',*locate(label))
 
 def fill(label,value):
-    tap(label)
+    adb('shell','input','tap',*locate(label, editable=True))
     adb('shell','input','text',value)
     adb('shell','input','keyevent','KEYCODE_BACK')
 
