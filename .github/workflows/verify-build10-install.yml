@@ -1,0 +1,25 @@
+name: Verify Clipi 10 installation
+on:
+  push:
+    branches: [fix/verify-clipi-10-install]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download exact build 10 artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 44826158558 -R liddawiw-ai/clipi -n Clipi-Android-test
+      - run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          script: adb install Clipi-Android-test.apk && adb logcat -c && adb shell am start -W -n com.walid.clipi/.MainActivity && sleep 8 && adb logcat -d -s ReactNativeJS AndroidRuntime && adb shell pidof com.walid.clipi
