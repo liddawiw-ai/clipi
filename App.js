@@ -6,10 +6,18 @@ import EarningsWalletScreen from './EarningsWalletScreen';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {LoginManager,AccessToken,AuthenticationToken} from 'react-native-fbsdk-next';
 import * as Crypto from 'expo-crypto';
-import {AudioSession,LiveKitRoom,VideoTrack,isTrackReference,registerGlobals,useConnectionState,useLocalParticipant,useParticipants,useTracks} from '@livekit/react-native';
-import {ConnectionState,Track} from 'livekit-client';
+// Load the native media stack only when a room needs it.
+let roomMediaRuntime;
+function loadRoomMediaRuntime(){
+  if(!roomMediaRuntime){
+    const livekit=require('@livekit/react-native');
+    livekit.registerGlobals();
+    const {ConnectionState,Track}=require('livekit-client');
+    roomMediaRuntime={...livekit,ConnectionState,Track};
+  }
+  return roomMediaRuntime;
+}
 
-registerGlobals();
 const MEDIA_ENDPOINT=process.env.EXPO_PUBLIC_CLIPI_MEDIA_URL?.trim().replace(/\/+$/,'')||'https://clipi-voice-server.liddawiw.workers.dev';
 const MEDIA_CONFIGURED=/^https:\/\//i.test(MEDIA_ENDPOINT);
 
@@ -246,13 +254,26 @@ async function mediaRequest(path,body,signal){
   return response.json();
 }
 
-function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
+function RoomMedia(props){
+  const [runtime,setRuntime]=useState(null);
+  const [loadError,setLoadError]=useState(false);
+  useEffect(()=>{
+    try{setRuntime(loadRoomMediaRuntime());}
+    catch(error){console.warn('Room media initialization failed',error);setLoadError(true);}
+  },[]);
+  if(loadError)return <Text style={mediaStyles.status}>تعذر تشغيل الصوت والفيديو على هذا الجهاز</Text>;
+  if(!runtime)return <Text style={mediaStyles.status}>جاري إعداد البث…</Text>;
+  return <RoomMediaSession {...props} runtime={runtime}/>;
+}
+
+function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime}){
+  const {AudioSession,LiveKitRoom}=runtime;
   const [credentials,setCredentials]=useState(null);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
   useEffect(()=>{
     if(!MEDIA_CONFIGURED)return;
-    const start=AudioSession.startAudioSession();
+    const start=Promise.resolve().then(()=>AudioSession.startAudioSession());
     void start.catch(()=>setError('تعذر بدء جلسة الصوت'));
     return()=>{void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
   },[]);
@@ -283,11 +304,12 @@ function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false}
     onError={()=>setError('تعذر الاتصال بالبث')}
     onDisconnected={()=>setError('انقطع اتصال البث')}>
-    <ConnectedMedia room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests}/>
+    <ConnectedMedia runtime={runtime} room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests}/>
   </LiveKitRoom>;
 }
 
-function ConnectedMedia({room,canPublish,audio,blocked,guests}){
+function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime}){
+  const {VideoTrack,isTrackReference,useConnectionState,useLocalParticipant,useParticipants,useTracks,ConnectionState,Track}=runtime;
   const state=useConnectionState();
   const {localParticipant,isMicrophoneEnabled,isCameraEnabled}=useLocalParticipant();
   const tracks=useTracks([Track.Source.Camera],{onlySubscribed:true});
@@ -652,11 +674,13 @@ export default function App(){
 
   useEffect(()=>{
     if(!GOOGLE_WEB_CLIENT_ID)return;
-    GoogleSignin.configure({webClientId:GOOGLE_WEB_CLIENT_ID});
+    try{GoogleSignin.configure({webClientId:GOOGLE_WEB_CLIENT_ID});}
+    catch(error){console.warn('Google sign-in initialization failed',error);}
   },[]);
   useEffect(()=>{
     let active=true;
-    const unsub=auth().onAuthStateChanged(async u=>{
+    let unsub;
+    try{unsub=auth().onAuthStateChanged(async u=>{
       if(!active)return;
       // Local demo data must never leak between Firebase accounts on the same device.
       if(currentSessionUidRef.current!==u?.uid){
@@ -692,8 +716,12 @@ export default function App(){
         setName('');setRoomError('');
         go('login');
       }
-    });
-    return ()=>{active=false;unsub()};
+    });}catch(error){
+      console.warn('Firebase authentication initialization failed',error);
+      setAuthError('تعذر بدء تسجيل الدخول. أغلق التطبيق وحاول مجددًا.');
+      go('login');
+    }
+    return ()=>{active=false;unsub?.()};
   },[]);
   useEffect(()=>{
     if(!user?.uid)return;
