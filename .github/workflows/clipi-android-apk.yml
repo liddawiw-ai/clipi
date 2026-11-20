@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/clipi-stage7-build-fix
+      - fix/clipi-android10-test-apk
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -23,10 +23,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - run: npm ci --no-audit --no-fund
+      - run: npm run test:ci
       - run: npx expo prebuild --platform android --no-install
         env:
           CI: '1'
-      - run: ./gradlew --no-daemon :app:assembleRelease
+      - run: ./gradlew --no-daemon :app:assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
         working-directory: android
       - name: Check APK signing
         run: |
