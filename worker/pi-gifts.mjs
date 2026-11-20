@@ -1,0 +1,85 @@
+const roomPattern = /^[A-Za-z0-9_-]{1,128}$/;
+const identifierPattern = /^[A-Za-z0-9_-]{1,128}$/;
+export const roseAmount = 0.1;
+
+export async function piGifts(request, env, json) {
+  if (env.PI_GIFTS_TESTNET !== '1' || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
+    return json({ error: 'Testnet gifts unavailable' }, 503);
+  }
+  const url = new URL(request.url);
+  const action = url.pathname.split('/').at(-1);
+  const authorization = request.headers.get('Authorization') ?? '';
+  async function openRoom(roomId) {
+    if (!roomPattern.test(roomId ?? '') || !authorization.startsWith('Bearer ')) return false;
+    const project = encodeURIComponent(env.FIREBASE_PROJECT_ID ?? '');
+    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/rooms/${roomId}`, {
+      headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000),
+    });
+    return res.ok && (await res.json()).fields?.status?.stringValue === 'open';
+  }
+  async function pi(path, { token, data, post = false } = {}) {
+    const res = await fetch('https://api.minepi.com/v2' + path, {
+      method: post ? 'POST' : 'GET',
+      headers: { Authorization: token ? 'Bearer ' + token : 'Key ' + env.PI_NETWORK_API_KEY,
+        'Content-Type': 'application/json' },
+      body: data ? JSON.stringify(data) : undefined, signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw Error('Pi API request failed');
+    return res.json();
+  }
+  try {
+    if (action === 'events' && request.method === 'GET') {
+      const roomId = url.searchParams.get('room');
+      if (!await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
+      const { results } = await env.PI_GIFTS_DB.prepare(
+        'SELECT payment_id AS id FROM gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30',
+      ).bind(roomId).all();
+      return json({ gifts: results.reverse() });
+    }
+    if (!['approve', 'complete'].includes(action) || request.method !== 'POST') {
+      return json({ error: 'Not found' }, 404);
+    }
+    const body = await request.text();
+    if (body.length > 8192) return json({ error: 'Request too large' }, 413);
+    let input;
+    try { input = JSON.parse(body); } catch { return json({ error: 'Invalid request' }, 400); }
+    const { paymentId, accessToken, roomId, txid } = input ?? {};
+    if (typeof paymentId !== 'string' || !identifierPattern.test(paymentId) ||
+        typeof roomId !== 'string' || !roomPattern.test(roomId) ||
+        typeof accessToken !== 'string' || !accessToken ||
+        (action === 'complete' && (typeof txid !== 'string' || !/^[a-f0-9]{64}$/i.test(txid)))) {
+      return json({ error: 'Invalid payment request' }, 400);
+    }
+    if (action === 'approve' && !await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
+    const paymentPath = '/payments/' + paymentId;
+    const [identity, payment] = await Promise.all([pi('/me', { token: accessToken }), pi(paymentPath)]);
+    const metadata = payment.metadata;
+    if (!identity.uid || payment.user_uid !== identity.uid || payment.identifier !== paymentId ||
+        payment.direction !== 'user_to_app' || payment.network !== 'Pi Testnet' ||
+        payment.amount !== roseAmount || metadata?.roomId !== roomId || metadata?.gift !== 'rose' ||
+        payment.status?.cancelled || payment.status?.user_cancelled) {
+      return json({ error: 'Payment does not match the Testnet gift' }, 403);
+    }
+    if (action === 'approve') {
+      if (!payment.status?.developer_approved) await pi(paymentPath + '/approve', { post: true });
+      return json({ approved: true });
+    }
+    if (!payment.status?.developer_approved) return json({ error: 'Payment not approved' }, 409);
+    let completed = payment;
+    if (!payment.status.developer_completed) {
+      try {
+        completed = await pi(paymentPath + '/complete', { post: true, data: { txid } });
+      } catch {
+        completed = await pi(paymentPath);
+      }
+    }
+    if (!completed.status?.developer_completed || !completed.status.transaction_verified ||
+        completed.transaction?.txid !== txid) return json({ error: 'Transaction not confirmed' }, 409);
+    await env.PI_GIFTS_DB.prepare(
+      'INSERT INTO gifts (payment_id, room_id) VALUES (?, ?) ON CONFLICT(payment_id) DO NOTHING',
+    ).bind(paymentId, roomId).run();
+    return json({ completed: true });
+  } catch {
+    return json({ error: 'Testnet gift service temporarily unavailable' }, 502);
+  }
+}
