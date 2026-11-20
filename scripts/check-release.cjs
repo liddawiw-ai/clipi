@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===9, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===10, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -76,7 +76,7 @@ assert(clientCatalog&&serverCatalog,'Gift catalogs missing');
 const giftEntries=JSON.parse(clientCatalog[1]);
 const serverGiftIds=Object.keys(new Function('return ('+serverCatalog[1]+')')());
 const unsupportedGiftIds=[...new Set(giftEntries.map(g=>g[3]))].filter(id=>!serverGiftIds.includes(id));
-assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'),'Unsupported gift previews must remain hidden from release builds');
+assert(source.includes('هدايا تجريبية محلية')&&source.includes('eligibleSupportPoints:0'),'Room gifts must remain local previews without earning points');
 assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room)'),
  'Gift send preview changed; audit payment ledger and server receipt before release');
 console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');

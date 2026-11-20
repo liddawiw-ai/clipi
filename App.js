@@ -159,11 +159,13 @@ function globalRoundAt(now){
   return {round,elapsed,winner:hash%8,betting:elapsed<GLOBAL_BET_MS,
     remaining:Math.ceil(Math.max(0,GLOBAL_BET_MS-elapsed)/1000)};
 }
-function GlobalGreedyPreview({onClose,roomName}){
+function GlobalGreedyPreview({visible,onClose,roomName,diamonds,onBet,onCredit}){
   const [now,setNow]=useState(Date.now());
-  const [chosen,setChosen]=useState([]);
+  const [chosen,setChosen]=useState({});
+  const roundBets=useRef({round:null,stakes:{},settled:false});
+  const creditRef=useRef(onCredit);
+  creditRef.current=onCredit;
   const [amount,setAmount]=useState(10);
-  const [demoBalance,setDemoBalance]=useState(1000000);
   const [roundHistory,setRoundHistory]=useState([]);
   const lastRound=useRef(globalRoundAt(Date.now()).round);
   useEffect(()=>{
@@ -171,24 +173,41 @@ function GlobalGreedyPreview({onClose,roomName}){
     return ()=>clearInterval(tick);
   },[]);
   const state=globalRoundAt(now);
+  function settle(current){
+    const bets=roundBets.current;
+    if(bets.round===null||bets.settled||current.round<bets.round||
+      (current.round===bets.round&&current.betting))return;
+    bets.settled=true;
+    const {winner}=globalRoundAt(bets.round*GLOBAL_ROUND_MS);
+    const prize=(bets.stakes[winner]||0)*FOOD[winner][2];
+    if(prize>0)creditRef.current(prize);
+  }
   useEffect(()=>{
+    settle(state);
     if(state.round!==lastRound.current){
       const previous=globalRoundAt((state.round-1)*GLOBAL_ROUND_MS);
       setRoundHistory(h=>[{round:previous.round,winner:previous.winner},...h].slice(0,8));
       setChosen([]);
       lastRound.current=state.round;
     }
-  },[state.round]);
+  },[state.round,state.betting]);
+  useEffect(()=>()=>settle(globalRoundAt(Date.now())),[]);
   const choose=i=>{
-    if(!state.betting)return;
-    if(chosen.includes(i)){setChosen(v=>v.filter(x=>x!==i));return;}
-    if(chosen.length>=6)return Alert.alert('الحد الأقصى','اختر حتى ست خانات');
-    setChosen(v=>[...v,i]);
+    const current=globalRoundAt(Date.now());
+    if(!current.betting||current.round!==state.round)return;
+    settle(current);
+    if(roundBets.current.round!==current.round)roundBets.current={round:current.round,stakes:{},settled:false};
+    const {stakes}=roundBets.current;
+    if(!stakes[i]&&Object.keys(stakes).length>=6)return Alert.alert('الحد الأقصى','اختر حتى ست خانات');
+    if(!onBet(amount))return Alert.alert('رصيد غير كافٍ','عدد الماسات التجريبية لا يكفي لهذا الرهان.');
+    const updated={...stakes,[i]:(stakes[i]||0)+amount};
+    roundBets.current.stakes=updated;
+    setChosen(updated);
   };
   const size=Math.min(WIDTH-24,326),foodSize=size*78/326,radius=size*107/326;
   const mid=size/2,centerSize=size*98/326;
   const visibleWinner=state.betting?-1:state.winner;
-  return <View style={S.starPage}>
+  return <Modal visible={visible} onRequestClose={onClose}><View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>
     <View style={S.starTopBar}>
       <TouchableOpacity onPress={onClose} style={S.starClose}><Text style={S.starCloseText}>×</Text></TouchableOpacity>
@@ -205,10 +224,10 @@ function GlobalGreedyPreview({onClose,roomName}){
           return <TouchableOpacity key={i} disabled={!state.betting} onPress={()=>choose(i)}
             style={[S.starFood,{width:foodSize,height:foodSize,borderRadius:foodSize/2,
               left:mid+Math.cos(angle)*radius-foodSize/2,top:mid+Math.sin(angle)*radius-foodSize/2},
-              (visibleWinner===i||chosen.includes(i))&&S.starFoodLit]}>
+              (visibleWinner===i||Boolean(chosen[i]))&&S.starFoodLit]}>
             <Text style={S.starFoodEmoji}>{f[0]}</Text>
             <Text style={S.starFoodLabel}>{f[2]} أضعاف</Text>
-            {chosen.includes(i)&&<Text style={S.starStake}>✓ {amount} 💎</Text>}
+            {Boolean(chosen[i])&&<Text style={S.starStake}>✓ {fmt(chosen[i])} 💎</Text>}
           </TouchableOpacity>;
         })}
         <View style={[S.starCenter,{width:centerSize,height:centerSize,borderRadius:centerSize/2,
@@ -227,17 +246,17 @@ function GlobalGreedyPreview({onClose,roomName}){
           <Text style={S.starBetText}>{n} 💎</Text>
         </TouchableOpacity>)}</View>
       <View style={S.starInfoRow}>
-        <View style={S.starInfoPill}><Text style={S.starInfoText}>ماسات المعاينة</Text><Text style={S.starInfoValue}>{fmt(demoBalance)}</Text></View>
-        <View style={S.starInfoPill}><Text style={S.starInfoText}>خاناتي</Text><Text style={S.starInfoValue}>{chosen.length}/6</Text></View>
+        <View style={S.starInfoPill}><Text style={S.starInfoText}>ماسات المعاينة</Text><Text style={S.starInfoValue}>{fmt(diamonds)}</Text></View>
+        <View style={S.starInfoPill}><Text style={S.starInfoText}>خاناتي</Text><Text style={S.starInfoValue}>{Object.keys(chosen).length}/6</Text></View>
         <View style={[S.starInfoPill,{backgroundColor:'#0ba66c'}]}><Text style={S.starInfoText}>الجولة</Text><Text style={S.starInfoValue}>#{state.round}</Text></View>
       </View>
       <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i}
         disabled={!state.betting} onPress={()=>choose(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
-      <Text style={S.starDisclaimer}>معاينة متزامنة بالوقت العالمي: الاختيارات محلية ولا تخصم الماسات ولا تمنح جوائز. الساعة غير المضبوطة قد تسبب اختلافًا مؤقتًا. اللعب الجماعي الحقيقي يتطلب خادمًا.</Text>
+      <Text style={S.starDisclaimer}>الألماس تجريبي فقط. يُخصم عند الاختيار وتُضاف نتيجة الفوز إلى الرصيد التجريبي. مغادرة الغرفة قبل ظهور النتيجة تُنهي مشاركتك في الجولة.</Text>
       {roundHistory.map(h=><Text key={h.round} style={{color:'#813d16',textAlign:'center'}}>#{h.round}: {FOOD[h.winner][0]} {FOOD[h.winner][1]}</Text>)}
       <Btn title="إغلاق اللعبة والعودة إلى الغرفة" color="#0c9b69" onPress={onClose}/>
     </ScrollView>
-  </View>;
+  </View></Modal>;
 }
 
 async function mediaRequest(path,body,signal){
@@ -320,6 +339,28 @@ function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime}){
   const camera=tracks.find(track=>track.participant.identity===room.ownerUid&&isTrackReference(track));
   const [busy,setBusy]=useState(false);
   const pending=useRef(false);
+  const started=useRef(false);
+  useEffect(()=>{
+    if(!canPublish||state!==ConnectionState.Connected||started.current)return;
+    started.current=true;
+    pending.current=true;
+    setBusy(true);
+    let active=true;
+    (async()=>{
+      let failed=false;
+      try{await localParticipant.setMicrophoneEnabled(true);}
+      catch{failed=true;}
+      if(active&&!audio){
+        try{await localParticipant.setCameraEnabled(true);}
+        catch{failed=true;}
+      }
+      if(active&&failed)Alert.alert('تعذر تشغيل الوسائط','تحقق من أذونات الميكروفون والكاميرا.');
+    })().finally(()=>{
+      pending.current=false;
+      setBusy(false);
+    });
+    return()=>{active=false;};
+  },[canPublish,state,audio,localParticipant]);
   async function toggle(source){
     if(state!==ConnectionState.Connected||pending.current)return;
     pending.current=true;
@@ -362,7 +403,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',justifyContent:'center',gap:8,padding:8},
 });
 
-function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
+function Room({room,userId,username,avatar,diamonds,onSendGift,onBet,onCredit,onExit}){
   const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const audio=room.type==='audio';
   const isHost=room.ownerUid===userId;
@@ -501,7 +542,6 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة','لا يمكن إرسال هدايا بعد إغلاق الغرفة');
     if(!Array.isArray(gift)||!Number.isSafeInteger(gift[2])||gift[2]<=0)return Alert.alert('هدية غير صالحة');
     if(gift[4]==='الحظ'){
-      if(!__DEV__)return Alert.alert('غير متاح','هدايا الحظ التجريبية غير متاحة في النسخة المنشورة');
       const roll=Math.random()*100;
       const outcome=roll<LUCK_ODDS.grand?'grand':roll<LUCK_ODDS.grand+LUCK_ODDS.medium?'medium':roll<LUCK_ODDS.grand+LUCK_ODDS.medium+LUCK_ODDS.small?'small':'none';
       const title=outcome==='grand'?'✨ تأثير أسطوري':outcome==='medium'?'🌟 تأثير مميز':outcome==='small'?'⭐ تأثير بسيط':'🌙 لا توجد مكافأة';
@@ -509,10 +549,9 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
       Alert.alert('تجربة الحظ',title+' — سياسة التوزيع عند تفعيل الهدايا المدفوعة: 55% للمضيف، 10% للوكيل، 35% للمالك من النقاط المؤهلة، سواء فاز المرسل أو خسر. هذه معاينة فقط؛ لا خصم أو نقاط فعلية الآن.');
       setGiftOpen(false);return;
     }
-    if(!SHOW_UNRELEASED_DEMOS)return Alert.alert('غير مفعّل','سيتم إطلاق الهدايا بعد ربط خدمة الألماس الآمنة');
     if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)return Alert.alert('عدد هدايا غير صالح');
     if(diamonds<gift[2]*giftQuantity)return Alert.alert('رصيد غير كافٍ');
-    // Host may send a gift to their own room in the development preview.
+    // Host may send a local preview gift to their own room.
     // Self-gifts never mint cash-eligible earnings or support points.
     if(!onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room))return;
     setGiftOpen(false);setFxId(v=>v+1);setFx(gift);
@@ -556,9 +595,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     {audio&&<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><View style={S.royalGlow}/><Text style={S.bgCrown}>♛</Text><Text style={S.bgOrnament}>✦ ✧ ♛ ✧ ✦</Text></View>}
     {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests}/></View>}
     {hostSettings}
-    <Modal visible={globalGameOpen} onRequestClose={()=>setGlobalGameOpen(false)}>
-      <GlobalGreedyPreview roomName={room.name} onClose={()=>setGlobalGameOpen(false)}/>
-    </Modal>
+    <GlobalGreedyPreview visible={globalGameOpen} roomName={room.name} diamonds={diamonds}
+      onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>
     <Modal visible={minimized} onRequestClose={()=>setMinimized(false)}>
       <View style={S.miniRoom}><StatusBar barStyle="light-content"/><Text style={S.title}>🎙️ {room.name}</Text><Text style={S.white}>الغرفة مصغّرة داخل Clipi.</Text><Btn title="⛶ تكبير الغرفة" onPress={()=>setMinimized(false)}/><Btn title="✕ مغادرة الغرفة" color="#65315c" onPress={exitRoomOnce}/></View>
     </Modal>
@@ -575,8 +613,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
     </ScrollView>}
     {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true)}}/><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'غرفة صوتية':'غرفة فيديو'}</Text></View>}
     {!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
-      <View style={S.drawerHeader}><Text style={S.gold}>🎁 حقيبة الهدايا</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
+    {giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
+      <View style={S.drawerHeader}><Text style={S.gold}>🎁 هدايا تجريبية محلية</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{maxHeight:46}} contentContainerStyle={{alignItems:'center',paddingHorizontal:8}}>
         {GIFT_CATEGORIES.map(c=><TouchableOpacity key={c} onPress={()=>setGiftCategory(c)} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,marginRight:6,backgroundColor:giftCategory===c?'#6f3db1':'#26123d'}}>
           <Text style={{color:giftCategory===c?'#fff2a6':'white',fontWeight:'700'}}>{c}</Text></TouchableOpacity>)}
@@ -593,7 +631,7 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onExit}){
         {[1,7,17,37,77].map(n=><TouchableOpacity key={n} onPress={()=>setGiftQuantity(n)} style={{backgroundColor:giftQuantity===n?'#8655d2':'#37234d',borderRadius:16,paddingHorizontal:10,paddingVertical:7}}><Text style={S.white}>{n}</Text></TouchableOpacity>)}
       </View>
     </View>}
-    <View style={S.composer}>{SHOW_UNRELEASED_DEMOS&&<TouchableOpacity style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity>}<TextInput style={S.messageInput} value={message} maxLength={500} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={[S.sendButton,sending&&{opacity:.5}]} disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
+    <View style={S.composer}><TouchableOpacity accessibilityLabel="صندوق الهدايا" style={S.composerGift} onPress={()=>{Keyboard.dismiss();setGiftOpen(v=>!v)}}><Text style={{fontSize:23}}>🎁</Text></TouchableOpacity><TextInput style={S.messageInput} value={message} maxLength={500} onChangeText={setMessage} placeholder="اكتب تعليقًا..." placeholderTextColor="#bbd0ea" onFocus={()=>setGiftOpen(false)} returnKeyType="send" onSubmitEditing={sendMessage}/><TouchableOpacity style={[S.sendButton,sending&&{opacity:.5}]} disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity></View>
     {fx&&<GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/>}
   </KeyboardAvoidingView>;
 }
@@ -1047,7 +1085,8 @@ export default function App(){
   if(page==='home')return layout('Clipi',<><View style={S.banner}><Text style={S.title}>أهلًا {name||'بك'} 👋</Text><Text style={S.white}>غرف ومحادثات مشتركة · تصميم غرفة صوت وفيديو (دون بث مباشر)</Text></View>{myProfile}{SHOW_UNRELEASED_DEMOS&&<View style={S.panel}><Text style={S.title}>🎉 مكافأة الترحيب التجريبية</Text><Text style={S.white}>💎 100 ماسة · 👑 إطار فاخر · 🏎️ دخول سيارة فاخرة</Text></View>}<Btn title="📹 إنشاء غرفة صوتية أو فيديو" onPress={()=>go('create')}/><Btn title="🚪 استعراض الغرف" color="#7040a7" onPress={()=>go('rooms')}/>{SHOW_UNRELEASED_DEMOS&&<><Btn title="💎 شراء الماسات (تجريبي)" color="#7040a7" onPress={()=>go('wallet')}/><Btn title="🛍 المتجر (تجريبي)" color="#7040a7" onPress={()=>go('store')}/><Btn title="💰 أرباح المضيف (تجريبي)" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star (تجريبي)" color="#7040a7" onPress={()=>go('games')}/></>}<Btn title="📤 مشاركة Clipi" color="#7040a7" onPress={()=>Share.share({message:'Clipi'})}/></>);
   if(page==='create')return layout('إنشاء غرفة',<><Text style={S.label}>اسم الغرفة</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>نوع الغرفة</Text><View style={S.row}><Btn title="📹 فيديو" color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title="🎙 صوت" color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.muted}>الغرفة عامة للمستخدمين المسجلين. الغرف الخاصة وكلمات المرور غير متاحة حاليًا.</Text><Btn title="فتح الغرفة" onPress={createRoom}/></>);
   if(page==='rooms')return layout('الغرف',<><Btn title="➕ إنشاء غرفة" onPress={()=>go('create')}/><TextInput style={S.input} value={roomSearch} onChangeText={setRoomSearch} placeholder="ابحث عن غرفة..."/><Text style={S.muted}>يمكنك إخفاء غرف المستخدمين المحظورين وإلغاء الحظر من ملفك الشخصي.</Text>{roomError?<Text style={{color:'#ffa6a6'}}>{roomError}</Text>:null}{rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)&&r.name?.toLowerCase().includes(roomSearch.trim().toLowerCase())).length===0?<Text style={S.muted}>لا توجد غرف مطابقة</Text>:rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)&&r.name?.toLowerCase().includes(roomSearch.trim().toLowerCase())).map(r=><View key={r.id} style={S.panel}><TouchableOpacity onPress={()=>enterRoom(r)}><Text style={S.title}>{r.type==='video'?'📹':'🎙'} {r.name}</Text><Text style={S.gold}>#{r.id.slice(0,9)} 🌐 · دردشة مباشرة (البث غير مفعّل)</Text></TouchableOpacity>{r.ownerUid===user?.uid&&<Btn title="إغلاق غرفتي" color="#96334f" onPress={()=>closeMyRoom(r)}/>}</View>)}</>);
-    if(page==='room')return activeRoom?.id&&user?.uid?<Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} diamonds={available} onSendGift={sendGift} onExit={()=>{setActiveRoom(null);go('rooms')}}/>:layout('الغرفة غير متاحة',<Btn title="العودة إلى الغرف" onPress={()=>go('rooms')}/>);
+    if(page==='room')return activeRoom?.id&&user?.uid?<Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} diamonds={available} onSendGift={sendGift} onBet={spend}
+      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onExit={()=>{setActiveRoom(null);go('rooms')}}/>:layout('الغرفة غير متاحة',<Btn title="العودة إلى الغرف" onPress={()=>go('rooms')}/>);
   if(page==='wallet')return layout('محفظة Clipi',<><View style={S.card}><Text style={S.title}>💎 الرصيد التجريبي</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>هدية الترحيب: {fmt(wallet.welcome)}</Text><Text style={S.white}>المشتَرى: {fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>معاينة المالك: {fmt(wallet.owner)}</Text>}</View><Text style={S.title}>طريقة الشراء</Text><View style={S.row}><Btn title="💵 دولار" color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>سعر Pi بالدولار (يدوي للمعاينة)</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder="مثال: 0.50"/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} Pi`:'أدخل سعر Pi'}</Text></View><Small title="شراء" color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من Pi = 1,200 ماسة. يتغير سعر Pi صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر Pi الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
