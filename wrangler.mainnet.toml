@@ -1,3 +1,4 @@
+# Deploy this Worker with --config wrangler.mainnet.toml.
 name = "clipi-mainnet"
 main = "worker/worker.mjs"
 compatibility_date = "2025-10-01"
