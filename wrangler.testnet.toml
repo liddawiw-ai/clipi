@@ -11,4 +11,4 @@ PI_GIFTS_TESTNET = "1"
 [[d1_databases]]
 binding = "PI_GIFTS_DB"
 database_name = "clipi-pi-testnet-gifts"
-database_id = "REPLACE_WITH_TESTNET_D1_DATABASE_ID"
+database_id = "6ba719ff-1708-4151-b6b9-f95f5871cf6b"
