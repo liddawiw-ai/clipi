@@ -4,7 +4,6 @@ import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import EarningsWalletScreen from './EarningsWalletScreen';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
-import {LoginManager,AccessToken,AuthenticationToken} from 'react-native-fbsdk-next';
 import * as Crypto from 'expo-crypto';
 // Load the native media stack only when a room needs it.
 let roomMediaRuntime;
@@ -827,6 +826,7 @@ export default function App(){
     if(!FACEBOOK_CONFIGURED)return Alert.alert('إعداد Facebook','أكمل EXPO_PUBLIC_FACEBOOK_APP_ID وEXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول');
     setBusy(true);setAuthError('');
     try{
+      const {LoginManager,AccessToken,AuthenticationToken}=require('react-native-fbsdk-next');
       let credential;
       if(Platform.OS==='ios'){
         const rawNonce=Crypto.randomUUID();
@@ -853,7 +853,7 @@ export default function App(){
     finally{setBusy(false)}
   }
   async function logout(){
-    try{await auth().signOut();try{await GoogleSignin.signOut()}catch(_e){}try{LoginManager.logOut()}catch(_e){}setOwnerDemo(false);setOwnerGranted(false);setBalance({welcome:WELCOME,purchased:0,owner:0});setPayoutDrafts([]);setSupportLog([]);setReceived(0);setSpent(0);go('login')}
+    try{await auth().signOut();try{await GoogleSignin.signOut()}catch(_e){}if(FACEBOOK_CONFIGURED){try{require('react-native-fbsdk-next').LoginManager.logOut()}catch(_e){}}setOwnerDemo(false);setOwnerGranted(false);setBalance({welcome:WELCOME,purchased:0,owner:0});setPayoutDrafts([]);setSupportLog([]);setReceived(0);setSpent(0);go('login')}
     catch(e){Alert.alert('تعذر الخروج',e.message)}
   }
   function toggleOwnerDemo(){

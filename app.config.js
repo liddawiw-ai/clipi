@@ -39,7 +39,7 @@ module.exports = {
     },
     android: {
       package: 'com.walid.clipi',
-      versionCode: 6,
+      versionCode: 7,
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
