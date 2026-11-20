@@ -602,9 +602,12 @@ export default function App(){
   const [page,setPage]=useState('loading');
   const [user,setUser]=useState(null);
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
+  const [loginMethod,setLoginMethod]=useState('email');
+  const [emailMode,setEmailMode]=useState('login');
+  const [email,setEmail]=useState(''),[password,setPassword]=useState('');
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
-  const smsConfirmingRef=useRef(false);
+  const profileSetupRef=useRef(false);
   const currentSessionUidRef=useRef(undefined);
   // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
   const [wallet,setWallet]=useState({welcome:WELCOME,purchased:0,owner:0});
@@ -699,8 +702,8 @@ export default function App(){
       setUser(u);
       setRooms([]);setActiveRoom(null);
       if(u){
-        // SMS confirmation owns profile creation and navigation until it finishes.
-        if(smsConfirmingRef.current)return;
+        // Account creation or SMS confirmation owns profile creation and navigation until it finishes.
+        if(profileSetupRef.current)return;
         try{
           const doc=await firestore().collection('users').doc(u.uid).get();
           if(!active||auth().currentUser?.uid!==u.uid)return;
@@ -765,6 +768,60 @@ export default function App(){
     },{merge:true});
     setName(displayName);
   }
+  async function emailLogin(){
+    if(busy)return;
+    const address=email.trim();
+    const creating=emailMode==='signup';
+    const resetting=emailMode==='reset';
+    if(!/^\S+@[^\s@]+\.[^\s@]+$/.test(address))return Alert.alert('البريد','أدخل بريدًا إلكترونيًا صحيحًا.');
+    if(!resetting&&!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً.');
+    if(!resetting&&(!password||(creating&&password.length<6)))return Alert.alert('كلمة المرور','أدخل كلمة المرور. الحساب الجديد يحتاج إلى ستة أحرف على الأقل.');
+    if(creating&&(!name.trim()||name.trim().length>35))return Alert.alert('الاسم','أدخل اسمًا من 1 إلى 35 حرفًا.');
+
+    Keyboard.dismiss();
+    setBusy(true);
+    setAuthError('');
+    profileSetupRef.current=creating;
+    try{
+      if(resetting){
+        await auth().sendPasswordResetEmail(address).catch(error=>{
+          if(error?.code!=='auth/user-not-found')throw error;
+        });
+        setEmailMode('login');
+        Alert.alert('استعادة كلمة المرور','إذا كان البريد مرتبطًا بحساب، سيصلك رابط لتعيين كلمة مرور جديدة.');
+        return;
+      }
+      if(!creating){
+        await auth().signInWithEmailAndPassword(address,password);
+        return;
+      }
+      const {user:created}=await auth().createUserWithEmailAndPassword(address,password);
+      const displayName=name.trim();
+      try{await created.updateProfile({displayName});}
+      catch(error){console.warn('Email profile update failed',error.code);}
+      try{await saveProfile(created,displayName);}
+      catch(error){console.warn('Email profile sync failed',error.code);}
+      setName(displayName);
+      go('home');
+    }catch(error){
+      const messages={
+        'auth/operation-not-allowed':'خدمة الدخول بالبريد غير مفعّلة حاليًا.',
+        'auth/email-already-in-use':'هذا البريد مسجّل بالفعل. جرّب تسجيل الدخول أو استعادة كلمة المرور.',
+        'auth/invalid-email':'أدخل بريدًا إلكترونيًا صحيحًا.',
+        'auth/weak-password':'اختر كلمة مرور أقوى.',
+        'auth/too-many-requests':'محاولات كثيرة. حاول مرة أخرى لاحقًا.',
+        'auth/network-request-failed':'تعذر الاتصال بالشبكة. تحقق من الإنترنت.',
+        'auth/user-disabled':'هذا الحساب معطّل.',
+      };
+      const message=messages[error?.code]||(resetting?'تعذر إرسال رابط الاستعادة. حاول مجددًا.':creating?'تعذر إنشاء الحساب. تحقق من البيانات وحاول مجددًا.':'تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');
+      setAuthError(message);
+      Alert.alert('الدخول بالبريد',message);
+    }finally{
+      profileSetupRef.current=false;
+      setPassword('');
+      setBusy(false);
+    }
+  }
   function phoneAuthMessage(e){
     if(/billing[-_ ]not/i.test(`${e?.code||''} ${e?.message||''}`)){
       return 'رموز SMS غير متاحة حاليًا لأن الفوترة غير مفعّلة لدى مزوّد تسجيل الدخول.';
@@ -794,7 +851,7 @@ export default function App(){
   async function verifySms(){
     if(busy)return;
     if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert('رمز SMS','أدخل ستة أرقام');
-    smsConfirmingRef.current=true;
+    profileSetupRef.current=true;
     setBusy(true);setAuthError('');
     try{
       const credential=await confirmation.confirm(smsCode.trim());
@@ -804,7 +861,7 @@ export default function App(){
       setUser(credential.user);setConfirmation(null);go('home');
     }
     catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('فشل التحقق',message)}
-    finally{smsConfirmingRef.current=false;setBusy(false)}
+    finally{profileSetupRef.current=false;setBusy(false)}
   }
   async function googleLogin(){
     if(busy)return;
@@ -963,7 +1020,29 @@ export default function App(){
     <Text style={S.logo}>Clipi</Text>
     {page==='terms'?<><Text style={S.white}>الماس والأرباح في هذه النسخة تجريبية. لا يوجد دفع أو سحب مالي. المحتوى والبث بين الأجهزة يحتاجان خدمة مخصصة. يجب نشر سياسة خصوصية وشروط قانونية قبل الإطلاق.</Text><Btn title="أوافق" onPress={()=>{setAccepted(true);go('login')}}/><Btn title="رجوع" color="#49306b" onPress={()=>go('login')}/></>:
     page==='verify'?<><Text style={S.label}>رمز التحقق SMS</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder="ستة أرقام"/><Btn title={busy?'جارٍ التحقق...':'تأكيد الرمز'} disabled={busy} onPress={verifySms}/><Btn title="تغيير رقم الهاتف" color="#49306b" onPress={()=>go('login')}/></>:
-    <><Text style={S.muted}>تسجيل الدخول الحقيقي عبر Firebase</Text><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder="اسم المستخدم"/><Text style={S.label}>الدولة</Text><Btn title={COUNTRIES[country].join(' ')} color="#49306b" onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={c.join(' ')} color="#382050" onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>الهاتف</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder="رقم الهاتف" keyboardType="phone-pad"/><Btn title={accepted?'☑ أوافق على الشروط':'☐ أوافق على الشروط'} color="#49306b" onPress={()=>setAccepted(v=>!v)}/><Btn title="قراءة الشروط" color="#49306b" onPress={()=>go('terms')}/><Btn title={busy?'جارٍ العمل...':'📱 تسجيل بالهاتف (SMS)'} disabled={busy} onPress={phoneLogin}/><Btn title={GOOGLE_WEB_CLIENT_ID?"🌐 متابعة باستخدام Google":"🌐 Google · يحتاج إعدادًا"} color="#4285f4" disabled={busy||!GOOGLE_WEB_CLIENT_ID} onPress={googleLogin}/><Btn title={FACEBOOK_CONFIGURED?"📘 متابعة باستخدام Facebook":"📘 Facebook · يحتاج إعدادًا"} color="#1877f2" disabled={busy||!FACEBOOK_CONFIGURED} onPress={facebookLogin}/>{authError?<Text style={{color:'#ffa6a6'}}>{authError}</Text>:null}</>}
+    <>
+      <Btn title={loginMethod==='email'?'استخدام رقم الهاتف':'استخدام البريد الإلكتروني'} color="#49306b" disabled={busy}
+        onPress={()=>{setLoginMethod(loginMethod==='email'?'phone':'email');setPassword('');setAuthError('');}}/>
+      {loginMethod==='email'?<>
+        <Text style={S.label}>{emailMode==='signup'?'إنشاء حساب بالبريد':emailMode==='reset'?'استعادة كلمة المرور':'الدخول بالبريد الإلكتروني'}</Text>
+        {emailMode==='signup'&&<TextInput style={S.input} value={name} onChangeText={setName} placeholder="اسم المستخدم" maxLength={35} editable={!busy}/>}
+        <TextInput style={S.input} value={email} onChangeText={setEmail} placeholder="البريد الإلكتروني"
+          keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" editable={!busy}/>
+        {emailMode!=='reset'&&<TextInput style={S.input} value={password} onChangeText={setPassword}
+          placeholder="كلمة المرور" secureTextEntry autoCapitalize="none" autoCorrect={false}
+          autoComplete={emailMode==='signup'?'new-password':'current-password'} editable={!busy}/>}
+      </>:<><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder="اسم المستخدم"/><Text style={S.label}>الدولة</Text><Btn title={COUNTRIES[country].join(' ')} color="#49306b" onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={c.join(' ')} color="#382050" onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>الهاتف</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder="رقم الهاتف" keyboardType="phone-pad"/></>}
+      <Btn title={accepted?'☑ أوافق على الشروط':'☐ أوافق على الشروط'} color="#49306b" onPress={()=>setAccepted(v=>!v)}/><Btn title="قراءة الشروط" color="#49306b" onPress={()=>go('terms')}/>
+      {loginMethod==='email'?<>
+        <Btn title={busy?'جارٍ العمل...':emailMode==='signup'?'إنشاء الحساب':emailMode==='reset'?'إرسال رابط الاستعادة':'تسجيل الدخول بالبريد'} disabled={busy} onPress={emailLogin}/>
+        <Btn title={emailMode==='login'?'إنشاء حساب جديد':'العودة إلى تسجيل الدخول'} color="#49306b" disabled={busy}
+          onPress={()=>{setEmailMode(emailMode==='login'?'signup':'login');setPassword('');setAuthError('');}}/>
+        {emailMode==='login'&&<Btn title="نسيت كلمة المرور" color="#49306b" disabled={busy}
+          onPress={()=>{setEmailMode('reset');setPassword('');setAuthError('');}}/>}
+      </>:<Btn title={busy?'جارٍ العمل...':'📱 تسجيل بالهاتف (SMS)'} disabled={busy} onPress={phoneLogin}/>}
+      <Btn title={GOOGLE_WEB_CLIENT_ID?"🌐 متابعة باستخدام Google":"🌐 Google · يحتاج إعدادًا"} color="#4285f4" disabled={busy||!GOOGLE_WEB_CLIENT_ID} onPress={googleLogin}/><Btn title={FACEBOOK_CONFIGURED?"📘 متابعة باستخدام Facebook":"📘 Facebook · يحتاج إعدادًا"} color="#1877f2" disabled={busy||!FACEBOOK_CONFIGURED} onPress={facebookLogin}/>
+      {authError?<Text style={{color:'#ffa6a6'}}>{authError}</Text>:null}
+    </>}
   </ScrollView></View>;
   if(page==='home')return layout('Clipi',<><View style={S.banner}><Text style={S.title}>أهلًا {name||'بك'} 👋</Text><Text style={S.white}>غرف ومحادثات مشتركة · تصميم غرفة صوت وفيديو (دون بث مباشر)</Text></View>{myProfile}{SHOW_UNRELEASED_DEMOS&&<View style={S.panel}><Text style={S.title}>🎉 مكافأة الترحيب التجريبية</Text><Text style={S.white}>💎 100 ماسة · 👑 إطار فاخر · 🏎️ دخول سيارة فاخرة</Text></View>}<Btn title="📹 إنشاء غرفة صوتية أو فيديو" onPress={()=>go('create')}/><Btn title="🚪 استعراض الغرف" color="#7040a7" onPress={()=>go('rooms')}/>{SHOW_UNRELEASED_DEMOS&&<><Btn title="💎 شراء الماسات (تجريبي)" color="#7040a7" onPress={()=>go('wallet')}/><Btn title="🛍 المتجر (تجريبي)" color="#7040a7" onPress={()=>go('store')}/><Btn title="💰 أرباح المضيف (تجريبي)" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star (تجريبي)" color="#7040a7" onPress={()=>go('games')}/></>}<Btn title="📤 مشاركة Clipi" color="#7040a7" onPress={()=>Share.share({message:'Clipi'})}/></>);
   if(page==='create')return layout('إنشاء غرفة',<><Text style={S.label}>اسم الغرفة</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>نوع الغرفة</Text><View style={S.row}><Btn title="📹 فيديو" color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title="🎙 صوت" color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.muted}>الغرفة عامة للمستخدمين المسجلين. الغرف الخاصة وكلمات المرور غير متاحة حاليًا.</Text><Btn title="فتح الغرفة" onPress={createRoom}/></>);
