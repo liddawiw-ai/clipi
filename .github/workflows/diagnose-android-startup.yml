@@ -1,0 +1,24 @@
+name: Diagnose Clipi Android startup
+on:
+  push:
+    branches: [fix/android-startup-diagnostics]
+permissions:
+  contents: read
+jobs:
+  launch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Download build 5
+        run: curl --fail --location --retry 3 'https://expo.dev/artifacts/eas/uLu9acCxvLWZUPKsWbIJiel5ZOZRmX9HXP_PP4-04eY.apk' --output clipi.apk
+      - name: Launch app and collect crash trace
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          script: adb install clipi.apk && adb logcat -c && adb shell am start -W -n com.walid.clipi/.MainActivity && sleep 12 && adb logcat -b crash -d && adb logcat -d -s ReactNativeJS AndroidRuntime SoLoader && adb shell pidof com.walid.clipi
