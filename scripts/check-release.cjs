@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===7, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===8, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
