@@ -16,3 +16,8 @@ command = "npm ci --prefix pi-web --no-audit --no-fund && cd pi-web && node buil
 directory = "./pi-web/dist"
 binding = "CLIPI_APP"
 run_worker_first = true
+
+[[d1_databases]]
+binding = "PI_GIFTS_DB"
+database_name = "clipi-mainnet-gifts"
+database_id = "43dfb59b-6af5-4742-85f4-a3d4f983d422"
