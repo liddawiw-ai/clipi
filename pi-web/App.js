@@ -1,6 +1,7 @@
 import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
+import {copyRoomInvitation,roomInvitationId,roomInvitationUrl,shareRoomInvitation} from './room-invitations.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal} from 'react-native';
 import {auth,firestore,piLogin,Alert} from './services';
@@ -428,6 +429,9 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState(''),[recipient,setRecipient]=useState(null);
   const [hostSettingsOpen,setHostSettingsOpen]=useState(false);
+  const [shareOpen,setShareOpen]=useState(false),[shareStatus,setShareStatus]=useState('');
+  const shareInput=useRef(null);
+  const inviteUrl=roomInvitationUrl(location.origin,room.id);
   const [closingRoom,setClosingRoom]=useState(false);
   const [giftCategory,setGiftCategory]=useState('الكل');
   const [giftQuantity,setGiftQuantity]=useState(1);
@@ -577,6 +581,25 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       <Text style={S.muted}>طلبات المقاعد وأزرار الصوت والكاميرا تظهر داخل الغرفة.</Text>
     </View></View>
   </Modal>;
+  const shareSheet=<Modal visible={shareOpen} transparent animationType="slide" onRequestClose={()=>setShareOpen(false)}>
+    <View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}>
+      <Text style={S.title}>مشاركة الغرفة</Text>
+      <TextInput ref={shareInput} accessibilityLabel="رابط دعوة الغرفة" value={inviteUrl}
+        editable={false} selectTextOnFocus style={[S.input,{textAlign:'left',writingDirection:'ltr'}]}/>
+      {!!shareStatus&&<Text accessibilityLiveRegion="polite" style={S.muted}>{shareStatus}</Text>}
+      <View style={S.row}>
+        <Small title="نسخ الرابط" onPress={async()=>{
+          const copied=await copyRoomInvitation(navigator,document,shareInput.current,inviteUrl);
+          setShareStatus(copied?'تم نسخ رابط الغرفة.':'اضغط مطوّلًا على الرابط أعلاه واختر «نسخ».');
+        }}/>
+        {typeof navigator.share==='function'&&<Small title="إرسال الرابط" onPress={async()=>{
+          const result=await shareRoomInvitation(navigator,{title:room.name,url:inviteUrl});
+          setShareStatus(result==='unavailable'?'انسخ الرابط وأرسله من تطبيق المحادثة.':'');
+        }}/>}
+        <Small title="إغلاق" onPress={()=>setShareOpen(false)}/>
+      </View>
+    </View></View>
+  </Modal>;
   if(!membership.state)return <View style={S.page}><Text style={S.title}>{room.name}</Text><Text style={S.white}>{membership.error||'جارٍ دخول الغرفة…'}</Text>
     {membership.pinRequired&&<TextInput style={S.input} value={pin} maxLength={4} keyboardType="number-pad" secureTextEntry onChangeText={setPin} placeholder="رمز الغرفة"/>}
     {membership.error&&<Btn title="دخول" onPress={()=>membership.join(pin)}/>}<Small title="رجوع" onPress={exitRoomOnce}/></View>;
@@ -586,6 +609,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     {!!membership.state?.theme&&membership.state.theme!=='default'&&<Image pointerEvents="none" resizeMode="cover" style={[StyleSheet.absoluteFillObject,{width:'100%',height:'100%'}]} source={{uri:MEDIA_ENDPOINT+'/themes/'+(['palace','aurora','dunes'].includes(membership.state.theme)?membership.state.theme+'.jpg':encodeURIComponent(room.id)+'/'+membership.state.theme)}}/>}
     {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} onSeat={onSeat}/></View>}
     {hostSettings}
+    {shareSheet}
     <GlobalGreedyPreview visible={globalGameOpen&&minimized} onRestoreRoom={onRestore} roomName={room.name} diamonds={diamonds}
       onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>
     <View style={S.roomTop}>
@@ -599,7 +623,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       </View>
       <View style={S.roomToolbar}>
         {isHost&&<Small title="⚙ إعدادات" onPress={()=>setHostSettingsOpen(true)}/>}
-        <Small title="مشاركة" onPress={async()=>{const url=location.origin+'/#room='+encodeURIComponent(room.id);try{if(navigator.share)await navigator.share({title:room.name,text:room.name,url});else if(navigator.clipboard){await navigator.clipboard.writeText(url);Alert.alert('تم نسخ رابط الغرفة')}else window.prompt('انسخ رابط الغرفة',url)}catch(e){if(e.name!=='AbortError')window.prompt('انسخ رابط الغرفة',url)}}}/>
+        <Small title="مشاركة" onPress={()=>{Keyboard.dismiss();setShareStatus('');setShareOpen(true)}}/>
         <Small title={chatVisible?'إخفاء الدردشة':'إظهار الدردشة'} onPress={()=>setChatVisible(v=>!v)}/>
       </View>
     </View>
@@ -769,13 +793,7 @@ export default function App(){
             setAvatar(d.avatar||'👤');
           }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        if(active&&auth().currentUser?.uid===u.uid){
-            const id=new URLSearchParams(location.hash.slice(1)).get('room');
-            if(id&&/^[A-Za-z0-9_-]{1,128}$/.test(id)){
-              try{const doc=await firestore().collection('rooms').doc(id).get();if(!active||auth().currentUser?.uid!==u.uid)return;if(doc.data()?.status==='open'){enterRoom({id,...doc.data()});return}}catch{}
-            }
-            go('home');
-          }
+        await openRoomInvitation(u,()=>active);
       }else{
         setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
         setName('');setRoomError('');
@@ -865,7 +883,7 @@ export default function App(){
       try{await saveProfile(created,displayName);}
       catch(error){console.warn('Email profile sync failed',error.code);}
       setName(displayName);
-      go('home');
+      await openRoomInvitation(created);
     }catch(error){
       const messages={
         'auth/operation-not-allowed':'خدمة الدخول بالبريد غير مفعّلة حاليًا.',
@@ -921,7 +939,8 @@ export default function App(){
       // A valid SMS code must not be reported as invalid if Firestore is unavailable.
       try{await saveProfile(credential.user,name.trim())}
       catch(e){console.warn('Profile save failed:',e.message);Alert.alert('تعذر حفظ الملف الشخصي','تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.');}
-      setUser(credential.user);setConfirmation(null);go('home');
+      setUser(credential.user);setConfirmation(null);
+      await openRoomInvitation(credential.user);
     }
     catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('فشل التحقق',message)}
     finally{profileSetupRef.current=false;setBusy(false)}
@@ -1019,6 +1038,24 @@ export default function App(){
       const doc=await firestore().collection('rooms').add(data);
       enterRoom({id:doc.id,...data,host,owner:user.uid});
     }catch(e){Alert.alert('تعذر إنشاء الغرفة',e.message)}finally{setBusy(false)}
+  }
+  async function openRoomInvitation(account,isMounted=()=>true){
+    const isCurrent=()=>isMounted()&&auth().currentUser?.uid===account.uid;
+    if(!isCurrent())return;
+    const id=roomInvitationId(location);
+    if(id){
+      try{
+        const room=(await firestore().collection('rooms').doc(id).get()).data();
+        if(!isCurrent())return;
+        if(room?.status==='open'){
+          enterRoom({...room,id});
+          return;
+        }
+      }catch(error){
+        console.warn('Room invitation could not be loaded:',error.code||error.message);
+      }
+    }
+    if(isCurrent())go('home');
   }
   function enterRoom(room){
     if(room.status==='closed')return Alert.alert('غرفة مغلقة','هذه الغرفة مغلقة الآن');
