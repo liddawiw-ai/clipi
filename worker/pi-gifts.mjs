@@ -11,23 +11,36 @@ export async function piGifts(request, env, json) {
   const url = new URL(request.url);
   const action = url.pathname.split('/').at(-1);
   const authorization = request.headers.get('Authorization') ?? '';
+  async function upstream(stage, url, options) {
+    let status;
+    try {
+      const response = await fetch(url, options);
+      status = response.status;
+      if (!response.ok && stage === 'room') return null;
+      if (!response.ok) throw Error('Upstream request failed');
+      return await response.json();
+    } catch (error) {
+      console.error({ message: 'Gift upstream failure', action, stage, status: status ?? null,
+        reason: status == null ? 'fetch' : status >= 200 && status < 300 ? 'response_json' : 'http' });
+      throw error;
+    }
+  }
   async function openRoom(roomId) {
     if (!roomPattern.test(roomId ?? '') || !authorization.startsWith('Bearer ')) return false;
     const project = encodeURIComponent(env.FIREBASE_PROJECT_ID ?? '');
-    const res = await fetch(`https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/rooms/${roomId}`, {
+    const room = await upstream('room', `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/rooms/${roomId}`, {
       headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000),
     });
-    return res.ok && (await res.json()).fields?.status?.stringValue === 'open';
+    return room?.fields?.status?.stringValue === 'open';
   }
   async function pi(path, { token, data, post = false } = {}) {
-    const res = await fetch('https://api.minepi.com/v2' + path, {
+    const stage = token ? 'pi_identity' : post ? 'pi_' + action : 'pi_payment_lookup';
+    return upstream(stage, 'https://api.minepi.com/v2' + path, {
       method: post ? 'POST' : 'GET',
       headers: { Authorization: token ? 'Bearer ' + token : 'Key ' + env.PI_NETWORK_API_KEY,
         'Content-Type': 'application/json' },
       body: data ? JSON.stringify(data) : undefined, signal: AbortSignal.timeout(8000),
     });
-    if (!res.ok) throw Error('Pi API request failed');
-    return res.json();
   }
   try {
     if (action === 'catalog' && request.method === 'GET' && mainnet) return json({ gifts });
