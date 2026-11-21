@@ -29,13 +29,13 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
   }
   const pendingGift=useRef(null);
   const sendingGift=useRef(false);
-  async function sendSupport(recipient,cost){
-    if(sendingGift.current)return;
-    const key=JSON.stringify([roomId,recipient,cost]);
+  async function sendSupport(recipient,cost,gift){
+    if(sendingGift.current)throw new Error('جارٍ إرسال الهدية');
+    const key=JSON.stringify([roomId,recipient,cost,gift]);
     if(pendingGift.current?.key!==key)pendingGift.current={key,nonce:randomUUID()};
     sendingGift.current=true;
     try{
-      await act('supportGift',{recipient,cost,nonce:pendingGift.current.nonce});
+      await act(gift?'catalogGift':'supportGift',{recipient,cost,gift,nonce:pendingGift.current.nonce});
       pendingGift.current=null;
     }finally{sendingGift.current=false}
   }
