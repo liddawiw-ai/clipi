@@ -1,6 +1,6 @@
 import {useRoomSession} from './useRoomSession';
 import React,{useEffect,useRef,useState} from 'react';
-import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal,InteractionManager} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import EarningsWalletScreen from './EarningsWalletScreen';
@@ -299,16 +299,29 @@ async function mediaRequest(path,body,signal){
   return response.json();
 }
 
+class RoomFailureBoundary extends React.Component {
+  state={failed:false,attempt:0};
+  static getDerivedStateFromError(){return {failed:true}}
+  componentDidCatch(error){console.warn('Clipi room rendering failed',error?.message)}
+  render(){
+    if(this.state.failed)return <View style={S.panel}><Text style={S.white}>تعذّر تشغيل {this.props.label}</Text>
+      <Small title="إعادة المحاولة" onPress={()=>this.setState(({attempt})=>({attempt:attempt+1,failed:false}))}/>
+      {this.props.onExit&&<Small title="رجوع" onPress={this.props.onExit}/>}</View>;
+    return <React.Fragment key={this.state.attempt}>{this.props.children}</React.Fragment>;
+  }
+}
+
 function RoomMedia(props){
   const [runtime,setRuntime]=useState(null);
   const [loadError,setLoadError]=useState(false);
   useEffect(()=>{
-    try{setRuntime(loadRoomMediaRuntime());}
-    catch(error){console.warn('Room media initialization failed',error);setLoadError(true);}
+    const task=InteractionManager.runAfterInteractions(()=>{try{setRuntime(loadRoomMediaRuntime());}
+    catch(error){console.warn('Room media initialization failed',error);setLoadError(true);}});
+    return ()=>task.cancel();
   },[]);
   if(loadError)return <Text style={mediaStyles.status}>تعذر تشغيل الصوت والفيديو على هذا الجهاز</Text>;
   if(!runtime)return <Text style={mediaStyles.status}>جاري إعداد البث…</Text>;
-  return <RoomMediaSession {...props} runtime={runtime}/>;
+  return <RoomFailureBoundary label="الصوت والفيديو"><RoomMediaSession {...props} runtime={runtime}/></RoomFailureBoundary>;
 }
 
 function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,session,onSeat,people,initialMedia}){
@@ -317,12 +330,15 @@ function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,s
   const firstToken=useRef(credentials);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
+  const [audioReady,setAudioReady]=useState(false);
   useEffect(()=>{
     if(!MEDIA_CONFIGURED)return;
+    let mounted=true;
+    setAudioReady(false);
     const start=Promise.resolve().then(()=>AudioSession.startAudioSession());
-    void start.catch(()=>setError('تعذر بدء جلسة الصوت'));
-    return()=>{void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
-  },[]);
+    void start.then(()=>{if(mounted)setAudioReady(true)},()=>{if(mounted)setError('تعذر بدء جلسة الصوت')});
+    return()=>{mounted=false;void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
+  },[attempt]);
   useEffect(()=>{
     if(!MEDIA_CONFIGURED)return;
     if(firstToken.current&&attempt===0){firstToken.current=null;return}
@@ -347,7 +363,7 @@ function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,s
 
   if(!MEDIA_CONFIGURED)return <Text style={mediaStyles.status}>عنوان خدمة البث غير مضبوط</Text>;
   if(error)return <View style={mediaStyles.notice}><Text style={mediaStyles.status}>{error}</Text><Small title="إعادة الاتصال" onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
-  if(!credentials||credentials.canPublish!==canPublish)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
+  if(!audioReady||!credentials||credentials.canPublish!==canPublish)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false}
     onError={()=>setError('تعذر الاتصال بالبث')}
     onDisconnected={()=>setError('انقطع اتصال البث')}>
@@ -478,9 +494,9 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   useEffect(()=>{
     const unsub=roomRef.onSnapshot(d=>{
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
-      if(roomClosedRef.current)exitRoomOnce();
-    });
-    const blockedSub=firestore().collection('users').doc(userId).collection('blocked').onSnapshot(s=>setBlocked(s.docs.map(d=>d.id)));
+      if(roomClosedRef.current&&(!d.metadata.fromCache||d.exists))exitRoomOnce();
+    },e=>console.warn('Room status listener',e.code));
+    const blockedSub=firestore().collection('users').doc(userId).collection('blocked').onSnapshot(s=>setBlocked(s.docs.map(d=>d.id)),e=>console.warn('Room moderation listener',e.code));
     return()=>{unsub();blockedSub()};
   },[room.id,userId]);
   const admitted=Boolean(membership.state);
@@ -593,15 +609,15 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   </Modal>;
   if(!membership.state)return <View style={S.page}><Text style={S.title}>{room.name}</Text><Text style={S.white}>{membership.error||'جارٍ دخول الغرفة…'}</Text>
     {membership.pinRequired&&<TextInput style={S.input} value={pin} maxLength={4} keyboardType="number-pad" secureTextEntry onChangeText={setPin} placeholder="رمز الغرفة"/>}
-    {membership.error&&<Btn title="دخول" onPress={()=>membership.join(pin)}/>}<Small title="رجوع" onPress={exitRoomOnce}/></View>;
+    {!!membership.error&&<Btn title="دخول" onPress={()=>membership.join(pin)}/>}<Small title="رجوع" onPress={exitRoomOnce}/></View>;
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?'#291d43':'#10132e'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio&&<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><View style={S.royalGlow}/><Text style={S.bgCrown}>♛</Text><Text style={S.bgOrnament}>✦ ✧ ♛ ✧ ✦</Text></View>}
     {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} onSeat={onSeat}/></View>}
     <Modal visible={!!seatMenu} transparent onRequestClose={()=>setSeatMenu(null)}><View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}><Text style={S.title}>{seatMenu?.label}</Text>{seatMenu?.options.map(option=><Small key={option.text} title={option.text} onPress={()=>{setSeatMenu(null);option.onPress()}}/>)}<Small title="إغلاق" onPress={()=>setSeatMenu(null)}/></View></View></Modal>
     {hostSettings}
-    <GlobalGreedyPreview visible={globalGameOpen&&minimized} onRestoreRoom={onRestore} roomName={room.name} diamonds={diamonds}
-      onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>
+    {globalGameOpen&&<GlobalGreedyPreview visible={minimized} onRestoreRoom={onRestore} roomName={room.name} diamonds={diamonds}
+      onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>}
     <View style={S.roomTop}>
       <View style={S.roomTopRow}>
         <Small title="✕ خروج" onPress={exitRoomOnce}/>
@@ -1199,8 +1215,8 @@ export default function App(){
   return <View style={S.page}><Btn title="الرئيسية" onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>{renderPage()}
-    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onSendGift={sendGift} onBet={spend}
-      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
+    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label="الغرفة" onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onSendGift={sendGift} onBet={spend}
+      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
     {mini&&activeRoom&&<TouchableOpacity accessibilityLabel="تكبير الغرفة" onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
   </View>;
 }
