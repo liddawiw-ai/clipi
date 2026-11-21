@@ -12,6 +12,8 @@ import {ConnectionState,Track} from 'livekit-client';
 registerGlobals();
 const MEDIA_ENDPOINT=process.env.EXPO_PUBLIC_CLIPI_MEDIA_URL?.trim().replace(/\/+$/,'')||'https://clipi-voice-server.liddawiw.workers.dev';
 const MEDIA_CONFIGURED=/^https:\/\//i.test(MEDIA_ENDPOINT);
+// Build 13 crash isolation: native RTC is opt-in until a device build is validated.
+const RTC_NATIVE_ENABLED=process.env.EXPO_PUBLIC_ENABLE_LIVEKIT_MEDIA==='true';
 
 const {width:WIDTH,height:HEIGHT}=Dimensions.get('window');
 const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
@@ -251,21 +253,22 @@ function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
   useEffect(()=>{
-    if(!MEDIA_CONFIGURED)return;
+    if(!MEDIA_CONFIGURED||!RTC_NATIVE_ENABLED)return;
     const start=AudioSession.startAudioSession();
     void start.catch(()=>setError('تعذر بدء جلسة الصوت'));
     return()=>{void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
   },[]);
   useEffect(()=>{
-    if(!MEDIA_CONFIGURED)return;
+    if(!MEDIA_CONFIGURED||!RTC_NATIVE_ENABLED)return;
     const controller=new AbortController();
     let active=true;
     const timeout=setTimeout(()=>controller.abort(),12000);
     (async()=>{
       if(auth().currentUser?.uid!==userId)throw new Error('انتهت جلسة الدخول');
-      const result=await mediaRequest('/token',{roomId:room.id},controller.signal);
-      if(typeof result.token!=='string'||!/^wss:\/\//i.test(result.serverUrl))throw new Error('إعدادات البث غير صالحة');
-      if(active)setCredentials({...result,canPublish});
+      const result=await mediaRequest('/voice/token',{roomId:room.id},controller.signal);
+      const serverUrl=result.serverUrl||result.url;
+      if(typeof result.token!=='string'||!/^wss:\/\//i.test(serverUrl))throw new Error('إعدادات البث غير صالحة');
+      if(active)setCredentials({...result,serverUrl,canPublish:Boolean(result.canPublish)});
     })().catch(e=>{
       if(active)setError(e.name==='AbortError'?'انتهت مهلة الاتصال بالبث':e.message);
     }).finally(()=>clearTimeout(timeout));
@@ -277,13 +280,14 @@ function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
   },[room.id,userId,attempt,canPublish]);
   useEffect(()=>{setError('');},[canPublish]);
 
+  if(!RTC_NATIVE_ENABLED)return <Text style={mediaStyles.status}>الغرفة جاهزة للدردشة والمقاعد. الاتصال الصوتي متوقف مؤقتًا لحماية التطبيق من الانهيار في هذا الإصدار.</Text>;
   if(!MEDIA_CONFIGURED)return <Text style={mediaStyles.status}>عنوان خدمة البث غير مضبوط</Text>;
   if(error)return <View style={mediaStyles.notice}><Text style={mediaStyles.status}>{error}</Text><Small title="إعادة الاتصال" onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
-  if(!credentials||credentials.canPublish!==canPublish)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
+  if(!credentials)return <Text style={mediaStyles.status}>جاري الاتصال بالبث…</Text>;
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false}
     onError={()=>setError('تعذر الاتصال بالبث')}
     onDisconnected={()=>setError('انقطع اتصال البث')}>
-    <ConnectedMedia room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests}/>
+    <ConnectedMedia room={room} canPublish={Boolean(credentials.canPublish)&&canPublish} audio={audio} blocked={blocked} guests={guests}/>
   </LiveKitRoom>;
 }
 
