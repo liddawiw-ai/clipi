@@ -7,3 +7,11 @@ keep_vars = true
 
 [vars]
 CLIPI_WEB_ENTRY = "room"
+
+[build]
+command = "npm ci --prefix pi-web --no-audit --no-fund && cd pi-web && node build.mjs"
+
+[assets]
+directory = "./pi-web/dist"
+binding = "CLIPI_APP"
+run_worker_first = true

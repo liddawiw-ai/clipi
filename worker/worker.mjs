@@ -27,6 +27,10 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if (env.CLIPI_APP && request.method === 'GET') {
+      if (['/', '/room', '/room/'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
+      if (path === '/clipi-app.js')return env.CLIPI_APP.fetch(request);
+    }
     if (path === '/auth/pi') return piLogin(request,env,json);
     if (path.startsWith('/pi-gifts/')) return piGifts(request, env, json);
     if (path === '/validation-key.txt' && ['GET', 'HEAD'].includes(request.method)) {
