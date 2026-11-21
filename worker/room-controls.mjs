@@ -5,6 +5,11 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_attempt (room TEXT,uid TEXT,bucket INTEGER,hits INTEGER,PRIMARY KEY(room,uid))',
   'CREATE TABLE IF NOT EXISTS room_gift_target (payment TEXT PRIMARY KEY,uid TEXT,name TEXT)',
   'CREATE TABLE IF NOT EXISTS room_chat (id INTEGER PRIMARY KEY,room TEXT,uid TEXT,name TEXT,text TEXT)',
+  'CREATE TABLE IF NOT EXISTS support_gift (sender TEXT, nonce TEXT, room TEXT NOT NULL, recipient TEXT NOT NULL, cost INTEGER NOT NULL CHECK(cost IN (10,50,100)), PRIMARY KEY(sender,nonce))',
+  `CREATE TRIGGER IF NOT EXISTS announce_support_gift AFTER INSERT ON support_gift BEGIN
+    INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,
+      (SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),
+      '🎁 دعم ' || NEW.cost || ' 💎 إلى ' || (SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.recipient) || ' · غير نقدي'); END`,
   'CREATE INDEX IF NOT EXISTS room_chat_recent ON room_chat(room,id)'
 ];
 let initialized=false;
@@ -31,7 +36,7 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
-  if(!['join','poll','leave','settings','request','cancel','approve','reject','demote','kick','mute','unmute','message','deleteMessage'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!['join','poll','leave','settings','request','cancel','approve','reject','demote','kick','mute','unmute','message','deleteMessage','supportGift'].includes(op))return json({error:'طلب غير صالح'},400);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
@@ -80,6 +85,21 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
     await q('DELETE FROM room_member WHERE room=? AND uid=? AND visit=? AND banned=0',room,user,visit).run();
     return json({ok:true});
   }
+  // Support gifts live only in this ledger. They never enter Pi payments or withdrawal balances.
+  const allowance = 100 + (env.CLIPI_OWNER_UID === user ? 100000000 : 0);
+  if(op==='supportGift'){
+    const {cost,recipient,nonce}=input;
+    if(![10,50,100].includes(cost)||typeof recipient!=='string'||recipient===user||
+       typeof nonce!=='string'||!/^[a-f0-9-]{36}$/.test(nonce))return json({error:'هدية غير صالحة'},400);
+    const result=await q(`INSERT INTO support_gift(sender,nonce,room,recipient,cost)
+      SELECT ?,?,?,?,? WHERE ? >= ? + (SELECT COALESCE(SUM(cost),0) FROM support_gift WHERE sender=?)
+      AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?)
+      ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,recipient,cost,allowance,cost,user,room,recipient,cutoff).run();
+    if(!result.meta.changes){
+      const prior=await q('SELECT room,recipient,cost FROM support_gift WHERE sender=? AND nonce=?',user,nonce).first();
+      if(prior?.room!==room||prior.recipient!==recipient||prior.cost!==cost)return json({error:'الرصيد غير كافٍ أو المستلم غادر الغرفة'},409);
+    }
+  }
   if(op==='message'){
     const text=String(input.text||'').trim();
     if(!text||text.length>500)return json({error:'تعليق غير صالح'},400);
@@ -95,5 +115,6 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
   const me=people.results.find(person=>person.uid===user);
   if(!me)return json({error:'انتهت جلسة الغرفة'},403);
   const media=op==='join'&&mediaToken?await mediaToken(host||Boolean(me.seat&&!me.muted)):undefined;
-  return json({media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),chat:history.results.reverse()});
+  const spent=await q('SELECT COALESCE(SUM(cost),0) AS total FROM support_gift WHERE sender=?',user).first();
+  return json({supportBalance:Math.max(0,allowance-spent.total),media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),chat:history.results.reverse()});
 }

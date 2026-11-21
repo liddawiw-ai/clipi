@@ -14,12 +14,21 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const visits=new Map(), kicks=[];
   const call=async(user,op,extra={},path='/room-control')=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
-    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture'},room:'test',user,host:user==='host',type:'audio',path,
+    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room:'test',user,host:user==='host',type:'audio',path,
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
   await call('host','join');
   const data=await call('first','join',{frame:true,ride:true});
+  assert.equal(data.supportBalance,100);
+  assert.equal((await call('host','poll')).supportBalance,100000100);
+  const gift={recipient:'host',cost:100,nonce:crypto.randomUUID()};
+  assert.equal((await call('first','supportGift',gift)).supportBalance,0);
+  assert.equal((await call('first','supportGift',gift)).supportBalance,0);
+  assert.equal((await call('first','supportGift',{...gift,nonce:crypto.randomUUID()})).status,409);
+  assert.equal((await call('host','poll')).supportBalance,100000100);
+  assert.equal(sql.prepare('SELECT count(*) AS n FROM support_gift').get().n,1);
+  await call('host','deleteMessage',{id:1});
   assert.equal(data.people.find(p=>p.uid==='first').seat,1);
   assert.equal((await call('first','token',{},'/token')).publisher,true);
   assert.equal((await call('first','settings',{locked:true})).status,403);
