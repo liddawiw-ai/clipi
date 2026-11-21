@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-diamond-gifts-16
+      - feature/android-themes-17
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build16.apk
+          cp "$apk" Clipi-Android-build17.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build16
-          path: Clipi-Android-build16.apk
+          name: Clipi-Android-build17
+          path: Clipi-Android-build17.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-diamond-gifts-16'
+        if: github.ref == 'refs/heads/feature/android-themes-17'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build16 Clipi-Android-build16.apk --target "$GITHUB_SHA" --title "Clipi Android 16" --notes "Room diamond gifts and welcome rewards." --prerelease
+        run: gh release create android-build17 Clipi-Android-build17.apk --target "$GITHUB_SHA" --title "Clipi Android 17" --notes "Room themes, profile photos and numeric IDs." --prerelease
