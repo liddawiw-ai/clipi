@@ -26,7 +26,7 @@ service cloud.firestore {
           ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stageGuests'])
            && request.resource.data.stageGuests is map
-           && request.resource.data.stageGuests.size() <= (resource.data.type == 'audio' ? 7 : 1)
+           && request.resource.data.stageGuests.size() <= (resource.data.type == 'audio' ? 8 : 1)
            && !request.resource.data.stageGuests.keys().hasAny([request.auth.uid]))
         );
       allow delete: if false;
