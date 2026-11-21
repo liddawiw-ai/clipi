@@ -1,10 +1,12 @@
+import { gifts } from './gift-catalog.mjs';
 const roomPattern = /^[A-Za-z0-9_-]{1,128}$/;
 const identifierPattern = /^[A-Za-z0-9_-]{1,128}$/;
 export const roseAmount = 0.1;
 
 export async function piGifts(request, env, json) {
-  if (env.PI_GIFTS_TESTNET !== '1' || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
-    return json({ error: 'Testnet gifts unavailable' }, 503);
+  const mainnet = env.PI_GIFTS_NETWORK === 'mainnet';
+  if ((!mainnet && env.PI_GIFTS_TESTNET !== '1') || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
+    return json({ error: 'Gift payments unavailable' }, 503);
   }
   const url = new URL(request.url);
   const action = url.pathname.split('/').at(-1);
@@ -28,11 +30,12 @@ export async function piGifts(request, env, json) {
     return res.json();
   }
   try {
+    if (action === 'catalog' && request.method === 'GET' && mainnet) return json({ gifts });
     if (action === 'events' && request.method === 'GET') {
       const roomId = url.searchParams.get('room');
       if (!await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
       const { results } = await env.PI_GIFTS_DB.prepare(
-        'SELECT payment_id AS id FROM gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30',
+        mainnet ? 'SELECT payment_id AS id, gift FROM mainnet_gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30' : 'SELECT payment_id AS id FROM gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30',
       ).bind(roomId).all();
       return json({ gifts: results.reverse() });
     }
@@ -54,11 +57,12 @@ export async function piGifts(request, env, json) {
     const paymentPath = '/payments/' + paymentId;
     const [identity, payment] = await Promise.all([pi('/me', { token: accessToken }), pi(paymentPath)]);
     const metadata = payment.metadata;
+    const product = mainnet && Object.hasOwn(gifts, metadata?.gift) ? gifts[metadata.gift] : null;
     if (!identity.uid || payment.user_uid !== identity.uid || payment.identifier !== paymentId ||
-        payment.direction !== 'user_to_app' || payment.network !== 'Pi Testnet' ||
-        payment.amount !== roseAmount || metadata?.roomId !== roomId || metadata?.gift !== 'rose' ||
+        payment.direction !== 'user_to_app' || payment.network !== (mainnet ? 'Pi Network' : 'Pi Testnet') ||
+        metadata?.roomId !== roomId || (mainnet ? !product || payment.amount !== product.amount : payment.amount !== roseAmount || metadata?.gift !== 'rose') ||
         payment.status?.cancelled || payment.status?.user_cancelled) {
-      return json({ error: 'Payment does not match the Testnet gift' }, 403);
+      return json({ error: 'Payment does not match the gift' }, 403);
     }
     if (action === 'approve') {
       if (!payment.status?.developer_approved) await pi(paymentPath + '/approve', { post: true });
@@ -75,11 +79,13 @@ export async function piGifts(request, env, json) {
     }
     if (!completed.status?.developer_completed || !completed.status.transaction_verified ||
         completed.transaction?.txid !== txid) return json({ error: 'Transaction not confirmed' }, 409);
-    await env.PI_GIFTS_DB.prepare(
+    if (mainnet) {
+      await env.PI_GIFTS_DB.prepare('INSERT INTO mainnet_gifts(payment_id,room_id,gift) VALUES(?,?,?) ON CONFLICT(payment_id) DO NOTHING').bind(paymentId,roomId,metadata.gift).run();
+    } else await env.PI_GIFTS_DB.prepare(
       'INSERT INTO gifts (payment_id, room_id) VALUES (?, ?) ON CONFLICT(payment_id) DO NOTHING',
     ).bind(paymentId, roomId).run();
     return json({ completed: true });
   } catch {
-    return json({ error: 'Testnet gift service temporarily unavailable' }, 502);
+    return json({ error: 'Gift service temporarily unavailable' }, 502);
   }
 }

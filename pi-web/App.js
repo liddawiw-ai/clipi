@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal} from 'react-native';
 import {auth,firestore,piLogin,Alert} from './services';
 import EarningsWalletScreen from './EarningsWalletScreen';
+import {PiGifts} from './PiGifts';
 import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
@@ -638,7 +639,8 @@ function Room({room,userId,username,avatar,diamonds,onSendGift,onBet,onCredit,on
     </ScrollView>}
     {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true)}}/><Text style={S.tiny}>{isHost?'👑 أنت مضيف الغرفة':'👤 أنت مشاهد'} · {audio?'غرفة صوتية':'غرفة فيديو'}</Text></View>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{chat.filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    {giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
+    {!SHOW_UNRELEASED_DEMOS&&<PiGifts roomId={room.id} open={giftOpen&&!keyboardOn} close={()=>setGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
+    {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
       <View style={S.drawerHeader}><Text style={S.gold}>🎁 هدايا تجريبية محلية</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{maxHeight:46}} contentContainerStyle={{alignItems:'center',paddingHorizontal:8}}>
         {GIFT_CATEGORIES.map(c=><TouchableOpacity key={c} onPress={()=>setGiftCategory(c)} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,marginRight:6,backgroundColor:giftCategory===c?'#6f3db1':'#26123d'}}>

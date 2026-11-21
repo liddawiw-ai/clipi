@@ -29,6 +29,7 @@ export default {
     const path = new URL(request.url).pathname;
     if (env.CLIPI_APP && request.method === 'GET') {
       if (['/', '/room', '/room/'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
+      if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
       if (path === '/clipi-app.js')return env.CLIPI_APP.fetch(request);
     }
     if (path === '/auth/pi') return piLogin(request,env,json);
