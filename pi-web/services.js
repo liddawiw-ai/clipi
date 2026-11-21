@@ -12,10 +12,13 @@ export const Alert={alert(title,message='',buttons){
   dialog.onclose=()=>dialog.remove();document.body.append(dialog);dialog.showModal();
 }};
 let initialized=false;
-export async function piLogin(){
+export function piSdk(){
  if(!window.Pi)throw Error('افتح الرابط داخل Pi Browser وسجّل دخولك إلى Pi.');
  if(!initialized){window.Pi.init({version:'2.0',sandbox:false});initialized=true}
- const session=await window.Pi.authenticate(['username'],()=>{});
+ return window.Pi;
+}
+export async function piLogin(){
+ const session=await piSdk().authenticate(['username'],()=>{});
  const res=await fetch('/auth/pi',{method:'POST',headers:{Authorization:'Bearer '+session.accessToken}});
  const data=await res.json();
  if(!res.ok)throw Error(data.error||'تعذر تأكيد حساب Pi');
