@@ -1,0 +1,21 @@
+name: Deliver signed Android build 15
+on:
+  push:
+    branches: [delivery/clipi-android-15]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clipi-Android-build15
+          run-id: 44952620563
+          github-token: ${{ github.token }}
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo 'ebcebf1e8bf59aa9b06f66f1c577045d371e5e07cda77436716b115ba39eb7bc  Clipi-Android-build15.apk' | sha256sum -c
+          gh release create android-build15 Clipi-Android-build15.apk --repo liddawiw-ai/clipi --target 20017e29e4333af0f99cfed67a5045d26046118d --title 'Clipi Android build 15' --notes 'Android APK for testing room entry.' --prerelease
