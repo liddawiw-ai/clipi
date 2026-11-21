@@ -1,4 +1,5 @@
-import {roomControls} from './room-controls.mjs';
+import {account} from './identity.mjs';
+import {roomStore,roomControls} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
 import { piGifts, roseAmount } from './pi-gifts.mjs';
 
@@ -28,6 +29,26 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(request.method==='GET'&&path.startsWith('/themes/')){
+      if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
+      const parts=/^\/themes\/([A-Za-z0-9_-]{1,128})\/([a-f0-9-]{36})$/.exec(path);
+      if(!parts)return json({error:'Not found'},404);
+      const q=await roomStore(env.PI_GIFTS_DB);
+      const row=await q('SELECT image FROM room_theme WHERE room=? AND theme=?',parts[1],parts[2]).first();
+      if(!row?.image)return json({error:'Not found'},404);
+      return new Response(Uint8Array.from(atob(row.image.split(',')[1]),v=>v.charCodeAt(0)),{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,max-age=3600'}});
+    }
+    if(path==='/account-number'&&request.method==='POST'){
+      const token=(request.headers.get('Authorization')||'').match(/^Bearer ([^ ]{1,8192})$/)?.[1];
+      if(!token)return json({error:'سجل الدخول'},401);
+      const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
+      if(!check.ok)return json({error:'تعذّر التحقق من الحساب'},check.status===400?401:502);
+      const uid=(await check.json()).users?.[0]?.localId;
+      if(!uid)return json({error:'سجل الدخول'},401);
+      const input=await request.json().catch(()=>null);
+      if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
+      return account(await roomStore(env.PI_GIFTS_DB),uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
+    }
     if (env.CLIPI_APP && request.method === 'GET') {
       if (['/', '/room', '/room/'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
       if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
@@ -63,7 +84,7 @@ export default {
     let roomId, uid, visit, input;
     try {
       const body = await request.text();
-      if (body.length > 4096) return json({ error: 'Request too large' }, 413);
+      if (body.length > (path==='/room-control'?625000:4096)) return json({ error: 'Request too large' }, 413);
       input=JSON.parse(body);
       ({ roomId, uid, visit } = input);
     } catch {

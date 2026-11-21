@@ -26,6 +26,18 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     known.current=newKeys;setState(data);setError('');setPinRequired(false);
     if(entries.length)current.current.onEntry(entries);
   }
+  const pendingGift=useRef(null);
+  const sendingGift=useRef(false);
+  async function sendSupport(recipient,cost){
+    if(sendingGift.current)return;
+    const key=JSON.stringify([roomId,recipient,cost]);
+    if(pendingGift.current?.key!==key)pendingGift.current={key,nonce:crypto.randomUUID()};
+    sendingGift.current=true;
+    try{
+      await act('supportGift',{recipient,cost,nonce:pendingGift.current.nonce});
+      pendingGift.current=null;
+    }finally{sendingGift.current=false}
+  }
   function join(pin){return act('join',{pin,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride}).catch(e=>setError(e.message))}
   useEffect(()=>{
     alive.current=true;
@@ -43,5 +55,5 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     timer=setTimeout(poll,3500);
     return()=>{stopped=true;clearTimeout(timer)};
   },[roomId,joined]);
-  return {state,error,pinRequired,join,act,session};
+  return {state,error,pinRequired,join,act,session,sendSupport};
 }
