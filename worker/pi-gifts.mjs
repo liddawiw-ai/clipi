@@ -1,3 +1,4 @@
+import {roomStore} from './room-controls.mjs';
 import { gifts } from './gift-catalog.mjs';
 const roomPattern = /^[A-Za-z0-9_-]{1,128}$/;
 const identifierPattern = /^[A-Za-z0-9_-]{1,128}$/;
@@ -25,13 +26,24 @@ export async function piGifts(request, env, json) {
       throw error;
     }
   }
+  let ownerUid;
   async function openRoom(roomId) {
     if (!roomPattern.test(roomId ?? '') || !authorization.startsWith('Bearer ')) return false;
     const project = encodeURIComponent(env.FIREBASE_PROJECT_ID ?? '');
     const room = await upstream('room', `https://firestore.googleapis.com/v1/projects/${project}/databases/(default)/documents/rooms/${roomId}`, {
       headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000),
     });
-    return room?.fields?.status?.stringValue === 'open';
+    if(room?.fields?.status?.stringValue!=='open')return false;
+    ownerUid=room.fields.ownerUid?.stringValue;
+    if(mainnet){
+      const db=await roomStore(env.PI_GIFTS_DB);
+      const claims=JSON.parse(atob(authorization.slice(7).split('.')[1].replaceAll('-','+').replaceAll('_','/')));
+      const member=await db('SELECT banned,seen,visit FROM room_member WHERE room=? AND uid=?',roomId,claims.sub).first();
+      if(member?.banned)return false;
+      const policy=await db('SELECT pin FROM room_policy WHERE room=?',roomId).first();
+      if(policy?.pin && (member?.visit!==request.headers.get('X-Room-Session')||!member||member.seen<Date.now()/1000-90))return false;
+    }
+    return true;
   }
   async function pi(path, { token, data, post = false } = {}) {
     const stage = token ? 'pi_identity' : post ? 'pi_' + action : 'pi_payment_lookup';
@@ -48,7 +60,7 @@ export async function piGifts(request, env, json) {
       const roomId = url.searchParams.get('room');
       if (!await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
       const { results } = await env.PI_GIFTS_DB.prepare(
-        mainnet ? 'SELECT payment_id AS id, gift FROM mainnet_gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30' : 'SELECT payment_id AS id FROM gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30',
+        mainnet ? 'SELECT payment_id AS id, gift, t.name FROM mainnet_gifts g LEFT JOIN room_gift_target t ON t.payment=g.payment_id WHERE room_id = ? ORDER BY g.rowid DESC LIMIT 30' : 'SELECT payment_id AS id FROM gifts WHERE room_id = ? ORDER BY rowid DESC LIMIT 30',
       ).bind(roomId).all();
       return json({ gifts: results.reverse() });
     }
@@ -78,6 +90,12 @@ export async function piGifts(request, env, json) {
       return json({ error: 'Payment does not match the gift' }, 403);
     }
     if (action === 'approve') {
+      if(mainnet && metadata.recipientUid){
+        const db=await roomStore(env.PI_GIFTS_DB);
+        const recipient=await db('SELECT name FROM room_member WHERE room=? AND uid=? AND (seat=1 OR uid=?) AND banned=0 AND seen>=?',roomId,metadata.recipientUid,ownerUid||'',Math.floor(Date.now()/1000)-90).first();
+        if(!recipient)return json({error:'المستلم غادر المقعد'},409);
+        await db('INSERT INTO room_gift_target(payment,uid,name) VALUES(?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,metadata.recipientUid,recipient.name).run();
+      }
       if (!payment.status?.developer_approved) await pi(paymentPath + '/approve', { post: true });
       return json({ approved: true });
     }

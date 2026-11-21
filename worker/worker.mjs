@@ -1,3 +1,4 @@
+import {roomControls} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
 import { piGifts, roseAmount } from './pi-gifts.mjs';
 
@@ -49,7 +50,7 @@ export default {
       });
     }
     if (path === '/' && request.method === 'GET') return json({ service: 'clipi-livekit' });
-    if (!['/token', '/remove-guest', '/close-room'].includes(path) || request.method !== 'POST') return json({ error: 'Not found' }, 404);
+    if (!['/room-control','/token', '/remove-guest', '/close-room'].includes(path) || request.method !== 'POST') return json({ error: 'Not found' }, 404);
     if (!env.FIREBASE_PROJECT_ID || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET ||
         !/^wss:\/\/[^/]+\/?$/.test(env.LIVEKIT_URL ?? '')) {
       return json({ error: 'Service configuration incomplete' }, 503);
@@ -59,11 +60,12 @@ export default {
     const match = /^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/.exec(authorization ?? '');
     if (!match || authorization.length > 8192) return json({ error: 'Unauthorized' }, 401);
 
-    let roomId, uid, visit;
+    let roomId, uid, visit, input;
     try {
       const body = await request.text();
-      if (body.length > 1024) return json({ error: 'Request too large' }, 413);
-      ({ roomId, uid, visit } = JSON.parse(body));
+      if (body.length > 4096) return json({ error: 'Request too large' }, 413);
+      input=JSON.parse(body);
+      ({ roomId, uid, visit } = input);
     } catch {
       return json({ error: 'Invalid request' }, 400);
     }
@@ -97,8 +99,26 @@ export default {
 
       const host = fields.ownerUid?.stringValue === claims.sub;
       const guests = fields.stageGuests?.mapValue?.fields ?? {};
-      const liveRoom = `clipi-${roomId}`;
-      const now = Math.floor(Date.now() / 1000);
+      const enhanced = env.PI_GIFTS_NETWORK==='mainnet' && Boolean(input.session);
+      const liveRoom = enhanced ? 'clipi:web:'+roomId : 'clipi-'+roomId;
+      const now = Math.floor(Date.now()/1000);
+      async function mediaToken(publisher){
+        const video={roomJoin:true,room:liveRoom,canSubscribe:true,canPublish:publisher,canPublishData:false};
+        if(publisher)video.canPublishSources=type==='audio'?['microphone']:['microphone','camera'];
+        const token=await signToken(env,{iss:env.LIVEKIT_API_KEY,sub:claims.sub,nbf:now-5,exp:now+120,video});
+        return {serverUrl:env.LIVEKIT_URL,token,canPublish:publisher};
+      }
+      let admission;
+      if (env.PI_GIFTS_NETWORK==='mainnet' && (path==='/token'||path==='/room-control')){
+        const disconnect=async identity=>{
+          const admin=await signToken(env,{iss:env.LIVEKIT_API_KEY,sub:claims.sub,nbf:now-5,exp:now+30,video:{roomAdmin:true,room:liveRoom}});
+          const origin=new URL(env.LIVEKIT_URL.replace('wss:','https:')).origin;
+          const result=await fetch(origin+'/twirp/livekit.RoomService/RemoveParticipant',{method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'application/json'},body:JSON.stringify({room:liveRoom,identity}),signal:AbortSignal.timeout(8000)});
+          if(!result.ok&&result.status!==404)throw Error('Removal failed');
+        };
+        admission=await roomControls({env,input,room:roomId,user:claims.sub,host,type,path,json,disconnect,mediaToken});
+        if(admission instanceof Response)return admission;
+      }
       if (path !== '/token') {
         if (!host) return json({ error: 'Forbidden' }, 403);
         const closing = path === '/close-room';
@@ -124,17 +144,8 @@ export default {
       const approved = webVisit
         ? typeof visit === 'string' && /^[a-f0-9-]{36}$/.test(visit) && grant === await approvalKey(visit)
         : typeof grant === 'string' && !grant.startsWith('w:');
-      const publisher = host || approved;
-      const video = {
-        roomJoin: true,
-        room: liveRoom,
-        canSubscribe: true,
-        canPublish: publisher,
-        canPublishData: false,
-      };
-      if (publisher) video.canPublishSources = type === 'audio' ? ['microphone'] : ['microphone', 'camera'];
-      const payload = { iss: env.LIVEKIT_API_KEY, sub: claims.sub, nbf: now - 5, exp: now + 120, video };
-      return json({ serverUrl: env.LIVEKIT_URL, token: await signToken(env, payload) });
+      const publisher = admission?.publisher ?? (host || approved);
+      return json(await mediaToken(publisher));
     } catch {
       return json({ error: 'Media service temporarily unavailable' }, 502);
     }
