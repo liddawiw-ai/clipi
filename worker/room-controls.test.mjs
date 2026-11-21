@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
-import {roomControls} from './room-controls.mjs';
+import {account,price} from './identity.mjs';
+import {roomStore,roomControls} from './room-controls.mjs';
 
 test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const sql=new DatabaseSync(':memory:');
@@ -66,4 +67,20 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call('u11','token',{},'/token')).publisher,true);
   sql.prepare('UPDATE room_member SET seen=0 WHERE uid=?').run('u11');
   assert.equal((await call('u11','token',{},'/token')).status,403);
+  const q=await roomStore(db);
+  const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
+  const standard=await numbers('buyer','read');
+  assert.match(standard.number,/^[1-9]\d{6}$/);
+  assert.equal((await numbers('buyer','read')).number,standard.number);
+  assert.equal((await numbers('buyer','buy','777')).status,409);
+  const purchased=await numbers('buyer','buy','1122334');
+  assert.equal(purchased.number,'1122334');
+  assert.equal(purchased.balance,100-price('1122334'));
+  assert.equal((await numbers('buyer','buy','1122334')).balance,purchased.balance);
+  assert.equal((await numbers('second','buy','1122334')).status,409);
+  assert.equal((await numbers('buyer','equip',standard.number)).number,standard.number);
+  assert.equal((await call('first','settings',{theme:'palace'})).status,403);
+  assert.equal((await call('host','settings',{theme:'palace'})).theme,'palace');
+  assert.equal((await call('u1','poll')).theme,'palace');
+
 });
