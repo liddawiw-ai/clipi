@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===12, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===13, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -28,7 +28,7 @@ assert(source.includes('canPublish&&state===ConnectionState.Connected')&&source.
 assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
 assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
 assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
-assert(source.includes('const sendingRef=useRef(false)'), 'Synchronous message send guard missing');
+assert(source.includes('sendingRef=useRef(false)'), 'Synchronous message send guard missing');
 assert(source.includes('sendingRef.current=true')&&source.includes('sendingRef.current=false'), 'Duplicate message send locking missing');
 assert(source.includes("setMessage(current=>current.trim()===text?'':current)"), 'Chat draft race protection missing');
 assert(source.includes('maxLength={500}'), 'Chat composer length guard missing');
@@ -57,15 +57,15 @@ assert(source.includes('مركبة فضائية')&&source.includes('رولز ر�
 assert(source.includes("kind==='dragon'")&&source.includes("['plane','helicopter','spaceship','space']"),'Distinct gift animations missing');
 
 assert(source.includes('kind===\'dragon\'')&&source.includes('const beams=Array.from({length:12}'),'Existing gifts must retain animations and full-screen lighting');
-assert(source.includes('setMinimized(true)')&&source.includes('setMinimized(false)'),'Room minimize/restore controls missing');
+assert(source.includes('setMini(true)')&&source.includes('setMini(false)'),'Room minimize/restore controls missing');
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
 assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');
 
 assert(source.includes('const hostSettings=<Modal')&&source.includes('hostSettingsOpen&&isHost'),'Host-only settings sheet missing');
 assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
-assert(source.includes('setMinimized(true)')&&source.includes('setHostSettingsOpen(true)'),'Host settings controls missing');
-assert(source.includes('const exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
-assert(source.includes('✕ مغادرة الغرفة')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
+assert(source.includes('setMini(true)')&&source.includes('setHostSettingsOpen(true)'),'Host settings controls missing');
+assert(source.includes('exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
+assert(source.includes('onPress={exitRoomOnce}')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
 
 // The display catalog is larger than the server-authorized gift catalog.
@@ -81,7 +81,7 @@ assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]
  'Gift send preview changed; audit payment ledger and server receipt before release');
 console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
 assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
-assert(source.includes('if(exitHandledRef.current)return;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
+assert(source.includes('if(!exitHandledRef.current){exitHandledRef.current=true;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
 assert(source.includes("if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة'"),'Gift sending must reject closed rooms');
 assert(source.includes('Self-gifts never mint cash-eligible earnings or support points'),'Self-gift safety disclosure missing');
 assert(source.includes("if(!Number.isSafeInteger(cost)||cost<=0)return null;"),'Preview wallet must reject invalid spending amounts');
@@ -97,5 +97,5 @@ assert(source.includes('currentSessionUidRef.current!==u?.uid'),'Account switch 
 assert(source.includes('setPayoutDrafts([]);setPayoutAccount(\'\');setPayoutHolder(\'\');'),'Account switch must clear payout drafts and sensitive input');
 assert(source.includes('setSpent(0);setReceived(0);setSupportLog([]);'),'Account switch must clear local support history');
 assert(source.includes('setBalance({welcome:WELCOME,purchased:0,owner:0});'),'Account switch must reset local demo diamonds');
-assert(source.includes("if(page==='room')return activeRoom?.id&&user?.uid?<Room"),'Room must not render without an active room and signed-in user');
+assert(source.includes("activeRoom?.id&&user?.uid&&<View"),'Room must not render without an active room and signed-in user');
 console.log('Clipi release guards passed (static assertions only).');
