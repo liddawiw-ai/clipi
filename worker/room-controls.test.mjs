@@ -28,6 +28,14 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call('first','supportGift',{...gift,nonce:crypto.randomUUID()})).status,409);
   assert.equal((await call('host','poll')).supportBalance,100000100);
   assert.equal(sql.prepare('SELECT count(*) AS n FROM support_gift').get().n,1);
+  const rose={recipient:'first',cost:10,gift:'وردة حمراء',nonce:crypto.randomUUID()};
+  assert.equal((await call('host','catalogGift',{...rose,cost:1})).status,400);
+  const sent=await call('host','catalogGift',rose);
+  assert.match(sent.chat.at(-1).text,/وردة حمراء/);
+  assert.equal(sent.supportBalance,100000090);
+  assert.equal((await call('host','catalogGift',rose)).supportBalance,sent.supportBalance);
+  assert.equal((await call('first','catalogGift',{...rose,recipient:'host'})).status,409);
+  await call('host','deleteMessage',{id:sent.chat.at(-1).id});
   await call('host','deleteMessage',{id:1});
   assert.equal(data.people.find(p=>p.uid==='first').seat,1);
   assert.equal((await call('first','token',{},'/token')).publisher,true);
