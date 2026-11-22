@@ -5,9 +5,8 @@ export {useConnectionState,useLocalParticipant,useParticipants,useTracks,isTrack
 export {ConnectionState,Track} from 'livekit-client';
 export const AudioSession={startAudioSession:async()=>{},stopAudioSession:async()=>{}};
 
-function RoomSpeaker(){
+function RoomSpeaker({muted}){
   const {canPlayAudio,startAudio}=useAudioPlayback();
-  const [muted,setMuted]=useState(false);
   const [failed,setFailed]=useState(false);
   const unlock=()=>startAudio().then(()=>setFailed(false)).catch(()=>setFailed(true));
   useEffect(()=>{
@@ -16,14 +15,12 @@ function RoomSpeaker(){
     document.addEventListener('pointerdown',resume,{once:true,capture:true});
     return()=>document.removeEventListener('pointerdown',resume,true);
   },[canPlayAudio,muted,startAudio]);
-  const needsTap=!canPlayAudio||failed;
-  const label=needsTap||muted?ui("تشغيل سماعة الغرفة"):ui("كتم سماعة الغرفة");
-  return <><RoomAudioRenderer muted={muted}/><button aria-label={label} title={label} style={{position:'absolute',left:8,top:'43%',zIndex:4,borderRadius:20,padding:8,background:'#2c3765',color:'white'}} onClick={()=>{
-    if(needsTap||muted){setMuted(false);void unlock()}else setMuted(true);
-  }}>{needsTap?ui("🔊 تشغيل الصوت"):muted?'🔇':'🔊'}</button></>;
+  return <><RoomAudioRenderer muted={muted}/>{!muted&&(!canPlayAudio||failed)&&
+    <button style={{position:'absolute',left:8,top:'43%',zIndex:4,borderRadius:12,padding:8,background:'#244741',color:'white'}}
+      onClick={()=>void unlock()}>{ui("🔊 تشغيل الصوت")}</button>}</>;
 }
-export function LiveKitRoom({children,...props}){
- return <BrowserRoom {...props}><RoomSpeaker/>{children}</BrowserRoom>;
+export function LiveKitRoom({children,speakerMuted,...props}){
+ return <BrowserRoom {...props}><RoomSpeaker muted={speakerMuted}/>{children}</BrowserRoom>;
 }
 export function VideoTrack({trackRef}){
  return <Video trackRef={trackRef} playsInline style={{width:'100%',height:'100%',objectFit:'cover',position:'absolute',inset:0}}/>;
