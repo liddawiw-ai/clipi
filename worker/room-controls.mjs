@@ -109,8 +109,13 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
     const {cost,recipient,nonce}=input;
     const named=op==='catalogGift';
     const entry=diamondGifts.get(input.gift);
-    if((named ? !entry || entry.cost!==cost : ![10,50,100].includes(cost))||typeof recipient!=='string'||recipient===user||
+    if((named ? !entry || entry.cost!==cost : ![10,50,100].includes(cost))||typeof recipient!=='string'||
        typeof nonce!=='string'||!/^[a-f0-9-]{36}$/.test(nonce))return json({error:'هدية غير صالحة'},400);
+    if(recipient===user){
+      // Both clients play the selected effect locally after a successful response.
+      if(named&&host)return json({preview:true});
+      return json({error:'اختر مستلمًا آخر للهدية'},400);
+    }
     const table=named?'diamond_gift':'support_gift';
     const result=await q(`INSERT INTO ${table}(sender,nonce,room,recipient,cost${named?',gift':''})
       SELECT ?,?,?,?,?${named?',?':''} WHERE ? >= ? + ${spentSql}
