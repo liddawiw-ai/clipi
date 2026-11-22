@@ -1,0 +1,44 @@
+name: Clipi Android test APK (GitHub)
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/clipi-stage7-build-fix]
+    paths: ['.github/workflows/android-test-apk.yml']
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install dependencies
+        run: npm ci
+      - name: Validate source before build
+        run: npm run test:ci
+      - name: Generate Android native project
+        run: npx expo prebuild --platform android --no-install --non-interactive
+        env:
+          CI: '1'
+          EXPO_PUBLIC_ENABLE_LIVEKIT_MEDIA: 'false'
+      - name: Build debug APK for internal testing only
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          CI: '1'
+          EXPO_PUBLIC_ENABLE_LIVEKIT_MEDIA: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clipi-Android-test-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 7
