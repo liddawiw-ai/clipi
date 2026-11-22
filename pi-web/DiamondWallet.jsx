@@ -53,7 +53,7 @@ export function DiamondWallet({uid}){
     }catch(e){finish(e.message)}
   }
   return <section style={{color:'white',padding:16}} dir="auto">
-    <h2>{label('محفظتي','My wallet')}</h2><p>{label('الماس المشترى','Purchased diamonds')} · {data?.diamonds??'…'} 💎</p>
+    <p>{label('الماس المشترى','Purchased diamonds')} · {data?.diamonds??'…'} 💎</p>
     <p>{label('مكافآت المضيف','Host rewards')} · {data?data.rewardPi:'…'} Pi</p>
     <p>{label('التقدم نحو المكافأة التالية','Progress toward the next reward')} · {data?.progress??'…'} / 10,000 💎</p>
     <p>{label('كل 10,000 ماسة دعم تمنح المضيف 5 Pi داخل Clipi. السحب غير مفعّل.','Every 10,000 support diamonds earn a 5 Pi reward in Clipi. Withdrawals are unavailable.')}</p>
