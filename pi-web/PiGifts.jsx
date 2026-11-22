@@ -84,7 +84,7 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
       timer = setTimeout(() => {
         if (active()) setMessage(ui("تأخر رد المحفظة. إذا ما ظهرت، أعد فتح الغرفة في Pi Browser وتحقق من حالة الدفعة."));
       }, 20000);
-      await sdk.createPayment({amount:gift.amount,memo:'Clipi · '+gift.name+(recipient?' إلى '+recipient.name:''),metadata:{gift:id,roomId,...(recipient?{recipientUid:recipient.uid,recipientName:recipient.name}:{})}},{
+      await sdk.createPayment({amount:gift.amount,memo:'Clipi app wallet · '+gift.name,metadata:{destination:'app_wallet',gift:id,roomId,...(recipient?{recipientUid:recipient.uid,recipientName:recipient.name}:{})}},{
         onReadyForServerApproval: paymentId => {
           if (!active()) return;
           clearTimeout(timer);
@@ -102,8 +102,9 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
     } catch {end(window.Pi?ui("تعذّر بدء الدفع. تحقق من صلاحية المدفوعات في حساب Pi ثم حاول مجددًا."):ui("لم يتم تحميل خدمة Pi. حدّث الصفحة داخل Pi Browser."))}
   }
   if (!open) return null;
-  return <section dir="rtl" style={{background:'#201631',color:'white',padding:16,borderRadius:16}}>
-    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{recipient?ui("هدية إلى ")+recipient.name:ui("هدايا الغرفة")}</strong>
+  return <section role="dialog" aria-modal="true" dir="auto" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1000,maxHeight:"85vh",overflowY:"auto",background:'#201631',color:'white',padding:16,borderRadius:16}}>
+    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا Pi")}</strong>
+    <p>{ui("دفعة Pi حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.")}</p>
     <p role="status">{paused ? ui("هدايا Pi المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.") : message || (catalog ? ui("اختَر هدية") : ui("جاري تحميل الهدايا…"))}</p>
     <div style={{display:'flex',gap:8,marginTop:12}}>{Object.entries(catalog||{}).map(([id,g]) =>
       <button key={id} disabled={busy} onClick={() => buy(id,g)} style={{flex:1,padding:10,borderRadius:12,background:'#453263',color:'white'}}>

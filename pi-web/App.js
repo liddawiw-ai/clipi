@@ -441,6 +441,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const [speakerMuted,setSpeakerMuted]=useState(false);
   const [giftCategory,setGiftCategory]=useState('الكل');
   const [giftQuantity,setGiftQuantity]=useState(1);
+  const [piGiftOpen,setPiGiftOpen]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
@@ -670,7 +671,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true);onMinimize()}}/><Text style={S.tiny}>{isHost?ui("👑 أنت مضيف الغرفة"):ui("👤 أنت مشاهد")} · {audio?ui("غرفة صوتية"):ui("غرفة فيديو")}</Text></View>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     {!SHOW_UNRELEASED_DEMOS&&<PiGifts roomId={room.id} recipient={recipient} sessionId={membership.session}
-      open={false} close={()=>setGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
+      open={piGiftOpen&&!minimized} close={()=>setPiGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={ui}
       copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("رصيد الماس"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
@@ -682,7 +683,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
           setFxId(v=>v+1);setFx(gift);
         }catch(error){Alert.alert(ui("هدية الغرفة"),error.message)}
       }}>
-      <Text style={S.roomGiftNotice}>{ui("هدايا Pi المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.")}</Text>
+      <Small title={ui("هدايا Pi")} onPress={()=>{setGiftOpen(false);setPiGiftOpen(true)}}/>
     </RoomGiftSheet>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
       <View style={S.drawerHeader}><Text style={S.gold}>🎁 هدايا تجريبية محلية</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>

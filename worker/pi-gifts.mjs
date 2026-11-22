@@ -8,15 +8,10 @@ export async function piGifts(request, env, json) {
   const mainnet = env.PI_GIFTS_NETWORK === 'mainnet';
   const url = new URL(request.url);
   const action = url.pathname.split('/').at(-1);
-  if (mainnet && action === 'catalog' && request.method === 'GET') {
-    return json({ gifts: {}, paused: true });
-  }
-  if (mainnet && action === 'approve' && request.method === 'POST') {
-    return json({ error: 'Paid Pi gifts are paused until room host payouts are available' }, 503);
-  }
   if ((!mainnet && env.PI_GIFTS_TESTNET !== '1') || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
     return json({ error: 'Gift payments unavailable' }, 503);
   }
+  if (mainnet && action === 'catalog' && request.method === 'GET') return json({gifts, paused:false, destination:'app_wallet'});
   const authorization = request.headers.get('Authorization') ?? '';
   async function upstream(stage, url, options) {
     let status;
@@ -95,6 +90,7 @@ export async function piGifts(request, env, json) {
       return json({ error: 'Payment does not match the gift' }, 403);
     }
     if (action === 'approve') {
+      if(mainnet && metadata.destination!=='app_wallet')return json({error:'Review the payment destination in the current gift panel'},409);
       if(mainnet && metadata.recipientUid){
         const db=await roomStore(env.PI_GIFTS_DB);
         const recipient=await db('SELECT name FROM room_member WHERE room=? AND uid=? AND (seat=1 OR uid=?) AND banned=0 AND seen>=?',roomId,metadata.recipientUid,ownerUid||'',Math.floor(Date.now()/1000)-90).first();
