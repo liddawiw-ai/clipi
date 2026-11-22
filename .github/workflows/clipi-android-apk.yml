@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-discovery-20
+      - feature/android-room-controls-21
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build20.apk
+          cp "$apk" Clipi-Android-build21.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build20
-          path: Clipi-Android-build20.apk
+          name: Clipi-Android-build21
+          path: Clipi-Android-build21.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-discovery-20'
+        if: github.ref == 'refs/heads/feature/android-room-controls-21'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build20 Clipi-Android-build20.apk --target "$GITHUB_SHA" --title "Clipi Android 20" --notes "Room discovery, navigation, and a redesigned account hub. Includes previous room and wallet features." --prerelease
+        run: gh release create android-build21 Clipi-Android-build21.apk --target "$GITHUB_SHA" --title "Clipi Android 21" --notes "Room toolbar, numbered voice-room seats, and categorized diamond gift sheet. Includes the discovery and wallet updates." --prerelease
