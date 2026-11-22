@@ -36,7 +36,7 @@ const rtl = new Set(['ar', 'fa', 'ur', 'he']);
 export const languages = Object.fromEntries(Object.entries(rows).map(([code, [name, text]]) => [
   code, {name, direction:rtl.has(code) ? 'rtl' : 'ltr', ...Object.fromEntries(text.split('|').map((value, i) => [keys[i], value]))}
 ]));
-export const localeStorageKey = 'clipi.language';
+export const localeStorageKey = 'clipi.language.v2';
 
 export function readLocale(storage) {
   try {
