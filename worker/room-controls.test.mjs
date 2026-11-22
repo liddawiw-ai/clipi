@@ -1,3 +1,5 @@
+import {piGifts} from './pi-gifts.mjs';
+import {readWallet} from './diamond-wallet.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
@@ -15,7 +17,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const visits=new Map(), kicks=[];
   const call=async(user,op,extra={},path='/room-control')=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
-    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room:'test',user,host:user==='host',type:'audio',path,
+    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room:'test',user,ownerUid:'host',host:user==='host',type:'audio',path,
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
@@ -72,6 +74,28 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   sql.prepare('UPDATE room_member SET seen=0 WHERE uid=?').run('u11');
   assert.equal((await call('u11','token',{},'/token')).status,403);
   const q=await roomStore(db);
+  const buyer='pi:buyer';
+  await call(buyer,'join');
+  // A real payment is never submitted by this fixture.
+  const txid='a'.repeat(64), id='test-pack';
+  const dto={identifier:id,user_uid:'buyer',direction:'user_to_app',network:'Pi Network',amount:50,metadata:{kind:'diamond_pack',diamonds:500,uid:buyer},status:{developer_approved:true,developer_completed:true,transaction_verified:true},transaction:{txid}};
+  const originalFetch=globalThis.fetch;
+  try{
+    globalThis.fetch=async url=>Response.json(url.endsWith('/me')?{uid:'buyer'}:dto);
+    const complete=()=>piGifts(new Request('https://example.test/pi-gifts/complete',{method:'POST',body:JSON.stringify({kind:'diamond_pack',paymentId:id,accessToken:'mock',txid})}),{PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'mock',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
+    dto.amount=1;assert.equal((await complete()).status,403);
+    dto.amount=50;assert.equal((await complete()).completed,true);
+    assert.equal((await complete()).completed,true);
+  }finally{globalThis.fetch=originalFetch}
+  assert.equal((await readWallet(q,buyer)).diamonds,500);
+  const support={gift:'خاتم',cost:500,nonce:crypto.randomUUID()};
+  assert.equal((await call(buyer,'paidGift',support)).status,200);
+  assert.equal((await call(buyer,'paidGift',support)).status,200);
+  assert.equal((await readWallet(q,buyer)).diamonds,0);
+  const hostWallet=await readWallet(q,'host');
+  assert.equal(hostWallet.earningsUnits/20,25);
+  assert.equal(hostWallet.history.length,1);
+  assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
   const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
   const standard=await numbers('buyer','read');
   assert.match(standard.number,/^[1-9]\d{6}$/);

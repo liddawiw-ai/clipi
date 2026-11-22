@@ -62,7 +62,7 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
     try {
       const pending = [];
       let accessToken;
-      const completeOld = payment => request('complete', {roomId:payment.metadata?.roomId, paymentId:payment.identifier, txid:payment.transaction?.txid, accessToken});
+      const completeOld = payment => request('complete', {kind:payment.metadata?.kind,roomId:payment.metadata?.roomId, paymentId:payment.identifier, txid:payment.transaction?.txid, accessToken});
       const sdk=piSdk();
       const session = await sdk.authenticate(['username','payments'], payment => {
         if (!active() && !accessToken) return;

@@ -63,7 +63,7 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, balance, onClos
     </ScrollView>
     {children}
     <View style={s.footer}>
-      <Text style={s.sub}>{copy.balance} · {balance??'…'} 💎</Text>
+      <Text style={s.sub}>{copy.share&&selected?copy.share(selected[2])+" · ":""}{copy.balance} · {balance??'…'} 💎</Text>
       <TouchableOpacity disabled={!selected||pending} accessibilityRole="button"
         accessibilityState={{disabled:!selected||pending,busy:pending}}
         style={[s.send,(!selected||pending)&&s.disabled]} onPress={send}>

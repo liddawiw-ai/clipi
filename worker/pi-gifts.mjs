@@ -1,3 +1,4 @@
+import {packs} from './diamond-wallet.mjs';
 import {roomStore} from './room-controls.mjs';
 import { gifts } from './gift-catalog.mjs';
 const roomPattern = /^[A-Za-z0-9_-]{1,128}$/;
@@ -72,26 +73,28 @@ export async function piGifts(request, env, json) {
     let input;
     try { input = JSON.parse(body); } catch { return json({ error: 'Invalid request' }, 400); }
     const { paymentId, accessToken, roomId, txid } = input ?? {};
+    const packRequest=mainnet&&input.kind==='diamond_pack';
     if (typeof paymentId !== 'string' || !identifierPattern.test(paymentId) ||
-        typeof roomId !== 'string' || !roomPattern.test(roomId) ||
+        (!packRequest && (typeof roomId !== 'string' || !roomPattern.test(roomId))) ||
         typeof accessToken !== 'string' || !accessToken ||
         (action === 'complete' && (typeof txid !== 'string' || !/^[a-f0-9]{64}$/i.test(txid)))) {
       return json({ error: 'Invalid payment request' }, 400);
     }
-    if (action === 'approve' && !await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
+    if (!packRequest && action === 'approve' && !await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
     const paymentPath = '/payments/' + paymentId;
     const [identity, payment] = await Promise.all([pi('/me', { token: accessToken }), pi(paymentPath)]);
     const metadata = payment.metadata;
     const product = mainnet && Object.hasOwn(gifts, metadata?.gift) ? gifts[metadata.gift] : null;
     if (!identity.uid || payment.user_uid !== identity.uid || payment.identifier !== paymentId ||
         payment.direction !== 'user_to_app' || payment.network !== (mainnet ? 'Pi Network' : 'Pi Testnet') ||
-        metadata?.roomId !== roomId || (mainnet ? !product || payment.amount !== product.amount : payment.amount !== roseAmount || metadata?.gift !== 'rose') ||
+        (packRequest ? metadata?.kind!=='diamond_pack'||metadata.uid!=='pi:'+identity.uid||!packs.includes(metadata.diamonds)||payment.amount!==metadata.diamonds/10 :
+        metadata?.roomId!==roomId||(mainnet ? !product||payment.amount!==product.amount : payment.amount!==roseAmount||metadata?.gift!=='rose')) ||
         payment.status?.cancelled || payment.status?.user_cancelled) {
       return json({ error: 'Payment does not match the gift' }, 403);
     }
     if (action === 'approve') {
-      if(mainnet && metadata.destination!=='app_wallet')return json({error:'Review the payment destination in the current gift panel'},409);
-      if(mainnet && metadata.recipientUid){
+      if(!packRequest && mainnet && metadata.destination!=='app_wallet')return json({error:'Review the payment destination in the current gift panel'},409);
+      if(!packRequest && mainnet && metadata.recipientUid){
         const db=await roomStore(env.PI_GIFTS_DB);
         const recipient=await db('SELECT name FROM room_member WHERE room=? AND uid=? AND (seat=1 OR uid=?) AND banned=0 AND seen>=?',roomId,metadata.recipientUid,ownerUid||'',Math.floor(Date.now()/1000)-90).first();
         if(!recipient)return json({error:'المستلم غادر المقعد'},409);
@@ -111,6 +114,11 @@ export async function piGifts(request, env, json) {
     }
     if (!completed.status?.developer_completed || !completed.status.transaction_verified ||
         completed.transaction?.txid !== txid) return json({ error: 'Transaction not confirmed' }, 409);
+    if(packRequest){
+      const q=await roomStore(env.PI_GIFTS_DB);
+      await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,'pi:'+identity.uid,metadata.diamonds,txid).run();
+      return json({completed:true,diamonds:metadata.diamonds});
+    }
     if (mainnet) {
       await env.PI_GIFTS_DB.prepare('INSERT INTO mainnet_gifts(payment_id,room_id,gift) VALUES(?,?,?) ON CONFLICT(payment_id) DO NOTHING').bind(paymentId,roomId,metadata.gift).run();
     } else await env.PI_GIFTS_DB.prepare(

@@ -1,0 +1,48 @@
+import React,{useState,useEffect,useRef} from 'react';
+import {auth,piSdk} from './services';
+import {packs} from '../worker/diamond-wallet.mjs';
+const label=(ar,en)=>document.documentElement.lang==='ar'?ar:en;
+export async function walletRead(){
+  const token=await auth().currentUser.getIdToken();
+  const response=await fetch('/account-number',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op:'wallet'})});
+  if(!response.ok)throw Error(label('تعذر تحديث المحفظة','Wallet refresh failed'));
+  return response.json();
+}
+async function payment(action,data){
+  const response=await fetch('/pi-gifts/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+  if(!response.ok)throw Error(label('تعذر تأكيد الدفعة. تحقق من المحفظة قبل إعادة المحاولة.','Payment confirmation failed. Check your wallet before retrying.'));
+}
+export function DiamondWallet({uid}){
+  const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  const lock=useRef(false);
+  async function refresh(){const snapshot=await walletRead();if(auth().currentUser?.uid===uid)setData(snapshot)}
+  useEffect(()=>{refresh().catch(e=>setMessage(e.message))},[uid]);
+  async function buy(diamonds){
+    if(lock.current)return;
+    lock.current=true;setBusy(true);setMessage('');
+    const finish=text=>{lock.current=false;setBusy(false);setMessage(text)};
+    try{
+      const sdk=piSdk(),pending=[];
+      const session=await sdk.authenticate(['username','payments'],p=>pending.push(p));
+      if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب Pi نفسه','Sign in with the same Pi account'));
+      const accessToken=session.accessToken;
+      for(const old of pending)await payment('complete',{kind:old.metadata?.kind,roomId:old.metadata?.roomId,paymentId:old.identifier,txid:old.transaction?.txid,accessToken});
+      if(pending.length){await refresh();finish(label('تمت مراجعة الدفعة السابقة','Previous payment reconciled'));return}
+      await sdk.createPayment({amount:diamonds/10,memo:'Clipi · '+diamonds+' diamonds',metadata:{kind:'diamond_pack',uid,diamonds}},{
+        onReadyForServerApproval:id=>payment('approve',{paymentId:id,kind:'diamond_pack',accessToken}).catch(e=>setMessage(e.message)),
+        onReadyForServerCompletion:async(id,txid)=>{try{await payment('complete',{paymentId:id,txid,kind:'diamond_pack',accessToken});await refresh();finish(label('تم شحن الماس','Diamonds credited'))}catch(e){finish(e.message)}},
+        onCancel:()=>finish(label('أُلغي الدفع','Payment cancelled')),onError:()=>finish(label('تعذر إتمام الشراء','Purchase failed'))
+      });
+    }catch(e){finish(e.message)}
+  }
+  return <section style={{color:'white',padding:16}} dir="auto">
+    <h2>{label('محفظتي','My wallet')}</h2><p>{label('الماس المشترى','Purchased diamonds')} · {data?.diamonds??'…'} 💎</p>
+    <p>{label('حصة المضيف المسجّلة','Recorded host share')} · {data?data.earningsUnits/20:'…'} Pi</p>
+    <p>{label('الحصة مسجّلة داخل Clipi. السحب غير مفعّل.','Shares are recorded inside Clipi. Withdrawals are unavailable.')}</p>
+    <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
+    <h3>{label('شراء الماس','Buy diamonds')}</h3>
+    {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n} 💎 · {n/10} Pi</button>):<p>{label('ادخل بحساب Pi لشراء الماس','Sign in with Pi to buy diamonds')}</p>}
+    <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
+    {data?.history.map((g,i)=><p key={i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {label('حصة المضيف','Host share')} {g.units/20} Pi · {label('غرفة','Room')} {g.room}</p>)}
+  </section>
+}

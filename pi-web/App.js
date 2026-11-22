@@ -1,3 +1,4 @@
+import {DiamondWallet,walletRead} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
@@ -441,6 +442,8 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const [speakerMuted,setSpeakerMuted]=useState(false);
   const [giftCategory,setGiftCategory]=useState('الكل');
   const [giftQuantity,setGiftQuantity]=useState(1);
+  const [paidMode,setPaidMode]=useState(false),[paidBalance,setPaidBalance]=useState(null);
+  const paidNonce=useRef(null);
   const [piGiftOpen,setPiGiftOpen]=useState(false);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
@@ -571,6 +574,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     setPin('');
     setRoomMenu(null);
   }
+  useEffect(()=>{let live=true;if(giftOpen)walletRead().then(w=>{if(live)setPaidBalance(w.diamonds)}).catch(()=>{if(live)setPaidBalance(null)});return ()=>{live=false}},[giftOpen]);
   function goBackFromRoomMenu(){
     if(roomMenu==='themes')setRoomMenu('settings');
     else closeRoomMenu();
@@ -673,16 +677,22 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     {!SHOW_UNRELEASED_DEMOS&&<PiGifts roomId={room.id} recipient={recipient} sessionId={membership.session}
       open={piGiftOpen&&!minimized} close={()=>setPiGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
-      gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("رصيد الماس"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
-      recipient={recipient?.name||room.host||ui("المضيف")} balance={membership.state?.supportBalance}
+      key={String(paidMode)} gifts={GIFTS} allLabel="الكل" translate={ui}
+      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+(cost>=500?cost/20:0)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("رصيد الماس"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      recipient={(paidMode?room.host:recipient?.name)||room.host||ui("المضيف")} balance={paidMode?paidBalance:membership.state?.supportBalance}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{
-          await membership.sendSupport(recipient?.uid||room.ownerUid||room.owner,gift[2],gift[1]);
+          if(paidMode){
+            const key=JSON.stringify([room.id,gift[1]]);
+            if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:crypto.randomUUID()};
+            await membership.act('paidGift',{nonce:paidNonce.current.nonce,gift:gift[1],cost:gift[2]});
+            paidNonce.current=null;
+          }else await membership.sendSupport(recipient?.uid||room.ownerUid||room.owner,gift[2],gift[1]);
           setGiftOpen(false);
           setFxId(v=>v+1);setFx(gift);
         }catch(error){Alert.alert(ui("هدية الغرفة"),error.message)}
       }}>
+      {!isHost&&<Small title={paidMode?(document.documentElement.lang==='ar'?'ماس مشترى · حصة المضيف 50% من 500 ماسة فأكثر | تبديل':'Purchased · 50% host share from 500 diamonds | Switch'):(document.documentElement.lang==='ar'?'دعم المضيف بالماس المشترى · 50%':'Support host with purchased diamonds · 50%')} onPress={()=>setPaidMode(v=>!v)}/>}
       <Small title={ui("هدايا Pi")} onPress={()=>{setGiftOpen(false);setPiGiftOpen(true)}}/>
     </RoomGiftSheet>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
@@ -1187,7 +1197,7 @@ export default function App(){
     if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
     resetGame();go('games');
   }
-  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>{ui("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{'💎 '+fmt(total)}</Text></TouchableOpacity></View>}
+  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>{ui("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{SHOW_UNRELEASED_DEMOS?'💎 '+fmt(total):'💎 '+ui('المحفظة')}</Text></TouchableOpacity></View>}
   function nav(){
     const items=[
       {id:'home',icon:'⌂',label:ui('الرئيسية')},
@@ -1231,6 +1241,7 @@ export default function App(){
     </div>;
   }
   function renderPage(){
+  if(page==='earningsWallet'&&!SHOW_UNRELEASED_DEMOS&&user)return layout(ui('محفظة Clipi'),<DiamondWallet key={user.uid} uid={user.uid}/>);
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {words.wait}</Text></View>;
   if((!user||page==='login')&&loginMethod!=='clipi-email')return signInFrame(<>
@@ -1267,6 +1278,7 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='create')return layout(ui("إنشاء غرفة"),<><Text style={S.label}>{ui("اسم الغرفة")}</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>{ui("نوع الغرفة")}</Text><View style={S.row}><Btn title={ui("📹 فيديو")} color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title={ui("🎙 صوت")} color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.muted}>{ui("الغرفة عامة للمستخدمين المسجلين. يمكنك ضبط رمز دخول من إعدادات الغرفة.")}</Text><Btn title={ui("فتح الغرفة")} onPress={createRoom}/></>);
+  if(page==='wallet'&&!SHOW_UNRELEASED_DEMOS)return layout(ui("محفظة Clipi"),<DiamondWallet key={user.uid} uid={user.uid}/>);
   if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر Pi بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} Pi`:ui("أدخل سعر Pi")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من Pi = 1,200 ماسة. يتغير سعر Pi صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر Pi الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.")}</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>

@@ -1,3 +1,4 @@
+import {walletSchema,paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
@@ -20,6 +21,7 @@ const tables = [
     INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,
       (SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),
       '🎁 ' || NEW.gift || ' · ' || NEW.cost || ' 💎 إلى ' || (SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.recipient)); END`,
+  ...walletSchema,
   'CREATE INDEX IF NOT EXISTS room_chat_recent ON room_chat(room,id)'
 ];
 let initialized=false;
@@ -32,7 +34,7 @@ async function pinHash(secret,room,pin){
   const key=await crypto.subtle.importKey('raw',bytes.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,bytes.encode(JSON.stringify([room,pin])))),n=>n.toString(16).padStart(2,'0')).join('');
 }
-export async function roomControls({env,input,room,user,host,type,path,json,disconnect,mediaToken}){
+export async function roomControls({env,input,room,user,host,ownerUid,type,path,json,disconnect,mediaToken}){
   const q=await roomStore(env.PI_GIFTS_DB);
   const now=Math.floor(Date.now()/1000), cutoff=now-90;
   const policy=await q('SELECT * FROM room_policy WHERE room=?',room).first();
@@ -46,7 +48,7 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
-  if(!['join','poll','leave','settings','request','cancel','approve','reject','demote','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!['join','poll','leave','settings','request','cancel','approve','reject','demote','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift'].includes(op))return json({error:'طلب غير صالح'},400);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
@@ -105,6 +107,14 @@ export async function roomControls({env,input,room,user,host,type,path,json,disc
   // Support gifts live only in this ledger. They never enter Pi payments or withdrawal balances.
   const allowance = 100 + (env.CLIPI_OWNER_UID === user ? 100000000 : 0);
   const spentSql='(SELECT COALESCE(SUM(cost),0) FROM support_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM diamond_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM public_numbers WHERE uid=?)';
+  if(op==='paidGift'){
+    const {gift,cost,nonce}=input;
+    if(!ownerUid||ownerUid===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
+    const units=cost>=500?cost:0;
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,ownerUid,gift,cost,units,user,user,cost,room,ownerUid,cutoff).run();
+    const sent=await q('SELECT * FROM paid_room_gift WHERE sender=? AND nonce=?',user,nonce).first();
+    if(sent?.gift!==gift||sent.room!==room||sent.host!==ownerUid)return json({error:'Purchased diamonds insufficient or host offline'},409);
+  }
   if(op==='supportGift'||op==='catalogGift'){
     const {cost,recipient,nonce}=input;
     const named=op==='catalogGift';

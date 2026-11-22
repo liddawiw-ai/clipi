@@ -1,3 +1,4 @@
+import {readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
 import {roomStore,roomControls} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
@@ -46,6 +47,7 @@ export default {
       const uid=(await check.json()).users?.[0]?.localId;
       if(!uid)return json({error:'سجل الدخول'},401);
       const input=await request.json().catch(()=>null);
+      if(input?.op==='wallet')return json(await readWallet(await roomStore(env.PI_GIFTS_DB),uid));
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
       return account(await roomStore(env.PI_GIFTS_DB),uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
     }
@@ -137,7 +139,7 @@ export default {
           const result=await fetch(origin+'/twirp/livekit.RoomService/RemoveParticipant',{method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'application/json'},body:JSON.stringify({room:liveRoom,identity}),signal:AbortSignal.timeout(8000)});
           if(!result.ok&&result.status!==404)throw Error('Removal failed');
         };
-        admission=await roomControls({env,input,room:roomId,user:claims.sub,host,type,path,json,disconnect,mediaToken});
+        admission=await roomControls({env,input,room:roomId,user:claims.sub,host,ownerUid:fields.ownerUid?.stringValue,type,path,json,disconnect,mediaToken});
         if(admission instanceof Response)return admission;
       }
       if (path !== '/token') {
