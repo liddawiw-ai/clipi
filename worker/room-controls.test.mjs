@@ -15,14 +15,23 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
     first:()=>sql.prepare(query).get(...args)
   }},query}},batch(statements){return Promise.resolve(statements.map(statement=>statement.all?statement.all():sql.exec(statement.query)))}};
   const visits=new Map(), kicks=[];
-  const call=async(user,op,extra={},path='/room-control')=>{
+  const call=async(user,op,extra={},path='/room-control',room='test',ownerUid='host')=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
-    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room:'test',user,ownerUid:'host',host:user==='host',type:'audio',path,
+    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room,user,ownerUid,host:user===ownerUid,type:'audio',path,
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
   assert.equal((await call('ghost-guest','join')).status,404);
   await call('host','join');
+  for(const theme of ['palace','upload','default']){
+    const image=theme==='upload'?'data:image/jpeg;base64,/9j/AAAA':null;
+    const selected=await call('host','settings',{theme,image});
+    const id='restored-'+theme;
+    const restored=await call('host','join',{},'/room-control',id);
+    assert.equal(restored.theme,selected.theme);
+    assert.equal(sql.prepare('SELECT image FROM room_theme WHERE room=?').get(id).image,image);
+    assert.equal((await call('another','join',{},'/room-control','another-room','another')).theme,'default');
+  }
   const temporary=await call('temporary','join');
   const temporarySlot=temporary.people.find(p=>p.uid==='temporary').seat;
   assert.equal((await call('temporary','slot',{slot:temporarySlot,locked:true})).status,403);

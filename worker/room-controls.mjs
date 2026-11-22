@@ -5,6 +5,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS public_numbers(number TEXT PRIMARY KEY,uid TEXT NOT NULL,cost INTEGER NOT NULL)',
   'CREATE UNIQUE INDEX IF NOT EXISTS one_standard_number ON public_numbers(uid) WHERE cost=0',
   'CREATE TABLE IF NOT EXISTS selected_number(uid TEXT PRIMARY KEY,number TEXT NOT NULL)',
+  'CREATE TABLE IF NOT EXISTS audio_host_theme(uid TEXT PRIMARY KEY,theme TEXT NOT NULL,image TEXT)',
   'CREATE TABLE IF NOT EXISTS room_theme(room TEXT PRIMARY KEY,theme TEXT NOT NULL,image TEXT)',
   'CREATE TABLE IF NOT EXISTS room_policy (room TEXT PRIMARY KEY,pin TEXT NOT NULL DEFAULT \'\',locked INTEGER NOT NULL DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS room_member (room TEXT,uid TEXT,visit TEXT,name TEXT,frame INTEGER DEFAULT 1,ride INTEGER DEFAULT 1,seat INTEGER DEFAULT 0,waiting INTEGER DEFAULT 0,muted INTEGER DEFAULT 0,banned INTEGER DEFAULT 0,joined INTEGER,seen INTEGER,PRIMARY KEY(room,uid))',
@@ -70,6 +71,13 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     if(!entered.meta.changes)return json({error:'تغيرت صلاحية الدخول، أعد المحاولة'},403);
   } else if(!member||member.visit!==visit||member.seen<cutoff)return json({error:'انتهت جلسة الغرفة'},403);
   if(host&&(op==='join'||(op==='poll'&&now-member.seen>=20)))await q('INSERT OR REPLACE INTO room_host VALUES(?,?)',room,user).run();
+  if(host&&type==='audio'&&op==='join'){
+    await env.PI_GIFTS_DB.batch([
+      q('INSERT OR IGNORE INTO audio_host_theme(uid,theme,image) SELECT ?,theme,image FROM room_theme WHERE room=?',user,room),
+      q('INSERT OR IGNORE INTO audio_host_theme(uid,theme,image) SELECT ?,t.theme,t.image FROM room_theme t JOIN room_host h ON h.room=t.room WHERE h.uid=? ORDER BY t.rowid DESC LIMIT 1',user,user),
+      q('INSERT OR REPLACE INTO room_theme(room,theme,image) SELECT ?,theme,image FROM audio_host_theme WHERE uid=?',room,user)
+    ]);
+  }
   if(op==='slot'){
     const slot=input.slot;
     if(!host||type!=='audio'||!Number.isInteger(slot)||slot<1||slot>8||typeof input.locked!=='boolean')return json({error:'طلب غير صالح'},403);
@@ -85,7 +93,10 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       const photo=input.theme==='upload'&&typeof input.image==='string'&&input.image.length<=620000&&/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]+=*$/.test(input.image);
       if(!builtins.includes(input.theme)&&!photo)return json({error:'صورة غير صالحة'},400);
       const theme=photo?crypto.randomUUID():input.theme;
-      await q('INSERT INTO room_theme(room,theme,image) VALUES(?,?,?) ON CONFLICT(room) DO UPDATE SET theme=excluded.theme,image=excluded.image',room,theme,photo?input.image:null).run();
+      const image=photo?input.image:null;
+      const writes=[q('INSERT OR REPLACE INTO room_theme(room,theme,image) VALUES(?,?,?)',room,theme,image)];
+      if(type==='audio')writes.push(q('INSERT OR REPLACE INTO audio_host_theme(uid,theme,image) VALUES(?,?,?)',user,theme,image));
+      await env.PI_GIFTS_DB.batch(writes);
     }
     if(input.pin!==undefined){
       if(input.pin!==''&&!/^\d{4}$/.test(input.pin))return json({error:'أدخل أربعة أرقام'},400);
