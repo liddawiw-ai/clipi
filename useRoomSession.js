@@ -20,25 +20,14 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
       }
       throw Error(data.error||'تعذّر الاتصال بالغرفة');
     }
-    if(op==='giftRecipient')return data.recipient;
+    if(op==='giftRecipient')return data;
+    if(op==='paidGift')return data.receipt;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
     const newKeys=new Set(data.people.map(p=>p.uid+'/'+p.joined));
     const entries=known.current?data.people.filter(p=>!known.current.has(p.uid+'/'+p.joined)):data.people.filter(p=>p.uid===auth().currentUser?.uid);
     known.current=newKeys;setState(data);setError('');setPinRequired(false);
     if(entries.length)current.current.onEntry(entries);
-  }
-  const pendingGift=useRef(null);
-  const sendingGift=useRef(false);
-  async function sendSupport(recipient,cost,gift){
-    if(sendingGift.current)throw new Error('جارٍ إرسال الهدية');
-    const key=JSON.stringify([roomId,recipient,cost,gift]);
-    if(pendingGift.current?.key!==key)pendingGift.current={key,nonce:randomUUID()};
-    sendingGift.current=true;
-    try{
-      await act(gift?'catalogGift':'supportGift',{recipient,cost,gift,nonce:pendingGift.current.nonce});
-      pendingGift.current=null;
-    }finally{sendingGift.current=false}
   }
   const [joining,setJoining]=useState(false);
   const joinLock=useRef(false);
@@ -67,5 +56,5 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     timer=setTimeout(poll,3500);
     return()=>{stopped=true;clearTimeout(timer)};
   },[roomId,joined]);
-  return {state,error,pinRequired,joining,join,act,session,sendSupport};
+  return {state,error,pinRequired,joining,join,act,session};
 }

@@ -31,8 +31,9 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
   const [pending,setPending]=useState(false);
   const sending=useRef(false);
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
+  const affordable=selected&&Number.isSafeInteger(balance)&&balance>=selected[2];
   async function send(){
-    if(!selected||!canSend||sending.current)return;
+    if(!selected||!affordable||!canSend||sending.current)return;
     sending.current=true;
     setPending(true);
     try{await onSend(selected)}finally{sending.current=false;setPending(false)}
@@ -65,11 +66,12 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
       )}
     </ScrollView>
     {children}
+    {selected&&Number.isSafeInteger(balance)&&!affordable&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
     <View style={s.footer}>
-      <Text style={s.sub}>{copy.share&&selected?copy.share(selected[2])+" · ":""}{copy.balance} · {balance??'…'} 💎</Text>
-      <TouchableOpacity disabled={!selected||!canSend||pending} accessibilityRole="button"
-        accessibilityState={{disabled:!selected||!canSend||pending,busy:pending}}
-        style={[s.send,(!selected||!canSend||pending)&&s.disabled]} onPress={send}>
+      <Text style={s.sub}>{copy.balance} · {balance??'…'} 💎</Text>
+      <TouchableOpacity disabled={!affordable||!canSend||pending} accessibilityRole="button"
+        accessibilityState={{disabled:!affordable||!canSend||pending,busy:pending}}
+        style={[s.send,(!affordable||!canSend||pending)&&s.disabled]} onPress={send}>
         <Text style={s.sendText}>{pending?copy.sending:copy.send}</Text>
       </TouchableOpacity>
     </View>
@@ -100,6 +102,6 @@ const s=StyleSheet.create({
   price:{fontSize:10,color:'#bbefd9',marginTop:3},
   footer:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:8},
   send:{minHeight:40,justifyContent:'center',paddingHorizontal:16,backgroundColor:'#a7e3c7',borderRadius:10},
-  sendText:{color:'#ffdc86',fontWeight:'800'},
+  sendText:{color:'#173b30',fontWeight:'800'},
   disabled:{opacity:.48},
 });

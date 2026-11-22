@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-mic-controls-28
+      - feature/android-seat-gifts-29
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build28.apk
+          cp "$apk" Clipi-Android-build29.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build28
-          path: Clipi-Android-build28.apk
+          name: Clipi-Android-build29
+          path: Clipi-Android-build29.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-mic-controls-28'
+        if: github.ref == 'refs/heads/feature/android-seat-gifts-29'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build28 Clipi-Android-build28.apk --target "$GITHUB_SHA" --title "Clipi Android 28" --notes "Nine seat menus, room-wide microphone locking and four-digit PIN entry." --prerelease
+        run: gh release create android-build29 Clipi-Android-build29.apk --target "$GITHUB_SHA" --title "Clipi Android 29" --notes "Purchased-diamond room gifts, recipient photos and wallet goal progress." --prerelease

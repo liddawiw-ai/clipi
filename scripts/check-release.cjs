@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===28, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===29, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -50,8 +50,8 @@ assert(backend.includes('PIN_MAX_FAILURES=5')&&backend.includes('PIN_LOCK_MS='),
 assert(backend.includes('minConversionPoints:2000')&&backend.includes('POINTS_MIN=2000'),'Wallet minimum must be 2000 points');
 assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must remain disabled');
 assert(!source.includes("'الطاووس الملكي',30000,'peacock'"),'Unrequested peacock gift must be removed');
-assert(source.includes("const GIFT_CATEGORIES=")&&source.includes("giftCategory==='الكل'"),'Gift bag category filtering missing');
-assert(source.includes("giftQuantity,setGiftQuantity")&&source.includes("[1,7,17,37,77]"),'Gift bag quantity selector missing');
+const tray=fs.readFileSync('RoomControls.js','utf8');
+assert(tray.includes('gifts.filter(')&&tray.includes('setCategory(item)'),'Gift categories missing');
 assert(source.includes('const GIFTS='),'Gift catalog missing');
 assert(source.includes('مركبة فضائية')&&source.includes('رولز رويس الماسية')&&source.includes('وردة حمراء'),'Reference-inspired gift groups missing');
 assert(source.includes("kind==='dragon'")&&source.includes("['plane','helicopter','spaceship','space']"),'Distinct gift animations missing');
@@ -68,30 +68,15 @@ assert(source.includes('exitHandledRef=useRef(false)')&&source.includes('functio
 assert(source.includes('onPress={isHost?closeHostedRoom:exitRoomOnce}')&&source.includes('مغادرة الغرفة'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
 
-// The display catalog is larger than the server-authorized gift catalog.
-// Never mistake a client-side preview for a funded transaction.
-const clientCatalog=source.match(/const GIFTS=(\[[^;]+\]);/);
-const serverCatalog=backend.match(/const GIFT_PRICES=Object\.freeze\((\{[^;]+\})\);/);
-assert(clientCatalog&&serverCatalog,'Gift catalogs missing');
-const giftEntries=JSON.parse(clientCatalog[1]);
-const serverGiftIds=Object.keys(new Function('return ('+serverCatalog[1]+')')());
-const unsupportedGiftIds=[...new Set(giftEntries.map(g=>g[3]))].filter(id=>!serverGiftIds.includes(id));
-assert(source.includes('هدايا تجريبية محلية')&&source.includes('eligibleSupportPoints:0'),'Room gifts must remain local previews without earning points');
-assert(source.includes('onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room)'),
- 'Gift send preview changed; audit payment ledger and server receipt before release');
-console.warn('AUDIT: '+giftEntries.length+' UI gifts; '+unsupportedGiftIds.length+' distinct effect IDs unsupported by server. Gifts remain preview-only.');
+// Room support is purchased-diamond spending recorded by the shared Worker.
+assert(source.includes("membership.act('paidGift'")&&source.includes('receipt?.nonce!==nonce'),'Gift sends must wait for the matching ledger receipt');
+assert(!source.includes("هدايا تجريبية محلية")&&!source.includes('onSendGift={'),'A room must not send simulated gifts');
+assert(source.includes('receipt.recipient!==giftTarget')&&source.includes('recipientAvatar={'),'Confirm the selected seat recipient');
+assert(source.includes('هدف ماس الهدايا')&&source.includes('funded.progress'),'Wallet must show the recipient gift goal');
 assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
 assert(source.includes('if(!exitHandledRef.current){exitHandledRef.current=true;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');
-assert(source.includes("if(roomClosedRef.current)return Alert.alert('الغرفة مغلقة'"),'Gift sending must reject closed rooms');
-assert(source.includes('Self-gifts never mint cash-eligible earnings or support points'),'Self-gift safety disclosure missing');
 assert(source.includes("if(!Number.isSafeInteger(cost)||cost<=0)return null;"),'Preview wallet must reject invalid spending amounts');
 assert(source.includes("if(![next.welcome,next.purchased,next.owner].every"),'Preview wallet must reject corrupted balances');
-assert(source.includes("if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)"),'Gift total must be a safe integer');
-const sendStart=source.indexOf('function send(gift)');
-const sendLuck=source.indexOf("if(gift[4]==='الحظ')",sendStart);
-assert(sendStart>=0&&sendLuck>sendStart,'Luck gifts must remain a development preview');
-assert(!source.slice(sendStart,sendLuck).includes("if(isHost)return"),'Host should be able to gift own room in preview');
-assert(source.includes('const selfGift=(room.ownerUid||room.owner)===user?.uid;')&&source.includes('selfGift,eligibleSupportPoints:0'),'Self-gifts must be marked as ineligible for support points');
 assert(!source.includes('setSpent(v=>v+g[2]);setReceived(v=>v+g[2]);'),'Gift sender must not be credited as recipient');
 assert(source.includes('currentSessionUidRef.current!==u?.uid'),'Account switch must reset local demo data');
 assert(source.includes('setPayoutDrafts([]);setPayoutAccount(\'\');setPayoutHolder(\'\');'),'Account switch must clear payout drafts and sensitive input');

@@ -55,7 +55,7 @@ const configured = require('../app.config.js').expo;
 assert.equal(configured.extra.eas.projectId, '8b7b92e2-ebd2-48a4-a617-16b83bc83449');
 assert.equal(configured.android.package, 'com.walid.clipi');
 assert.equal(configured.ios.bundleIdentifier, 'com.walid.clipi');
-assert.equal(configured.android.versionCode, 28, 'Android release versionCode must be 28');
+assert.equal(configured.android.versionCode, 29, 'Android release versionCode must be 29');
 assert.equal(configured.ios.buildNumber, '1', 'iOS build number must be explicit');
 assert.equal(configured.ios.infoPlist.ITSAppUsesNonExemptEncryption,false);
 assert.ok(configured.plugins.includes('@react-native-firebase/app'));
