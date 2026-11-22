@@ -1,3 +1,5 @@
+import {LanguagePicker} from './LanguagePicker';
+import {languages, readLocale, saveLocale} from './languages.mjs';
 import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
@@ -702,6 +704,14 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
 }
 
 export default function App(){
+  const [locale,setLocale]=useState(()=>readLocale(()=>window.localStorage));
+  const [choosingLocale,setChoosingLocale]=useState(false);
+  const words=languages[locale]||languages.en;
+  function pickLocale(code){
+    saveLocale(()=>window.localStorage,code);
+    setLocale(code);setChoosingLocale(false);setAuthError('');
+  }
+
   const previousPage=useRef('home');
   const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
@@ -1165,22 +1175,39 @@ export default function App(){
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const myProfile=<View style={S.card}>{avatar.startsWith('data:image/')?<Image accessibilityLabel="الصورة الشخصية" style={{width:80,height:80,borderRadius:40}} source={{uri:avatar}}/>:<Text style={{fontSize:54}}>{avatar}</Text>}<Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
 
-  const policyLinks=<View style={S.row}>
-    <Small title="سياسة الخصوصية" onPress={()=>location.assign('/privacy')}/>
-    <Small title="شروط الخدمة" onPress={()=>location.assign('/terms')}/>
-  </View>;
+  function policyLinks(privacy,terms){return <View style={S.row}>
+    <Small title={privacy} onPress={()=>location.assign('/privacy')}/>
+    <Small title={terms} onPress={()=>location.assign('/terms')}/>
+  </View>}
+  function signInFrame(children){
+    return <div lang={locale} dir={words.direction} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
+      <View style={[S.page,{justifyContent:'center',padding:24}]}>
+        {children}
+        {!!authError&&<Text accessibilityLiveRegion="polite" style={S.white}>{locale==='ar'?authError:words.error}</Text>}
+        <Small title={words.change} onPress={()=>setChoosingLocale(true)}/>
+        {policyLinks(words.privacy,words.terms)}
+      </View>
+    </div>;
+  }
   function renderPage(){
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
-  if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
-  if((!user||page==='login')&&loginMethod!=='clipi-email')return <View style={[S.page,{justifyContent:'center',padding:24}]}><Text style={S.logo}>Clipi</Text><Text style={S.title}>غرف الصوت والبث المباشر</Text><Btn title={busy?'جارٍ تسجيل الدخول…':'الدخول بحساب Pi'} disabled={busy} onPress={async()=>{setBusy(true);setAuthError('');try{await piLogin()}catch(e){setAuthError(e.message)}finally{setBusy(false)}}}/><Btn title="الدخول بحساب Clipi بالبريد" onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/><Text style={S.white}>{authError}</Text>{policyLinks}</View>;
-  if(!user||page==='login')return <View style={[S.page,{justifyContent:'center',padding:24}]}>
-    <Text style={S.title}>حساب Clipi بالبريد الإلكتروني</Text>
-    <TextInput style={S.input} placeholder="البريد الإلكتروني" value={email} onChangeText={setEmail} autoCapitalize="none"/>
-    <TextInput style={S.input} placeholder="كلمة مرور Clipi" value={password} onChangeText={setPassword} secureTextEntry/>
-    <Btn title="دخول" disabled={busy} onPress={()=>emailSession(false)}/>
-    <Btn title="إنشاء حساب Clipi" disabled={busy} onPress={()=>emailSession(true)}/>
-    <Btn title="رجوع إلى حساب Pi" onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
-    <Text style={S.white}>{authError}</Text>{policyLinks}</View>;
+  if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {words.wait}</Text></View>;
+  if((!user||page==='login')&&loginMethod!=='clipi-email')return signInFrame(<>
+    <Text style={S.logo}>Clipi</Text><Text style={S.title}>{words.intro}</Text>
+    <Btn title={busy?words.wait:words.pi} disabled={busy} onPress={async()=>{
+      setBusy(true);setAuthError('');
+      try{await piLogin()}catch(error){setAuthError(error.message)}finally{setBusy(false)}
+    }}/>
+    <Btn title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
+  </>);
+  if(!user||page==='login')return signInFrame(<>
+    <Text style={S.title}>{words.emailLogin}</Text>
+    <TextInput style={S.input} accessibilityLabel={words.email} placeholder={words.email} value={email} onChangeText={setEmail} autoCapitalize="none"/>
+    <TextInput style={S.input} accessibilityLabel={words.password} placeholder={words.password} value={password} onChangeText={setPassword} secureTextEntry/>
+    <Btn title={words.signIn} disabled={busy} onPress={()=>emailSession(false)}/>
+    <Btn title={words.create} disabled={busy} onPress={()=>emailSession(true)}/>
+    <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
+  </>);
   if(page==='home')return layout('Clipi',<><View style={S.homeHero}>
     <Text style={S.homeBrand}>Clipi</Text>
     <Text style={S.homeTitle}>أهلًا {name||'بك'}</Text>
@@ -1257,7 +1284,7 @@ export default function App(){
     {visibleNumber?.offers.map(o=><View key={o.number} style={S.shop}><Text style={S.white}>{o.number}</Text><Small title={'شراء · '+fmt(o.cost)+' 💎'} onPress={()=>numberAction('buy',o.number)}/></View>)}
     {visibleNumber?.owned.map(n=><Small key={n} title={(visibleNumber.number===n?'✓ ':'استخدام ')+n} onPress={()=>numberAction('equip',n)}/>)}</View><View style={S.panel}><Text style={S.gold}>هدية ترحيبية · 💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة</Text></View>{GOODS.map((g,i)=><View key={i} style={S.shop}><Text style={{fontSize:25}}>{g[0]}</Text><View style={{flex:1}}><Text style={S.white}>{g[1]}</Text><Text style={S.gold}>{g[2]} 💎</Text></View>{inventory.includes(g[1])?<Small title={equipped[g[3]]===g[1]?'إزالة':'تفعيل'} onPress={()=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>:<Small title="شراء" color={PINK} onPress={()=>buyGood(g)}/>}</View>)}</>);
   if(page==='gifts')return layout('الهدايا',<><Text style={S.muted}>الهدايا تُرسل من داخل غرفة صوت أو فيديو</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title="استعراض الغرف" onPress={()=>go('rooms')}/></>);
-  if(page==='profile')return layout('الملف الشخصي',<>{myProfile}{policyLinks}<Btn title="💼 محفظة النقاط والأرباح" onPress={()=>go('earningsWallet')}/><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title="اختيار صورة من الاستوديو" onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert('الصورة',e.message)}}}/><Text style={S.label}>الصورة الرمزية</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title="حفظ الاسم والصورة" onPress={async()=>{try{if(!name.trim())throw Error('أدخل الاسم');await saveProfile(user,name.trim(),true);Alert.alert('تم الحفظ')}catch(e){Alert.alert('خطأ',e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>🚫 الحسابات المحظورة ({blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>لا توجد حسابات محظورة</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>المستخدم: {uid.slice(0,14)}...</Text><Btn title="إلغاء الحظر" color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.</Text><Btn title="حذف حسابي" color="#96334f" onPress={deleteAccount}/><Btn title="تسجيل الخروج" color="#555" onPress={logout}/></>);
+  if(page==='profile')return layout('الملف الشخصي',<>{myProfile}{policyLinks('سياسة الخصوصية','شروط الخدمة')}<Btn title="💼 محفظة النقاط والأرباح" onPress={()=>go('earningsWallet')}/><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title="اختيار صورة من الاستوديو" onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert('الصورة',e.message)}}}/><Text style={S.label}>الصورة الرمزية</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title="حفظ الاسم والصورة" onPress={async()=>{try{if(!name.trim())throw Error('أدخل الاسم');await saveProfile(user,name.trim(),true);Alert.alert('تم الحفظ')}catch(e){Alert.alert('خطأ',e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>🚫 الحسابات المحظورة ({blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>لا توجد حسابات محظورة</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>المستخدم: {uid.slice(0,14)}...</Text><Btn title="إلغاء الحظر" color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.</Text><Btn title="حذف حسابي" color="#96334f" onPress={deleteAccount}/><Btn title="تسجيل الخروج" color="#555" onPress={logout}/></>);
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="light-content"/>
@@ -1282,6 +1309,7 @@ export default function App(){
   </View>;
   return <View style={S.page}><Btn title="الرئيسية" onPress={()=>go('home')}/></View>;
   }
+  if(!locale||choosingLocale)return <LanguagePicker onPick={pickLocale} onBack={locale?()=>setChoosingLocale(false):null}/>;
   return <View style={{flex:1}}>{renderPage()}
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onSendGift={sendGift} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
