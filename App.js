@@ -1,11 +1,12 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,Share,Modal} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,Share,Modal,Image} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import EarningsWalletScreen from './EarningsWalletScreen';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import {LoginManager,AccessToken,AuthenticationToken} from 'react-native-fbsdk-next';
 import * as Crypto from 'expo-crypto';
+import * as ImagePicker from 'expo-image-picker';
 import {AudioSession,LiveKitRoom,VideoTrack,isTrackReference,registerGlobals,useConnectionState,useLocalParticipant,useParticipants,useTracks} from '@livekit/react-native';
 import {ConnectionState,Track} from 'livekit-client';
 
@@ -628,6 +629,7 @@ export default function App(){
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
+  const [pickingAvatar,setPickingAvatar]=useState(false);
   const smsConfirmingRef=useRef(false);
   const currentSessionUidRef=useRef(undefined);
   // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
@@ -971,7 +973,37 @@ export default function App(){
   function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>❮ رجوع</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity disabled={!SHOW_UNRELEASED_DEMOS} onPress={()=>go('wallet')}><Text style={S.gold}>{SHOW_UNRELEASED_DEMOS?'💎 '+fmt(total):'Clipi'}</Text></TouchableOpacity></View>}
   function nav(){const destinations=SHOW_UNRELEASED_DEMOS?[['🏠','home'],['🎮','games'],['🎁','gifts'],['💎','wallet'],['👤','profile']]:[['🏠','home'],['🚪','rooms'],['👤','profile']];return <View style={S.nav}>{destinations.map(([icon,p])=><TouchableOpacity key={p} onPress={()=>go(p)}><Text style={{fontSize:24}}>{icon}</Text></TouchableOpacity>)}</View>}
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="light-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
-  const myProfile=<View style={S.card}><Text style={{fontSize:54}}>{avatar}</Text><Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {user?.uid?.slice(0,12)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
+  async function pickProfilePhoto(){
+    if(pickingAvatar||!user?.uid)return;
+    setPickingAvatar(true);
+    try{
+      const permission=await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if(!permission.granted){
+        Alert.alert('إذن الصور','اسمح لـ Clipi بالوصول إلى الصور من إعدادات الهاتف.');
+        return;
+      }
+      const result=await ImagePicker.launchImageLibraryAsync({
+        mediaTypes:['images'],allowsEditing:true,aspect:[1,1],quality:0.25,base64:true,
+      });
+      if(result.canceled||!result.assets?.length)return;
+      const photo=result.assets[0];
+      if(!photo.base64)throw new Error('تعذر قراءة الصورة المختارة');
+      // Keep the Firebase profile document below its size limit. No external upload service is required.
+      if(photo.base64.length>160000)throw new Error('الصورة كبيرة جدًا بعد الضغط؛ اختر صورة أصغر.');
+      const mime=photo.mimeType==='image/png'?'image/png':'image/jpeg';
+      const value='data:'+mime+';base64,'+photo.base64;
+      await firestore().collection('users').doc(user.uid).update({
+        avatar:value,updatedAt:firestore.FieldValue.serverTimestamp(),
+      });
+      setAvatar(value);
+    }catch(e){
+      Alert.alert('تعذر تغيير الصورة',String(e?.message||e));
+    }finally{setPickingAvatar(false)}
+  }
+  const avatarView=typeof avatar==='string'&&avatar.startsWith('data:image/')
+    ?<Image source={{uri:avatar}} style={{width:100,height:100,borderRadius:50,borderWidth:2,borderColor:GOLD}}/>
+    :<Text style={{fontSize:54}}>{avatar}</Text>;
+  const myProfile=<View style={S.card}><TouchableOpacity accessibilityRole="button" accessibilityLabel="تغيير الصورة الشخصية" disabled={pickingAvatar} onPress={pickProfilePhoto} style={{alignItems:'center',padding:6}}>{avatarView}<Text style={S.muted}>{pickingAvatar?'جاري اختيار الصورة...':'📷 اضغط لتغيير الصورة'}</Text></TouchableOpacity><Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {user?.uid?.slice(0,12)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
 
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
