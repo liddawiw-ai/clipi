@@ -60,8 +60,9 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       if(!/^\d{4}$/.test(input.pin||''))return json({error:'أدخل رمز الغرفة',pinRequired:true},403);
       const bucket=Math.floor(now/600);
       const attempt=await q('INSERT INTO room_attempt VALUES(?,?,?,1) ON CONFLICT(room,uid) DO UPDATE SET hits=CASE WHEN bucket=excluded.bucket THEN hits+1 ELSE 1 END,bucket=excluded.bucket RETURNING hits',room,user,bucket).first();
-      if(attempt.hits>5)return json({error:'محاولات كثيرة. حاول بعد عشر دقائق'},429);
+      if(attempt.hits>5)return json({error:'محاولات كثيرة. حاول بعد عشر دقائق',pinRequired:true},429);
       if(await pinHash(env.LIVEKIT_API_SECRET,room,input.pin)!==policy.pin)return json({error:'رمز الغرفة غير صحيح',pinRequired:true},403);
+      await q('UPDATE room_attempt SET hits=hits-1 WHERE room=? AND uid=? AND bucket=? AND hits>0',room,user,bucket).run();
     }
     const entered=await q(`INSERT INTO room_member(room,uid,visit,name,frame,ride,joined,seen)
       SELECT ?,?,?,?,?,?,?,? WHERE COALESCE((SELECT pin FROM room_policy WHERE room=?),'')=?
@@ -119,7 +120,19 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       if(input.pin!==''&&!/^\d{4}$/.test(input.pin))return json({error:'أدخل أربعة أرقام'},400);
       await q('INSERT INTO room_policy(room,pin) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET pin=excluded.pin',room,input.pin?await pinHash(env.LIVEKIT_API_SECRET,room,input.pin):'').run();
     }
-    if(typeof input.locked==='boolean')await q('INSERT INTO room_policy(room,locked) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET locked=excluded.locked',room,Number(input.locked)).run();
+    if(typeof input.locked==='boolean'){
+      const save=q('INSERT INTO room_policy(room,locked) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET locked=excluded.locked',room,Number(input.locked));
+      if(type==='audio'&&input.locked){
+        // Release occupied guest microphones only on the transition to locked.
+        // Host-approved speakers may still join while the room is locked.
+        const [removed]=await env.PI_GIFTS_DB.batch([
+          q(`UPDATE room_member SET seat=0,waiting=0,muted=0 WHERE room=? AND seat>0
+            AND NOT EXISTS(SELECT 1 FROM room_policy WHERE room=? AND locked=1) RETURNING uid`,room,room),
+          save
+        ]);
+        await Promise.all(removed.results.map(person=>disconnect(person.uid)));
+      }else await save.run();
+    }
   }
   const capacity=type==='audio'?8:1;
   const claim=(uid,condition,slot=null)=>q(`WITH RECURSIVE slots(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM slots WHERE n<?),

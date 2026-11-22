@@ -1,6 +1,7 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "المايك": "Microphone",
   "قفل": "Lock",
   "كتم": "Mute",
   "إنزال": "Move to audience",

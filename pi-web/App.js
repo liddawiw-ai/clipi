@@ -73,6 +73,11 @@ const PAYOUT_WALLETS={
 
 const fmt=x=>Number(x||0).toLocaleString('en-US');
 
+function normalizeRoomPin(value){
+  return value.replace(/[٠-٩]/g,digit=>String(digit.charCodeAt(0)-0x660))
+    .replace(/[۰-۹]/g,digit=>String(digit.charCodeAt(0)-0x6f0)).replace(/[^0-9]/g,'').slice(0,4);
+}
+
 function Btn({title,onPress,color=PINK,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[S.btn,{backgroundColor:disabled?'#666':color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 function Small({title,onPress,color='#295098'}){return <TouchableOpacity onPress={onPress} style={[S.small,{backgroundColor:color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 
@@ -357,7 +362,7 @@ function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,on
         <View style={S.seatGrid}>{Array.from({length:AUDIO_GUEST_SEATS},(_,i)=>{
           const [uid,label]=seats[i]||[];
           const person=participants.find(participant=>participant.identity===uid);
-          return <TouchableOpacity key={i} accessibilityLabel={label||ui("مقعد متاح")} style={S.seatItem} onPress={event=>onSeat(event,uid,label,i+1,uid===localParticipant.identity?()=>{if(canPublish)void toggle('microphone');else Alert.alert('الميكروفون مكتوم من المضيف')}:null,isMicrophoneEnabled)}>
+          return <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={label||ui("مقعد متاح")+" "+(i+1)} style={S.seatItem} onPress={event=>onSeat(event,uid,label,i+1,uid===localParticipant.identity?()=>{if(canPublish)void toggle('microphone');else Alert.alert('الميكروفون مكتوم من المضيف')}:null,isMicrophoneEnabled)}>
           <View style={[S.throne,people.find(p=>p.uid===uid)?.frame===1&&{borderColor:GOLD,borderWidth:3}]}><Text style={{fontSize:23}}>{uid?(person?.isMicrophoneEnabled?'🎙️':'💺'):(allMicsLocked||lockedSlots.includes(i+1))?'🔒':'+'}</Text></View>
           <Text numberOfLines={1} style={S.tiny}>{label||i+1}</Text>
         </TouchableOpacity>})}</View></>:
@@ -464,7 +469,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     options.push({text:ui('إرسال هدية'),disabled:!uid||uid===userId,onPress:()=>openGifts(uid)});
     if(!options.length)return;
     const {pageX,pageY}=event.nativeEvent;
-    setSeatMenu({label:label||String(slot),options,x:pageX??roomWidth/2,y:pageY??80});
+    setSeatMenu({label:label||ui("المايك")+" "+slot,options,x:pageX??roomWidth/2,y:pageY??80});
   }
   useEffect(()=>{
     const unsub=roomRef.onSnapshot(d=>{
@@ -601,7 +606,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
               <RoomOption title={ui("ثيمات الغرفة")} onPress={()=>{Keyboard.dismiss();setPin('');setRoomMenu('themes')}}/>
               <RoomOption title={membership.state?.locked?ui("🔓 فتح المايكات"):ui("🔒 قفل المايكات")} disabled={roomActionPending} onPress={()=>updateRoomSettings({locked:!membership.state.locked})}/>
               {(audio||requests.length>0)&&<RoomOption title={(stagePanelVisible?ui("إخفاء طلبات المقاعد"):ui("طلبات المقاعد"))+' ('+requests.length+')'} onPress={()=>{closeRoomMenu();setStagePanelVisible(v=>!v)}}/>}
-              <TextInput style={[S.input,{width:'100%'}]} value={pin} secureTextEntry keyboardType="number-pad" maxLength={4} placeholder={ui("رقم سري من أربع خانات")} onChangeText={setPin}/>
+              <TextInput style={[S.input,{width:'100%'}]} value={pin} secureTextEntry keyboardType="number-pad" maxLength={4} placeholder={ui("رقم سري من أربع خانات")} onChangeText={value=>setPin(normalizeRoomPin(value))}/>
               <RoomOption title={ui("حفظ رمز الغرفة")} disabled={roomActionPending} onPress={()=>{
                 if(!/^[0-9]{4}$/.test(pin))return Alert.alert(ui("أدخل أربعة أرقام"));
                 void updateRoomSettings({pin},true)
@@ -643,7 +648,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       {membership.pinRequired&&<>
         <Text style={S.gold}>🔒 {ui("أدخل رمز الغرفة")}</Text>
         <TextInput autoFocus accessibilityLabel={ui("رمز الغرفة")} style={S.input} value={pin} maxLength={4}
-          inputMode="numeric" secureTextEntry onChangeText={value=>setPin(value.replace(/[^0-9]/g,''))}
+          inputMode="numeric" secureTextEntry onChangeText={value=>setPin(normalizeRoomPin(value))}
           onSubmitEditing={submitPin} placeholder={ui("رمز الغرفة")}/>
       </>}
       <Text accessibilityLiveRegion="polite" style={S.white}>{membership.error||ui("جارٍ دخول الغرفة…")}</Text>
