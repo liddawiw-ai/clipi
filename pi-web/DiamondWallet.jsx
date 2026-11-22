@@ -56,7 +56,7 @@ export function DiamondWallet({uid}){
     <p>{label('الماس المشترى','Purchased diamonds')} · {data?.diamonds??'…'} 💎</p>
     <p>{label('مكافآت المضيف','Host rewards')} · {data?data.rewardPi:'…'} Pi</p>
     <p>{label('التقدم نحو المكافأة التالية','Progress toward the next reward')} · {data?.progress??'…'} / 10,000 💎</p>
-    <p>{label('عندما يجمع المضيف 10,000 ماسة دعم، تُرسَل له 5 Pi كمكافأة في محفظته داخل Clipi.','For every 10,000 support diamonds a host collects, their Clipi wallet is credited with a 5 Pi reward.')}</p>
+    <p>{label('عندما يجمع المضيف 10,000 ماسة دعم، تُرسل له مكافأة قدرها 5 باي إلى محفظته.','For every 10,000 support diamonds a host collects, their Clipi wallet is credited with a 5 Pi reward.')}</p>
     {!!data?.earningsUnits&&<p>{label('رصيد سابق محفوظ','Previous recorded balance')} · {data.earningsUnits/20} Pi</p>}
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
     {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة Pi','Pi payment ID')} placeholder={label('معرّف دفعة Pi (اختياري)','Pi payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
