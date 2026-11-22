@@ -175,6 +175,17 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call(second,'paidGift',{gift:'وردة حمراء',cost:10,nonce:crypto.randomUUID()})).status,200);
   assert.equal((await readWallet(q,second,'host')).diamonds,990);
   assert.equal((await readWallet(q,second,'host')).ownerBox,undefined);
+  await call('u0','join',{avatar:'🦊'});
+  const target=await call(second,'giftRecipient',{recipient:'u0'});
+  assert.equal(target.recipient.avatar,'🦊');
+  const routed={gift:'وردة حمراء',cost:10,recipient:'u0',nonce:crypto.randomUUID()};
+  assert.equal((await call(second,'paidGift',routed)).status,200);
+  assert.equal((await call(second,'paidGift',routed)).status,200);
+  assert.equal((await call(second,'paidGift',{...routed,recipient:'host'})).status,409);
+  assert.equal((await readWallet(q,second)).diamonds,980);
+  assert.equal((await readWallet(q,'u0')).progress,10);
+  await call('host','demote',{uid:'u0'});
+  assert.equal((await call(second,'paidGift',{...routed,nonce:crypto.randomUUID()})).status,409);
   const ownerWallet=await readWallet(q,'host','host');
   assert.equal(ownerWallet.progress,10);
   assert.equal(ownerWallet.receivedDiamonds,20510);

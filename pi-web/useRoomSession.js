@@ -2,11 +2,11 @@ import {ui} from './interface-language.mjs';
 import {useState,useRef,useEffect} from 'react';
 import {auth} from './services';
 
-export function useRoomSession(roomId,username,equipped,onEntry,onExit){
+export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
   const [session]=useState(()=>crypto.randomUUID());
   const [state,setState]=useState(null),[error,setError]=useState(''),[pinRequired,setPinRequired]=useState(false);
-  const current=useRef({onEntry,onExit,username,equipped});
-  current.current={onEntry,onExit,username,equipped};
+  const current=useRef({onEntry,onExit,username,equipped,avatar});
+  current.current={onEntry,onExit,username,equipped,avatar};
   const known=useRef(null),sequence=useRef(0),lastApplied=useRef(0),alive=useRef(true);
   async function act(op,extra={}){
     const index=++sequence.current;
@@ -20,6 +20,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
       }
       throw Error(ui(data.error)||ui("تعذّر الاتصال بالغرفة"));
     }
+    if(op==='giftRecipient')return data.recipient;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
     const newKeys=new Set(data.people.map(p=>p.uid+'/'+p.joined));
@@ -34,7 +35,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     joinLock.current=true;
     setJoining(true);
     try{
-      await act('join',{pin,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride});
+      await act('join',{pin,avatar:current.current.avatar,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride});
     }catch(error){if(alive.current)setError(error.message)}
     finally{joinLock.current=false;if(alive.current)setJoining(false)}
   }

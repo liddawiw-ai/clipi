@@ -396,6 +396,8 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const [giftQuantity,setGiftQuantity]=useState(1);
   const [paidBalance,setPaidBalance]=useState(null);
   const paidNonce=useRef(null);
+  const [giftTarget,setGiftTarget]=useState(null);
+  const [targetProfile,setTargetProfile]=useState(null);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
@@ -404,7 +406,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   function exitRoomOnce(){if(!exitHandledRef.current){exitHandledRef.current=true;onExit()}}
   const membership=useRoomSession(room.id,username,equipped,entries=>{
     setFxId(v=>v+1);setFx(['🏎️',ui("دخل الغرفة ")+entries.map(p=>p.name).join('، '),0,entries.some(p=>p.ride)?'car':'party']);
-  },reason=>{Alert.alert(ui("الغرفة"),reason);exitRoomOnce()});
+  },reason=>{Alert.alert(ui("الغرفة"),reason);exitRoomOnce()},avatar);
   const people=membership.state?.people||[];
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
   const self=people.find(p=>p.uid===userId);
@@ -424,6 +426,20 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     }catch(error){Alert.alert(ui("الغرفة"),error.message)}
     finally{roomActionLock.current=false;setRoomActionPending(false)}
   }
+  function openGifts(uid){
+    Keyboard.dismiss();
+    setGiftTarget(uid&&uid!==userId?uid:null);
+    setTargetProfile(null);
+    setGiftOpen(true);
+  }
+  useEffect(()=>{
+    if(!giftOpen||!giftTarget)return;
+    let active=true;
+    membership.act('giftRecipient',{recipient:giftTarget}).then(profile=>{
+      if(active)setTargetProfile(profile);
+    }).catch(error=>{if(active)Alert.alert(ui("هدية الغرفة"),ui(error.message))});
+    return ()=>{active=false};
+  },[giftOpen,giftTarget]);
   function onSeat(event,uid,label,slot,toggleMic,micOn,stepDown,stepUp){
     if(!uid&&!isHost){
       if(!self?.seat)void act('request',{slot});
@@ -445,7 +461,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     }else if(uid===userId&&toggleMic){
       options.push({text:micOn?ui('كتم'):ui('تشغيل المايك'),disabled:locked,onPress:()=>toggleMic()});
     }
-    if(uid===room.ownerUid&&!isHost)options.push({text:ui('إرسال هدية'),onPress:()=>setGiftOpen(true)});
+    options.push({text:ui('إرسال هدية'),disabled:!uid||uid===userId,onPress:()=>openGifts(uid)});
     if(!options.length)return;
     const {pageX,pageY}=event.nativeEvent;
     setSeatMenu({label:label||String(slot),options,x:pageX??roomWidth/2,y:pageY??80});
@@ -689,21 +705,25 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     </ScrollView>}
     {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true);onMinimize()}}/><Text style={S.tiny}>{isHost?ui("👑 أنت مضيف الغرفة"):ui("👤 أنت مشاهد")} · {audio?ui("غرفة صوتية"):ui("غرفة فيديو")}</Text></View>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    {!SHOW_UNRELEASED_DEMOS&&!isHost&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
+    {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={ui}
       copy={{share:cost=>(document.documentElement.lang==='ar'?'للمكافأة ':'Reward progress ')+rewardDiamonds(cost)+' 💎',
         title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
-      recipient={room.host||ui("المضيف")} balance={paidBalance}
+      recipient={targetProfile?.name||ui("اختر مستلمًا للهدية")} recipientAvatar={targetProfile?.avatar} balance={paidBalance} canSend={targetProfile?.uid===giftTarget&&paidBalance!==null}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{
-          const key=JSON.stringify([room.id,gift[1]]);
+          if(!targetProfile||targetProfile.uid!==giftTarget)return;
+          const key=JSON.stringify([room.id,giftTarget,gift[1]]);
           if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:crypto.randomUUID()};
-          await membership.act('paidGift',{nonce:paidNonce.current.nonce,gift:gift[1],cost:gift[2]});
+          await membership.act('paidGift',{recipient:giftTarget,nonce:paidNonce.current.nonce,gift:gift[1],cost:gift[2]});
           paidNonce.current=null;
           setGiftOpen(false);
           setFxId(v=>v+1);setFx(gift);
         }catch(error){Alert.alert(ui("هدية الغرفة"),ui(error.message))}
       }}>
+      {isHost&&<ScrollView horizontal keyboardShouldPersistTaps="handled">
+        {people.filter(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid)).map(p=><Small key={p.uid} title={p.name} onPress={()=>{if(p.uid!==giftTarget)openGifts(p.uid)}}/>)}
+      </ScrollView>}
       <Small title={ui("المحفظة")} onPress={()=>{setGiftOpen(false);onWallet()}}/>
     </RoomGiftSheet>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
@@ -743,8 +763,8 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
             active={!speakerMuted} onPress={()=>setSpeakerMuted(value=>!value)}/>
           <RoomAction icon="▤" label={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
-          {(!isHost||SHOW_UNRELEASED_DEMOS)&&<RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen}
-            onPress={()=>{Keyboard.dismiss();setGiftOpen(value=>!value)}}/>}
+          <RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen}
+            onPress={()=>giftOpen?setGiftOpen(false):openGifts(isHost?people.find(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid))?.uid:room.ownerUid)}/>
         </>}
       </View>
     </View>

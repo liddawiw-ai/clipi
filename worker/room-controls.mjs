@@ -9,6 +9,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_theme(room TEXT PRIMARY KEY,theme TEXT NOT NULL,image TEXT)',
   'CREATE TABLE IF NOT EXISTS room_policy (room TEXT PRIMARY KEY,pin TEXT NOT NULL DEFAULT \'\',locked INTEGER NOT NULL DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS room_member (room TEXT,uid TEXT,visit TEXT,name TEXT,frame INTEGER DEFAULT 1,ride INTEGER DEFAULT 1,seat INTEGER DEFAULT 0,waiting INTEGER DEFAULT 0,muted INTEGER DEFAULT 0,banned INTEGER DEFAULT 0,joined INTEGER,seen INTEGER,PRIMARY KEY(room,uid))',
+  'CREATE TABLE IF NOT EXISTS gift_avatar(uid TEXT PRIMARY KEY, avatar TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_attempt (room TEXT,uid TEXT,bucket INTEGER,hits INTEGER,PRIMARY KEY(room,uid))',
   'CREATE TABLE IF NOT EXISTS room_gift_target (payment TEXT PRIMARY KEY,uid TEXT,name TEXT)',
   'CREATE TABLE IF NOT EXISTS room_chat (id INTEGER PRIMARY KEY,room TEXT,uid TEXT,name TEXT,text TEXT)',
@@ -51,7 +52,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
-  if(!['join','poll','leave','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!['join','poll','leave','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient'].includes(op))return json({error:'طلب غير صالح'},400);
   if(!host&&['join','poll'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
@@ -73,6 +74,16 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       return json({error:'تغيرت صلاحية الدخول، أعد المحاولة',pinRequired:!host&&Boolean(currentPolicy?.protected)},403);
     }
   } else if(!member||member.visit!==visit||member.seen<cutoff)return json({error:'انتهت جلسة الغرفة'},403);
+  if(op==='join'&&typeof input.avatar==='string'&&input.avatar.length<=620000&&
+      (/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]+=*$/.test(input.avatar)||Array.from(input.avatar).length<=4)){
+    await q('INSERT OR REPLACE INTO gift_avatar VALUES(?,?)',user,input.avatar).run();
+  }
+  if(op==='giftRecipient'){
+    if(typeof input.recipient!=='string')return json({error:'اختر مستلمًا للهدية'},400);
+    const target=await q('SELECT m.uid,m.name,a.avatar FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=? AND (m.seat>0 OR m.uid=?)',room,input.recipient,cutoff,ownerUid).first();
+    if(!target||target.uid===user)return json({error:'المستلم غير متاح'},409);
+    return json({recipient:target});
+  }
   if(host&&(op==='join'||(op==='poll'&&now-member.seen>=20)))await q('INSERT OR REPLACE INTO room_host VALUES(?,?)',room,user).run();
   if(host&&type==='audio'&&op==='join'){
     await env.PI_GIFTS_DB.batch([
@@ -143,11 +154,12 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   const spentSql='(SELECT COALESCE(SUM(cost),0) FROM support_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM diamond_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM public_numbers WHERE uid=?)';
   if(op==='paidGift'){
     const {gift,cost,nonce}=input;
-    if(!ownerUid||ownerUid===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
+    const recipient=input.recipient??ownerUid;
+    if(typeof recipient!=='string'||!recipient||recipient===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,ownerUid,gift,cost,0,user,user,cost,room,ownerUid,cutoff).run();
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=? AND (seat>0 OR uid=?)) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,ownerUid).run();
     const sent=await q('SELECT * FROM paid_room_gift WHERE sender=? AND nonce=?',user,nonce).first();
-    if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==ownerUid)return json({error:'Purchased diamonds insufficient or host offline'},409);
+    if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==recipient)return json({error:'Purchased diamonds insufficient or host offline'},409);
   }
   if(op==='supportGift'||op==='catalogGift'){
     const {cost,recipient,nonce}=input;
