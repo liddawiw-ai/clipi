@@ -1,6 +1,7 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "إرسال الهدية": "Send gift",
   "إنشاء": "Create",
   "بث مباشر": "Live video",
   "ابدأ غرفة صوتية أو بث فيديو": "Start a voice room or live video",
