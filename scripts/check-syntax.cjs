@@ -18,6 +18,7 @@ function checkJavaScript(filename, options = {}) {
 }
 const app = checkJavaScript('App.js', {jsx: true});
 checkJavaScript("ClipiCollection.js", {jsx: true});
+checkJavaScript("ClipiSurfaces.js", {jsx: true});
 const earningsWallet = checkJavaScript('EarningsWalletScreen.js', {jsx: true});
 checkJavaScript('components/Store.js', {jsx: true});
 checkJavaScript('tests/wallet-safety.test.cjs');
@@ -53,7 +54,7 @@ const configured = require('../app.config.js').expo;
 assert.equal(configured.extra.eas.projectId, '8b7b92e2-ebd2-48a4-a617-16b83bc83449');
 assert.equal(configured.android.package, 'com.walid.clipi');
 assert.equal(configured.ios.bundleIdentifier, 'com.walid.clipi');
-assert.equal(configured.android.versionCode, 22, 'Android release versionCode must be 22');
+assert.equal(configured.android.versionCode, 23, 'Android release versionCode must be 23');
 assert.equal(configured.ios.buildNumber, '1', 'iOS build number must be explicit');
 assert.equal(configured.ios.infoPlist.ITSAppUsesNonExemptEncryption,false);
 assert.ok(configured.plugins.includes('@react-native-firebase/app'));
