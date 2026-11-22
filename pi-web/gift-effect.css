@@ -59,4 +59,4 @@
 .t-breath{animation-name:gift-trail-breath}@keyframes gift-trail-breath{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(75px,var(--x)) scale(1.4)}}
 @media(prefers-reduced-motion:reduce){.gift-stage *{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0ms!important}.gift-stage{animation:none}}
 
-.clipi-wallet-cards{color:#193d37;overflow-wrap:anywhere}.clipi-wallet-cards button,.clipi-wallet-cards input{border:1px solid #bdd5ca;border-radius:12px;padding:10px;margin:3px;color:#193d37;background:white}.clipi-wallet-cards button{cursor:pointer}.clipi-wallet-cards h3{margin-top:24px}
+.clipi-wallet-cards{color:#f5ddbe;overflow-wrap:anywhere}.clipi-wallet-cards button,.clipi-wallet-cards input{border:1px solid #ab8a60;border-radius:12px;padding:10px;margin:3px;color:#f5ddbe;background:#36233c}.clipi-wallet-cards button{cursor:pointer}.clipi-wallet-cards h3{margin-top:24px}
