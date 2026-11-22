@@ -27,7 +27,17 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     known.current=newKeys;setState(data);setError('');setPinRequired(false);
     if(entries.length)current.current.onEntry(entries);
   }
-  function join(pin){return act('join',{pin,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride}).catch(e=>setError(e.message))}
+  const [joining,setJoining]=useState(false);
+  const joinLock=useRef(false);
+  async function join(pin){
+    if(joinLock.current)return;
+    joinLock.current=true;
+    setJoining(true);
+    try{
+      await act('join',{pin,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride});
+    }catch(error){if(alive.current)setError(error.message)}
+    finally{joinLock.current=false;if(alive.current)setJoining(false)}
+  }
   useEffect(()=>{
     alive.current=true;
     void join();
@@ -44,5 +54,5 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     timer=setTimeout(poll,3500);
     return()=>{stopped=true;clearTimeout(timer)};
   },[roomId,joined]);
-  return {state,error,pinRequired,join,act,session};
+  return {state,error,pinRequired,joining,join,act,session};
 }

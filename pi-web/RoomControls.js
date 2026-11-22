@@ -9,8 +9,8 @@ export function RoomAction({icon, label, active, onPress}) {
   </TouchableOpacity>;
 }
 
-export function RoomOption({title, onPress, color}) {
-  return <TouchableOpacity accessibilityRole="button" style={[s.option,color&&{backgroundColor:color}]} onPress={onPress}>
+export function RoomOption({title, onPress, color, disabled}) {
+  return <TouchableOpacity accessibilityRole="button" disabled={disabled} style={[s.option,color&&{backgroundColor:color},disabled&&s.disabled]} onPress={onPress}>
     <Text style={s.optionText}>{title}</Text>
   </TouchableOpacity>;
 }

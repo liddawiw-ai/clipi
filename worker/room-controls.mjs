@@ -68,7 +68,10 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       seat=CASE WHEN visit=excluded.visit AND seen>=? THEN seat ELSE 0 END,muted=CASE WHEN visit=excluded.visit THEN muted ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
       joined=CASE WHEN visit=excluded.visit THEN joined ELSE excluded.joined END,seen=excluded.seen WHERE banned=0`,
       room,user,visit,name,Number(Boolean(input.frame)),Number(Boolean(input.ride)),now,now,room,policy?.pin||'',cutoff).run();
-    if(!entered.meta.changes)return json({error:'تغيرت صلاحية الدخول، أعد المحاولة'},403);
+    if(!entered.meta.changes){
+      const currentPolicy=await q('SELECT length(pin)>0 AS protected FROM room_policy WHERE room=?',room).first();
+      return json({error:'تغيرت صلاحية الدخول، أعد المحاولة',pinRequired:!host&&Boolean(currentPolicy?.protected)},403);
+    }
   } else if(!member||member.visit!==visit||member.seen<cutoff)return json({error:'انتهت جلسة الغرفة'},403);
   if(host&&(op==='join'||(op==='poll'&&now-member.seen>=20)))await q('INSERT OR REPLACE INTO room_host VALUES(?,?)',room,user).run();
   if(host&&type==='audio'&&op==='join'){
