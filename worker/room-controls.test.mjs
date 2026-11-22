@@ -102,7 +102,14 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call(buyer,'paidGift',support)).status,200);
   assert.equal((await readWallet(q,buyer)).diamonds,0);
   const hostWallet=await readWallet(q,'host');
-  assert.equal(hostWallet.earningsUnits/20,0.25);
+  assert.equal(hostWallet.rewardPi,0);
+  assert.equal(hostWallet.progress,500);
+  sql.prepare("INSERT INTO paid_room_gift VALUES('older','old','oldroom','host','old',500,5)").run();
+  sql.prepare("INSERT INTO paid_room_gift VALUES('other','next','otherroom','host','new',19500,0)").run();
+  const cumulative=await readWallet(q,'host');
+  assert.equal(cumulative.rewardPi,10);
+  assert.equal(cumulative.progress,0);
+  assert.equal(cumulative.earningsUnits/20,0.25);
   assert.equal(hostWallet.history.length,1);
   assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
   const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));

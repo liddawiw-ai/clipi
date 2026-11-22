@@ -354,6 +354,7 @@ const english = {
   "الرصيد غير كافٍ أو المستلم غادر الغرفة": "Insufficient balance or recipient left the room",
   "هدايا Pi": "Pi gifts",
   "دفعة Pi حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.": "Real Pi payment to the Clipi app wallet. The gift appears in the room. The host receives zero Pi in this trial.",
+  "مكافآت المضيف": "Host rewards",
   "تعليق غير صالح": "Invalid comment",
   "تعذّر تخصيص رقم الآن": "Could not assign an ID right now",
   "رقم غير متاح": "ID unavailable",

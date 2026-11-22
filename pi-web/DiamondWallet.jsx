@@ -1,6 +1,6 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {auth,piSdk} from './services';
-import {packs,packPrice,diamondsPerPi} from '../worker/diamond-wallet.mjs';
+import {rewardDiamonds,packs,packPrice,diamondsPerPi} from '../worker/diamond-wallet.mjs';
 const label=(ar,en)=>document.documentElement.lang==='ar'?ar:en;
 export async function walletRead(){
   const token=await auth().currentUser.getIdToken();
@@ -54,8 +54,10 @@ export function DiamondWallet({uid}){
   }
   return <section style={{color:'white',padding:16}} dir="auto">
     <h2>{label('محفظتي','My wallet')}</h2><p>{label('الماس المشترى','Purchased diamonds')} · {data?.diamonds??'…'} 💎</p>
-    <p>{label('حصة المضيف المسجّلة','Recorded host share')} · {data?data.earningsUnits/20:'…'} Pi</p>
-    <p>{label('الحصة مسجّلة داخل Clipi. السحب غير مفعّل.','Shares are recorded inside Clipi. Withdrawals are unavailable.')}</p>
+    <p>{label('مكافآت المضيف','Host rewards')} · {data?data.rewardPi:'…'} Pi</p>
+    <p>{label('التقدم نحو المكافأة التالية','Progress toward the next reward')} · {data?.progress??'…'} / 10,000 💎</p>
+    <p>{label('كل 10,000 ماسة دعم تمنح المضيف 5 Pi داخل Clipi. السحب غير مفعّل.','Every 10,000 support diamonds earn a 5 Pi reward in Clipi. Withdrawals are unavailable.')}</p>
+    {!!data?.earningsUnits&&<p>{label('رصيد سابق محفوظ','Previous recorded balance')} · {data.earningsUnits/20} Pi</p>}
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
     {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة Pi','Pi payment ID')} placeholder={label('معرّف دفعة Pi (اختياري)','Pi payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
     <h3>{label('سجل شحن الماس','Diamond credit history')}</h3>
@@ -63,6 +65,6 @@ export function DiamondWallet({uid}){
     <h3>{label('شراء الماس','Buy diamonds')}</h3>
     {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} Pi</button>):<p>{label('ادخل بحساب Pi لشراء الماس','Sign in with Pi to buy diamonds')}</p>}
     <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
-    {data?.history.map((g,i)=><p key={i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {label('حصة المضيف','Host share')} {g.units/20} Pi · {label('غرفة','Room')} {g.room}</p>)}
+    {data?.history.map((g,i)=><p key={i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {g.units?label('رصيد سابق','Previous credit')+' '+g.units/20+' Pi':label('ماسات للمكافأة','Reward diamonds')+' '+rewardDiamonds(g.cost)} · {label('غرفة','Room')} {g.room}</p>)}
   </section>
 }

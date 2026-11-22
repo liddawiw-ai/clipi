@@ -1,4 +1,4 @@
-import {hostShare} from '../worker/diamond-wallet.mjs';
+import {rewardDiamonds} from '../worker/diamond-wallet.mjs';
 import GiftFX from './GiftEffect';
 import {DiamondWallet,walletRead} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
@@ -617,7 +617,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       open={piGiftOpen&&!minimized} close={()=>setPiGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       key={String(paidMode)} gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+hostShare(cost)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:paidMode?(document.documentElement.lang==='ar'?'المشترى':'Purchased'):(document.documentElement.lang==='ar'?'رصيد التفاعل':'Interaction balance'),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"للمكافأة ":"Reward progress ")+rewardDiamonds(cost)+" 💎"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:paidMode?(document.documentElement.lang==='ar'?'المشترى':'Purchased'):(document.documentElement.lang==='ar'?'رصيد التفاعل':'Interaction balance'),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
       recipient={(paidMode?room.host:recipient?.name)||room.host||ui("المضيف")} balance={paidMode?paidBalance:membership.state?.supportBalance}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{
@@ -632,7 +632,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
         }catch(error){Alert.alert(ui("هدية الغرفة"),error.message)}
       }}>
       <Small title={(document.documentElement.lang==='ar'?'محفظتي · الماس المشترى':'My wallet · Purchased diamonds')+' '+(paidBalance??'…')+' 💎'} onPress={()=>{setGiftOpen(false);onWallet()}}/>
-      {!isHost&&<Small title={paidMode?(document.documentElement.lang==='ar'?'ماس مشترى · حصة المضيف 50% من 500 ماسة فأكثر | تبديل':'Purchased · 50% host share from 500 diamonds | Switch'):(document.documentElement.lang==='ar'?'دعم المضيف بالماس المشترى · 50%':'Support host with purchased diamonds · 50%')} onPress={()=>setPaidMode(v=>!v)}/>}
+      {!isHost&&<Small title={paidMode?(document.documentElement.lang==='ar'?'ماس مشترى · 5 Pi لكل 10,000 ماسة دعم | تبديل':'Purchased · 5 Pi per 10,000 support diamonds | Switch'):(document.documentElement.lang==='ar'?'دعم المضيف بالماس المشترى':'Support host with purchased diamonds')} onPress={()=>setPaidMode(v=>!v)}/>}
       <Small title={ui("هدايا Pi")} onPress={()=>{setGiftOpen(false);setPiGiftOpen(true)}}/>
     </RoomGiftSheet>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
@@ -1295,7 +1295,7 @@ export default function App(){
       shortcuts={[
         {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
         {icon:'#',label:ui('أرقام مميزة'),onPress:()=>go('store')},
-        {icon:'↗',label:ui('الأرباح'),onPress:()=>go('earningsWallet')},
+        {icon:'↗',label:ui('مكافآت المضيف'),onPress:()=>go('earningsWallet')},
       ]}
       settings={[
         {label:ui('تعديل الملف الشخصي'),onPress:()=>go('profileEdit')},
@@ -1320,7 +1320,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Btn title={ui("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title={ui("اختيار صورة من الاستوديو")} onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert(ui("الصورة"),e.message)}}}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>,()=>go('profile'));
+  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Btn title={ui('مكافآت المضيف')} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title={ui("اختيار صورة من الاستوديو")} onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert(ui("الصورة"),e.message)}}}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>,()=>go('profile'));
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="light-content"/>
