@@ -32,13 +32,17 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
     assert.equal(sql.prepare('SELECT image FROM room_theme WHERE room=?').get(id).image,image);
     assert.equal((await call('another','join',{},'/room-control','another-room','another')).theme,'default');
   }
-  const temporary=await call('temporary','join');
+  const audience=await call('temporary','join');
+  assert.equal(audience.people.find(p=>p.uid==='temporary').seat,0);
+  const temporary=await call('temporary','request',{slot:3});
   const temporarySlot=temporary.people.find(p=>p.uid==='temporary').seat;
   assert.equal((await call('temporary','slot',{slot:temporarySlot,locked:true})).status,403);
   const locked=await call('host','slot',{slot:temporarySlot,locked:true,uid:'temporary'});
   assert.deepEqual(locked.lockedSlots,[temporarySlot]);
   assert.equal(locked.people.find(p=>p.uid==='temporary').seat,0);
-  const other=await call('other','join');
+  await call('other','join');
+  const other=await call('other','request',{slot:temporarySlot});
+  assert.equal(other.people.find(p=>p.uid==='other').waiting,1);
   assert.notEqual(other.people.find(p=>p.uid==='other').seat,temporarySlot);
   await call('host','eject',{uid:'other'});
   assert.equal((await call('other','poll')).status,403);
@@ -48,7 +52,8 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   await call('host','slot',{slot:temporarySlot,locked:false});
   await call('temporary','leave');
   kicks.length=0;
-  const data=await call('first','join',{frame:true,ride:true});
+  await call('first','join',{frame:true,ride:true});
+  const data=await call('first','request',{slot:1});
   assert.equal(data.supportBalance,100);
   assert.equal((await call('host','poll')).supportBalance,100000100);
   const gift={recipient:'host',cost:100,nonce:crypto.randomUUID()};
@@ -91,11 +96,16 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.deepEqual(kicks,['guest','guest','guest']);
   assert.equal((await call('guest','join',{pin:'0123'})).status,403);
   await call('host','settings',{locked:false,pin:''});
-  for(let i=0;i<12;i++)await call('u'+i,'join');
+  for(let i=0;i<12;i++){
+    await call('u'+i,'join');
+    await call('u'+i,'request',{slot:2+i%7});
+  }
   const full=await call('host','poll');
   assert.equal(full.people.filter(p=>p.seat).length,8);
   await call('first','leave');
   await call('u11','request');
+  assert.equal((await call('u11','token',{},'/token')).publisher,false);
+  await call('host','approve',{uid:'u11'});
   assert.equal((await call('u11','token',{},'/token')).publisher,true);
   sql.prepare('UPDATE room_member SET seen=0 WHERE uid=?').run('u11');
   assert.equal((await call('u11','token',{},'/token')).status,403);

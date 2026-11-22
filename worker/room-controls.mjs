@@ -65,7 +65,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const entered=await q(`INSERT INTO room_member(room,uid,visit,name,frame,ride,joined,seen)
       SELECT ?,?,?,?,?,?,?,? WHERE COALESCE((SELECT pin FROM room_policy WHERE room=?),'')=?
       ON CONFLICT(room,uid) DO UPDATE SET visit=excluded.visit,name=excluded.name,frame=excluded.frame,ride=excluded.ride,
-      seat=CASE WHEN seen>=? THEN seat ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
+      seat=CASE WHEN visit=excluded.visit AND seen>=? THEN seat ELSE 0 END,muted=CASE WHEN visit=excluded.visit THEN muted ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
       joined=CASE WHEN visit=excluded.visit THEN joined ELSE excluded.joined END,seen=excluded.seen WHERE banned=0`,
       room,user,visit,name,Number(Boolean(input.frame)),Number(Boolean(input.ride)),now,now,room,policy?.pin||'',cutoff).run();
     if(!entered.meta.changes)return json({error:'تغيرت صلاحية الدخول، أعد المحاولة'},403);
@@ -80,8 +80,11 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(op==='slot'){
     const slot=input.slot;
-    if(!host||type!=='audio'||!Number.isInteger(slot)||slot<1||slot>8||typeof input.locked!=='boolean')return json({error:'طلب غير صالح'},403);
-    if(input.locked){
+    if(!host||type!=='audio'||!Number.isInteger(slot)||slot<0||slot>8||typeof input.locked!=='boolean')return json({error:'طلب غير صالح'},403);
+    if(slot===0){
+      if(input.locked)await q('INSERT OR IGNORE INTO room_lock VALUES(?,0)',room).run();
+      else await q('DELETE FROM room_lock WHERE room=? AND slot=0',room).run();
+    }else if(input.locked){
       const [,removed]=await env.PI_GIFTS_DB.batch([q('INSERT OR IGNORE INTO room_lock VALUES(?,?)',room,slot),q('UPDATE room_member SET seat=0,waiting=0 WHERE room=? AND seat=? RETURNING uid',room,slot)]);
       for(const occupant of removed.results)await disconnect(occupant.uid);
     }else await q('DELETE FROM room_lock WHERE room=? AND slot=?',room,slot).run();
@@ -105,13 +108,15 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     if(typeof input.locked==='boolean')await q('INSERT INTO room_policy(room,locked) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET locked=excluded.locked',room,Number(input.locked)).run();
   }
   const capacity=type==='audio'?8:1;
-  const claim=(uid,condition)=>q(`WITH RECURSIVE slots(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM slots WHERE n<?),
-    available AS (SELECT MIN(n) AS n FROM slots WHERE NOT EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=n)
+  const claim=(uid,condition,slot=null)=>q(`WITH RECURSIVE slots(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM slots WHERE n<?),
+    available AS (SELECT MIN(n) AS n FROM slots WHERE (? IS NULL OR n=?) AND NOT EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=n)
     AND NOT EXISTS(SELECT 1 FROM room_member WHERE room=? AND seat=n AND seen>=?))
-    UPDATE room_member SET seat=(SELECT n FROM available),waiting=0 WHERE room=? AND uid=? AND banned=0 AND seen>=? AND seat=0 AND (SELECT n FROM available) IS NOT NULL AND `+condition,capacity,room,room,cutoff,room,uid,cutoff);
-  if((op==='request'&&!host)||(op==='join'&&!host&&type==='audio'&&!policy?.locked)){
-    if(type==='audio')await claim(user,'NOT EXISTS(SELECT 1 FROM room_policy p WHERE p.room=room_member.room AND locked=1)').run();
-    if(op==='request')await q('UPDATE room_member SET waiting=1 WHERE room=? AND uid=? AND seat=0',room,user).run();
+    UPDATE room_member SET seat=(SELECT n FROM available),waiting=0 WHERE room=? AND uid=? AND banned=0 AND seen>=? AND seat=0 AND (SELECT n FROM available) IS NOT NULL AND `+condition,capacity,slot,slot,room,room,cutoff,room,uid,cutoff);
+  if(op==='request'&&!host){
+    const slot=input.slot;
+    if(slot!==undefined&&(type!=='audio'||!Number.isInteger(slot)||slot<1||slot>capacity))return json({error:'المقعد غير صالح'},400);
+    if(slot!==undefined)await claim(user,'NOT EXISTS(SELECT 1 FROM room_policy p WHERE p.room=room_member.room AND locked=1)',slot).run();
+    await q('UPDATE room_member SET waiting=1 WHERE room=? AND uid=? AND seat=0',room,user).run();
   }
   if(op==='cancel')await q('UPDATE room_member SET waiting=0 WHERE room=? AND uid=?',room,user).run();
   if(['approve','reject','demote','ban','eject','kick','mute','unmute'].includes(op)){

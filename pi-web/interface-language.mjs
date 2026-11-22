@@ -1,6 +1,15 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "كتم": "Mute",
+  "إنزال": "Move to audience",
+  "إقفال": "Lock",
+  "طرد": "Remove",
+  "إلغاء الكتم": "Unmute",
+  "تشغيل المايك": "Turn on mic",
+  "فتح المايك": "Unlock mic",
+  "إرسال هدية": "Send a gift",
+  "لا توجد طلبات مايك": "No mic requests",
   "إرسال الهدية": "Send gift",
   "إنشاء": "Create",
   "بث مباشر": "Live video",
