@@ -4,12 +4,20 @@ import functions from '@react-native-firebase/functions';
 import * as LocalAuthentication from 'expo-local-authentication';
 const call=name=>functions().httpsCallable(name);
 const money=n=>'$'+((n||0)/100).toFixed(2);
-export default function EarningsWalletScreen({onBack}){
+export default function EarningsWalletScreen({onBack,payoutCountries,payoutWallets}){
  const [unlocked,setUnlocked]=useState(false),[unlocking,setUnlocking]=useState(false),[lockError,setLockError]=useState('');
  const lockRef=useRef(false);
  const authenticatingRef=useRef(false);
  const requestEpochRef=useRef(0);
  const [data,setData]=useState(null),[pin,setPin]=useState(''),[oldPin,setOldPin]=useState(''),[busy,setBusy]=useState(false);
+ const [countryOpen,setCountryOpen]=useState(false),[countryCode,setCountryCode]=useState('');
+ const [destination,setDestination]=useState(null);
+ const country=payoutCountries.find(([code])=>code===countryCode);
+ function selectCountry(code){
+  setCountryCode(code);
+  setDestination(null);
+  setCountryOpen(false);
+ }
  async function load(){
   setBusy(true);
   const epoch=requestEpochRef.current;
@@ -23,7 +31,7 @@ export default function EarningsWalletScreen({onBack}){
    if(state==='background'||(state==='inactive'&&!authenticatingRef.current)){
     lockRef.current=true;
     requestEpochRef.current+=1;
-    if(active){setUnlocked(false);setData(null);setPin('');setOldPin('')}
+    if(active){setUnlocked(false);setData(null);setPin('');setOldPin('');selectCountry('')}
    }
   });
   return ()=>{active=false;subscription.remove()};
@@ -85,11 +93,37 @@ export default function EarningsWalletScreen({onBack}){
    {btn('تحديث المحفظة',load)}
   </View>
   <View style={S.panel}>
+   <Text style={S.heading}>خيارات سحب الأرباح</Text>
+   <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:countryOpen}}
+    onPress={()=>setCountryOpen(open=>!open)} style={S.option}>
+    <Text style={S.buttonText}>{country?.[1]||'اختر الدولة'} {countryOpen?'▴':'▾'}</Text>
+   </TouchableOpacity>
+   {countryOpen&&payoutCountries.map(([code,name])=><TouchableOpacity key={code}
+    accessibilityRole="button" accessibilityState={{selected:countryCode===code}}
+    onPress={()=>selectCountry(code)} style={S.option}>
+    <Text style={S.buttonText}>{name}</Text>
+   </TouchableOpacity>)}
+   {country&&<>
+    <Text style={S.label}>محافظ إلكترونية</Text>
+    {payoutWallets[countryCode].map(wallet=><TouchableOpacity key={wallet}
+     accessibilityRole="button" accessibilityState={{selected:destination===wallet}}
+     onPress={()=>setDestination(wallet)} style={[S.option,destination===wallet&&S.selected]}>
+     <Text style={S.buttonText}>{wallet}</Text>
+    </TouchableOpacity>)}
+    <Text style={S.label}>البنوك</Text>
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{selected:destination==='bank'}}
+     onPress={()=>setDestination('bank')} style={[S.option,destination==='bank'&&S.selected]}>
+     <Text style={S.buttonText}>تحويل إلى حساب بنكي</Text>
+    </TouchableOpacity>
+    <Text style={S.label}>اختيار طريقة السحب للتجربة. التحويلات الفعلية غير مفعّلة.</Text>
+    {destination&&btn('معاينة السحب النقدي',()=>preview('cash'))}
+   </>}
+  </View>
+  <View style={S.panel}>
    <Text style={S.heading}>🔐 الرقم السري للمحفظة</Text>
    {data?.pinConfigured&&<TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={oldPin} onChangeText={setOldPin} placeholder="الرقم الحالي"/>}
    <TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin} placeholder="الرقم الجديد - 6 أرقام"/>
    {btn(data?.pinConfigured?'تغيير الرقم السري':'إنشاء الرقم السري',savePin)}
-   {btn('معاينة السحب النقدي',()=>preview('cash'))}
    {btn('معاينة التحويل إلى ماسات',()=>preview('diamonds'))}
    <Text style={S.label}>المحفظة تعرض أرصدة الخادم فقط. السحب والتحويل الحقيقيان غير مفعّلين.</Text>
   </View>
@@ -104,6 +138,8 @@ const S=StyleSheet.create({
  value:{fontSize:19,color:'#91f2bd',fontWeight:'800',marginBottom:8},
  label:{color:'#ddd0ee',marginVertical:5,lineHeight:21},
  button:{backgroundColor:'#a72f73',padding:14,borderRadius:12,marginTop:9,alignItems:'center'},
+ option:{backgroundColor:'#443165',padding:12,borderRadius:10,marginVertical:3},
+ selected:{backgroundColor:'#695087',borderColor:'#ffe39a',borderWidth:1},
  buttonText:{color:'white',fontWeight:'900'},
  input:{backgroundColor:'white',padding:13,borderRadius:9,marginVertical:7,color:'#222'}
 });

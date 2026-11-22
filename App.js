@@ -71,8 +71,8 @@ const PAYOUT_WALLETS={
     'QNB Wallet','CIB Smart Wallet','ALEXBANK Wallet',
     'محفظة بنك مصري أخرى'
   ],
-  IQ:['ZainCash العراق','محفظة عراقية أخرى'],
-  SA:['stc pay / STC Bank','محفظة سعودية أخرى'],
+  IQ:['ZainCash العراق','FastPay','محفظة عراقية أخرى'],
+  SA:['STC Bank','barq','محفظة سعودية أخرى'],
   AE:['e& money','محفظة إماراتية أخرى'],
   PS:['محفظة فلسطينية محلية'],
   LB:['محفظة لبنانية محلية'],
@@ -1117,7 +1117,8 @@ export default function App(){
   const myProfile=<View style={S.card}>{avatar.startsWith('data:image/')?<Image accessibilityLabel="الصورة الشخصية" style={{width:80,height:80,borderRadius:40}} source={{uri:avatar}}/>:<Text style={{fontSize:54}}>{avatar}</Text>}<Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
 
   function renderPage(){
-  if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
+  if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}
+    payoutCountries={PAYOUT_COUNTRIES.slice(0,4)} payoutWallets={PAYOUT_WALLETS}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
   if(page==='login'||page==='verify'||page==='terms')return <View style={S.page}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
     <Text style={S.logo}>Clipi</Text>

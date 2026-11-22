@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-themes-17
+      - feature/android-wallet-countries-18
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build17.apk
+          cp "$apk" Clipi-Android-build18.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build17
-          path: Clipi-Android-build17.apk
+          name: Clipi-Android-build18
+          path: Clipi-Android-build18.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-themes-17'
+        if: github.ref == 'refs/heads/feature/android-wallet-countries-18'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build17 Clipi-Android-build17.apk --target "$GITHUB_SHA" --title "Clipi Android 17" --notes "Room themes, profile photos and numeric IDs." --prerelease
+        run: gh release create android-build18 Clipi-Android-build18.apk --target "$GITHUB_SHA" --title "Clipi Android 18" --notes "Country-specific withdrawal options in the protected earnings wallet. Includes Android 17 room and profile features." --prerelease
