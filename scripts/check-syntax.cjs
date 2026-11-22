@@ -17,6 +17,10 @@ function checkJavaScript(filename, options = {}) {
   return ast;
 }
 const app = checkJavaScript('App.js', {jsx: true});
+checkJavaScript("storeBilling.js");
+checkJavaScript("DiamondShop.js",{jsx:true});
+checkJavaScript("PayoutPicker.js",{jsx:true});
+checkJavaScript("functions/cashPayout.js");
 checkJavaScript("ClipiCollection.js", {jsx: true});
 checkJavaScript("ClipiSurfaces.js", {jsx: true});
 checkJavaScript("GoldFrame.js", {jsx: true});

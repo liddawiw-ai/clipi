@@ -12,6 +12,7 @@ const plugins = [
   '@config-plugins/react-native-webrtc',
   '@react-native-firebase/app',
   '@react-native-firebase/auth',
+  '@react-native-firebase/app-check',
   ['expo-local-authentication', {faceIDPermission: 'السماح لـ Clipi باستخدام Face ID لفتح محفظة النقاط والأرباح بأمان'}],
   googleIosScheme ? ['@react-native-google-signin/google-signin', {iosUrlScheme: googleIosScheme}] : '@react-native-google-signin/google-signin',
   ['expo-camera', {
@@ -49,7 +50,7 @@ module.exports = {
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
-    extra: {googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
+    extra: {directCheckout: process.env.EAS_BUILD_PROFILE !== 'production' && process.env.CLIPI_DISTRIBUTION !== 'store', googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
     plugins
   }
 };

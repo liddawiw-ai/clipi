@@ -10,6 +10,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal,InteractionManager,Linking} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import DiamondShop from './DiamondShop';
 import EarningsWalletScreen from './EarningsWalletScreen';
 import {GoogleSignin} from '@react-native-google-signin/google-signin';
 import Constants from 'expo-constants';
@@ -32,8 +33,6 @@ const MEDIA_CONFIGURED=/^https:\/\//i.test(MEDIA_ENDPOINT);
 const {width:WIDTH,height:HEIGHT}=Dimensions.get('window');
 const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
 const WELCOME=100,OWNER_DEMO=100000000;
-// Purchases and payouts remain disabled in this build.
-const REAL_PURCHASES_ENABLED=false,REAL_PAYOUTS_ENABLED=false;
 // Hide financial/game/gift simulations in release builds. They remain available for development testing.
 const SHOW_UNRELEASED_DEMOS=__DEV__;
 // Initialize Firestore only when an authenticated feature needs it.
@@ -50,8 +49,6 @@ const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','
 const AVATARS=['👤','😎','👩','👨','🧑','👸','🤴','🦁','🐼','🦊','🌸','⭐'];
 // Pricing preview: USD 1 = 1,000 diamonds; Pi USD-equivalent 1 = 1,200 diamonds.
 // Pi market quote is entered manually and is NOT a live price feed.
-const DIAMONDS_PER_USD=1000,DIAMONDS_PER_PI_USD=1200;
-const PACKS=[1000,2000,5000,10000,20000,50000];
 
 // قنوات استقبال الأرباح المعروضة للمستخدم؛ لا توجد تحويلات حقيقية مفعلة.
 // القوائم إرشادية ويمكن تحديثها من الخادم عند إتاحة مزود دفع.
@@ -173,7 +170,7 @@ function globalRoundAt(now){
   return {round,elapsed,winner:(hash>>>0)%FOOD.length,phase,betting:phase==='betting',
     remaining:Math.ceil((deadline-elapsed)/1000)};
 }
-function GlobalGreedyPreview({visible,onClose,onRestoreRoom,roomName,diamonds,onBet,onCredit}){
+function GlobalGreedyPreview({visible,onClose,onShop,onRestoreRoom,roomName,diamonds,onBet,onCredit}){
   const [now,setNow]=useState(Date.now());
   const {height,width}=useWindowDimensions();
   const rotation=useRef(new Animated.Value(0)).current;
@@ -253,7 +250,7 @@ function GlobalGreedyPreview({visible,onClose,onRestoreRoom,roomName,diamonds,on
             <Text style={S.gameTitle}>Greedy Star</Text>
             <Text style={S.gameMeta} numberOfLines={1}>{roomName} · {label} · {state.remaining} ث</Text>
           </View>
-          <Text style={S.gameBalance}>💎 {fmt(diamonds)}</Text>
+          <Small title="شراء الماس" onPress={onShop}/><Text style={S.gameBalance}>🎮 {fmt(diamonds)}</Text>
         </View>
         <ScrollView style={S.gameScroller} contentContainerStyle={S.gameWheelContent}>
           <View style={[S.starWheel,{width:size,height:size}]}>
@@ -304,7 +301,7 @@ async function mediaRequest(path,body,signal){
     headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
-  if(!response.ok)throw new Error('تعذر الاتصال بخدمة البث ('+response.status+')');
+  if(!response.ok){const detail=await response.json().catch(()=>({}));throw Object.assign(new Error(detail.error||'تعذّر الاتصال بالخدمة ('+response.status+')'),{status:response.status})}
   return response.json();
 }
 
@@ -477,7 +474,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',alignSelf:'flex-end',gap:6,marginHorizontal:8},
 });
 
-function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,minimized}){
+function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,onShop,minimized}){
   const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
@@ -779,7 +776,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     </Modal>}
     {roomSettings}
     {globalGameOpen&&<GlobalGreedyPreview visible={minimized} onRestoreRoom={onRestore} roomName={room.name} diamonds={diamonds}
-      onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>}
+      onShop={()=>{setGlobalGameOpen(false);onShop()}} onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>}
     <View style={S.roomTop}>
       <View style={S.roomTopRow}>
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={S.roomControlGlyph}>✕</Text></TouchableOpacity>
@@ -821,6 +818,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
       {!selectedPresent&&<Text style={S.white}>{giftPeople.length?"اختر مستلمًا للهدية":"بانتظار صعود مستلم على المايك"}</Text>}
       {!!giftIssue&&<View><Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>
         {!targetProfile&&selectedPresent&&<Small title={"إعادة المحاولة"} onPress={()=>openGifts(giftTarget)}/>}</View>}
+      <Small title="شراء الماس" onPress={()=>{setGiftOpen(false);onShop()}}/>
       <Small title={"المحفظة"} onPress={()=>{setGiftOpen(false);onWallet()}}/>
     </RoomGiftSheet>
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
@@ -857,6 +855,17 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
 export default function App(){
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
+  const returnToWallet=useRef(false);
+  useEffect(()=>{
+    function onUrl(url){
+      if(!/^clipi:\/\/wallet\/?$/.test(url||''))return;
+      returnToWallet.current=true;
+      if(auth().currentUser){setMini(true);go('wallet');setWalletRequest(v=>v+1)}
+    }
+    Linking.getInitialURL().then(onUrl).catch(()=>{});
+    const sub=Linking.addEventListener('url',e=>onUrl(e.url));
+    return ()=>sub.remove();
+  },[]);
   const [user,setUser]=useState(null);
   const [giftWallet,setGiftWallet]=useState(null),[giftWalletError,setGiftWalletError]=useState('');
   const [walletRequest,setWalletRequest]=useState(0);
@@ -873,7 +882,9 @@ export default function App(){
       }catch(error){if(active)setGiftWalletError(error.message)}
       if(active&&page==='wallet')timer=setTimeout(refresh,15000);
     }
-    setGiftWalletError('');void refresh();
+    setGiftWalletError('');
+    if(page==='wallet')void mediaRequest('/account-number',{op:'externalOrders'}).catch(()=>{}).then(()=>{if(active)void refresh()});
+    else void refresh();
     return ()=>{active=false;clearTimeout(timer)};
   },[user?.uid,page,walletRequest]);
   const [identity,setIdentity]=useState(null),[numberError,setNumberError]=useState('');
@@ -919,7 +930,6 @@ export default function App(){
   const [blockedUsers,setBlockedUsers]=useState([]),[roomSearch,setRoomSearch]=useState(''),[roomError,setRoomError]=useState('');
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
-  const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
   const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
@@ -1002,7 +1012,7 @@ export default function App(){
             setAvatar(d.avatar||'👤');
           }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        if(active&&auth().currentUser?.uid===u.uid)go('home');
+        if(active&&auth().currentUser?.uid===u.uid){go(returnToWallet.current?'wallet':'home');returnToWallet.current=false}
       }else{
         setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
         setName('');setRoomError('');
@@ -1271,21 +1281,16 @@ export default function App(){
       }}]);
   }
   function buyGood(g){if(inventory.includes(g[1]))return Alert.alert('مملوكة');if(!spend(g[2]))return Alert.alert('رصيد غير كافٍ');setInventory(v=>[...v,g[1]])}
-  function purchase(pack){
-    const usd=pack/DIAMONDS_PER_USD;
-    if(paymentMethod==='usd')Alert.alert('معاينة شراء',`${fmt(pack)} ماسة بسعر $${usd}. الدفع الحقيقي غير مربوط.`);
-    else{const rate=Number(piRate);if(!Number.isFinite(rate)||rate<=0)return Alert.alert('سعر Pi','أدخل سعر Pi الحالي بالدولار');Alert.alert('معاينة Pi',`${fmt(Math.round(usd*DIAMONDS_PER_PI_USD))} ماسة مقابل ${(usd/rate).toFixed(6)} Pi وفق السعر المدخل. يتغير سعر Pi من حين إلى آخر، ولا يتم تحصيل أي دفع.`)}
-  }
   function resetGame(){clearTimeout(timerRef.current);betsRef.current={};setBets({});setSeconds(30);setLit(-1);setGameResult(null);phaseRef.current='betting';setPhase('betting')}
   function placeBet(i){
-    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return Alert.alert('غير متاح','اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.');
+    if(!__DEV__)return Alert.alert('غير متاح','اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.');
     if(phaseRef.current!=='betting')return;
     if(!betsRef.current[i]&&Object.keys(betsRef.current).length>=6)return Alert.alert('الحد الأقصى ست خانات');
     if(!spend(betAmount))return Alert.alert('رصيد غير كافٍ');
     const b={...betsRef.current,[i]:(betsRef.current[i]||0)+betAmount};betsRef.current=b;setBets(b);
   }
   function spin(){
-    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return;
+    if(!__DEV__)return;
     if(phaseRef.current!=='betting')return;
     phaseRef.current='spinning';setPhase('spinning');
     const placed={...betsRef.current},winner=Math.floor(Math.random()*8),steps=40+winner;let i=0;
@@ -1328,12 +1333,12 @@ export default function App(){
   const myProfile=<View style={S.card}>{avatar.startsWith('data:image/')?<Image accessibilityLabel="الصورة الشخصية" style={{width:80,height:80,borderRadius:40}} source={{uri:avatar}}/>:<Text style={{fontSize:54}}>{avatar}</Text>}<Text style={S.title}>{name||user?.displayName||'مستخدم'} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)} ماسة</Text>}</View>;
 
   function renderPage(){
-  if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}
-    payoutCountries={PAYOUT_COUNTRIES.slice(0,4)} payoutWallets={PAYOUT_WALLETS}/>;
+  if(page==='diamondShop')return layout('شراء الماس',<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Platform.OS==='android'&&Constants.expoConfig?.extra?.directCheckout===true}/>,()=>go('wallet'));
+  if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('wallet')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · تحميل الحساب...</Text></View>;
   if(page==='login'||page==='verify'||page==='terms')return <View style={{flex:1,backgroundColor:'#180e20'}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
     <LoginCover image={require('./assets/clipi-icon.png')}/><View style={{backgroundColor:'#38243e',borderRadius:24,padding:18}}>
-    {page==='terms'?<><Text style={S.white}>الماس والأرباح في هذه النسخة تجريبية. لا يوجد دفع أو سحب مالي. المحتوى والبث بين الأجهزة يحتاجان خدمة مخصصة. يجب نشر سياسة خصوصية وشروط قانونية قبل الإطلاق.</Text><Btn title="أوافق" onPress={()=>{setAccepted(true);go('login')}}/><Btn title="رجوع" color="#49306b" onPress={()=>go('login')}/></>:
+    {page==='terms'?<><Text style={S.white}>يُضاف الماس إلى حسابك بعد تأكيد الدفع. يمكن طلب سحب الأرباح المتاحة بالطرق التي يدعمها بلدك.</Text><Btn title="أوافق" onPress={()=>{setAccepted(true);go('login')}}/><Btn title="رجوع" color="#49306b" onPress={()=>go('login')}/></>:
     page==='verify'?<><Text style={S.label}>رمز التحقق SMS</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder="ستة أرقام"/><Btn title={busy?'جارٍ التحقق...':'تأكيد الرمز'} disabled={busy} onPress={verifySms}/><Btn title="تغيير رقم الهاتف" color="#49306b" onPress={()=>go('login')}/></>:
     <>
       <Btn title={loginMethod==='email'?'استخدام رقم الهاتف':'استخدام البريد الإلكتروني'} color="#49306b" disabled={busy}
@@ -1377,18 +1382,17 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={createRoom} onClose={()=>go('home')} busy={busy} copy={{close:"رجوع",title:"إنشاء غرفة",name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:"الغرفة عامة للمستخدمين المسجلين."}}/>;
-  if(page==='wallet'&&!SHOW_UNRELEASED_DEMOS)return layout('محفظة كليبي',<>
-    <BalanceCard icon="💎" tone="sky" label="الماس المشترى" value={funded?fmt(funded.diamonds):'…'}/>
+  if(page==='wallet')return layout('محفظة كليبي',<>
+    <BalanceCard icon="💎" tone="sky" label="الماس المشترى" value={funded?fmt(funded.diamonds):'…'} action="شراء الماس" onPress={()=>go('diamondShop')}/>
     <BalanceCard icon="♡" tone="rose" label="هدف ماس الهدايا" value={(funded?fmt(funded.progress):'…')+' / 10,000 💎'}/>
     <BalanceCard icon="✦" tone="sand" label="مكافآت المضيف" value={(funded?fmt(funded.rewardPi):'…')+' PI'}/>
     <Text style={S.white}>كل 10,000 ماسة تصل إليك من الهدايا تُسجّل لك مكافأة 5 PI داخل كليبي.</Text>
     <Text style={S.white}>إجمالي ماس الهدايا المستلم · {funded?fmt(funded.receivedDiamonds):'…'} 💎</Text>
     {giftWalletError&&<Text accessibilityLiveRegion="polite" style={S.white}>{giftWalletError}</Text>}
     <Small title="تحديث الرصيد" onPress={()=>setWalletRequest(v=>v+1)}/>
-    <Small title="محفظة النقاط والأرباح" onPress={()=>go('earningsWallet')}/>
+    <BalanceCard icon="↗" tone="mint" label="محفظة الأرباح" value="النقاط والسحب النقدي" action="سحب الأرباح" onPress={()=>go('earningsWallet')}/>
     {funded?.history.map((gift,i)=><Text key={i} style={S.white}>{gift.host===user.uid?'واردة':'مرسلة'} · {gift.gift} · {fmt(gift.cost)} 💎</Text>)}
   </>);
-  if(page==='wallet')return layout('محفظة Clipi',<><BalanceCard icon="💎" tone="sky" label="رصيد الماس التجريبي" value={fmt(total)}/><BalanceCard icon="✦" tone="rose" label="هدية الترحيب" value={fmt(wallet.welcome)}/><BalanceCard icon="◇" label="الماس المشترى" value={fmt(wallet.purchased)}/>{ownerDemo&&<BalanceCard icon="♛" tone="sand" label="معاينة المالك" value={fmt(wallet.owner)}/>}<Text style={S.title}>طريقة الشراء</Text><View style={S.row}><Btn title="💵 دولار" color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>سعر Pi بالدولار (يدوي للمعاينة)</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder="مثال: 0.50"/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} Pi`:'أدخل سعر Pi'}</Text></View><Small title="شراء" color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من Pi = 1,200 ماسة. يتغير سعر Pi صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر Pi الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
       <Text style={S.title}>🎁 الدعم التجريبي: {fmt(received)} 💎</Text>
@@ -1462,6 +1466,7 @@ export default function App(){
     <AccountHub name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
       balance={funded?.diamonds} copy={{balance:'الماس المشترى',photo:'الصورة الشخصية'}}
       shortcuts={[
+        {icon:'💎',label:'شراء الماس',onPress:()=>go('diamondShop')},
         {icon:'◇',label:'المحفظة',onPress:()=>go('wallet')},
         {icon:'#',label:'المتجر',onPress:()=>go('store')},
         {icon:'↗',label:'الأرباح',onPress:()=>go('earningsWallet')},
@@ -1502,7 +1507,7 @@ export default function App(){
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="light-content"/>
-    <View style={S.starTopBar}><TouchableOpacity onPress={leaveGame} style={S.starClose}><Text style={S.starCloseText}>×</Text></TouchableOpacity><Text style={S.starRules} onPress={()=>Alert.alert('قواعد اللعبة','محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.')}>📜 قاعدة</Text><View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View><Text style={S.starRound}>جولة تجريبية</Text></View>
+    <View style={S.starTopBar}><TouchableOpacity onPress={leaveGame} style={S.starClose}><Text style={S.starCloseText}>×</Text></TouchableOpacity><Small title="شراء الماس" onPress={()=>go('diamondShop')}/><Text style={S.starRules} onPress={()=>Alert.alert('قواعد اللعبة','محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.')}>📜 قاعدة</Text><View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View><Text style={S.starRound}>جولة تجريبية</Text></View>
     <ScrollView contentContainerStyle={S.starScroll}>
       <View style={S.starWheel}>
         <View style={S.starWheelRing}/>
@@ -1524,7 +1529,7 @@ export default function App(){
   return <View style={S.page}><Btn title="الرئيسية" onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>{renderPage()}
-    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label="الغرفة" onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
+    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label="الغرفة" onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
     {mini&&activeRoom&&<TouchableOpacity accessibilityLabel="تكبير الغرفة" onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
   </View>;

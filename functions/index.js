@@ -1,4 +1,5 @@
 'use strict';
+const payouts=require('./cashPayout');
 const {onCall,HttpsError}=require('firebase-functions/v2/https');
 const {initializeApp}=require('firebase-admin/app');
 const {getAuth}=require('firebase-admin/auth');
@@ -309,7 +310,7 @@ async function checkWalletPin(ref,pin){
  if(!verified)throw new HttpsError('permission-denied','Wallet PIN incorrect');
 }
 
-exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async request=>{
+exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10,secrets:['TREMENDOUS_API_KEY']},async request=>{
  const uid=requireUser(request),role=await roleFor(uid);
  const doc=await db.collection('earningsWallets').doc(uid).get();
  const data=doc.data()||{};
@@ -324,8 +325,9 @@ exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10},async re
   minimumPoints:POINTS_MIN,remainingPoints:Math.max(0,POINTS_MIN-available),
   pinConfigured:typeof data.pinHash==='string',nextEligibleAt,
   meetsWithdrawalPolicy:available>=POINTS_MIN&&waitMs===0,
-  canRequest:false, // No payout provider or settlement ledger is active.
-  payoutProcessingBusinessDays:5,payoutsEnabled:false};
+  activeWithdrawal:Boolean(data.activeWithdrawal),lastWithdrawal:Boolean(data.lastWithdrawal),
+  canRequest:available>=POINTS_MIN&&waitMs===0,
+  payoutProcessingBusinessDays:5,payoutsEnabled:Boolean(process.env.TREMENDOUS_API_KEY)};
 });
 exports.setEarningsWalletPin=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
  const uid=requireUser(request),{pin,currentPin}=request.data||{};
@@ -358,25 +360,15 @@ exports.previewEarningsWithdrawal=onCall({enforceAppCheck:true,maxInstances:5},a
   method,processingBusinessDays:5,executable:false,
   reason:'Preview only; no verified financial ledger or payout provider deployed'};
 });
-// Stage 13 safety gate: money movement is OFF until provider, compliance and store approval.
-const REAL_PAYMENTS_ENABLED=false;
-const REAL_PAYOUTS_ENABLED=false;
-exports.getFinancialAvailability=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
- requireUser(request);
- return {
-  purchasesEnabled:REAL_PAYMENTS_ENABLED,
-  payoutsEnabled:REAL_PAYOUTS_ENABLED,
-  withdrawableBalanceMinor:0,
-  currency:'USD',
-  reason:'Payments and cash withdrawals are not activated. Virtual gifts have no cash value.'
- };
+const payoutOptions={enforceAppCheck:true,maxInstances:5,secrets:['TREMENDOUS_API_KEY']};
+exports.getPayoutMethods=onCall(payoutOptions,async request=>{
+ requireUser(request);return {methods:await payouts.methods(request.data?.country)};
 });
-exports.requestCashPayout=onCall({enforceAppCheck:true,maxInstances:5},async request=>{
- requireUser(request);
- // Never accept client-side balances, bank account details or payment destinations.
- if(!REAL_PAYOUTS_ENABLED)
-  throw new HttpsError('failed-precondition','Cash payouts are not available');
- throw new HttpsError('unimplemented','A licensed payout provider and compliance workflow are required');
+exports.requestCashPayout=onCall(payoutOptions,async request=>
+ payouts.execute({db,uid:requireUser(request),input:request.data||{},checkWalletPin,validatePin}));
+exports.getFinancialAvailability=onCall(payoutOptions,async request=>{
+ const uid=requireUser(request),w=(await db.collection('earningsWallets').doc(uid).get()).data()||{};
+ return {payoutsEnabled:Boolean(process.env.TREMENDOUS_API_KEY),withdrawableBalanceMinor:w.availablePoints||0,currency:'USD'};
 });
 // Stage 14: never run monetary or withdrawable Greedy Star rounds on this backend.
 exports.getGreedyStarAvailability=onCall({enforceAppCheck:true,maxInstances:5},async request=>{

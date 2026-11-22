@@ -11,7 +11,7 @@
     "test:release": "node scripts/check-release.cjs",
     "test:syntax": "node scripts/check-syntax.cjs",
     "test:ci": "npm run test:syntax && npm run test:release && npm run test:wallet",
-    "test:wallet": "node --test tests/wallet-safety.test.cjs",
+    "test:wallet": "node --test tests/wallet-safety.test.cjs tests/cash-payout.test.cjs",
     "test:firestore": "node --test tests/firestore.rules.test.cjs",
     "test:firestore:emulator": "npx --yes firebase-tools@14.2.1 emulators:exec --project demo-clipi-rules --only firestore \"npm run test:firestore\""
   },
@@ -21,6 +21,7 @@
     "@livekit/react-native-expo-plugin": "1.0.1",
     "@livekit/react-native-webrtc": "137.0.2",
     "@react-native-firebase/app": "^22.1.0",
+    "@react-native-firebase/app-check": "^22.4.0",
     "@react-native-firebase/auth": "^22.1.0",
     "@react-native-firebase/firestore": "^22.1.0",
     "@react-native-firebase/functions": "^22.1.0",
@@ -39,7 +40,8 @@
     "livekit-client": "~2.15.4",
     "react": "19.0.0",
     "react-native": "0.79.2",
-    "react-native-fbsdk-next": "^13.4.1"
+    "react-native-fbsdk-next": "^13.4.1",
+    "react-native-purchases": "9.6.2"
   },
   "devDependencies": {
     "@babel/parser": "^7.26.10",

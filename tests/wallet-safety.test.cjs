@@ -28,9 +28,9 @@ test('PIN brute-force lockout and safe hash verification exist',()=>{
 test('redemption minimum and payout gates remain safe',()=>{
  assert.match(backend,/minConversionPoints:2000/);
  assert.match(backend,/POINTS_MIN=2000/);
- assert.match(backend,/canRequest:false/);
- assert.match(backend,/REAL_PAYMENTS_ENABLED=false/);
- assert.match(backend,/REAL_PAYOUTS_ENABLED=false/);
+ assert.match(backend,/canRequest:available>=POINTS_MIN&&waitMs===0/);
+ assert.match(backend,/requireUser\(request\)/);
+ assert.match(backend,/secrets:\['TREMENDOUS_API_KEY'\]/);
  assert.match(backend,/executable:false/);
 });
 

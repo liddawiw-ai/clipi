@@ -48,7 +48,7 @@ assert(backend.includes(String.raw`/^\d{6}$/`),'Server PIN must accept exactly s
 assert(!backend.includes(String.raw`/^\\d{6}$/`),'Server PIN incorrectly matches literal backslash');
 assert(backend.includes('PIN_MAX_FAILURES=5')&&backend.includes('PIN_LOCK_MS='),'PIN lockout missing');
 assert(backend.includes('minConversionPoints:2000')&&backend.includes('POINTS_MIN=2000'),'Wallet minimum must be 2000 points');
-assert(backend.includes('REAL_PAYOUTS_ENABLED=false'),'Real cash payouts must remain disabled');
+assert(backend.includes("secrets:['TREMENDOUS_API_KEY']") && backend.includes('payouts.execute('),'Withdrawals require the server payout provider');
 assert(!source.includes("'الطاووس الملكي',30000,'peacock'"),'Unrequested peacock gift must be removed');
 const tray=fs.readFileSync('RoomControls.js','utf8');
 assert(tray.includes('gifts.filter(')&&tray.includes('setCategory(item)'),'Gift categories missing');
