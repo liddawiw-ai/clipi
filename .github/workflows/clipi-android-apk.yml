@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-wallet-countries-18
+      - feature/android-room-menu-19
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build18.apk
+          cp "$apk" Clipi-Android-build19.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build18
-          path: Clipi-Android-build18.apk
+          name: Clipi-Android-build19
+          path: Clipi-Android-build19.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-wallet-countries-18'
+        if: github.ref == 'refs/heads/feature/android-room-menu-19'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build18 Clipi-Android-build18.apk --target "$GITHUB_SHA" --title "Clipi Android 18" --notes "Country-specific withdrawal options in the protected earnings wallet. Includes Android 17 room and profile features." --prerelease
+        run: gh release create android-build19 Clipi-Android-build19.apk --target "$GITHUB_SHA" --title "Clipi Android 19" --notes "Consolidated three-dot room settings menu and dedicated room themes. Includes Android 18 wallet options." --prerelease

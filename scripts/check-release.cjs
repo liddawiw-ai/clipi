@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===18, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===19, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -61,9 +61,9 @@ assert(source.includes('setMini(true)')&&source.includes('setMini(false)'),'Room
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
 assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');
 
-assert(source.includes('const hostSettings=<Modal')&&source.includes('hostSettingsOpen&&isHost'),'Host-only settings sheet missing');
+assert(source.includes('const roomSettings=<Modal')&&source.includes("roomMenu==='themes'&&isHost"),'Host-only room themes missing');
 assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
-assert(source.includes('setMini(true)')&&source.includes('setHostSettingsOpen(true)'),'Host settings controls missing');
+assert(source.includes('setMini(true)')&&source.includes("setRoomMenu('settings')")&&source.includes("setRoomMenu('themes')"),'Room menu controls missing');
 assert(source.includes('exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
 assert(source.includes('onPress={exitRoomOnce}')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
