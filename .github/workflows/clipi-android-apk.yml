@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-gold-24
+      - feature/android-room-lifecycle-25
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build24.apk
+          cp "$apk" Clipi-Android-build25.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build24
-          path: Clipi-Android-build24.apk
+          name: Clipi-Android-build25
+          path: Clipi-Android-build25.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-gold-24'
+        if: github.ref == 'refs/heads/feature/android-room-lifecycle-25'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build24 Clipi-Android-build24.apk --target "$GITHUB_SHA" --title "Clipi Android 24" --notes "Gold and violet Clipi main screens." --prerelease
+        run: gh release create android-build25 Clipi-Android-build25.apk --target "$GITHUB_SHA" --title "Clipi Android 25" --notes "Live room presence and seat moderation." --prerelease

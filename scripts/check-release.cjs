@@ -18,7 +18,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===24, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===25, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -65,7 +65,7 @@ assert(source.includes('const roomSettings=<Modal')&&source.includes("roomMenu==
 assert(source.includes("update({status:'closed'})")&&source.includes('confirmCloseHostedRoom'),'Host room closure must update Firestore');
 assert(source.includes('setMini(true)')&&source.includes("setRoomMenu('settings')")&&source.includes("setRoomMenu('themes')"),'Room menu controls missing');
 assert(source.includes('exitHandledRef=useRef(false)')&&source.includes('function exitRoomOnce()'),'Room exit must be idempotent');
-assert(source.includes('onPress={exitRoomOnce}')&&source.includes('✕ خروج'),'Leaving must not be labeled as closing for everyone');
+assert(source.includes('onPress={isHost?closeHostedRoom:exitRoomOnce}')&&source.includes('مغادرة الغرفة'),'Leaving must not be labeled as closing for everyone');
 assert(source.includes('إغلاق الغرفة للجميع')&&source.includes("update({status:'closed'})"),'Only confirmed host closure may close shared room');
 
 // The display catalog is larger than the server-authorized gift catalog.
