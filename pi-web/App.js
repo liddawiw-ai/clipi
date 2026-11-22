@@ -1,3 +1,4 @@
+import GiftFX from './GiftEffect';
 import {DiamondWallet,walletRead} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
@@ -9,7 +10,7 @@ import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
 import {copyRoomInvitation,roomInvitationId,roomInvitationUrl,shareRoomInvitation} from './room-invitations.mjs';
 import React,{useEffect,useRef,useState} from 'react';
-import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,useWindowDimensions,Easing,Share,Modal} from 'react-native';
 import {auth,firestore,piLogin,Alert} from './services';
 import EarningsWalletScreen from './EarningsWalletScreen';
 import {PiGifts} from './PiGifts';
@@ -17,7 +18,6 @@ import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
 const MEDIA_ENDPOINT=location.origin, MEDIA_CONFIGURED=true;
-const {width:WIDTH,height:HEIGHT}=Dimensions.get('window');
 const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
 const WELCOME=100,OWNER_DEMO=100000000;
 // Purchases and payouts remain disabled in this build.
@@ -73,69 +73,7 @@ const fmt=x=>Number(x||0).toLocaleString('en-US');
 function Btn({title,onPress,color=PINK,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[S.btn,{backgroundColor:disabled?'#666':color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 function Small({title,onPress,color='#295098'}){return <TouchableOpacity onPress={onPress} style={[S.small,{backgroundColor:color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 
-function GiftFX({gift,onDone}){
-  const progress=useRef(new Animated.Value(0)).current;
-  const kind=gift[3];
-  useEffect(()=>{
-    progress.setValue(0);
-    const duration=kind==='dragon'?6300:kind==='rose'?4600:kind==='rocket'?4200:3300;
-    const animation=Animated.timing(progress,{toValue:1,duration,useNativeDriver:false});
-    animation.start(({finished})=>{if(finished)onDone()});
-    return ()=>animation.stop();
-  },[gift]);
-  const move=(inputRange,outputRange)=>progress.interpolate({inputRange,outputRange});
-  const opacity=move([0,.08,.87,1],[0,1,1,0]);
-  const scale=move([0,.42,.8,1],[.2,1.2,1,1.15]);
-  const glow=move([0,.2,.5,.8,1],[0,1,.2,1,0]);
-  let shape;
-  if(kind==='rose') shape=<View style={S.fxCenter}>
-    <Animated.Text style={[S.fxIcon,{opacity:move([0,.3,.65,1],[1,1,0,0]),transform:[{scale}]}]}>🌷</Animated.Text>
-    <Animated.Text style={[S.fxIcon,{position:'absolute',opacity:move([0,.3,.65,1],[0,0,1,1]),transform:[{scale:move([0,1],[.2,1.7])}]}]}>🌹</Animated.Text>
-  </View>;
-  else if(kind==='rocket') shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,1],[HEIGHT*.7,-HEIGHT*.95])}]}]}><Text style={S.fxIcon}>🚀</Text><Text style={S.fxFire}>🔥</Text></Animated.View>;
-  else if(kind==='car') shape=<Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.35,.7,1],[-WIDTH,0,0,WIDTH])}]}]}><Text style={S.fxIcon}>🏎️</Text></Animated.View>;
-  else if(kind==='crown') shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,.6,1],[-HEIGHT*.45,0,0])},{scale}]}]}><Text style={S.fxIcon}>👑</Text></Animated.View>;
-  else if(kind==='dragon') shape=<>
-    <Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.22,.48,.72,1],[-WIDTH,WIDTH*.3,WIDTH*.4,-WIDTH*.3,0])},{translateY:move([0,.22,.48,.72,1],[HEIGHT*.2,-HEIGHT*.2,HEIGHT*.1,HEIGHT*.15,-20])},{rotate:move([0,.25,.5,.75,1],['-25deg','30deg','155deg','320deg','360deg'])},{scale}]}]}>
-      <Text style={[S.fxIcon,{fontSize:170,textShadowColor:GOLD,textShadowRadius:22}]}>🐉</Text><Text style={S.fxSpark}>✦ ✨ ✦</Text>
-    </Animated.View>
-    <Animated.Text style={[S.fxFire,{position:'absolute',top:'45%',opacity:move([0,.73,.84,.95,1],[0,0,1,1,0]),transform:[{scale:move([0,.8,1],[.3,1,2.1])}]}]}>🔥🔥🔥</Animated.Text>
-  </>;
-  else if(['plane','helicopter','spaceship','space'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{translateX:move([0,.3,.65,1],[-WIDTH,WIDTH*.18,0,WIDTH*1.4])},{translateY:move([0,.3,.7,1],[HEIGHT*.5,0,-HEIGHT*.2,-HEIGHT*.65])},{rotate:move([0,.5,1],['-18deg','5deg','-22deg'])},{scale}]}]}>
-    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#56d6ff',textShadowRadius:30}]}>{gift[0]}</Text><Text style={S.fxFire}>✦ ✧ ✦</Text></Animated.View>;
-  else if(['phoenix','butterfly','fairy','animal','cat','duck','robot'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{translateY:move([0,.3,.7,1],[HEIGHT*.4,0,-60,-HEIGHT*.2])},{rotate:move([0,.5,1],['-12deg','12deg','-12deg'])},{scale}]}]}>
-    <Text style={[S.fxIcon,{fontSize:155,textShadowColor:'#ffa954',textShadowRadius:30}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:45}]}>✨ ✨ ✨</Text></Animated.View>;
-  else if(['kiss','flower','heart','perfume'].includes(kind))shape=<View style={S.fxCenter}>
-    <Animated.Text style={[S.fxIcon,{fontSize:155,transform:[{scale:move([0,.4,.8,1],[.1,1.7,1.3,2])}],opacity:move([0,.2,.8,1],[0,1,1,0])}]}>{gift[0]}</Animated.Text>
-    <Animated.Text style={[S.fxSpark,{fontSize:60,opacity:glow,transform:[{translateY:move([0,1],[120,-230])}]}]}>💕 🌸 ✨</Animated.Text></View>;
-  else if(['treasure','gold','money','gem','bundle'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:move([0,.45,1],['-15deg','12deg','0deg'])}]}]}>
-    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#ffe25e',textShadowRadius:40}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:46}]}>💎 ✨ 💰 ✨ 💎</Text></Animated.View>;
-  else if(['ice','water','meteor','magic','party','dance','clap','flag','dinner','fruit','candy','smoke'].includes(kind))shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:move([0,.4,.8,1],['-25deg','20deg','-15deg','0deg'])}]}]}>
-    <Text style={[S.fxIcon,{fontSize:160,textShadowColor:'#f9aaff',textShadowRadius:32}]}>{gift[0]}</Text><Text style={[S.fxSpark,{fontSize:44}]}>✦ ✨ ✦ ✨ ✦</Text></Animated.View>;
-  else shape=<Animated.View style={[S.fxCenter,{transform:[{scale},{rotate:kind==='ring'?move([0,1],['0deg','360deg']):'0deg'}]}]}><Text style={S.fxIcon}>{gift[0]}</Text></Animated.View>;
-  // All existing gifts use a full-screen animated light stage; no new peacock gift.
-  const beams=Array.from({length:12},(_,i)=><Animated.View key={i} style={{
-    position:'absolute',width:5,height:HEIGHT*.72,borderRadius:9,
-    backgroundColor:i%3===0?'#fbe6aa':i%3===1?'#50e7ee':'#f77ddd',
-    opacity:move([0,.15,.7,1],[0,.55,.4,0]),
-    transform:[{rotate:(i*30)+'deg'},{translateY:move([0,1],[HEIGHT*.55,-HEIGHT*.2])}]
-  }}/>);
-  return <Animated.View pointerEvents="none" style={[S.fxOverlay,{opacity}]}>
-    <Animated.View style={{...StyleSheet.absoluteFillObject,backgroundColor:'#140c3e',
-      opacity:move([0,.12,.6,1],[0,.34,.25,0])}}/>
-    <Animated.View style={[S.fxCenter,{position:'absolute',width:WIDTH*.85,height:WIDTH*.85,
-      borderRadius:WIDTH,borderWidth:9,borderColor:'#49e7fa',
-      opacity:move([0,.2,.7,1],[0,.75,.7,0]),
-      transform:[{scale:move([0,.2,.7,1],[.1,.6,1.6,2.1])}]}]}/>
-    {beams}
-    {shape}
-    <Animated.Text style={[S.fxSpark,{position:'absolute',bottom:'21%',fontSize:35,
-      opacity:glow,transform:[{scale:move([0,.5,1],[.4,1.7,2.1])}]}]}>✦ ✨ ✦ ✧ ✦</Animated.Text>
-    <Animated.Text style={{position:'absolute',bottom:'12%',color:'#fff1c5',
-      fontSize:25,fontWeight:'900',textShadowColor:'#fa61e6',textShadowRadius:18,
-      opacity:move([0,.2,.82,1],[0,1,1,0])}}>{ui(gift[1])}</Animated.Text>
-  </Animated.View>;
-}
+
 
 
 /* Global visual preview: UTC clock drives identical rounds in every room.

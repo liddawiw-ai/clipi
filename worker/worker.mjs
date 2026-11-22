@@ -54,7 +54,7 @@ export default {
     if (env.CLIPI_APP && request.method === 'GET') {
       if (['/', '/room', '/room/'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
       if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
-      if (['/clipi-app.js','/clipi-policy-links.js'].includes(path))return env.CLIPI_APP.fetch(request);
+      if (['/clipi-app.js','/clipi-app.css','/clipi-policy-links.js'].includes(path))return env.CLIPI_APP.fetch(request);
     }
     if (path === '/auth/pi') return piLogin(request,env,json);
     if (path.startsWith('/pi-gifts/')) return piGifts(request, env, json);
