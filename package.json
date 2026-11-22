@@ -37,7 +37,9 @@
     "@livekit/react-native": "2.9.0",
     "@livekit/react-native-expo-plugin": "1.0.1",
     "@livekit/react-native-webrtc": "^137.0.0",
-    "livekit-client": "~2.15.4"
+    "livekit-client": "~2.15.4",
+    "expo-image-picker": "~16.1.4",
+    "expo-file-system": "~18.1.11"
   },
   "devDependencies": {
     "@babel/parser": "^7.26.10",
