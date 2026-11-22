@@ -1,3 +1,4 @@
+import ClipiCollection from './ClipiCollection';
 import {rewardDiamonds} from '../worker/diamond-wallet.mjs';
 import GiftFX from './GiftEffect';
 import {DiamondWallet,walletRead} from './DiamondWallet';
@@ -1281,11 +1282,11 @@ export default function App(){
     </View>)}
   </>,()=>go('earnings'));
 
-  if(page==='store')return layout(ui("المتجر"),<><View style={S.panel}><Text style={S.title}>{ui("أرقام مميزة")}</Text>
-    <Text style={S.gold}>{ui("رصيدك · ")}{visibleNumber?.balance??'…'} 💎</Text>
-    {!!numberError&&<Small title={ui("إعادة تحميل الأرقام")} onPress={()=>numberAction('read')}/>}
-    {visibleNumber?.offers.map(o=><View key={o.number} style={S.shop}><Text style={S.white}>{o.number}</Text><Small title={ui("شراء · ")+fmt(o.cost)+' 💎'} onPress={()=>numberAction('buy',o.number)}/></View>)}
-    {visibleNumber?.owned.map(n=><Small key={n} title={(visibleNumber.number===n?'✓ ':ui("استخدام "))+n} onPress={()=>numberAction('equip',n)}/>)}</View><View style={S.panel}><Text style={S.gold}>{ui("هدية ترحيبية · 💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة")}</Text></View>{GOODS.map((g,i)=><View key={i} style={S.shop}><Text style={{fontSize:25}}>{g[0]}</Text><View style={{flex:1}}><Text style={S.white}>{ui(g[1])}</Text><Text style={S.gold}>{g[2]} 💎</Text></View>{inventory.includes(g[1])?<Small title={equipped[g[3]]===g[1]?ui("إزالة"):ui("تفعيل")} onPress={()=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>:<Small title={ui("شراء")} color={PINK} onPress={()=>buyGood(g)}/>}</View>)}</>);
+  if(page==='store')return <HubScreen title={ui("المتجر")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
+    <ClipiCollection copy={{store:ui("المتجر"),frame:ui("إطارات"),ride:ui("مؤثرات الدخول"),numbers:ui("أرقام مميزة"),owned:ui("مقتنياتي"),buy:ui("شراء"),equip:ui("تفعيل"),remove:ui("إزالة"),retry:ui("إعادة تحميل الأرقام"),translate:ui}}
+      goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
+      onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
+  </HubScreen>;
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
   if(page==='profile')return <HubScreen title={ui('حسابي')}
     action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
@@ -1293,12 +1294,21 @@ export default function App(){
       balance={visibleNumber?.balance} copy={{balance:ui('رصيد الماس'),photo:ui('الصورة الشخصية')}}
       shortcuts={[
         {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
-        {icon:'#',label:ui('أرقام مميزة'),onPress:()=>go('store')},
+        {icon:'#',label:ui('المتجر'),onPress:()=>go('store')},
+
+        {icon:'♫',label:ui("الغرف"),onPress:()=>go('rooms')},
+        {icon:'✦',label:ui("مركز المضيف"),onPress:()=>go('hostCenter')},
       ]}
       settings={[
         {label:ui('تعديل الملف الشخصي'),onPress:()=>go('profileEdit')},
         {label:ui('الإعدادات'),onPress:()=>go('accountSettings')},
       ]}/>
+  </HubScreen>;
+  if(page==='hostCenter')return <HubScreen title={ui("مركز المضيف")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
+    <AccountHub name={name||user?.displayName||ui("مستخدم")} avatar={avatar} number={visibleNumber?.number}
+      balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:ui("غرفي المفتوحة"),photo:ui("الصورة الشخصية")}} unit="♫"
+      shortcuts={[{icon:'＋',label:ui("إنشاء غرفة"),onPress:()=>go('create')},{icon:'◇',label:ui("المحفظة"),onPress:()=>go('wallet')}]}
+      settings={[{label:ui("استعراض الغرف"),onPress:()=>go('rooms')},{label:ui("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='accountSettings'){
     const openPolicy=path=>location.assign(path);

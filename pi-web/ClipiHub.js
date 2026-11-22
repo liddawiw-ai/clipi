@@ -78,20 +78,20 @@ export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, sea
   </>;
 }
 
-export function AccountHub({name, avatar, number, balance, copy, shortcuts, settings}) {
+export function AccountHub({name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
   return <>
     <View style={s.account}>
       <View style={s.identity}>
         {avatar?.startsWith('data:image/')?<Image accessibilityLabel={copy.photo} source={{uri:avatar}} style={s.avatar}/>
         :<View style={s.avatar}><Text style={s.avatarIcon}>{avatar||'👤'}</Text></View>}
         <View style={{flex:1}}>
-          <Text style={s.cardTitle} numberOfLines={2}>{name}</Text>
-          <Text style={s.secondary}>ID · {number??'…'}</Text>
+          <Text style={s.profileName} numberOfLines={2}>{name}</Text>
+          <Text style={s.profileId}>ID · {number??'…'}</Text>
         </View>
       </View>
       <View style={s.balance}>
         <Text style={s.secondary}>{copy.balance}</Text>
-        <Text style={s.balanceValue}>💎 {balance??'…'}</Text>
+        <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View>
     </View>
     <View style={s.shortcuts}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
@@ -150,14 +150,14 @@ const s = StyleSheet.create({
   dockIcon:{color:muted,fontSize:22,lineHeight:27,fontWeight:'700'},
   dockLabel:{color:muted,fontWeight:'600',fontSize:10},
   createIcon:{backgroundColor:'#cdebdc',color:accent,borderRadius:11,minWidth:34,textAlign:'center'},
-  account:{backgroundColor:'#fff',borderRadius:18,padding:14,marginBottom:12},
+  profileName:{color:'#fff6df',fontWeight:'800',fontSize:22},profileId:{color:'#c0ddd2',marginTop:3},account:{backgroundColor:'#173e40',borderRadius:22,padding:19,marginBottom:12},
   identity:{flexDirection:'row',alignItems:'center',gap:11},
-  avatar:{width:58,height:58,borderRadius:18,backgroundColor:'#dceee3',justifyContent:'center',alignItems:'center'},
+  avatar:{width:64,height:64,borderRadius:32,borderWidth:2,borderColor:'#d5ba78',backgroundColor:'#dceee3',justifyContent:'center',alignItems:'center'},
   avatarIcon:{fontSize:28},
   balance:{marginTop:12,borderRadius:12,backgroundColor:'#e6f0e7',padding:11},
   balanceValue:{color:ink,fontWeight:'800',fontSize:18,marginTop:3},
-  shortcuts:{flexDirection:'row',gap:7,marginBottom:12},
-  shortcut:{flex:1,backgroundColor:'#fff',borderRadius:13,padding:9,alignItems:'center',minHeight:66,justifyContent:'center'},
+  shortcuts:{flexDirection:'row',flexWrap:'wrap',gap:7,marginBottom:12},
+  shortcut:{flexGrow:1,flexBasis:'22%',backgroundColor:'#fff',borderRadius:13,padding:9,alignItems:'center',minHeight:66,justifyContent:'center'},
   shortcutIcon:{fontSize:20,color:accent,fontWeight:'800'},
   shortcutLabel:{color:ink,fontSize:11,fontWeight:'700',textAlign:'center'},
   rows:{backgroundColor:'#fff',borderRadius:14,overflow:'hidden',marginBottom:12},
