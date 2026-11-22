@@ -85,6 +85,11 @@ const PAYOUT_WALLETS={
 
 const fmt=x=>Number(x||0).toLocaleString('en-US');
 
+function normalizeRoomPin(value){
+  return value.replace(/[٠-٩]/g,digit=>String(digit.charCodeAt(0)-0x660))
+    .replace(/[۰-۹]/g,digit=>String(digit.charCodeAt(0)-0x6f0)).replace(/[^0-9]/g,'').slice(0,4);
+}
+
 function Btn({title,onPress,color=PINK,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[S.btn,{backgroundColor:disabled?'#666':color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 function Small({title,onPress,color='#295098'}){return <TouchableOpacity onPress={onPress} style={[S.small,{backgroundColor:color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
 
@@ -330,7 +335,7 @@ function RoomMedia(props){
   return <RoomFailureBoundary label="الصوت والفيديو"><RoomMediaSession {...props} runtime={runtime}/></RoomFailureBoundary>;
 }
 
-function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,people,initialMedia,speakerMuted}){
+function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,allMicsLocked,people,initialMedia,speakerMuted}){
   const {AudioSession,LiveKitRoom}=runtime;
   const [credentials,setCredentials]=useState(()=>initialMedia?.canPublish===canPublish?initialMedia:null);
   const firstToken=useRef(credentials);
@@ -373,11 +378,11 @@ function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,s
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false}
     onError={()=>setError('تعذر الاتصال بالبث')}
     onDisconnected={()=>setError('انقطع اتصال البث')}>
-    <ConnectedMedia runtime={runtime} room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests} people={people} lockedSlots={lockedSlots} onSeat={onSeat} speakerMuted={speakerMuted}/>
+    <ConnectedMedia runtime={runtime} room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests} people={people} lockedSlots={lockedSlots} allMicsLocked={allMicsLocked} onSeat={onSeat} speakerMuted={speakerMuted}/>
   </LiveKitRoom>;
 }
 
-function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,people,speakerMuted}){
+function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,allMicsLocked,people,speakerMuted}){
   const {VideoTrack,isTrackReference,useConnectionState,useLocalParticipant,useParticipants,useTracks,ConnectionState,Track}=runtime;
   const state=useConnectionState();
   const {localParticipant,isMicrophoneEnabled,isCameraEnabled}=useLocalParticipant();
@@ -454,9 +459,9 @@ function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,on
         <View style={S.seatGrid}>{Array.from({length:AUDIO_GUEST_SEATS},(_,i)=>{
           const [uid,label]=seats[i]||[];
           const person=participants.find(participant=>participant.identity===uid);
-          return <TouchableOpacity key={i} accessibilityLabel={label||"مقعد متاح"} style={S.seatItem} onPress={event=>onSeat(event,uid,label,i+1,uid===localParticipant.identity?()=>{if(canPublish)void toggle('microphone');else Alert.alert('الميكروفون مكتوم من المضيف')}:null,isMicrophoneEnabled)}>
-          <View style={[S.throne,people.find(p=>p.uid===uid)?.frame===1&&{borderColor:GOLD,borderWidth:3}]}><Text style={{fontSize:23}}>{uid?(person?.isMicrophoneEnabled?'🎙️':'💺'):lockedSlots.includes(i+1)?'🔒':'+'}</Text></View>
-          <Text numberOfLines={1} style={S.tiny}>{label||'متاح'}</Text>
+          return <TouchableOpacity key={i} accessibilityRole="button" accessibilityLabel={label||"مقعد متاح "+(i+1)} style={S.seatItem} onPress={event=>onSeat(event,uid,label,i+1,uid===localParticipant.identity?()=>{if(canPublish)void toggle('microphone');else Alert.alert('الميكروفون مكتوم من المضيف')}:null,isMicrophoneEnabled)}>
+          <View style={[S.throne,people.find(p=>p.uid===uid)?.frame===1&&{borderColor:GOLD,borderWidth:3}]}><Text style={{fontSize:23}}>{uid?(person?.isMicrophoneEnabled?'🎙️':'💺'):(allMicsLocked||lockedSlots.includes(i+1))?'🔒':'+'}</Text></View>
+          <Text numberOfLines={1} style={S.tiny}>{label||i+1}</Text>
         </TouchableOpacity>})}</View></>:
         !camera&&<Text style={mediaStyles.status}>كاميرا المضيف مغلقة</Text>}
     {canPublish&&state===ConnectionState.Connected&&!busy&&!hostMicLocked&&!hostOffSeat&&<View style={mediaStyles.controls}>
@@ -480,7 +485,10 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const audio=room.type==='audio';
   const isHost=room.ownerUid===userId;
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
-  const [pin,setPin]=useState(''),[recipient,setRecipient]=useState(null);
+  const [pin,setPin]=useState('');
+  const [giftTarget,setGiftTarget]=useState(null),[targetProfile,setTargetProfile]=useState(null);
+  const [roomActionPending,setRoomActionPending]=useState(false);
+  const roomActionLock=useRef(false);
   const [roomMenu,setRoomMenu]=useState(null);
   const [closingRoom,setClosingRoom]=useState(false);
   const [speakerMuted,setSpeakerMuted]=useState(false);
@@ -494,7 +502,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   function exitRoomOnce(){if(!exitHandledRef.current){exitHandledRef.current=true;onExit()}}
   const membership=useRoomSession(room.id,username,equipped,entries=>{
     setFxId(v=>v+1);setFx(['🏎️','دخل الغرفة '+entries.map(p=>p.name).join('، '),0,entries.some(p=>p.ride)?'car':'party']);
-  },reason=>{if(closingByHostRef.current){exitRoomOnce();return;}if(exitHandledRef.current)return;Alert.alert('الغرفة',reason);exitRoomOnce()});
+  },reason=>{if(closingByHostRef.current){exitRoomOnce();return;}if(exitHandledRef.current)return;Alert.alert('الغرفة',reason);exitRoomOnce()},avatar);
   const people=membership.state?.people||[];
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
   const self=people.find(p=>p.uid===userId);
@@ -504,6 +512,30 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const act=(op,extra)=>membership.act(op,extra).catch(e=>Alert.alert('الغرفة',e.message));
   const [seatMenu,setSeatMenu]=useState(null);
   const {width:roomWidth,height:roomHeight}=useWindowDimensions();
+  async function updateRoomSettings(settings, close=false){
+    if(roomActionLock.current)return;
+    roomActionLock.current=true;
+    setRoomActionPending(true);
+    try{
+      await membership.act('settings',settings);
+      if(close){setPin('');closeRoomMenu()}
+    }catch(error){Alert.alert("الغرفة",error.message)}
+    finally{roomActionLock.current=false;setRoomActionPending(false)}
+  }
+  function openGifts(uid){
+    Keyboard.dismiss();
+    setGiftTarget(uid&&uid!==userId?uid:null);
+    setTargetProfile(null);
+    setGiftOpen(true);
+  }
+  useEffect(()=>{
+    if(!giftOpen||!giftTarget)return;
+    let active=true;
+    membership.act('giftRecipient',{recipient:giftTarget}).then(profile=>{
+      if(active)setTargetProfile(profile);
+    }).catch(error=>{if(active)Alert.alert("هدية الغرفة",error.message)});
+    return ()=>{active=false};
+  },[giftOpen,giftTarget]);
   function onSeat(event,uid,label,slot,toggleMic,micOn,stepDown,stepUp){
     if(!uid&&!isHost){
       if(!self?.seat)void act('request',{slot});
@@ -512,17 +544,23 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     const person=people.find(p=>p.uid===uid);
     const locked=membership.state?.lockedSlots?.includes(slot);
     const options=[];
-    if(uid===userId&&toggleMic)options.push({text:micOn?'كتم':'تشغيل المايك',disabled:locked,onPress:()=>stepUp?stepUp():toggleMic()});
-    if(isHost&&uid===userId)options.push({text:'إنزال',disabled:!!stepUp,onPress:stepDown});
-    if(isHost&&uid&&uid!==userId)options.push(
-      {text:person?.muted?'إلغاء الكتم':'كتم',onPress:()=>act(person?.muted?'unmute':'mute',{uid})},
-      {text:'إنزال',onPress:()=>act('demote',{uid})});
-    if(isHost)options.push({text:locked?'فتح المايك':'إقفال',onPress:()=>act('slot',{slot,locked:!locked})});
-    if(isHost&&uid)options.push({text:'طرد',onPress:()=>uid===userId?confirmCloseHostedRoom():act('eject',{uid})});
-    if(uid&&uid!==userId)options.push({text:'إرسال هدية',onPress:()=>{setRecipient({uid,name:label});setGiftOpen(true)}});
+    if(isHost){
+      const ownMic=slot===0;
+      const muted=ownMic?!micOn:person?.muted;
+      options.push(
+        {text:uid&&muted?'إلغاء الكتم':'كتم',disabled:!uid||(ownMic&&locked),
+          onPress:()=>ownMic?(stepUp?stepUp():toggleMic()):act(muted?'unmute':'mute',{uid})},
+        {text:'إنزال',disabled:!uid||(ownMic&&!!stepUp),
+          onPress:()=>ownMic?stepDown():act('demote',{uid})},
+        {text:locked?'فتح المايك':'قفل',onPress:()=>act('slot',{slot,locked:!locked})},
+        {text:'طرد',disabled:!uid,onPress:()=>ownMic?confirmCloseHostedRoom():act('eject',{uid})});
+    }else if(uid===userId&&toggleMic){
+      options.push({text:micOn?'كتم':'تشغيل المايك',disabled:locked,onPress:()=>toggleMic()});
+    }
+    options.push({text:'إرسال هدية',disabled:!uid||uid===userId,onPress:()=>openGifts(uid)});
     if(!options.length)return;
     const {pageX,pageY}=event.nativeEvent;
-    setSeatMenu({label:label||String(slot),options,x:pageX??roomWidth/2,y:pageY??80});
+    setSeatMenu({label:label||"المايك"+" "+slot,options,x:pageX??roomWidth/2,y:pageY??80});
   }
   useEffect(()=>{
     const unsub=roomRef.onSnapshot(d=>{
@@ -656,14 +694,14 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
             <RoomOption title="تصغير الغرفة" onPress={()=>{closeRoomMenu();onMinimize()}}/>
             {isHost&&<>
               <RoomOption title="ثيمات الغرفة" onPress={()=>{Keyboard.dismiss();setPin('');setRoomMenu('themes')}}/>
-              <RoomOption title={membership.state?.locked?'🔓 فتح المايكات':'🔒 قفل المايكات'} onPress={()=>act('settings',{locked:!membership.state.locked})}/>
+              <RoomOption title={membership.state?.locked?'🔓 فتح المايكات':'🔒 قفل المايكات'} disabled={roomActionPending} onPress={()=>updateRoomSettings({locked:!membership.state.locked})}/>
               {(audio||requests.length>0)&&<RoomOption title={(stagePanelVisible?'إخفاء طلبات المقاعد':'طلبات المقاعد')+' ('+requests.length+')'} onPress={()=>{closeRoomMenu();setStagePanelVisible(value=>!value)}}/>}
-              <TextInput style={[S.input,{width:'100%'}]} value={pin} secureTextEntry keyboardType="number-pad" maxLength={4} placeholder="رقم سري من أربع خانات" onChangeText={setPin}/>
-              <RoomOption title="حفظ رمز الغرفة" onPress={async()=>{
+              <TextInput style={[S.input,{width:'100%'}]} value={pin} secureTextEntry keyboardType="number-pad" maxLength={4} placeholder="رقم سري من أربع خانات" onChangeText={value=>setPin(normalizeRoomPin(value))}/>
+              <RoomOption title="حفظ رمز الغرفة" disabled={roomActionPending} onPress={()=>{
                 if(!/^[0-9]{4}$/.test(pin))return Alert.alert('أدخل أربعة أرقام');
-                try{await membership.act('settings',{pin});closeRoomMenu()}catch(e){Alert.alert('الغرفة',e.message)}
+                void updateRoomSettings({pin},true)
               }}/>
-              {membership.state?.protected&&<RoomOption title="إلغاء قفل الغرفة" onPress={()=>act('settings',{pin:''})}/>}
+              {membership.state?.protected&&<RoomOption title="إلغاء قفل الغرفة" disabled={roomActionPending} onPress={()=>updateRoomSettings({pin:''},true)}/>}
               <RoomOption title="إغلاق الغرفة للجميع" color="#912c48" onPress={()=>{closeRoomMenu();confirmCloseHostedRoom()}}/>
             </>}
           </>}
@@ -673,15 +711,29 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   </Modal>;
   const selectedTheme=membership.state?.theme;
   const roomTheme=selectedTheme&&selectedTheme!=='default'?selectedTheme:audio?'dunes':null;
-  if(!membership.state)return <View style={S.page}><Text style={S.title}>{room.name}</Text><Text style={S.white}>{membership.error||'جارٍ دخول الغرفة…'}</Text>
-    {membership.pinRequired&&<TextInput style={S.input} value={pin} maxLength={4} keyboardType="number-pad" secureTextEntry onChangeText={setPin} placeholder="رمز الغرفة"/>}
-    {!!membership.error&&<Btn title="دخول" onPress={()=>membership.join(pin)}/>}<Small title="رجوع" onPress={isHost?closeHostedRoom:exitRoomOnce}/></View>;
+  if(!membership.state){
+    const validPin=/^[0-9]{4}$/.test(pin);
+    const submitPin=()=>{if(validPin&&!membership.joining)void membership.join(pin)};
+    return <View style={[S.page,{justifyContent:'center',padding:24}]}>
+      <Text style={S.title}>{room.name}</Text>
+      {membership.pinRequired&&<>
+        <Text style={S.gold}>🔒 {"أدخل رمز الغرفة"}</Text>
+        <TextInput autoFocus accessibilityLabel={"رمز الغرفة"} style={S.input} value={pin} maxLength={4}
+          keyboardType="number-pad" secureTextEntry onChangeText={value=>setPin(normalizeRoomPin(value))}
+          onSubmitEditing={submitPin} placeholder={"رمز الغرفة"}/>
+      </>}
+      <Text accessibilityLiveRegion="polite" style={S.white}>{membership.error||"جارٍ دخول الغرفة…"}</Text>
+      {membership.pinRequired?<Btn title={"دخول"} disabled={!validPin||membership.joining} onPress={submitPin}/>:
+        membership.error&&<Btn title={"دخول"} disabled={membership.joining} onPress={()=>membership.join()}/>}
+      <Small title={"رجوع"} onPress={isHost?closeHostedRoom:exitRoomOnce}/>
+    </View>;
+  }
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?'#102b2a':'#081923'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio&&<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><View style={S.royalGlow}/><Text style={S.bgCrown}>♛</Text><Text style={S.bgOrnament}>✦ ✧ ♛ ✧ ✦</Text></View>}
     {roomTheme&&<Image pointerEvents="none" resizeMode="cover" style={[StyleSheet.absoluteFillObject,{width:'100%',height:'100%'}]} source={{uri:MEDIA_ENDPOINT+'/themes/'+(['palace','aurora','dunes'].includes(roomTheme)?roomTheme+'.jpg':encodeURIComponent(room.id)+'/'+roomTheme)}}/>}
     {audio&&<View pointerEvents="none" style={S.roomThemeShade}/>}
-    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} onSeat={onSeat} speakerMuted={speakerMuted}/></View>}
+    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} allMicsLocked={membership.state.locked} onSeat={onSeat} speakerMuted={speakerMuted}/></View>}
     {seatMenu&&<Modal visible transparent animationType="none" onRequestClose={()=>setSeatMenu(null)}>
       <View style={StyleSheet.absoluteFillObject}>
         <TouchableOpacity accessibilityLabel="إغلاق قائمة المايك" style={StyleSheet.absoluteFillObject} onPress={()=>setSeatMenu(null)}/>
@@ -715,7 +767,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
         </TouchableOpacity>
       </View>
     </View>
-    {audio&&<RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} onSeat={onSeat} speakerMuted={speakerMuted}/>}
+    {audio&&<RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} allMicsLocked={membership.state.locked} onSeat={onSeat} speakerMuted={speakerMuted}/>}
     <View pointerEvents="none" style={{flex:1}}/>
 
     {isHost&&stagePanelVisible&&!keyboardOn&&<ScrollView style={mediaStyles.requests}>
@@ -731,15 +783,19 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={value=>value}
       copy={{title:"صندوق الهدايا",close:"إغلاق",balance:"رصيد الماس",send:"إرسال الهدية",sending:"جارٍ إرسال الهدية"}}
-      recipient={recipient?.name||room.host||"المضيف"} balance={membership.state?.supportBalance}
+      recipient={targetProfile?.name||"اختر مستلمًا للهدية"} recipientAvatar={targetProfile?.avatar}
+      canSend={!!targetProfile&&targetProfile.uid===giftTarget} balance={membership.state?.supportBalance}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{
-          await membership.sendSupport(recipient?.uid||room.ownerUid||room.owner,gift[2],gift[1]);
+          await membership.sendSupport(giftTarget,gift[2],gift[1]);
           setGiftOpen(false);
           setFxId(v=>v+1);setFx(gift);
         }catch(error){Alert.alert("هدية الغرفة",error.message)}
       }}>
-
+      {isHost&&<ScrollView horizontal keyboardShouldPersistTaps="handled">
+        {people.filter(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid)).map(p=>
+          <Small key={p.uid} title={p.name} onPress={()=>openGifts(p.uid)}/>)}
+      </ScrollView>}
     </RoomGiftSheet>}
     {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
       <View style={S.drawerHeader}><Text style={S.gold}>🎁 هدايا تجريبية محلية</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
@@ -779,7 +835,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
           <RoomAction icon="▤" label={chatVisible?"إخفاء الدردشة":"إظهار الدردشة"} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
           <RoomAction icon="🎁" label={"صندوق الهدايا"} active={giftOpen}
-            onPress={()=>{Keyboard.dismiss();setRecipient(null);setGiftOpen(value=>!value)}}/>
+            onPress={()=>giftOpen?setGiftOpen(false):openGifts(isHost?people.find(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid))?.uid:room.ownerUid)}/>
         </>}
       </View>
     </View>

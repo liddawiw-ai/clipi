@@ -1,5 +1,5 @@
 import React, {useRef, useState} from 'react';
-import {Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import {Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 export function RoomAction({icon, label, active, onPress}) {
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
@@ -9,36 +9,39 @@ export function RoomAction({icon, label, active, onPress}) {
   </TouchableOpacity>;
 }
 
-export function RoomOption({title, onPress, color}) {
-  return <TouchableOpacity accessibilityRole="button" style={[s.option,color&&{backgroundColor:color}]} onPress={onPress}>
+export function RoomOption({title, onPress, color, disabled}) {
+  return <TouchableOpacity accessibilityRole="button" disabled={disabled} style={[s.option,color&&{backgroundColor:color},disabled&&s.disabled]} onPress={onPress}>
     <Text style={s.optionText}>{title}</Text>
   </TouchableOpacity>;
 }
 
-export function RoomGiftSheet({visible, gifts, allLabel, translate, copy, recipient, balance, onClose, onSend, children}) {
+export function RoomGiftSheet({visible, gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, canSend=true, onClose, onSend, children}) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.overlay}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
       {visible&&<GiftPanel gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
-        recipient={recipient} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
+        recipient={recipient} recipientAvatar={recipientAvatar} canSend={canSend} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
     </View>
   </Modal>;
 }
 
-function GiftPanel({gifts, allLabel, translate, copy, recipient, balance, onClose, onSend, children}) {
+function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, canSend=true, onClose, onSend, children}) {
   const [category,setCategory]=useState(allLabel);
   const [selected,setSelected]=useState(null);
   const [pending,setPending]=useState(false);
   const sending=useRef(false);
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
   async function send(){
-    if(!selected||sending.current)return;
+    if(!selected||!canSend||sending.current)return;
     sending.current=true;
     setPending(true);
     try{await onSend(selected)}finally{sending.current=false;setPending(false)}
   }
   return <View style={s.sheet}>
     <View style={s.sheetHeading}>
+      {recipientAvatar?.startsWith('data:image/jpeg;base64,')
+        ?<Image accessibilityLabel={recipient} source={{uri:recipientAvatar}} style={{width:44,height:44,borderRadius:22}}/>
+        :<Text accessibilityLabel={recipient} style={{fontSize:27}}>{recipientAvatar||'👤'}</Text>}
       <View style={{flex:1}}>
         <Text accessibilityRole="header" style={s.title}>{copy.title}</Text>
         <Text numberOfLines={1} style={s.sub}>{recipient}</Text>
@@ -63,10 +66,10 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, balance, onClos
     </ScrollView>
     {children}
     <View style={s.footer}>
-      <Text style={s.sub}>{copy.balance} · {balance??'…'} 💎</Text>
-      <TouchableOpacity disabled={!selected||pending} accessibilityRole="button"
-        accessibilityState={{disabled:!selected||pending,busy:pending}}
-        style={[s.send,(!selected||pending)&&s.disabled]} onPress={send}>
+      <Text style={s.sub}>{copy.share&&selected?copy.share(selected[2])+" · ":""}{copy.balance} · {balance??'…'} 💎</Text>
+      <TouchableOpacity disabled={!selected||!canSend||pending} accessibilityRole="button"
+        accessibilityState={{disabled:!selected||!canSend||pending,busy:pending}}
+        style={[s.send,(!selected||!canSend||pending)&&s.disabled]} onPress={send}>
         <Text style={s.sendText}>{pending?copy.sending:copy.send}</Text>
       </TouchableOpacity>
     </View>
