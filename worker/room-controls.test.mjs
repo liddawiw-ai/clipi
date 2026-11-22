@@ -31,6 +31,10 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal(sql.prepare('SELECT count(*) AS n FROM support_gift').get().n,1);
   const rose={recipient:'first',cost:10,gift:'وردة حمراء',nonce:crypto.randomUUID()};
   assert.equal((await call('host','catalogGift',{...rose,cost:1})).status,400);
+  const preview=await call('host','catalogGift',{...rose,recipient:'host'});
+  assert.equal(preview.preview,true);
+  assert.equal(sql.prepare('SELECT count(*) AS n FROM diamond_gift').get().n,0);
+  assert.equal((await call('host','poll')).supportBalance,100000100);
   const sent=await call('host','catalogGift',rose);
   assert.match(sent.chat.at(-1).text,/وردة حمراء/);
   assert.equal(sent.supportBalance,100000090);
