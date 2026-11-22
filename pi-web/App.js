@@ -1,3 +1,4 @@
+import {hostShare} from '../worker/diamond-wallet.mjs';
 import GiftFX from './GiftEffect';
 import {DiamondWallet,walletRead} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
@@ -616,7 +617,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       open={piGiftOpen&&!minimized} close={()=>setPiGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       key={String(paidMode)} gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+(cost>=500?cost/20:0)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:paidMode?(document.documentElement.lang==='ar'?'المشترى':'Purchased'):(document.documentElement.lang==='ar'?'رصيد التفاعل':'Interaction balance'),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+hostShare(cost)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:paidMode?(document.documentElement.lang==='ar'?'المشترى':'Purchased'):(document.documentElement.lang==='ar'?'رصيد التفاعل':'Interaction balance'),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
       recipient={(paidMode?room.host:recipient?.name)||room.host||ui("المضيف")} balance={paidMode?paidBalance:membership.state?.supportBalance}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{

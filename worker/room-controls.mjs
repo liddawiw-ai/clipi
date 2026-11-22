@@ -1,4 +1,4 @@
-import {walletSchema,paidBalance} from './diamond-wallet.mjs';
+import {walletSchema,paidBalance,hostShare} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
@@ -110,7 +110,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='paidGift'){
     const {gift,cost,nonce}=input;
     if(!ownerUid||ownerUid===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
-    const units=cost>=500?cost:0;
+    const units=hostShare(cost)*20;
     await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,ownerUid,gift,cost,units,user,user,cost,room,ownerUid,cutoff).run();
     const sent=await q('SELECT * FROM paid_room_gift WHERE sender=? AND nonce=?',user,nonce).first();
     if(sent?.gift!==gift||sent.room!==room||sent.host!==ownerUid)return json({error:'Purchased diamonds insufficient or host offline'},409);

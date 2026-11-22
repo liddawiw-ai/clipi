@@ -102,7 +102,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call(buyer,'paidGift',support)).status,200);
   assert.equal((await readWallet(q,buyer)).diamonds,0);
   const hostWallet=await readWallet(q,'host');
-  assert.equal(hostWallet.earningsUnits/20,25);
+  assert.equal(hostWallet.earningsUnits/20,0.25);
   assert.equal(hostWallet.history.length,1);
   assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
   const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
@@ -120,4 +120,12 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call('host','settings',{theme:'palace'})).theme,'palace');
   assert.equal((await call('u1','poll')).theme,'palace');
 
+});
+
+test('current and previous Pi pack receipts',async()=>{
+  const {packs,validPack}=await import('./diamond-wallet.mjs');
+  for(const diamonds of packs)assert.equal(validPack({rate:1000,diamonds},diamonds/1000,false),true);
+  assert.equal(validPack({diamonds:1000},100,false),false);
+  assert.equal(validPack({diamonds:1000},100,true),true);
+  assert.equal(validPack({rate:1000,diamonds:100000},1,true),false);
 });

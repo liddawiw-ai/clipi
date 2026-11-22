@@ -1,6 +1,6 @@
 import React,{useState,useEffect,useRef} from 'react';
 import {auth,piSdk} from './services';
-import {packs} from '../worker/diamond-wallet.mjs';
+import {packs,packPrice,diamondsPerPi} from '../worker/diamond-wallet.mjs';
 const label=(ar,en)=>document.documentElement.lang==='ar'?ar:en;
 export async function walletRead(){
   const token=await auth().currentUser.getIdToken();
@@ -45,7 +45,7 @@ export function DiamondWallet({uid}){
       const accessToken=session.accessToken;
       for(const old of pending)await payment('complete',{kind:old.metadata?.kind,roomId:old.metadata?.roomId,paymentId:old.identifier,txid:old.transaction?.txid,accessToken});
       if(pending.length){await refresh();finish(label('تمت مراجعة الدفعة السابقة','Previous payment reconciled'));return}
-      await sdk.createPayment({amount:diamonds/10,memo:'Clipi · '+diamonds+' diamonds',metadata:{kind:'diamond_pack',uid,diamonds}},{
+      await sdk.createPayment({amount:packPrice(diamonds),memo:'Clipi · '+diamonds+' diamonds',metadata:{kind:'diamond_pack',uid,diamonds,rate:diamondsPerPi}},{
         onReadyForServerApproval:id=>payment('approve',{paymentId:id,kind:'diamond_pack',accessToken}).catch(e=>setMessage(e.message)),
         onReadyForServerCompletion:async(id,txid)=>{try{await payment('complete',{paymentId:id,txid,kind:'diamond_pack',accessToken});await refresh();finish(label('تم شحن الماس','Diamonds credited'))}catch(e){finish(e.message)}},
         onCancel:()=>finish(label('أُلغي الدفع','Payment cancelled')),onError:()=>finish(label('تعذر إتمام الشراء','Purchase failed'))
@@ -61,7 +61,7 @@ export function DiamondWallet({uid}){
     <h3>{label('سجل شحن الماس','Diamond credit history')}</h3>
     {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}</p>)}
     <h3>{label('شراء الماس','Buy diamonds')}</h3>
-    {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n} 💎 · {n/10} Pi</button>):<p>{label('ادخل بحساب Pi لشراء الماس','Sign in with Pi to buy diamonds')}</p>}
+    {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} Pi</button>):<p>{label('ادخل بحساب Pi لشراء الماس','Sign in with Pi to buy diamonds')}</p>}
     <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
     {data?.history.map((g,i)=><p key={i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {label('حصة المضيف','Host share')} {g.units/20} Pi · {label('غرفة','Room')} {g.room}</p>)}
   </section>

@@ -1,4 +1,4 @@
-import {packs} from './diamond-wallet.mjs';
+import {validPack} from './diamond-wallet.mjs';
 import {roomStore} from './room-controls.mjs';
 import { gifts } from './gift-catalog.mjs';
 const roomPattern = /^[A-Za-z0-9_-]{1,128}$/;
@@ -89,7 +89,7 @@ export async function piGifts(request, env, json) {
     const product = mainnet && Object.hasOwn(gifts, metadata?.gift) ? gifts[metadata.gift] : null;
     if (!identity.uid || payment.user_uid !== identity.uid || payment.identifier !== paymentId ||
         payment.direction !== 'user_to_app' || payment.network !== (mainnet ? 'Pi Network' : 'Pi Testnet') ||
-        (packRequest ? metadata?.kind!=='diamond_pack'||metadata.uid!=='pi:'+identity.uid||!packs.includes(metadata.diamonds)||payment.amount!==metadata.diamonds/10 :
+        (packRequest ? metadata?.kind!=='diamond_pack'||metadata.uid!=='pi:'+identity.uid||!validPack(metadata,payment.amount,action!=='approve'||payment.status?.developer_approved) :
         metadata?.roomId!==roomId||(mainnet ? !product||payment.amount!==product.amount : payment.amount!==roseAmount||metadata?.gift!=='rose')) ||
         payment.status?.cancelled || payment.status?.user_cancelled) {
       return json({ error: 'Payment does not match the gift' }, 403);

@@ -1,4 +1,11 @@
-export const packs=[10,100,500,1000];
+export const diamondsPerPi=1000;
+export const packs=[1000,2000,4000,8000,16000,32000,64000,100000];
+export const packPrice=n=>n/diamondsPerPi;
+export const hostShare=n=>n>=500?packPrice(n)/2:0;
+export function validPack(metadata,amount,allowLegacy){
+  if(metadata.rate===diamondsPerPi)return packs.includes(metadata.diamonds)&&amount===packPrice(metadata.diamonds);
+  return allowLegacy&&metadata.rate===undefined&&[10,100,500,1000].includes(metadata.diamonds)&&amount===metadata.diamonds/10;
+}
 export const walletSchema=[
   'CREATE TABLE IF NOT EXISTS diamond_checkout(payment TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS diamond_checkout_user ON diamond_checkout(uid)',
@@ -11,7 +18,7 @@ export const walletSchema=[
 // Pi amounts in the ledger use twentieths of Pi (one half of a diamond).
 export const paidBalance='(SELECT COALESCE(SUM(diamonds),0) FROM diamond_purchase WHERE uid=?) - (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE sender=?)';
 export async function readWallet(q,uid){
-  const totals=await q(`SELECT ${paidBalance} AS diamonds,(SELECT COALESCE(SUM(hostUnits),0) FROM paid_room_gift WHERE host=?) AS earningsUnits`,uid,uid,uid).first();
+  const totals=await q(`SELECT ${paidBalance} AS diamonds,(SELECT COALESCE(SUM(CAST(ROUND(hostUnits*100) AS INTEGER)),0)/100.0 FROM paid_room_gift WHERE host=?) AS earningsUnits`,uid,uid,uid).first();
   const history=await q(`SELECT gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
   const purchases=await q('SELECT payment,diamonds FROM diamond_purchase WHERE uid=? ORDER BY rowid DESC LIMIT 30',uid).all();
   const pending=await q('SELECT c.payment FROM diamond_checkout c LEFT JOIN diamond_purchase p ON p.payment=c.payment WHERE c.uid=? AND p.payment IS NULL ORDER BY c.rowid DESC LIMIT 30',uid).all();
