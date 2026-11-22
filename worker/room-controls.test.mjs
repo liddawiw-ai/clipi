@@ -117,8 +117,15 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const dto={identifier:id,user_uid:'buyer',direction:'user_to_app',network:'Pi Network',amount:50,metadata:{kind:'diamond_pack',diamonds:500,uid:buyer},status:{developer_approved:true,developer_completed:true,transaction_verified:true},transaction:{txid}};
   const originalFetch=globalThis.fetch;
   try{
-    globalThis.fetch=async url=>Response.json(url.endsWith('/me')?{uid:'buyer'}:dto);
+    let currentBuyer='buyer';
+    globalThis.fetch=async url=>Response.json(url.endsWith('/me')?{uid:currentBuyer}:dto);
     const complete=(action='complete')=>piGifts(new Request('https://example.test/pi-gifts/'+action,{method:'POST',body:JSON.stringify({kind:'diamond_pack',paymentId:id,accessToken:'mock',txid:action==='complete'?txid:undefined})}),{PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'mock',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
+    currentBuyer='someone-else';
+    assert.equal((await complete('approve')).status,403);
+    assert.equal((await readWallet(q,'pi:someone-else')).diamonds,0);
+    currentBuyer='buyer';
+    const direct=await piGifts(new Request('https://example.test/pi-gifts/approve',{method:'POST',body:JSON.stringify({paymentId:id})}),{PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'mock',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
+    assert.equal(direct.status,409);
     dto.amount=1;assert.equal((await complete()).status,403);
     dto.amount=50;
     assert.equal((await complete('approve')).approved,true);
@@ -147,6 +154,17 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal(cumulative.progress,0);
   assert.equal(cumulative.earningsUnits/20,0.25);
   assert.equal(hostWallet.history.length,1);
+  const second='pi:second-buyer';
+  await call(second,'join');
+  sql.prepare('INSERT INTO diamond_purchase VALUES(?,?,?,?)').run('second-pack',second,1000,'second-tx');
+  assert.equal((await call(second,'paidGift',{gift:'وردة حمراء',cost:10,nonce:crypto.randomUUID()})).status,200);
+  assert.equal((await readWallet(q,second,'host')).diamonds,990);
+  assert.equal((await readWallet(q,second,'host')).ownerBox,undefined);
+  const ownerWallet=await readWallet(q,'host','host');
+  assert.equal(ownerWallet.progress,10);
+  assert.equal(ownerWallet.receivedDiamonds,20510);
+  assert.equal(ownerWallet.ownerBox.sold,1500);
+  assert.equal((await readWallet(q,buyer)).diamonds,0);
   assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
   const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
   const standard=await numbers('buyer','read');

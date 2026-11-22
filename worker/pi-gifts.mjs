@@ -12,7 +12,7 @@ export async function piGifts(request, env, json) {
   if ((!mainnet && env.PI_GIFTS_TESTNET !== '1') || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
     return json({ error: 'Gift payments unavailable' }, 503);
   }
-  if (mainnet && action === 'catalog' && request.method === 'GET') return json({gifts, paused:false, destination:'app_wallet'});
+  if (mainnet && action === 'catalog' && request.method === 'GET') return json({gifts:{}, paused:true});
   const authorization = request.headers.get('Authorization') ?? '';
   async function upstream(stage, url, options) {
     let status;
@@ -28,7 +28,6 @@ export async function piGifts(request, env, json) {
       throw error;
     }
   }
-  let ownerUid;
   async function openRoom(roomId) {
     if (!roomPattern.test(roomId ?? '') || !authorization.startsWith('Bearer ')) return false;
     const project = encodeURIComponent(env.FIREBASE_PROJECT_ID ?? '');
@@ -36,7 +35,6 @@ export async function piGifts(request, env, json) {
       headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000),
     });
     if(room?.fields?.status?.stringValue!=='open')return false;
-    ownerUid=room.fields.ownerUid?.stringValue;
     if(mainnet){
       const db=await roomStore(env.PI_GIFTS_DB);
       const claims=JSON.parse(atob(authorization.slice(7).split('.')[1].replaceAll('-','+').replaceAll('_','/')));
@@ -75,6 +73,7 @@ export async function piGifts(request, env, json) {
     const { paymentId, accessToken, roomId } = input ?? {};
     let txid=input?.txid;
     const packRequest=mainnet&&input.kind==='diamond_pack';
+    if(mainnet&&!packRequest&&action==='approve')return json({error:'Gifts require purchased diamonds'},409);
     if(action==='restore'&&!packRequest)return json({error:'Diamond purchases only'},400);
     if (typeof paymentId !== 'string' || !identifierPattern.test(paymentId) ||
         (!packRequest && (typeof roomId !== 'string' || !roomPattern.test(roomId))) ||
@@ -95,13 +94,6 @@ export async function piGifts(request, env, json) {
       return json({ error: 'Payment does not match the gift' }, 403);
     }
     if (action === 'approve') {
-      if(!packRequest && mainnet && metadata.destination!=='app_wallet')return json({error:'Review the payment destination in the current gift panel'},409);
-      if(!packRequest && mainnet && metadata.recipientUid){
-        const db=await roomStore(env.PI_GIFTS_DB);
-        const recipient=await db('SELECT name FROM room_member WHERE room=? AND uid=? AND (seat=1 OR uid=?) AND banned=0 AND seen>=?',roomId,metadata.recipientUid,ownerUid||'',Math.floor(Date.now()/1000)-90).first();
-        if(!recipient)return json({error:'المستلم غادر المقعد'},409);
-        await db('INSERT INTO room_gift_target(payment,uid,name) VALUES(?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,metadata.recipientUid,recipient.name).run();
-      }
       if(packRequest){
         const q=await roomStore(env.PI_GIFTS_DB);
         await q('INSERT OR IGNORE INTO diamond_checkout(payment,uid) VALUES(?,?)',paymentId,'pi:'+identity.uid).run();

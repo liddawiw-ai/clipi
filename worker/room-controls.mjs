@@ -144,7 +144,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
     await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,ownerUid,gift,cost,0,user,user,cost,room,ownerUid,cutoff).run();
     const sent=await q('SELECT * FROM paid_room_gift WHERE sender=? AND nonce=?',user,nonce).first();
-    if(sent?.gift!==gift||sent.room!==room||sent.host!==ownerUid)return json({error:'Purchased diamonds insufficient or host offline'},409);
+    if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==ownerUid)return json({error:'Purchased diamonds insufficient or host offline'},409);
   }
   if(op==='supportGift'||op==='catalogGift'){
     const {cost,recipient,nonce}=input;

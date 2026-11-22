@@ -41,7 +41,7 @@ export function DiamondWallet({uid}){
     const finish=text=>{lock.current=false;setBusy(false);setMessage(text)};
     try{
       const sdk=piSdk(),pending=[];
-      const session=await sdk.authenticate(['username','payments'],p=>pending.push(p));
+      const session=await sdk.authenticate(['username','payments'],p=>{if(p.transaction?.txid)pending.push(p)});
       if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
       const accessToken=session.accessToken;
       for(const old of pending)await payment('complete',{kind:old.metadata?.kind,roomId:old.metadata?.roomId,paymentId:old.identifier,txid:old.transaction?.txid,accessToken});
@@ -57,7 +57,13 @@ export function DiamondWallet({uid}){
     <BalanceCard icon="💎" tone="sky" label={label('الماس المشترى','Purchased diamonds')} value={data?.diamonds??'…'} action={label('شحن','Top up')} onPress={()=>document.getElementById('clipi-packs')?.scrollIntoView({block:'start'})}/>
     <BalanceCard icon="✦" tone="sand" label={label('مكافآت المضيف','Host rewards')} value={(data?data.rewardPi:'…')+' PI'}/>
     <BalanceCard icon="♡" tone="rose" label={label('التقدم نحو المكافأة التالية','Progress toward the next reward')} value={(data?.progress??'…')+' / 10,000 💎'}/>
-    <p>{label('عندما يجمع المضيف 10,000 ماسة دعم، تُرسل له مكافأة قدرها 5 PI إلى محفظته.','For every 10,000 support diamonds a host collects, their Clipi wallet is credited with a 5 PI reward.')}</p>
+    <p>{label('كل 10,000 ماسة هدايا تُسجّل للمضيف مكافأة قدرها 5 PI داخل كليبي.','Every 10,000 gift diamonds records a 5 PI host reward in Clipi.')}</p>
+    <p>{label('إجمالي ماس الهدايا المستلم','Total gift diamonds received')} · {data?.receivedDiamonds??'…'} 💎</p>
+    {data?.ownerBox&&<section aria-label={label('صندوق ماس المالك','Owner diamond box')}>
+      <h3>{label('صندوق ماس المالك','Owner diamond box')}</h3>
+      <BalanceCard icon="💎" tone="sky" label={label('الماس المشحون للمستخدمين','Diamonds credited to buyers')} value={data.ownerBox.sold}/>
+      <BalanceCard icon="◇" tone="sand" label={label('الماس المستخدم في الهدايا','Diamonds spent on gifts')} value={data.ownerBox.gifted}/>
+    </section>}
     {!!data?.earningsUnits&&<p>{label('رصيد سابق محفوظ','Previous recorded balance')} · {data.earningsUnits/20} PI</p>}
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
     {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة PI','PI payment ID')} placeholder={label('معرّف دفعة PI (اختياري)','PI payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
