@@ -20,7 +20,8 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
       }
       throw Error(ui(data.error)||ui("تعذّر الاتصال بالغرفة"));
     }
-    if(op==='giftRecipient')return data.recipient;
+    if(op==='giftRecipient')return data;
+    if(op==='paidGift')return data.receipt;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
     const newKeys=new Set(data.people.map(p=>p.uid+'/'+p.joined));

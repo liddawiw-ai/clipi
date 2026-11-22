@@ -73,7 +73,7 @@ export async function piGifts(request, env, json) {
     const { paymentId, accessToken, roomId } = input ?? {};
     let txid=input?.txid;
     const packRequest=mainnet&&input.kind==='diamond_pack';
-    if(mainnet&&!packRequest&&action==='approve')return json({error:'Gifts require purchased diamonds'},409);
+    if(!packRequest&&action==='approve')return json({error:'Gifts require purchased diamonds'},409);
     if(action==='restore'&&!packRequest)return json({error:'Diamond purchases only'},400);
     if (typeof paymentId !== 'string' || !identifierPattern.test(paymentId) ||
         (!packRequest && (typeof roomId !== 'string' || !roomPattern.test(roomId))) ||

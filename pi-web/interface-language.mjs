@@ -1,6 +1,10 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "بانتظار صعود مستلم على المايك": "Waiting for a recipient to take a microphone",
+  "أُضيفت الهدية إلى هدف": "Gift credited to the goal of",
+  "تعذّر تأكيد الهدية. أعد المحاولة.": "Gift confirmation unavailable. Retry to check this gift.",
+  "رصيد الماس المشترى غير كافٍ": "Insufficient purchased diamonds",
   "المايك": "Microphone",
   "قفل": "Lock",
   "كتم": "Mute",

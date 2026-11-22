@@ -17,8 +17,23 @@ export function DiamondWallet({uid}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
   const lock=useRef(false);
-  async function refresh(){const snapshot=await walletRead();if(auth().currentUser?.uid===uid)setData(snapshot)}
-  useEffect(()=>{refresh().catch(e=>setMessage(e.message))},[uid]);
+  const revision=useRef(0);
+  async function refresh(){
+    const ticket=++revision.current;
+    const snapshot=await walletRead();
+    if(ticket===revision.current&&auth().currentUser?.uid===uid)setData(snapshot);
+  }
+  useEffect(()=>{
+    let active=true,timer;
+    async function sync(){
+      if(!active||document.hidden)return;
+      try{await refresh()}catch(error){if(active)setMessage(error.message)}
+    }
+    void sync();
+    timer=setInterval(sync,15000);
+    document.addEventListener('visibilitychange',sync);
+    return ()=>{active=false;revision.current++;clearInterval(timer);document.removeEventListener('visibilitychange',sync)};
+  },[uid]);
   async function restore(){
     if(lock.current)return;
     lock.current=true;setBusy(true);setMessage('');
@@ -56,7 +71,7 @@ export function DiamondWallet({uid}){
   return <section className="clipi-wallet-cards" dir="auto">
     <BalanceCard icon="💎" tone="sky" label={label('الماس المشترى','Purchased diamonds')} value={data?.diamonds??'…'} action={label('شحن','Top up')} onPress={()=>document.getElementById('clipi-packs')?.scrollIntoView({block:'start'})}/>
     <BalanceCard icon="✦" tone="sand" label={label('مكافآت المضيف','Host rewards')} value={(data?data.rewardPi:'…')+' PI'}/>
-    <BalanceCard icon="♡" tone="rose" label={label('التقدم نحو المكافأة التالية','Progress toward the next reward')} value={(data?.progress??'…')+' / 10,000 💎'}/>
+    <BalanceCard icon="♡" tone="rose" label={label('هدف ماس الهدايا','Gift diamond goal')} value={(data?.progress??'…')+' / 10,000 💎'}/>
     <p>{label('كل 10,000 ماسة هدايا تُسجّل للمضيف مكافأة قدرها 5 PI داخل كليبي.','Every 10,000 gift diamonds records a 5 PI host reward in Clipi.')}</p>
     <p>{label('إجمالي ماس الهدايا المستلم','Total gift diamonds received')} · {data?.receivedDiamonds??'…'} 💎</p>
     {data?.ownerBox&&<section aria-label={label('صندوق ماس المالك','Owner diamond box')}>

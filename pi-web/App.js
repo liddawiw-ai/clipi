@@ -1,9 +1,8 @@
 import {brandIcon} from './clipi-brand.mjs';
 import {LoginCover,RoomStudio,BalanceCard} from './ClipiSurfaces';
 import ClipiCollection from './ClipiCollection';
-import {rewardDiamonds} from '../worker/diamond-wallet.mjs';
 import GiftFX from './GiftEffect';
-import {DiamondWallet,walletRead} from './DiamondWallet';
+import {DiamondWallet} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
@@ -30,10 +29,7 @@ const SHOW_UNRELEASED_DEMOS=__DEV__;
 // Initialize Firestore only when an authenticated feature needs it.
 // ضع Web OAuth Client ID من Firebase/Google Cloud بعد تفعيل Google.
 const GIFTS=[["🌹","وردة حمراء",10,"rose","رومانسي"],["💙","وردة زرقاء",30,"rose","رومانسي"],["💖","قلب",50,"heart","رومانسي"],["🫶","قلب الأصابع",100,"heart","رومانسي"],["💋","قبلة",150,"kiss","رومانسي"],["💞","أحبك",200,"heart","رومانسي"],["💘","قفل الحب",80,"heart","رومانسي"],["👏","تصفيق",5,"clap","تفاعل"],["🍭","مصاص",100,"candy","تفاعل"],["🧊","برودة الصيف",105,"ice","تفاعل"],["🔥","نسر ناري",120,"phoenix","تفاعل"],["🎂","كيكة",100,"cake","تفاعل"],["🍰","كعكة ماكرون",150,"cake","تفاعل"],["🧸","دبدوب",300,"bear","تفاعل"],["🎁","صندوق الكنز",100,"treasure","تفاعل"],["💰","حقيبة ذهبية",500,"gold","تفاعل"],["🪄","صولجان",2000,"magic","فاخر"],["👑","تاج الجواهر",60,"crown","فاخر"],["👑","تاج ملكي",5000,"crown","فاخر"],["👑","التاج الأعلى",5000,"crown","فاخر"],["💍","خاتم",500,"ring","فاخر"],["🧚","مرافقة مدى الحياة",190000,"fairy","فاخر"],["🏰","قصر",10000,"castle","فاخر"],["🗼","صاروخ أعلى",10000,"rocket","فاخر"],["🛸","مركبة فضائية",3000,"spaceship","مركبات"],["🚁","مروحية الماس",9990,"helicopter","مركبات"],["✈️","الطائرات الماسية",19990,"plane","مركبات"],["🚀","هدية الصاروخ",100,"rocket","مركبات"],["🚀","صاروخ",2500,"rocket","مركبات"],["🏎️","سيارة سباق ذهبية",1000,"car","مركبات"],["🚙","سيارة لينكولن بيضاء",7000,"car","مركبات"],["🚘","رولز رويس الماسية",19990,"car","مركبات"],["🏎️","سيارة فاخرة",1000,"car","مركبات"],["🐉","تنين ذهبي",25000,"dragon","أسطوري"],["🦅","نسر",120,"phoenix","أسطوري"],["🤖","روبوت خارق",1000,"robot","أسطوري"],["🐈‍⬛","قطة تحت النجوم",500,"cat","أسطوري"],["🦆","بطة ساحرة",300,"duck","أسطوري"],["🐹","Capybara",1000,"animal","أسطوري"],["🎊","Happy",3000,"party","تفاعل"],["🎉","حفلة البخت",50000,"party","فاخر"],["🌸","أزهار الكرز",200,"flower","رومانسي"],["🌺","زهرة بيضاء",200,"flower","رومانسي"],["🍓","عصير فواكه",100,"fruit","تفاعل"],["🌵","نرقص سويا",300,"dance","تفاعل"],["🔫","مسدس الماء",1700,"water","تفاعل"],["💸","طابع الأموال",1350,"money","فاخر"],["🪙","نيزك",10,"meteor","تفاعل"],["🧑‍🚀","مسافر الفضاء",2000,"space","مركبات"],["🐑","غنم",2000,"animal","أسطوري"],["🏳️","علم",50,"flag","تفاعل"],["🍽️","طاولة الوجبات",50,"dinner","تفاعل"],["🎀","حزمة حمراء",100,"bundle","تفاعل"],["🧁","Pistachio",20,"candy","تفاعل"],["💐","باقة ورد",500,"flower","رومانسي"],["🧴","عطر",50,"perfume","رومانسي"],["🎸","سيجارة",50,"smoke","تفاعل"],["🪅","علم الوطن",50,"flag","تفاعل"],["🦋","فراشة لامعة",500,"butterfly","أسطوري"],["💎","نيرز",10,"gem","تفاعل"]];
-const LUCK_GIFTS=[['🌌','بوابة النجوم',100,'space','الحظ'],['🔮','بلورة المصير',300,'magic','الحظ'],['🌠','شهاب الأمنيات',500,'meteor','الحظ'],['🪐','مدار الكواكب',1000,'space','الحظ']];
-const LUCK_ODDS=Object.freeze({noBonus:60,small:25,medium:12,grand:3});
 // Decorative luck previews only: no paid stakes, prizes, points, wallet changes or cash value.
-const GIFT_CATEGORIES=['الكل','الحظ','رومانسي','تفاعل','فاخر','مركبات','أسطوري'];
 const GOODS=[['👑','👑 إطار فاخر',0,'frame'],['🏎️','🏎️ دخول سيارة فاخرة',0,'ride'],['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
 const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
 const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
@@ -382,7 +378,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',alignSelf:'flex-end',gap:6,marginHorizontal:8},
 });
 
-function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,minimized}){
+function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,minimized}){
   const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
@@ -397,10 +393,11 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const inviteUrl=roomInvitationUrl(location.origin,room.id);
   const [closingRoom,setClosingRoom]=useState(false);
   const [speakerMuted,setSpeakerMuted]=useState(false);
-  const [giftCategory,setGiftCategory]=useState('الكل');
-  const [giftQuantity,setGiftQuantity]=useState(1);
+  const [giftNotice,setGiftNotice]=useState('');
+  const [giftIssue,setGiftIssue]=useState('');
+  const [lookupAttempt,retryLookup]=useState(0);
   const [paidBalance,setPaidBalance]=useState(null);
-  const paidNonce=useRef(null);
+  const paidNonce=useRef(null),giftSending=useRef(false);
   const [giftTarget,setGiftTarget]=useState(null);
   const [targetProfile,setTargetProfile]=useState(null);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
@@ -433,18 +430,50 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   }
   function openGifts(uid){
     Keyboard.dismiss();
-    setGiftTarget(uid&&uid!==userId?uid:null);
     setTargetProfile(null);
+    setPaidBalance(null);
+    setGiftIssue('');
+    setGiftNotice('');
+    setGiftTarget(uid&&uid!==userId?uid:null);
+    retryLookup(v=>v+1);
     setGiftOpen(true);
   }
+  const giftPeople=people.filter(person=>person.uid!==userId&&!blocked.includes(person.uid)&&
+    (person.uid===room.ownerUid||person.seat>0));
+  const selectedPresent=giftPeople.some(person=>person.uid===giftTarget);
   useEffect(()=>{
-    if(!giftOpen||!giftTarget)return;
+    if(!giftOpen||!selectedPresent)return;
     let active=true;
-    membership.act('giftRecipient',{recipient:giftTarget}).then(profile=>{
-      if(active)setTargetProfile(profile);
-    }).catch(error=>{if(active)Alert.alert(ui("هدية الغرفة"),ui(error.message))});
+    membership.act('giftRecipient',{recipient:giftTarget}).then(data=>{
+      if(active){
+        setTargetProfile(data.recipient);
+        setPaidBalance(data.senderDiamonds);
+      }
+    }).catch(error=>{if(active)setGiftIssue(error.message)});
     return ()=>{active=false};
-  },[giftOpen,giftTarget]);
+  },[giftOpen,giftTarget,selectedPresent,lookupAttempt]);
+  useEffect(()=>{
+    if(!giftNotice)return;
+    const timer=setTimeout(()=>setGiftNotice(''),6500);
+    return ()=>clearTimeout(timer);
+  },[giftNotice]);
+  async function sendRoomGift(gift){
+    if(giftSending.current||!selectedPresent||targetProfile?.uid!==giftTarget||roomClosedRef.current)return;
+    const key=JSON.stringify([room.id,giftTarget,gift[1]]);
+    if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:crypto.randomUUID()};
+    const nonce=paidNonce.current.nonce;
+    giftSending.current=true;
+    try{
+      const receipt=await membership.act('paidGift',{recipient:giftTarget,nonce,gift:gift[1],cost:gift[2]});
+      if(receipt?.nonce!==nonce||receipt.recipient!==giftTarget||receipt.diamonds!==gift[2]||receipt.gift!==gift[1]){
+        throw Error(ui("تعذّر تأكيد الهدية. أعد المحاولة."));
+      }
+      paidNonce.current=null;
+      setGiftOpen(false);
+      setGiftNotice(ui("أُضيفت الهدية إلى هدف")+' '+targetProfile.name+' · '+fmt(receipt.diamonds)+' 💎');
+      setFxId(v=>v+1);setFx(gift);
+    }catch(error){setGiftIssue(error.message)}finally{giftSending.current=false}
+  }
   function onSeat(event,uid,label,slot,toggleMic,micOn,stepDown,stepUp){
     if(!uid&&!isHost){
       if(!self?.seat)void act('request',{slot});
@@ -531,24 +560,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     }catch(e){Alert.alert(ui("تعذر إرسال الرسالة"),e.message)}
     finally{sendingRef.current=false;setSending(false)}
   }
-  function send(gift){
-    if(roomClosedRef.current)return Alert.alert(ui("الغرفة مغلقة"),ui("لا يمكن إرسال هدايا بعد إغلاق الغرفة"));
-    if(!Array.isArray(gift)||!Number.isSafeInteger(gift[2])||gift[2]<=0)return Alert.alert(ui("هدية غير صالحة"));
-    if(gift[4]==='الحظ'){
-      const roll=Math.random()*100;
-      const outcome=roll<LUCK_ODDS.grand?'grand':roll<LUCK_ODDS.grand+LUCK_ODDS.medium?'medium':roll<LUCK_ODDS.grand+LUCK_ODDS.medium+LUCK_ODDS.small?'small':'none';
-      const title=outcome==='grand'?'✨ تأثير أسطوري':outcome==='medium'?'🌟 تأثير مميز':outcome==='small'?'⭐ تأثير بسيط':'🌙 لا توجد مكافأة';
-      if(outcome!=='none'){setFxId(v=>v+1);setFx(gift)}
-      Alert.alert('تجربة الحظ',title+' — سياسة التوزيع عند تفعيل الهدايا المدفوعة: 55% للمضيف، 10% للوكيل، 35% للمالك من النقاط المؤهلة، سواء فاز المرسل أو خسر. هذه معاينة فقط؛ لا خصم أو نقاط فعلية الآن.');
-      setGiftOpen(false);return;
-    }
-    if(!Number.isSafeInteger(gift[2]*giftQuantity)||giftQuantity<1)return Alert.alert(ui("عدد هدايا غير صالح"));
-    if(diamonds<gift[2]*giftQuantity)return Alert.alert(ui("رصيد غير كافٍ"));
-    // Host may send a local preview gift to their own room.
-    // Self-gifts never mint cash-eligible earnings or support points.
-    if(!onSendGift([gift[0],gift[1],gift[2]*giftQuantity,gift[3]],room))return;
-    setGiftOpen(false);setFxId(v=>v+1);setFx(gift);
-  }
   async function closeHostedRoom(){
     if(!isHost||!room?.id||closingRoom)return;
     setClosingRoom(true);
@@ -573,7 +584,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     setPin('');
     setRoomMenu(null);
   }
-  useEffect(()=>{let live=true;if(giftOpen)walletRead().then(w=>{if(live)setPaidBalance(w.diamonds)}).catch(()=>{if(live)setPaidBalance(null)});return ()=>{live=false}},[giftOpen]);
   function goBackFromRoomMenu(){
     if(roomMenu==='themes')setRoomMenu('settings');
     else closeRoomMenu();
@@ -710,45 +720,22 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
     </ScrollView>}
     {!keyboardOn&&<View style={S.actions}><Small title="🌍 Greedy Star" color="#0c9b69" onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGlobalGameOpen(true);onMinimize()}}/><Text style={S.tiny}>{isHost?ui("👑 أنت مضيف الغرفة"):ui("👤 أنت مشاهد")} · {audio?ui("غرفة صوتية"):ui("غرفة فيديو")}</Text></View>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
+    <RoomGiftSheet visible={giftOpen&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{share:cost=>(document.documentElement.lang==='ar'?'للمكافأة ':'Reward progress ')+rewardDiamonds(cost)+' 💎',
-        title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
-      recipient={targetProfile?.name||ui("اختر مستلمًا للهدية")} recipientAvatar={targetProfile?.avatar} balance={paidBalance} canSend={targetProfile?.uid===giftTarget&&paidBalance!==null}
-      onClose={()=>setGiftOpen(false)} onSend={async gift=>{
-        try{
-          if(!targetProfile||targetProfile.uid!==giftTarget)return;
-          const key=JSON.stringify([room.id,giftTarget,gift[1]]);
-          if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:crypto.randomUUID()};
-          await membership.act('paidGift',{recipient:giftTarget,nonce:paidNonce.current.nonce,gift:gift[1],cost:gift[2]});
-          paidNonce.current=null;
-          setGiftOpen(false);
-          setFxId(v=>v+1);setFx(gift);
-        }catch(error){Alert.alert(ui("هدية الغرفة"),ui(error.message))}
-      }}>
-      {isHost&&<ScrollView horizontal keyboardShouldPersistTaps="handled">
-        {people.filter(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid)).map(p=><Small key={p.uid} title={p.name} onPress={()=>{if(p.uid!==giftTarget)openGifts(p.uid)}}/>)}
+      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      recipient={selectedPresent?(targetProfile?.name||giftPeople.find(p=>p.uid===giftTarget)?.name):ui("اختر مستلمًا للهدية")}
+      recipientAvatar={selectedPresent?targetProfile?.avatar:null} balance={paidBalance}
+      canSend={selectedPresent&&targetProfile?.uid===giftTarget&&Number.isSafeInteger(paidBalance)}
+      onClose={()=>setGiftOpen(false)} onSend={sendRoomGift}>
+      {giftPeople.length>1&&<ScrollView horizontal style={{flexGrow:0}} keyboardShouldPersistTaps="handled">
+        {giftPeople.map(person=><Small key={person.uid} title={person.name} onPress={()=>openGifts(person.uid)}/>)}
       </ScrollView>}
+      {!selectedPresent&&<Text style={S.white}>{giftPeople.length?ui("اختر مستلمًا للهدية"):ui("بانتظار صعود مستلم على المايك")}</Text>}
+      {!!giftIssue&&<View><Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>
+        {!targetProfile&&selectedPresent&&<Small title={ui("إعادة المحاولة")} onPress={()=>openGifts(giftTarget)}/>}</View>}
       <Small title={ui("المحفظة")} onPress={()=>{setGiftOpen(false);onWallet()}}/>
-    </RoomGiftSheet>}
-    {SHOW_UNRELEASED_DEMOS&&giftOpen&&!keyboardOn&&<View style={S.giftDrawer}>
-      <View style={S.drawerHeader}><Text style={S.gold}>🎁 هدايا تجريبية محلية</Text><Text style={S.gold}>💎 {fmt(diamonds)}</Text><TouchableOpacity onPress={()=>setGiftOpen(false)}><Text style={S.white}>✕</Text></TouchableOpacity></View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{maxHeight:46}} contentContainerStyle={{alignItems:'center',paddingHorizontal:8}}>
-        {GIFT_CATEGORIES.map(c=><TouchableOpacity key={c} onPress={()=>setGiftCategory(c)} style={{paddingHorizontal:12,paddingVertical:8,borderRadius:18,marginRight:6,backgroundColor:giftCategory===c?'#6f3db1':'#26123d'}}>
-          <Text style={{color:giftCategory===c?'#fff2a6':'white',fontWeight:'700'}}>{c}</Text></TouchableOpacity>)}
-      </ScrollView>
-      {giftCategory==='الحظ'&&<Text style={[S.muted,{paddingHorizontal:12}]}>تجربة مؤثرات فقط: 60% بلا مكافأة، 25% بسيط، 12% مميز، 3% أسطوري. عند التفعيل المستقبلي لا تتغير حصة المضيف أو الوكيل أو المالك بنتيجة الحظ. لا خصم أو أرباح فعلية الآن.</Text>}
-      <ScrollView keyboardShouldPersistTaps="always" contentContainerStyle={S.giftGrid}>
-        {[...GIFTS,...LUCK_GIFTS].filter(g=>giftCategory==='الكل'||g[4]===giftCategory).map((g,i)=><TouchableOpacity key={g[1]+i} style={S.giftTile} onPress={()=>send(g)}>
-          <Text style={{fontSize:35,textShadowColor:'#e0b5ff',textShadowRadius:12}}>{g[0]}</Text>
-          <Text numberOfLines={2} style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[4]==='الحظ'?'🎲 تجربة مجانية':'💎 '+fmt(g[2]*giftQuantity)}</Text>
-        </TouchableOpacity>)}
-      </ScrollView>
-      <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'center',paddingVertical:8,backgroundColor:'#261438'}}>
-        <Text style={S.gold}>العدد</Text>
-        {[1,7,17,37,77].map(n=><TouchableOpacity key={n} onPress={()=>setGiftQuantity(n)} style={{backgroundColor:giftQuantity===n?'#8655d2':'#37234d',borderRadius:16,paddingHorizontal:10,paddingVertical:7}}><Text style={S.white}>{n}</Text></TouchableOpacity>)}
-      </View>
-    </View>}
+    </RoomGiftSheet>
+    {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
     <View style={S.roomBottom}>
       {!audio&&!keyboardOn&&<View style={S.roomSeatAction}>{stagePanel()}</View>}
       <View style={S.roomDock}>
@@ -768,9 +755,9 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
             active={!speakerMuted} onPress={()=>setSpeakerMuted(value=>!value)}/>
           <RoomAction icon="▤" label={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
-          <RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen}
-            onPress={()=>giftOpen?setGiftOpen(false):openGifts(isHost?people.find(p=>p.seat&&p.uid!==userId&&!blocked.includes(p.uid))?.uid:room.ownerUid)}/>
         </>}
+        <RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen} onPress={()=>openGifts(
+          giftPeople.find(person=>person.uid===room.ownerUid)?.uid||giftPeople[0]?.uid)}/>
       </View>
     </View>
     {fx&&<div className="room-gift-effect" aria-hidden="true"><GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/></div>}
@@ -1154,14 +1141,7 @@ export default function App(){
     setBalance(next);
     return {owner:old.owner-next.owner,welcome:old.welcome-next.welcome,purchased:old.purchased-next.purchased};
   }
-  function sendGift(g,room){
-    const source=spend(g[2]);if(!source)return false;
-    const selfGift=(room.ownerUid||room.owner)===user?.uid;
-    setSpent(v=>v+g[2]);
-    // Sending a gift is not receiving it. Self-support is visual only and cannot generate earnings.
-    setSupportLog(v=>[{id:String(Date.now())+Math.random(),gift:g[1],value:g[2],host:room.host,source,selfGift,eligibleSupportPoints:0},...v].slice(0,50));
-    return true;
-  }
+
   async function createRoom(){
     if(!user?.uid)return Alert.alert(ui("الحساب"),ui("سجّل الدخول أولًا"));
     const label=roomName.trim().slice(0,55);
@@ -1461,7 +1441,7 @@ export default function App(){
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>{renderPage()}
-    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onSendGift={sendGift} onBet={spend}
+    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {mini&&activeRoom&&<TouchableOpacity accessibilityLabel={ui("تكبير الغرفة")} onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
   </View>;

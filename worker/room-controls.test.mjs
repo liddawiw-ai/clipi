@@ -73,27 +73,12 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   kicks.length=0;
   await call('first','join',{frame:true,ride:true});
   const data=await call('first','request',{slot:1});
-  assert.equal(data.supportBalance,100);
-  assert.equal((await call('host','poll')).supportBalance,100000100);
-  const gift={recipient:'host',cost:100,nonce:crypto.randomUUID()};
-  assert.equal((await call('first','supportGift',gift)).supportBalance,0);
-  assert.equal((await call('first','supportGift',gift)).supportBalance,0);
-  assert.equal((await call('first','supportGift',{...gift,nonce:crypto.randomUUID()})).status,409);
-  assert.equal((await call('host','poll')).supportBalance,100000100);
-  assert.equal(sql.prepare('SELECT count(*) AS n FROM support_gift').get().n,1);
-  const rose={recipient:'first',cost:10,gift:'وردة حمراء',nonce:crypto.randomUUID()};
-  assert.equal((await call('host','catalogGift',{...rose,cost:1})).status,400);
-  const preview=await call('host','catalogGift',{...rose,recipient:'host'});
-  assert.equal(preview.preview,true);
-  assert.equal(sql.prepare('SELECT count(*) AS n FROM diamond_gift').get().n,0);
-  assert.equal((await call('host','poll')).supportBalance,100000100);
-  const sent=await call('host','catalogGift',rose);
-  assert.match(sent.chat.at(-1).text,/وردة حمراء/);
-  assert.equal(sent.supportBalance,100000090);
-  assert.equal((await call('host','catalogGift',rose)).supportBalance,sent.supportBalance);
-  assert.equal((await call('first','catalogGift',{...rose,recipient:'host'})).status,409);
-  await call('host','deleteMessage',{id:sent.chat.at(-1).id});
-  await call('host','deleteMessage',{id:1});
+  assert.equal(data.supportBalance,0);
+  const gift={recipient:'host',cost:10,gift:'وردة حمراء',nonce:crypto.randomUUID()};
+  for(const op of ['supportGift','catalogGift'])assert.equal((await call('first',op,gift)).status,409);
+  assert.equal(sql.prepare('SELECT count(*) AS n FROM paid_room_gift').get().n,0);
+  const note=await call('first','message',{text:'test note'});
+  await call('host','deleteMessage',{id:note.chat.at(-1).id});
   assert.equal(data.people.find(p=>p.uid==='first').seat,1);
   assert.equal((await call('first','token',{},'/token')).publisher,true);
   assert.equal((await call('first','settings',{locked:true})).status,403);
@@ -210,9 +195,12 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   await call('u0','join',{avatar:'🦊'});
   const target=await call(second,'giftRecipient',{recipient:'u0'});
   assert.equal(target.recipient.avatar,'🦊');
+  assert.equal(target.senderDiamonds,990);
   const routed={gift:'وردة حمراء',cost:10,recipient:'u0',nonce:crypto.randomUUID()};
-  assert.equal((await call(second,'paidGift',routed)).status,200);
-  assert.equal((await call(second,'paidGift',routed)).status,200);
+  const credited=await call(second,'paidGift',routed);
+  assert.equal(credited.status,200);
+  assert.deepEqual(credited.receipt,{nonce:routed.nonce,recipient:routed.recipient,gift:routed.gift,diamonds:routed.cost});
+  assert.deepEqual((await call(second,'paidGift',routed)).receipt,credited.receipt);
   assert.equal((await call(second,'paidGift',{...routed,recipient:'host'})).status,409);
   assert.equal((await readWallet(q,second)).diamonds,980);
   assert.equal((await readWallet(q,'u0')).progress,10);
@@ -224,6 +212,25 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal(ownerWallet.ownerBox.sold,1500);
   assert.equal((await readWallet(q,buyer)).diamonds,0);
   assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
+  const giftRoom=(uid,op,extra={})=>call(uid,op,extra,'/room-control','nine-gifts','gift-host');
+  const photo='data:image/jpeg;base64,/9j/AAAA';
+  await giftRoom('gift-host','join',{avatar:photo});
+  await giftRoom(second,'join');
+  for(let seat=0;seat<=8;seat++){
+    const recipient=seat?'gift-seat-'+seat:'gift-host';
+    if(seat){
+      await giftRoom(recipient,'join',{avatar:photo});
+      await giftRoom(recipient,'request',{slot:seat});
+    }
+    assert.equal((await giftRoom(second,'giftRecipient',{recipient})).recipient.avatar,photo);
+    const transaction={recipient,gift:'وردة حمراء',cost:10,nonce:crypto.randomUUID()};
+    const sent=await giftRoom(second,'paidGift',transaction);
+    assert.equal(sent.receipt.recipient,recipient);
+    assert.deepEqual((await giftRoom(second,'paidGift',transaction)).receipt,sent.receipt);
+    assert.equal((await readWallet(q,recipient)).progress,10);
+  }
+  assert.equal((await readWallet(q,second)).diamonds,890);
+  assert.equal((await readWallet(q,'host')).receivedDiamonds,ownerWallet.receivedDiamonds);
   const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
   const standard=await numbers('buyer','read');
   assert.match(standard.number,/^[1-9]\d{6}$/);
