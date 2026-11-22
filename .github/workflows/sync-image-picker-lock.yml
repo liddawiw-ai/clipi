@@ -1,0 +1,28 @@
+name: Sync Expo image picker lockfile
+on:
+  workflow_dispatch:
+  push:
+    branches: [feature/clipi-stage7-build-fix]
+    paths:
+      - '.github/workflows/sync-image-picker-lock.yml'
+permissions:
+  contents: write
+jobs:
+  lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/clipi-stage7-build-fix
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit updated dependency lockfile
+        run: |
+          if git diff --quiet -- package-lock.json; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "Sync image picker and filesystem lockfile"
+          git push origin HEAD:feature/clipi-stage7-build-fix
