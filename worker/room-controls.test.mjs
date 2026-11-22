@@ -13,7 +13,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
     run:()=>({meta:sql.prepare(query).run(...args)}),
     all:()=>({results:sql.prepare(query).all(...args)}),
     first:()=>sql.prepare(query).get(...args)
-  }},query}},batch(statements){for(const {query} of statements)sql.exec(query);return Promise.resolve()}};
+  }},query}},batch(statements){return Promise.resolve(statements.map(statement=>statement.all?statement.all():sql.exec(statement.query)))}};
   const visits=new Map(), kicks=[];
   const call=async(user,op,extra={},path='/room-control')=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
@@ -21,7 +21,24 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
+  assert.equal((await call('ghost-guest','join')).status,404);
   await call('host','join');
+  const temporary=await call('temporary','join');
+  const temporarySlot=temporary.people.find(p=>p.uid==='temporary').seat;
+  assert.equal((await call('temporary','slot',{slot:temporarySlot,locked:true})).status,403);
+  const locked=await call('host','slot',{slot:temporarySlot,locked:true,uid:'temporary'});
+  assert.deepEqual(locked.lockedSlots,[temporarySlot]);
+  assert.equal(locked.people.find(p=>p.uid==='temporary').seat,0);
+  const other=await call('other','join');
+  assert.notEqual(other.people.find(p=>p.uid==='other').seat,temporarySlot);
+  await call('host','eject',{uid:'other'});
+  assert.equal((await call('other','poll')).status,403);
+  assert.equal((await call('other','join')).status,200);
+  await call('host','ban',{uid:'other'});
+  assert.equal((await call('other','join')).status,403);
+  await call('host','slot',{slot:temporarySlot,locked:false});
+  await call('temporary','leave');
+  kicks.length=0;
   const data=await call('first','join',{frame:true,ride:true});
   assert.equal(data.supportBalance,100);
   assert.equal((await call('host','poll')).supportBalance,100000100);

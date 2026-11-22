@@ -51,8 +51,8 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
   if(!['join','poll','leave','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!host&&['join','poll'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
-    if(!host&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
       if(!/^\d{4}$/.test(input.pin||''))return json({error:'أدخل رمز الغرفة',pinRequired:true},403);
@@ -74,8 +74,8 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const slot=input.slot;
     if(!host||type!=='audio'||!Number.isInteger(slot)||slot<1||slot>8||typeof input.locked!=='boolean')return json({error:'طلب غير صالح'},403);
     if(input.locked){
-      await env.PI_GIFTS_DB.batch([q('INSERT OR IGNORE INTO room_lock VALUES(?,?)',room,slot),q('UPDATE room_member SET seat=0,waiting=0 WHERE room=? AND seat=?',room,slot)]);
-      if(input.uid)await disconnect(input.uid);
+      const [,removed]=await env.PI_GIFTS_DB.batch([q('INSERT OR IGNORE INTO room_lock VALUES(?,?)',room,slot),q('UPDATE room_member SET seat=0,waiting=0 WHERE room=? AND seat=? RETURNING uid',room,slot)]);
+      for(const occupant of removed.results)await disconnect(occupant.uid);
     }else await q('DELETE FROM room_lock WHERE room=? AND slot=?',room,slot).run();
   }
   if(op==='settings'){
