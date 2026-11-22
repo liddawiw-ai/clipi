@@ -8,6 +8,17 @@ const input = {...button, width:'100%', boxSizing:'border-box', marginBottom:16}
 let english;
 try { english = new Intl.DisplayNames(['en'], {type:'language'}); } catch {}
 
+export function LanguageDropdown({selected, onPick, label}) {
+  return <label style={{display:'block',color:'white',margin:'12px 0 8px'}}>
+    <span style={{display:'block',fontWeight:700,marginBottom:6}}>{label}</span>
+    <select id="clipi-language" value={selected} onChange={event=>onPick(event.target.value)}
+      style={{...button,width:'100%',minHeight:44,appearance:'auto'}}>
+      {Object.entries(languages).map(([code, language])=>
+        <option key={code} value={code} lang={code} dir={language.direction}>{language.name}</option>)}
+    </select>
+  </label>;
+}
+
 export function LanguagePicker({onPick, onBack}) {
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
