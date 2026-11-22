@@ -1,0 +1,30 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>Clipi · شراء الماس</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#180e24;color:#fff2df;font:17px system-ui;min-height:100vh;display:grid;place-items:center;padding:20px}main{width:min(100%,410px);background:#30223f;border:1px solid #776047;border-radius:22px;padding:24px}small{color:#e7c688}h1{font-size:26px}p{line-height:1.65}button,a{display:block;background:#f3cf92;color:#201327;border:0;padding:13px 20px;border-radius:12px;text-decoration:none;text-align:center;font:inherit;width:100%;margin:9px 0}button:disabled{opacity:.5}[hidden]{display:none}</style>
+<main><small>CLIPI</small><h1>شراء الماس</h1><p id="info" role="status"></p><button id="pay" hidden>تأكيد الدفع بعملة PI</button><a href="clipi://wallet">العودة إلى محفظة كليبي</a></main>
+<script src="https://sdk.minepi.com/pi-sdk.js"></script><script>
+const id=location.hash.slice(1),info=document.querySelector('#info'),btn=document.querySelector('#pay');
+async function api(op,body){const r=await fetch('/external-checkout/'+op,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error||'تعذّر تأكيد العملية. أعد المحاولة.');return d}
+async function init(){
+ if(location.search){info.textContent=new URLSearchParams(location.search).has('cancel')?'أُغلقت صفحة الدفع. يمكنك مراجعة رصيدك في المحفظة.':'يمكنك العودة إلى محفظتك للتحقق من الشحن.';return}
+ const q=await api('quote',{id});info.textContent=q.diamonds+' ماسة مقابل '+q.amount+' PI ('+q.dollars+' USD) لحساب كليبي '+(q.account||'الذي بدأ الطلب')+'؛ ينتهي السعر الساعة '+new Date(q.expires).toLocaleTimeString('ar')+'.';
+ if(!window.Pi){info.textContent+=' افتح هذا الرابط في PI Browser.';return}
+ Pi.init({version:'2.0',sandbox:false});btn.hidden=false;
+ btn.onclick=async()=>{btn.disabled=true;
+ try{
+  const incomplete=[];const auth=await Pi.authenticate(['username','payments'],p=>incomplete.push(p));
+  for(const p of incomplete){
+   if(p.metadata?.kind!=='native_diamonds'||!p.transaction?.txid){throw Error('أكمل الدفعة السابقة من صفحة الشراء التي بدأت منها.')}
+   await api('complete',{id:p.metadata.order,paymentId:p.identifier,txid:p.transaction.txid,token:auth.accessToken});
+   if(p.metadata.order===id){info.textContent='تم شحن الماس لحساب كليبي الذي بدأ الطلب.';return}
+  }
+  if(Date.now()>=q.expires)throw Error('انتهت صلاحية السعر. اطلب سعرًا جديدًا من كليبي.');
+  const token=auth.accessToken;
+  await Pi.createPayment({amount:Number(q.amount),memo:'Clipi · '+q.diamonds+' diamonds',metadata:{kind:'native_diamonds',order:id}},{
+   onReadyForServerApproval:async paymentId=>{try{await api('approve',{id,token,paymentId})}catch(e){info.textContent=e.message}},
+   onReadyForServerCompletion:async(paymentId,txid)=>{try{await api('complete',{id,token,paymentId,txid});info.textContent='تم شحن '+q.diamonds+' ماسة لحسابك في التطبيق الخارجي.'}catch(e){info.textContent=e.message;btn.disabled=false}},
+   onCancel:()=>{info.textContent='أُلغي الدفع.';btn.disabled=false},onError:()=>{info.textContent='تعذّر الدفع. تحقق من المحفظة قبل المحاولة مجددًا.';btn.disabled=false}
+  })
+ }catch(e){info.textContent=e.message;btn.disabled=false}}
+}
+init().catch(e=>{info.textContent=e.message});
+</script></html>

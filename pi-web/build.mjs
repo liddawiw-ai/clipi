@@ -4,7 +4,7 @@ await build({entryPoints:['main.jsx'],bundle:true,minify:true,outfile:'dist/clip
 await build({entryPoints:['policy-links.mjs'],bundle:true,minify:true,outfile:'dist/clipi-policy-links.js'});
 await copyFile('index.html','dist/index.html');
 
-for (const page of ['privacy','terms']) await copyFile(page+'.html','dist/'+page+'.html');
+for (const page of ['privacy','terms','external-checkout']) await copyFile(page+'.html','dist/'+page+'.html');
 
 const {readFile,mkdir,writeFile}=await import('node:fs/promises');
 const themes=JSON.parse(await readFile('theme-images.json','utf8'));

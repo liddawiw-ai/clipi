@@ -1,0 +1,62 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {roomStore} from './room-controls.mjs';
+import {readWallet} from './diamond-wallet.mjs';
+import {accountCheckout,externalPayment,quotePi} from './external-checkout.mjs';
+
+test('native USD and market PI orders settle only to their initiating account',async()=>{
+ const sql=new DatabaseSync(':memory:');
+ const db={prepare(query){return {query,bind(...args){const s=sql.prepare(query);return {run:()=>({meta:s.run(...args)}),first:()=>s.get(...args),all:()=>({results:s.all(...args)})}}}},batch:async rows=>rows.map(r=>sql.exec(r.query))};
+ const env={PI_GIFTS_DB:db,PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'fixture',STRIPE_SECRET_KEY:'fixture',STRIPE_WEBHOOK_SECRET:'fixture'};
+ const q=await roomStore(db),origin='https://example.test',uid='native-account',id=crypto.randomUUID(),paymentId='test-pi',txid='c'.repeat(64);
+ const old=globalThis.fetch;
+ let piApproved=false,piCompleted=false,stripePaid=false,stripeId;
+ const piDto=()=>({identifier:paymentId,metadata:{kind:'native_diamonds',order:id},direction:'user_to_app',network:'Pi Network',user_uid:'payer',amount:20,
+  status:{developer_approved:piApproved,developer_completed:piCompleted,transaction_verified:piCompleted},transaction:{txid}});
+ globalThis.fetch=async(url,opt={})=>{
+  if(url.includes('coingecko'))return Response.json({'pi-network':{usd:.05,last_updated_at:Math.floor(Date.now()/1000)}});
+  if(url.endsWith('/me'))return Response.json({uid:opt.headers.Authorization==='Bearer payer'?'payer':'other'});
+  if(url.endsWith('/approve'))piApproved=true;
+  if(url.endsWith('/complete'))piCompleted=true;
+  if(url.includes('api.minepi'))return Response.json(piDto());
+  if(url.includes('api.stripe')&&opt.method==='POST'){stripeId=opt.body.get('client_reference_id');return Response.json({id:'cs_one',livemode:true,url:'https://checkout.stripe.com/c/pay/one'})}
+  if(url.includes('api.stripe'))return Response.json({id:'cs_one',client_reference_id:stripeId,livemode:true,currency:'usd',amount_total:100,payment_status:stripePaid?'paid':'unpaid',payment_intent:'pi_stripe'});
+  throw Error('unexpected upstream');
+ };
+ const buy=(id,method,dollars=1,who=uid)=>accountCheckout(env,who,{op:'externalCreate',method,dollars,id},origin);
+ const pay=(op,token='payer')=>externalPayment(new Request(origin+'/external-checkout/'+op,{method:'POST',body:JSON.stringify({id,token,paymentId,txid})}),env);
+ try{
+  assert.equal((await buy(id,'pi',3)).status,400);
+  const quote=await (await buy(id,'pi')).json();
+  assert.equal(quote.diamonds,1200);assert.equal(Number(quote.amount),20);
+  assert.equal((await buy(id,'pi',1,'another-user')).status,409);
+  assert.equal((await pay('approve','other')).status,403);
+  assert.equal((await pay('complete')).status,409);
+  assert.equal((await pay('approve')).status,200);
+  assert.equal((await readWallet(q,uid)).diamonds,0);
+  await q('UPDATE native_checkout SET expires=0 WHERE id=?',id).run();
+  assert.equal((await pay('complete')).status,200);
+  assert.equal((await pay('complete')).status,200);
+  assert.equal((await readWallet(q,uid)).diamonds,1200);
+  assert.equal((await readWallet(q,'pi:payer')).diamonds,0);
+  const sid=crypto.randomUUID();assert.equal((await buy(sid,'card')).status,200);
+  const sync=()=>accountCheckout(env,uid,{op:'externalOrders'},origin);
+  await sync();assert.equal((await readWallet(q,uid)).diamonds,1200);
+  stripePaid=true;await sync();await sync();
+  assert.equal((await readWallet(q,uid)).diamonds,2200);
+  const configured={...env,RC_ANDROID_APP_ID:'play-app',RC_WEBHOOK_SECRET:'unit-test'};
+  const account=await (await accountCheckout(configured,uid,{op:'externalStoreAccount',store:'PLAY_STORE'},origin)).json();
+  assert.match(account.id,/^[a-f0-9-]{36}$/);
+  const storeEvent=(type,environment='PRODUCTION',secret='unit-test')=>externalPayment(new Request(origin+'/external-checkout/store-webhook',
+   {method:'POST',headers:{Authorization:'Bearer '+secret},body:JSON.stringify({event:{app_id:'play-app',store:'PLAY_STORE',app_user_id:account.id,
+   type,environment,transaction_id:'gp-order',product_id:'clipi_diamonds_2000'}})}),configured);
+  assert.equal((await storeEvent('NON_RENEWING_PURCHASE','PRODUCTION','wrong')).status,401);
+  await storeEvent('NON_RENEWING_PURCHASE','SANDBOX');assert.equal((await readWallet(q,uid)).diamonds,2200);
+  await storeEvent('NON_RENEWING_PURCHASE');await storeEvent('NON_RENEWING_PURCHASE');assert.equal((await readWallet(q,uid)).diamonds,4200);
+  await storeEvent('CANCELLATION');await storeEvent('CANCELLATION');assert.equal((await readWallet(q,uid)).diamonds,2200);
+  const forged=await externalPayment(new Request(origin+'/external-checkout/webhook',{method:'POST',body:'{}'}),env);
+  assert.equal(forged.status,400);
+  assert.throws(()=>quotePi(1,{usd:.05,last_updated_at:1},Date.now()));
+ }finally{globalThis.fetch=old;sql.close()}
+});
