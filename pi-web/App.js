@@ -1,3 +1,5 @@
+import {brandIcon} from './clipi-brand.mjs';
+import {LoginCover,RoomStudio,BalanceCard} from './ClipiSurfaces';
 import ClipiCollection from './ClipiCollection';
 import {rewardDiamonds} from '../worker/diamond-wallet.mjs';
 import GiftFX from './GiftEffect';
@@ -1173,11 +1175,11 @@ export default function App(){
   </View>}
   function signInFrame(children){
     return <div lang={locale} dir={words.direction} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
-      <View style={[S.page,{flexGrow:1,flexShrink:0,flexBasis:'auto',justifyContent:'center',padding:24}]}>
+      <View style={{flexGrow:1,flexShrink:0,justifyContent:'center',backgroundColor:'#e9f2f0',padding:22}}><LoginCover image={brandIcon}/><View style={{backgroundColor:'#22443f',padding:18,borderRadius:24,gap:5}}>
         {children}
         {!!authError&&<Text accessibilityLiveRegion="polite" style={S.white}>{locale==='ar'?authError:words.error}</Text>}
         <LanguageDropdown selected={locale} onPick={pickLocale} label={words.change}/>
-        {policyLinks(words.privacy,words.terms)}
+        {policyLinks(words.privacy,words.terms)}</View>
       </View>
     </div>;
   }
@@ -1185,12 +1187,12 @@ export default function App(){
   if(SHOW_UNRELEASED_DEMOS&&page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {words.wait}</Text></View>;
   if((!user||page==='login')&&loginMethod!=='clipi-email')return signInFrame(<>
-    <Text style={S.logo}>Clipi</Text><Text style={S.title}>{words.intro}</Text>
-    <Btn title={busy?words.wait:words.pi} disabled={busy} onPress={async()=>{
+    <Text style={S.title}>{words.intro}</Text>
+    <Btn color="#11685b" title={busy?words.wait:words.pi} disabled={busy} onPress={async()=>{
       setBusy(true);setAuthError('');
       try{await piLogin()}catch(error){setAuthError(error.message)}finally{setBusy(false)}
     }}/>
-    <Btn title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
+    <Btn color="#3a5264" title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
   </>);
   if(!user||page==='login')return signInFrame(<>
     <Text style={S.title}>{words.emailLogin}</Text>
@@ -1217,8 +1219,8 @@ export default function App(){
         onCreate={()=>go('create')} onEnter={enterRoom} onClose={closeMyRoom} showWelcome={page==='home'}/>
     </HubScreen>;
   }
-  if(page==='create')return layout(ui("إنشاء غرفة"),<><Text style={S.label}>{ui("اسم الغرفة")}</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>{ui("نوع الغرفة")}</Text><View style={S.row}><Btn title={ui("📹 فيديو")} color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title={ui("🎙 صوت")} color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.muted}>{ui("الغرفة عامة للمستخدمين المسجلين. يمكنك ضبط رمز دخول من إعدادات الغرفة.")}</Text><Btn title={ui("فتح الغرفة")} onPress={createRoom}/></>);
-  if(!SHOW_UNRELEASED_DEMOS&&['wallet','earningsWallet'].includes(page))return layout(ui('المحفظة'),<DiamondWallet key={user.uid} uid={user.uid}/>);
+  if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={createRoom} onClose={()=>go('home')} busy={busy} copy={{close:ui("رجوع"),title:ui("إنشاء غرفة"),name:ui("اسم الغرفة"),mode:ui("نوع الغرفة"),audio:ui("🎙 صوت"),video:ui("📹 فيديو"),start:ui("فتح الغرفة"),note:ui("الغرفة عامة للمستخدمين المسجلين.")}}/>;
+  if(!SHOW_UNRELEASED_DEMOS&&['wallet','earningsWallet'].includes(page))return <HubScreen title={ui('المحفظة')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}><DiamondWallet key={user.uid} uid={user.uid}/></HubScreen>;
   if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 PI" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر PI بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} PI`:ui("أدخل سعر PI")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من PI = 1,200 ماسة. يتغير سعر PI صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر PI الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة PI يحتاجان إعدادات دفع فعلية.")}</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
