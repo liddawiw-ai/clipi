@@ -74,10 +74,10 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, balance, onClos
 }
 
 const s=StyleSheet.create({
-  action:{width:40,height:42,borderRadius:13,backgroundColor:'#244741',alignItems:'center',justifyContent:'center'},
-  glyph:{fontSize:19,fontWeight:'800',color:'#f3fff8'},
-  active:{backgroundColor:'#a7e3c7'},
-  activeGlyph:{color:'#103a2e',fontWeight:'800'},
+  action:{width:40,height:42,borderRadius:13,backgroundColor:'transparent',alignItems:'center',justifyContent:'center'},
+  glyph:{fontSize:19,fontWeight:'800',color:'#f3fff8',textShadowColor:'#100b18',textShadowOffset:{width:0,height:1},textShadowRadius:4},
+  active:{backgroundColor:'transparent'},
+  activeGlyph:{color:'#ffdc86',fontWeight:'800'},
   option:{width:"47%",minHeight:46,padding:8,borderRadius:12,backgroundColor:"#244741",justifyContent:"center"},
   optionText:{color:"#effff5",fontSize:13,fontWeight:"700",textAlign:"center"},
   overlay:{flex:1,justifyContent:'flex-end',backgroundColor:'#07191460'},
@@ -97,6 +97,6 @@ const s=StyleSheet.create({
   price:{fontSize:10,color:'#bbefd9',marginTop:3},
   footer:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:8},
   send:{minHeight:40,justifyContent:'center',paddingHorizontal:16,backgroundColor:'#a7e3c7',borderRadius:10},
-  sendText:{color:'#103a2e',fontWeight:'800'},
+  sendText:{color:'#ffdc86',fontWeight:'800'},
   disabled:{opacity:.48},
 });
