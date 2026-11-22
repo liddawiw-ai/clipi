@@ -1,3 +1,4 @@
+import {ui} from './interface-language.mjs';
 import React,{useEffect,useState} from 'react';
 import {LiveKitRoom as BrowserRoom,RoomAudioRenderer,useAudioPlayback,VideoTrack as Video} from '@livekit/components-react';
 export {useConnectionState,useLocalParticipant,useParticipants,useTracks,isTrackReference} from '@livekit/components-react';
@@ -16,10 +17,10 @@ function RoomSpeaker(){
     return()=>document.removeEventListener('pointerdown',resume,true);
   },[canPlayAudio,muted,startAudio]);
   const needsTap=!canPlayAudio||failed;
-  const label=needsTap||muted?'تشغيل سماعة الغرفة':'كتم سماعة الغرفة';
+  const label=needsTap||muted?ui("تشغيل سماعة الغرفة"):ui("كتم سماعة الغرفة");
   return <><RoomAudioRenderer muted={muted}/><button aria-label={label} title={label} style={{position:'absolute',left:8,top:'43%',zIndex:4,borderRadius:20,padding:8,background:'#2c3765',color:'white'}} onClick={()=>{
     if(needsTap||muted){setMuted(false);void unlock()}else setMuted(true);
-  }}>{needsTap?'🔊 تشغيل الصوت':muted?'🔇':'🔊'}</button></>;
+  }}>{needsTap?ui("🔊 تشغيل الصوت"):muted?'🔇':'🔊'}</button></>;
 }
 export function LiveKitRoom({children,...props}){
  return <BrowserRoom {...props}><RoomSpeaker/>{children}</BrowserRoom>;

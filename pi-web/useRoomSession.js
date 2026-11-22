@@ -1,3 +1,4 @@
+import {ui} from './interface-language.mjs';
 import {useState,useRef,useEffect} from 'react';
 import {auth} from './services';
 
@@ -15,9 +16,9 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
     if(!response.ok){
       if(alive.current){
         if(data.pinRequired)setPinRequired(true);
-        if(op==='poll'&&[403,404].includes(response.status)){current.current.onExit(data.error);return}
+        if(op==='poll'&&[403,404].includes(response.status)){current.current.onExit(ui(data.error));return}
       }
-      throw Error(data.error||'تعذّر الاتصال بالغرفة');
+      throw Error(ui(data.error)||ui("تعذّر الاتصال بالغرفة"));
     }
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
@@ -29,7 +30,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit){
   const pendingGift=useRef(null);
   const sendingGift=useRef(false);
   async function sendSupport(recipient,cost,gift){
-    if(sendingGift.current)throw new Error('جارٍ إرسال الهدية');
+    if(sendingGift.current)throw new Error(ui("جارٍ إرسال الهدية"));
     const key=JSON.stringify([roomId,recipient,cost,gift]);
     if(pendingGift.current?.key!==key)pendingGift.current={key,nonce:crypto.randomUUID()};
     sendingGift.current=true;

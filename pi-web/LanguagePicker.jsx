@@ -11,7 +11,7 @@ try { english = new Intl.DisplayNames(['en'], {type:'language'}); } catch {}
 export function LanguagePicker({onPick, onBack}) {
   const [search, setSearch] = useState('');
   const query = search.trim().toLowerCase();
-  const choices = Object.entries(languages).filter(([code, language]) =>
+  const choices = [['en', languages.en], ...Object.entries(languages).filter(([code]) => code !== 'en')].filter(([code, language]) =>
     [code, language.name, english?.of(code)].some(value => value?.toLowerCase().includes(query))
   );
   return <main dir="ltr" lang="en" style={page}>
