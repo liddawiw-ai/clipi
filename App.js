@@ -1,3 +1,4 @@
+import ClipiCollection from './ClipiCollection';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {choosePhoto} from './photo';
@@ -1302,11 +1303,11 @@ export default function App(){
     </View>)}
   </>,()=>go('earnings'));
 
-  if(page==='store')return layout('المتجر',<><View style={S.panel}><Text style={S.title}>أرقام مميزة</Text>
-    <Text style={S.gold}>رصيدك · {visibleNumber?.balance??'…'} 💎</Text>
-    {!!numberError&&<Small title="إعادة تحميل الأرقام" onPress={()=>numberAction('read')}/>}
-    {visibleNumber?.offers.map(o=><View key={o.number} style={S.shop}><Text style={S.white}>{o.number}</Text><Small title={'شراء · '+fmt(o.cost)+' 💎'} onPress={()=>numberAction('buy',o.number)}/></View>)}
-    {visibleNumber?.owned.map(n=><Small key={n} title={(visibleNumber.number===n?'✓ ':'استخدام ')+n} onPress={()=>numberAction('equip',n)}/>)}</View><View style={S.panel}><Text style={S.gold}>هدية ترحيبية · 💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة</Text></View>{GOODS.map((g,i)=><View key={i} style={S.shop}><Text style={{fontSize:25}}>{g[0]}</Text><View style={{flex:1}}><Text style={S.white}>{g[1]}</Text><Text style={S.gold}>{g[2]} 💎</Text></View>{inventory.includes(g[1])?<Small title={equipped[g[3]]===g[1]?'إزالة':'تفعيل'} onPress={()=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>:<Small title="شراء" color={PINK} onPress={()=>buyGood(g)}/>}</View>)}</>);
+  if(page==='store')return <HubScreen title={"المتجر"} action={{label:"رجوع",onPress:()=>go('profile')}} dock={nav()}>
+    <ClipiCollection copy={{store:"المتجر",frame:"إطارات",ride:"مؤثرات الدخول",numbers:"أرقام مميزة",owned:"مقتنياتي",buy:"شراء",equip:"تفعيل",remove:"إزالة",retry:"إعادة تحميل الأرقام",translate:x=>x}}
+      goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
+      onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
+  </HubScreen>;
   if(page==='gifts')return layout('الهدايا',<><Text style={S.muted}>الهدايا تُرسل من داخل غرفة صوت أو فيديو</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title="استعراض الغرف" onPress={()=>go('rooms')}/></>);
   if(page==='profile')return <HubScreen title={'حسابي'}
     action={{label:'الإعدادات',onPress:()=>go('accountSettings')}} dock={nav()}>
@@ -1314,13 +1315,22 @@ export default function App(){
       balance={visibleNumber?.balance} copy={{balance:'رصيد الماس',photo:'الصورة الشخصية'}}
       shortcuts={[
         {icon:'◇',label:'المحفظة',onPress:()=>go('wallet')},
-        {icon:'#',label:'أرقام مميزة',onPress:()=>go('store')},
+        {icon:'#',label:'المتجر',onPress:()=>go('store')},
         {icon:'↗',label:'الأرباح',onPress:()=>go('earningsWallet')},
+
+        {icon:'♫',label:"الغرف",onPress:()=>go('rooms')},
+        {icon:'✦',label:"مركز المضيف",onPress:()=>go('hostCenter')},
       ]}
       settings={[
         {label:'تعديل الملف الشخصي',onPress:()=>go('profileEdit')},
         {label:'الإعدادات',onPress:()=>go('accountSettings')},
       ]}/>
+  </HubScreen>;
+  if(page==='hostCenter')return <HubScreen title={"مركز المضيف"} action={{label:"رجوع",onPress:()=>go('profile')}} dock={nav()}>
+    <AccountHub name={name||user?.displayName||"مستخدم"} avatar={avatar} number={visibleNumber?.number}
+      balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:"غرفي المفتوحة",photo:"الصورة الشخصية"}} unit="♫"
+      shortcuts={[{icon:'＋',label:"إنشاء غرفة",onPress:()=>go('create')},{icon:'◇',label:"المحفظة",onPress:()=>go('wallet')}]}
+      settings={[{label:"استعراض الغرف",onPress:()=>go('rooms')},{label:"الإعدادات",onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='accountSettings'){
     const openPolicy=path=>Linking.openURL(MEDIA_ENDPOINT+path).catch(()=>Alert.alert('تعذر فتح الرابط'));
