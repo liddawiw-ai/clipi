@@ -12,6 +12,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS gift_avatar(uid TEXT PRIMARY KEY, avatar TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_attempt (room TEXT,uid TEXT,bucket INTEGER,hits INTEGER,PRIMARY KEY(room,uid))',
   'CREATE TABLE IF NOT EXISTS room_gift_target (payment TEXT PRIMARY KEY,uid TEXT,name TEXT)',
+  'CREATE TABLE IF NOT EXISTS room_chat_activity(room TEXT PRIMARY KEY,revision INTEGER NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_chat (id INTEGER PRIMARY KEY,room TEXT,uid TEXT,name TEXT,text TEXT)',
   'CREATE TABLE IF NOT EXISTS support_gift (sender TEXT, nonce TEXT, room TEXT NOT NULL, recipient TEXT NOT NULL, cost INTEGER NOT NULL CHECK(cost IN (10,50,100)), PRIMARY KEY(sender,nonce))',
   `CREATE TRIGGER IF NOT EXISTS announce_support_gift AFTER INSERT ON support_gift BEGIN
@@ -177,13 +178,18 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='message'){
     const text=String(input.text||'').trim();
     if(!text||text.length>500)return json({error:'تعليق غير صالح'},400);
-    await q('INSERT INTO room_chat(room,uid,name,text) VALUES(?,?,?,?)',room,user,member.name,text).run();
+    await env.PI_GIFTS_DB.batch([
+      q('INSERT INTO room_chat(room,uid,name,text) VALUES(?,?,?,?)',room,user,member.name,text),
+      q('INSERT INTO room_chat_activity(room,revision) VALUES(?,1) ON CONFLICT(room) DO UPDATE SET revision=revision+1',room)
+    ]);
   }
   if(op==='deleteMessage')await q('DELETE FROM room_chat WHERE room=? AND id=? AND (uid=? OR ?=1)',room,input.id,user,Number(host)).run();
   if(member&&now-member.seen>=20)await q('UPDATE room_member SET seen=? WHERE room=? AND uid=? AND visit=?',now,room,user,visit).run();
   const [people,settings,history]=await Promise.all([
     q('SELECT uid,name,frame,ride,seat,waiting,muted,joined FROM room_member WHERE room=? AND banned=0 AND seen>=? ORDER BY joined,uid',room,cutoff).all(),
-    q('SELECT locked,length(pin)>0 AS protected FROM room_policy WHERE room=?',room).first(),
+    q(`SELECT p.locked,length(p.pin)>0 AS protected,COALESCE(a.revision,0) AS chatRevision
+      FROM (SELECT ? AS room) r LEFT JOIN room_policy p ON p.room=r.room
+      LEFT JOIN room_chat_activity a ON a.room=r.room`,room).first(),
     q('SELECT id,uid AS userUid,name AS userName,text FROM room_chat WHERE room=? ORDER BY id DESC LIMIT 100',room).all()
   ]);
   const me=people.results.find(person=>person.uid===user);
@@ -192,5 +198,5 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   const wallet=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
   const theme=await q('SELECT theme FROM room_theme WHERE room=?',room).first();
   const locks=await q('SELECT slot FROM room_lock WHERE room=?',room).all();
-  return json({lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),chat:history.results.reverse()});
+  return json({chatRevision:settings.chatRevision,lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),chat:history.results.reverse()});
 }

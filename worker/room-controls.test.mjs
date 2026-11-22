@@ -77,7 +77,11 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const gift={recipient:'host',cost:10,gift:'وردة حمراء',nonce:crypto.randomUUID()};
   for(const op of ['supportGift','catalogGift'])assert.equal((await call('first',op,gift)).status,409);
   assert.equal(sql.prepare('SELECT count(*) AS n FROM paid_room_gift').get().n,0);
+  assert.equal(data.chatRevision,0);
+  assert.equal((await call('first','message',{text:' '})).status,400);
   const note=await call('first','message',{text:'test note'});
+  assert.equal(note.chatRevision,1);
+  assert.equal((await call('host','poll')).chatRevision,1);
   await call('host','deleteMessage',{id:note.chat.at(-1).id});
   assert.equal(data.people.find(p=>p.uid==='first').seat,1);
   assert.equal((await call('first','token',{},'/token')).publisher,true);
@@ -193,12 +197,14 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await readWallet(q,second,'host')).diamonds,990);
   assert.equal((await readWallet(q,second,'host')).ownerBox,undefined);
   await call('u0','join',{avatar:'🦊'});
+  const revisionBeforeGift=(await call(second,'poll')).chatRevision;
   const target=await call(second,'giftRecipient',{recipient:'u0'});
   assert.equal(target.recipient.avatar,'🦊');
   assert.equal(target.senderDiamonds,990);
   const routed={gift:'وردة حمراء',cost:10,recipient:'u0',nonce:crypto.randomUUID()};
   const credited=await call(second,'paidGift',routed);
   assert.equal(credited.status,200);
+  assert.equal((await call(second,'poll')).chatRevision,revisionBeforeGift);
   assert.deepEqual(credited.receipt,{nonce:routed.nonce,recipient:routed.recipient,gift:routed.gift,diamonds:routed.cost});
   assert.deepEqual((await call(second,'paidGift',routed)).receipt,credited.receipt);
   assert.equal((await call(second,'paidGift',{...routed,recipient:'host'})).status,409);

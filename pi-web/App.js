@@ -4,6 +4,7 @@ import ClipiCollection from './ClipiCollection';
 import GiftFX from './GiftEffect';
 import {DiamondWallet} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
+import {RoomTermsNotice} from './RoomTermsNotice';
 import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
 import {LanguageDropdown} from './LanguagePicker';
@@ -403,6 +404,12 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
+  const [termsLanguage,setTermsLanguage]=useState(()=>document.documentElement.lang==='ar'?'ar':'en');
+  const [hasNewMessage,setHasNewMessage]=useState(false);
+  function openRoomTerms(){
+    const path=termsLanguage==='ar'?'/terms#arabic':'/terms';
+    window.open(path,'_blank','noopener,noreferrer');
+  }
   const [stagePanelVisible,setStagePanelVisible]=useState(false),[blocked,setBlocked]=useState([]);
   const chatRef=useRef(null),sendingRef=useRef(false),roomClosedRef=useRef(false),exitHandledRef=useRef(false),closingByHostRef=useRef(false);
   function exitRoomOnce(){if(!exitHandledRef.current){exitHandledRef.current=true;onExit()}}
@@ -511,7 +518,12 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const admitted=Boolean(membership.state);
   useEffect(()=>{
     if(!admitted)return;
-    return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>setLegacyChat(snapshot.docs.map(d=>({...d.data(),id:d.id,legacy:true}))),()=>{});
+    let receivedHistory=false;
+    return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot({includeMetadataChanges:true},snapshot=>{
+      setLegacyChat(snapshot.docs.map(d=>({...d.data(),id:d.id,legacy:true})));
+      if(receivedHistory&&snapshot.docChanges().some(change=>change.type==='added'))setHasNewMessage(true);
+      if(!snapshot.metadata.fromCache)receivedHistory=true;
+    },()=>{});
   },[room.id,admitted]);
   function stagePanel(){
     if(!isHost)return self?.seat?null:<Small title={requested?ui("إلغاء الطلب"):ui("طلب مقعد")} onPress={()=>act(requested?'cancel':'request')}/>;
@@ -554,6 +566,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     setSending(true);
     try{
       await membership.act('message',{text});
+      setHasNewMessage(true);
       // Do not erase edits typed while the network request was in flight.
       setMessage(current=>current.trim()===text?'':current);
       setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
@@ -610,6 +623,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
               setShareStatus('');
               setShareOpen(true);
             }}/>
+            <RoomOption title={ui("شروط الخدمة")} onPress={openRoomTerms}/>
             <RoomOption title={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} onPress={()=>{setChatVisible(v=>!v);closeRoomMenu()}}/>
             <RoomOption title={ui("تصغير الغرفة")} onPress={()=>{closeRoomMenu();onMinimize()}}/>
             {isHost&&<>
@@ -738,6 +752,8 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
     <View style={S.roomBottom}>
       {!audio&&!keyboardOn&&<View style={S.roomSeatAction}>{stagePanel()}</View>}
+      <RoomTermsNotice language={termsLanguage} onLanguage={setTermsLanguage} onRead={openRoomTerms}
+        chatRevision={membership.state.chatRevision} hasNewMessage={hasNewMessage}/>
       <View style={S.roomDock}>
         <View style={S.roomComment}>
           <TextInput style={S.messageInput} value={message} maxLength={500} onChangeText={setMessage}
