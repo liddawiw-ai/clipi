@@ -13,7 +13,8 @@
     "test:ci": "npm run test:syntax && npm run test:release && npm run test:wallet",
     "test:wallet": "node --test tests/wallet-safety.test.cjs",
     "test:firestore": "node --test tests/firestore.rules.test.cjs",
-    "test:firestore:emulator": "npx --yes firebase-tools@14.2.1 emulators:exec --project demo-clipi-rules --only firestore \"npm run test:firestore\""
+    "test:firestore:emulator": "npx --yes firebase-tools@14.2.1 emulators:exec --project demo-clipi-rules --only firestore \"npm run test:firestore\"",
+    "check:play": "node scripts/check-play-readiness.cjs"
   },
   "dependencies": {
     "expo": "~53.0.0",
