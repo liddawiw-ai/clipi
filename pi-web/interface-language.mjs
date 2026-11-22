@@ -1,6 +1,21 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "إنشاء": "Create",
+  "بث مباشر": "Live video",
+  "ابدأ غرفة صوتية أو بث فيديو": "Start a voice room or live video",
+  "الإعدادات": "Settings",
+  "رصيد الماس": "Diamond balance",
+  "المحفظة": "Wallet",
+  "الأرباح": "Earnings",
+  "تعديل الملف الشخصي": "Edit profile",
+  "الملف الشخصي والحسابات المحظورة": "Profile and blocked accounts",
+  "مشاركة Clipi": "Share Clipi",
+  "تعذرت المشاركة": "Could not share",
+  "الألعاب": "Games",
+  "أرباح المضيف": "Host earnings",
+  "الكل": "All",
+
   "تغيير اللغة": "Change language",
   "وردة حمراء": "Red Rose",
   "رومانسي": "Romance",
