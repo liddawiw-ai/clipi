@@ -1,3 +1,4 @@
+import {ui} from './interface-language.mjs';
 export async function choosePhoto(max){
   const picker=document.createElement('input');
   picker.type='file';picker.accept='image/*';
@@ -15,7 +16,7 @@ export async function choosePhoto(max){
     canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
     canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
     const data=canvas.toDataURL('image/jpeg',0.68);
-    if(data.length>620000)throw Error('اختر صورة أصغر');
+    if(data.length>620000)throw Error(ui("اختر صورة أصغر"));
     return data;
   }finally{URL.revokeObjectURL(url)}
 }
