@@ -79,7 +79,7 @@ function GiftFX({gift,onDone}){
   useEffect(()=>{
     progress.setValue(0);
     const duration=kind==='dragon'?6300:kind==='rose'?4600:kind==='rocket'?4200:3300;
-    const animation=Animated.timing(progress,{toValue:1,duration,useNativeDriver:true});
+    const animation=Animated.timing(progress,{toValue:1,duration,useNativeDriver:false});
     animation.start(({finished})=>{if(finished)onDone()});
     return ()=>animation.stop();
   },[gift]);
@@ -123,7 +123,7 @@ function GiftFX({gift,onDone}){
   return <Animated.View pointerEvents="none" style={[S.fxOverlay,{opacity}]}>
     <Animated.View style={{...StyleSheet.absoluteFillObject,backgroundColor:'#140c3e',
       opacity:move([0,.12,.6,1],[0,.34,.25,0])}}/>
-    <Animated.View style={[S.fxCenter,{position:'absolute',width:WIDTH*1.5,height:WIDTH*1.5,
+    <Animated.View style={[S.fxCenter,{position:'absolute',width:WIDTH*.85,height:WIDTH*.85,
       borderRadius:WIDTH,borderWidth:9,borderColor:'#49e7fa',
       opacity:move([0,.2,.7,1],[0,.75,.7,0]),
       transform:[{scale:move([0,.2,.7,1],[.1,.6,1.6,2.1])}]}]}/>
@@ -427,7 +427,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',alignSelf:'flex-end',gap:6,marginHorizontal:8},
 });
 
-function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,onCredit,onExit,onMinimize,onRestore,minimized}){
+function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,minimized}){
   const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
@@ -678,7 +678,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
       open={piGiftOpen&&!minimized} close={()=>setPiGiftOpen(false)} show={g=>{setFxId(v=>v+1);setFx([g.icon,g.name,g.amount,g.effect])}}/>}
     {!SHOW_UNRELEASED_DEMOS&&<RoomGiftSheet visible={giftOpen&&!keyboardOn&&!minimized}
       key={String(paidMode)} gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+(cost>=500?cost/20:0)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("رصيد الماس"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      copy={{share:paidMode?(cost=>(document.documentElement.lang==="ar"?"حصة المضيف ":"Host share ")+(cost>=500?cost/20:0)+" Pi"):undefined,title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:paidMode?(document.documentElement.lang==='ar'?'المشترى':'Purchased'):(document.documentElement.lang==='ar'?'رصيد التفاعل':'Interaction balance'),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
       recipient={(paidMode?room.host:recipient?.name)||room.host||ui("المضيف")} balance={paidMode?paidBalance:membership.state?.supportBalance}
       onClose={()=>setGiftOpen(false)} onSend={async gift=>{
         try{
@@ -692,6 +692,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
           setFxId(v=>v+1);setFx(gift);
         }catch(error){Alert.alert(ui("هدية الغرفة"),error.message)}
       }}>
+      <Small title={(document.documentElement.lang==='ar'?'محفظتي · الماس المشترى':'My wallet · Purchased diamonds')+' '+(paidBalance??'…')+' 💎'} onPress={()=>{setGiftOpen(false);onWallet()}}/>
       {!isHost&&<Small title={paidMode?(document.documentElement.lang==='ar'?'ماس مشترى · حصة المضيف 50% من 500 ماسة فأكثر | تبديل':'Purchased · 50% host share from 500 diamonds | Switch'):(document.documentElement.lang==='ar'?'دعم المضيف بالماس المشترى · 50%':'Support host with purchased diamonds · 50%')} onPress={()=>setPaidMode(v=>!v)}/>}
       <Small title={ui("هدايا Pi")} onPress={()=>{setGiftOpen(false);setPiGiftOpen(true)}}/>
     </RoomGiftSheet>}
@@ -1407,7 +1408,7 @@ export default function App(){
   }
   return <View style={{flex:1}}>{renderPage()}
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onSendGift={sendGift} onBet={spend}
-      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
+      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {mini&&activeRoom&&<TouchableOpacity accessibilityLabel={ui("تكبير الغرفة")} onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
   </View>;
 }

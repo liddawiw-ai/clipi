@@ -82,9 +82,18 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   const originalFetch=globalThis.fetch;
   try{
     globalThis.fetch=async url=>Response.json(url.endsWith('/me')?{uid:'buyer'}:dto);
-    const complete=()=>piGifts(new Request('https://example.test/pi-gifts/complete',{method:'POST',body:JSON.stringify({kind:'diamond_pack',paymentId:id,accessToken:'mock',txid})}),{PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'mock',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
+    const complete=(action='complete')=>piGifts(new Request('https://example.test/pi-gifts/'+action,{method:'POST',body:JSON.stringify({kind:'diamond_pack',paymentId:id,accessToken:'mock',txid:action==='complete'?txid:undefined})}),{PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'mock',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
     dto.amount=1;assert.equal((await complete()).status,403);
-    dto.amount=50;assert.equal((await complete()).completed,true);
+    dto.amount=50;
+    assert.equal((await complete('approve')).approved,true);
+    assert.equal((await readWallet(q,buyer)).pending.length,1);
+    dto.transaction={};
+    assert.equal((await complete('restore')).status,409);
+    dto.transaction={txid};
+    assert.equal((await complete('restore')).completed,true);
+    assert.equal((await complete('restore')).completed,true);
+    assert.equal((await readWallet(q,buyer)).pending.length,0);
+    assert.equal((await readWallet(q,buyer)).purchases.length,1);
     assert.equal((await complete()).completed,true);
   }finally{globalThis.fetch=originalFetch}
   assert.equal((await readWallet(q,buyer)).diamonds,500);

@@ -14,9 +14,26 @@ async function payment(action,data){
 }
 export function DiamondWallet({uid}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
+  const [receipt,setReceipt]=useState('');
   const lock=useRef(false);
   async function refresh(){const snapshot=await walletRead();if(auth().currentUser?.uid===uid)setData(snapshot)}
   useEffect(()=>{refresh().catch(e=>setMessage(e.message))},[uid]);
+  async function restore(){
+    if(lock.current)return;
+    lock.current=true;setBusy(true);setMessage('');
+    try{
+      const ids=new Set((data?.pending||[]).map(p=>p.payment));
+      if(receipt.trim())ids.add(receipt.trim());
+      const session=await piSdk().authenticate(['username','payments'],p=>{if(p.metadata?.kind==='diamond_pack')ids.add(p.identifier)});
+      if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب Pi نفسه','Sign in with the same Pi account'));
+      let restored=0;
+      for(const paymentId of ids){
+        try{await payment('restore',{paymentId,kind:'diamond_pack',accessToken:session.accessToken});restored++}catch{}
+      }
+      await refresh();
+      setMessage(restored?label('تم التحقق من الشراء وتحديث المحفظة','Purchase verified and wallet updated'):label('لم نجد دفعة باقة مؤكدة للاستعادة. راجع سجل الشحن أو أدخل معرّف دفعة Pi.','No confirmed pack found to restore. Check credit history or enter the Pi payment ID.'));
+    }catch(e){setMessage(e.message)}finally{lock.current=false;setBusy(false)}
+  }
   async function buy(diamonds){
     if(lock.current)return;
     lock.current=true;setBusy(true);setMessage('');
@@ -40,6 +57,9 @@ export function DiamondWallet({uid}){
     <p>{label('حصة المضيف المسجّلة','Recorded host share')} · {data?data.earningsUnits/20:'…'} Pi</p>
     <p>{label('الحصة مسجّلة داخل Clipi. السحب غير مفعّل.','Shares are recorded inside Clipi. Withdrawals are unavailable.')}</p>
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
+    {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة Pi','Pi payment ID')} placeholder={label('معرّف دفعة Pi (اختياري)','Pi payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
+    <h3>{label('سجل شحن الماس','Diamond credit history')}</h3>
+    {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}</p>)}
     <h3>{label('شراء الماس','Buy diamonds')}</h3>
     {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n} 💎 · {n/10} Pi</button>):<p>{label('ادخل بحساب Pi لشراء الماس','Sign in with Pi to buy diamonds')}</p>}
     <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>

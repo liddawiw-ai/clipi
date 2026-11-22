@@ -65,15 +65,17 @@ export async function piGifts(request, env, json) {
       ).bind(roomId).all();
       return json({ gifts: results.reverse() });
     }
-    if (!['approve', 'complete'].includes(action) || request.method !== 'POST') {
+    if (!['approve', 'complete','restore'].includes(action) || request.method !== 'POST') {
       return json({ error: 'Not found' }, 404);
     }
     const body = await request.text();
     if (body.length > 8192) return json({ error: 'Request too large' }, 413);
     let input;
     try { input = JSON.parse(body); } catch { return json({ error: 'Invalid request' }, 400); }
-    const { paymentId, accessToken, roomId, txid } = input ?? {};
+    const { paymentId, accessToken, roomId } = input ?? {};
+    let txid=input?.txid;
     const packRequest=mainnet&&input.kind==='diamond_pack';
+    if(action==='restore'&&!packRequest)return json({error:'Diamond purchases only'},400);
     if (typeof paymentId !== 'string' || !identifierPattern.test(paymentId) ||
         (!packRequest && (typeof roomId !== 'string' || !roomPattern.test(roomId))) ||
         typeof accessToken !== 'string' || !accessToken ||
@@ -100,10 +102,18 @@ export async function piGifts(request, env, json) {
         if(!recipient)return json({error:'المستلم غادر المقعد'},409);
         await db('INSERT INTO room_gift_target(payment,uid,name) VALUES(?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,metadata.recipientUid,recipient.name).run();
       }
+      if(packRequest){
+        const q=await roomStore(env.PI_GIFTS_DB);
+        await q('INSERT OR IGNORE INTO diamond_checkout(payment,uid) VALUES(?,?)',paymentId,'pi:'+identity.uid).run();
+      }
       if (!payment.status?.developer_approved) await pi(paymentPath + '/approve', { post: true });
       return json({ approved: true });
     }
     if (!payment.status?.developer_approved) return json({ error: 'Payment not approved' }, 409);
+    if(action==='restore'){
+      txid=payment.transaction?.txid;
+      if(typeof txid!=='string'||!/^[a-f0-9]{64}$/i.test(txid))return json({error:'No confirmed transaction yet'},409);
+    }
     let completed = payment;
     if (!payment.status.developer_completed) {
       try {
