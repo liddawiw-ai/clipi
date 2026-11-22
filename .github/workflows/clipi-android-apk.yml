@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-room-menu-19
+      - feature/android-discovery-20
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -35,15 +35,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build19.apk
+          cp "$apk" Clipi-Android-build20.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build19
-          path: Clipi-Android-build19.apk
+          name: Clipi-Android-build20
+          path: Clipi-Android-build20.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-room-menu-19'
+        if: github.ref == 'refs/heads/feature/android-discovery-20'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build19 Clipi-Android-build19.apk --target "$GITHUB_SHA" --title "Clipi Android 19" --notes "Consolidated three-dot room settings menu and dedicated room themes. Includes Android 18 wallet options." --prerelease
+        run: gh release create android-build20 Clipi-Android-build20.apk --target "$GITHUB_SHA" --title "Clipi Android 20" --notes "Room discovery, navigation, and a redesigned account hub. Includes previous room and wallet features." --prerelease
