@@ -1,1 +1,35 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Clipi Terms of Service</title><main style="max-width:40rem;margin:3rem auto;padding:1rem;font:1.15rem/1.65 system-ui"><h1>Clipi Terms of Service</h1><p>You choose what to share in a room. Respect other participants and share content you have permission to broadcast. A paid gift is a virtual effect in the selected room. Review the gift, price in Pi and destination in your wallet before authorizing payment. Gift purchases are user-to-app payments. Sending a gift does not promise a cash payout to the host.</p><a href="/">Clipi</a></main></html>
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>شروط الخدمة | كليبي</title>
+  <style>
+    body { margin:0; background:#170b2c; color:#f4effa; font:1rem/1.8 system-ui,sans-serif; }
+    main { max-width:42rem; margin:auto; padding:clamp(1rem,5vw,3rem); }
+    a { color:#ffe39a; }
+    nav,.actions { display:flex; flex-wrap:wrap; gap:.75rem; }
+    input,button { font:inherit; box-sizing:border-box; border-radius:.6rem; padding:.55rem .85rem; }
+    input { width:100%; margin:.25rem 0 .75rem; }
+    button { border:1px solid #a387d0; background:#412961; color:#fff; cursor:pointer; }
+    #link-status { min-height:1.8em; }
+    details { margin:1rem 0; }
+  </style>
+  <script type="module" src="/clipi-policy-links.js"></script>
+</head>
+<body>
+  <main>
+    <nav aria-label="روابط كليبي"><a href="/">كليبي</a><a href="/privacy">سياسة الخصوصية</a></nav>
+    <h1>شروط الخدمة</h1>
+    <p>أنت تختار ما تشاركه في الغرفة. احترم المشاركين وشارك فقط المحتوى الذي تملك إذنًا ببثّه. الهدية المدفوعة مؤثر افتراضي داخل الغرفة المختارة. راجع الهدية والسعر بعملة Pi ووجهة الدفع في محفظتك قبل الموافقة. تُدفع قيمة الهدية من المستخدم إلى التطبيق. إرسال الهدية لا يضمن دفعة نقدية للمضيف.</p>
+    <details><summary lang="en">Read in English</summary><p lang="en" dir="ltr">You choose what to share in a room. Respect other participants and share content you have permission to broadcast. A paid gift is a virtual effect in the selected room. Review the gift, price in Pi and destination in your wallet before authorizing payment. Gift purchases are user-to-app payments. Sending a gift does not promise a cash payout to the host.</p></details>
+    <label for="page-link">رابط الصفحة</label>
+    <input id="page-link" dir="ltr" data-path="/terms" type="url" readonly>
+    <div class="actions">
+      <button id="share-link" type="button">مشاركة الرابط</button>
+      <button id="copy-link" type="button">نسخ الرابط</button>
+    </div>
+    <p id="link-status" role="status"></p>
+  </main>
+</body>
+</html>
