@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>سياسة الخصوصية | كليبي</title>
+  <title>Privacy Policy | Clipi</title>
   <style>
     body { margin:0; background:#170b2c; color:#f4effa; font:1rem/1.8 system-ui,sans-serif; }
     main { max-width:42rem; margin:auto; padding:clamp(1rem,5vw,3rem); }
@@ -13,21 +13,24 @@
     input { width:100%; margin:.25rem 0 .75rem; }
     button { border:1px solid #a387d0; background:#412961; color:#fff; cursor:pointer; }
     #link-status { min-height:1.8em; }
-    details { margin:1rem 0; }
+
   </style>
   <script type="module" src="/clipi-policy-links.js"></script>
 </head>
 <body>
   <main>
-    <nav aria-label="روابط كليبي"><a href="/">كليبي</a><a href="/terms">شروط الخدمة</a></nav>
-    <h1>سياسة الخصوصية</h1>
-    <p>يستخدم كليبي معرّف حساب Pi لتسجيل دخولك. تُعالَج أنشطة الغرف ومعلومات الملف الشخصي ورسائل الدردشة باستخدام Firebase. عند الانضمام إلى بث صوتي أو فيديو، تُرسل الوسائط التي تختار مشاركتها عبر LiveKit. يستطيع المشاركون الآخرون رؤية الرسائل واستقبال الوسائط في الغرفة. عند إرسال هدية مدفوعة، يرسل كليبي طلب الدفع إلى Pi ويسجّل معرّف الدفع المؤكد والغرفة والهدية حتى تظهر للمشاركين. احتفظ بعبارة مرور محفظتك لنفسك.</p>
-    <details><summary lang="en">Read in English</summary><p lang="en" dir="ltr">Clipi uses your Pi account identifier to sign you in. Room activity, profile information and chat messages are processed using Firebase. Joining live audio or video sends the media you choose to share through LiveKit. Other participants can see messages and receive media in the room. For paid gifts, Clipi sends the payment request to Pi and records the confirmed payment identifier, room and gift so participants can see it. Keep your wallet passphrase private.</p></details>
-    <label for="page-link">رابط الصفحة</label>
+    <nav aria-label="Clipi links"><a href="/">Clipi</a><a href="/terms">Terms of Service</a><a href="#arabic" lang="ar">العربية</a></nav>
+    <h1>Privacy Policy</h1>
+    <p>Clipi uses your Pi account identifier to sign you in. Firebase processes room activity, profile information, and chat messages. LiveKit carries the audio and video you choose to share with room participants. For previously confirmed Pi gifts, Clipi records the payment identifier, room, and gift. New paid Pi gifts are paused while host payouts are unavailable. Keep your wallet passphrase private.</p>
+    <section id="arabic" lang="ar" dir="rtl" aria-labelledby="arabic-title">
+      <h2 id="arabic-title">سياسة الخصوصية</h2>
+      <p>يستخدم كليبي معرّف حساب Pi لتسجيل دخولك. يعالج Firebase أنشطة الغرف ومعلومات الملف الشخصي ورسائل الدردشة. ينقل LiveKit الصوت والفيديو اللذين تختار مشاركتهما مع المشاركين. بالنسبة لهدايا Pi المؤكدة سابقًا، يسجّل كليبي معرّف الدفع والغرفة والهدية. هدايا Pi المدفوعة الجديدة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين. احتفظ بعبارة مرور محفظتك لنفسك.</p>
+    </section>
+    <label for="page-link">Page link <span lang="ar">· رابط الصفحة</span></label>
     <input id="page-link" dir="ltr" data-path="/privacy" type="url" readonly>
     <div class="actions">
-      <button id="share-link" type="button">مشاركة الرابط</button>
-      <button id="copy-link" type="button">نسخ الرابط</button>
+      <button id="share-link" type="button">Share link <span lang="ar">· مشاركة الرابط</span></button>
+      <button id="copy-link" type="button">Copy link <span lang="ar">· نسخ الرابط</span></button>
     </div>
     <p id="link-status" role="status"></p>
   </main>

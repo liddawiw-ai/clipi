@@ -15,6 +15,7 @@ async function request(action, body, sessionId) {
 
 export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
   const [catalog, setCatalog] = useState(null);
+  const [paused, setPaused] = useState(false);
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const lock = useRef(null);
@@ -38,12 +39,12 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
   }, [roomId,sessionId]);
   useEffect(() => {
     let active = true;
-    if (open) request('catalog').then(data => {if(active) setCatalog(data.gifts)})
+    if (open) request('catalog').then(data => {if(active) {setCatalog(data.gifts);setPaused(data.paused===true)}})
       .catch(() => {if(active) {setCatalog(null);setMessage('الدفع غير متاح حالياً.')}});
     return () => {active = false};
   }, [open]);
   async function buy(id, gift) {
-    if (lock.current) return;
+    if (paused || lock.current) return;
     const attempt = {};
     lock.current = attempt;
     const active = () => lock.current === attempt;
@@ -101,8 +102,8 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
   }
   if (!open) return null;
   return <section dir="rtl" style={{background:'#201631',color:'white',padding:16,borderRadius:16}}>
-    <button onClick={close} aria-label="إغلاق">×</button> <strong>{recipient?'هدية إلى '+recipient.name:'هدايا الغرفة'}</strong>{recipient&&<p>تُدفع قيمة الهدية لمحفظة التطبيق وتظهر باسم الضيف داخل الغرفة.</p>}
-    <p role="status">{message || (catalog ? 'اختَر هدية' : 'جاري تحميل الهدايا…')}</p>
+    <button onClick={close} aria-label="إغلاق">×</button> <strong>{recipient?'هدية إلى '+recipient.name:'هدايا الغرفة'}</strong>
+    <p role="status">{paused ? 'هدايا Pi المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.' : message || (catalog ? 'اختَر هدية' : 'جاري تحميل الهدايا…')}</p>
     <div style={{display:'flex',gap:8,marginTop:12}}>{Object.entries(catalog||{}).map(([id,g]) =>
       <button key={id} disabled={busy} onClick={() => buy(id,g)} style={{flex:1,padding:10,borderRadius:12,background:'#453263',color:'white'}}>
         <span style={{fontSize:28}}>{g.icon}</span><br/>{g.name}<br/>{g.amount} Pi

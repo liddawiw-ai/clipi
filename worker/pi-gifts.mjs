@@ -6,11 +6,17 @@ export const roseAmount = 0.1;
 
 export async function piGifts(request, env, json) {
   const mainnet = env.PI_GIFTS_NETWORK === 'mainnet';
+  const url = new URL(request.url);
+  const action = url.pathname.split('/').at(-1);
+  if (mainnet && action === 'catalog' && request.method === 'GET') {
+    return json({ gifts: {}, paused: true });
+  }
+  if (mainnet && action === 'approve' && request.method === 'POST') {
+    return json({ error: 'Paid Pi gifts are paused until room host payouts are available' }, 503);
+  }
   if ((!mainnet && env.PI_GIFTS_TESTNET !== '1') || !env.PI_NETWORK_API_KEY || !env.PI_GIFTS_DB) {
     return json({ error: 'Gift payments unavailable' }, 503);
   }
-  const url = new URL(request.url);
-  const action = url.pathname.split('/').at(-1);
   const authorization = request.headers.get('Authorization') ?? '';
   async function upstream(stage, url, options) {
     let status;
@@ -55,7 +61,6 @@ export async function piGifts(request, env, json) {
     });
   }
   try {
-    if (action === 'catalog' && request.method === 'GET' && mainnet) return json({ gifts });
     if (action === 'events' && request.method === 'GET') {
       const roomId = url.searchParams.get('room');
       if (!await openRoom(roomId)) return json({ error: 'Room unavailable' }, 403);
