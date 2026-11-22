@@ -1,3 +1,4 @@
+import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
 import {LanguageDropdown} from './LanguagePicker';
 import {languages, readLocale, saveLocale} from './languages.mjs';
@@ -759,6 +760,7 @@ export default function App(){
   const [payoutDrafts,setPayoutDrafts]=useState([]);
 
   const [blockedUsers,setBlockedUsers]=useState([]),[roomSearch,setRoomSearch]=useState(''),[roomError,setRoomError]=useState('');
+  const [discoveryFilter,setDiscoveryFilter]=useState('all');
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
   const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
   const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
@@ -1162,7 +1164,20 @@ export default function App(){
     resetGame();go('games');
   }
   function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>{ui("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{'💎 '+fmt(total)}</Text></TouchableOpacity></View>}
-  function nav(){const destinations=SHOW_UNRELEASED_DEMOS?[['🏠','home'],['🎮','games'],['🎁','gifts'],['💎','wallet'],['👤','profile']]:[['🏠','home',ui("الرئيسية")],['🚪','rooms',ui("الغرف")],['👤','profile',ui("حسابي")]];return <View style={S.nav}>{destinations.map(([icon,p,label])=><TouchableOpacity key={p} accessibilityRole="tab" accessibilityState={{selected:page===p}} style={[S.navItem,page===p&&S.navActive]} onPress={()=>go(p)}><Text style={S.navIcon}>{icon}</Text>{label&&<Text style={S.navLabel}>{label}</Text>}</TouchableOpacity>)}</View>}
+  function nav(){
+    const items=[
+      {id:'home',icon:'⌂',label:ui('الرئيسية')},
+      {id:'rooms',icon:'◫',label:ui('الغرف')},
+      {id:'create',icon:'+',label:ui('إنشاء')},
+      {id:'store',icon:'◇',label:ui('المتجر')},
+      {id:'profile',icon:'◎',label:ui('حسابي')}
+    ];
+    const current=page==='profileEdit'||page==='accountSettings'||page==='earningsWallet'?'profile':page;
+    return <ClipiDock items={items} page={current} onNavigate={destination=>{
+      if(destination==='home'||destination==='rooms'){setDiscoveryFilter('all');setRoomSearch('')}
+      go(destination);
+    }}/>;
+  }
   async function emailSession(create){
     if(busy)return;
     setBusy(true);setAuthError('');
@@ -1210,13 +1225,24 @@ export default function App(){
     <Btn title={words.create} disabled={busy} onPress={()=>emailSession(true)}/>
     <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
-  if(page==='home')return layout('Clipi',<><View style={S.homeHero}>
-    <Text style={S.homeBrand}>Clipi</Text>
-    <Text style={S.homeTitle}>{ui("أهلًا ")}{name||ui("بك")}</Text>
-    <Text style={S.homeSubtitle}>{ui("غرف صوتية وبث فيديو مباشر")}</Text>
-  </View>{myProfile}{<View style={S.panel}><Text style={S.title}>{ui("🎁 هدية ترحيبية")}</Text><Text style={S.white}>{ui("💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة")}</Text></View>}<Btn title={ui("📹 إنشاء غرفة صوتية أو فيديو")} onPress={()=>go('create')}/><Btn title={ui("🚪 استعراض الغرف")} color="#7040a7" onPress={()=>go('rooms')}/>{<><Btn title={ui("💎 شراء الماسات (تجريبي)")} color="#7040a7" onPress={()=>go('wallet')}/><Btn title={ui("🛍 المتجر")} color="#7040a7" onPress={()=>go('store')}/></>}{SHOW_UNRELEASED_DEMOS&&<><Btn title="💰 أرباح المضيف (تجريبي)" color="#7040a7" onPress={()=>go('earnings')}/><Btn title="🎮 Greedy Star (تجريبي)" color="#7040a7" onPress={()=>go('games')}/></>}<Btn title={ui("📤 مشاركة Clipi")} color="#7040a7" onPress={()=>Share.share({message:location.origin+'/',url:location.origin+'/'})}/></>);
+  if(page==='home'||page==='rooms'){
+    const query=roomSearch.trim().toLowerCase();
+    const visibleRooms=rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)
+      &&(discoveryFilter==='all'||(r.type==='video'?'video':'audio')===discoveryFilter)
+      &&(!query||r.name?.toLowerCase().includes(query)||r.id.toLowerCase().includes(query)));
+    const copy={
+      all:ui('الكل'),voice:ui('غرفة صوتية'),live:ui('بث مباشر'),create:ui('إنشاء غرفة'),
+      createNote:ui('ابدأ غرفة صوتية أو بث فيديو'),search:ui('ابحث بالاسم أو معرّف الغرفة'),
+      empty:ui('لا توجد غرف مطابقة'),close:ui('إغلاق غرفتي'),untitled:ui('الغرفة'),
+      welcome:ui('🎁 هدية ترحيبية'),welcomeNote:ui('💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة')
+    };
+    return <HubScreen title={page==='home'?'Clipi':ui('الغرف')} action={page==='home'?{label:ui('استعراض الغرف'),onPress:()=>go('rooms')}:null} dock={nav()}>
+      <RoomDiscovery copy={copy} userId={user?.uid} rooms={page==='home'&&!query?visibleRooms.slice(0,6):visibleRooms} error={roomError}
+        filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
+        onCreate={()=>go('create')} onEnter={enterRoom} onClose={closeMyRoom} showWelcome={page==='home'}/>
+    </HubScreen>;
+  }
   if(page==='create')return layout(ui("إنشاء غرفة"),<><Text style={S.label}>{ui("اسم الغرفة")}</Text><TextInput style={S.input} value={roomName} onChangeText={setRoomName}/><Text style={S.label}>{ui("نوع الغرفة")}</Text><View style={S.row}><Btn title={ui("📹 فيديو")} color={roomType==='video'?PINK:'#49306b'} onPress={()=>setRoomType('video')}/><Btn title={ui("🎙 صوت")} color={roomType==='audio'?PINK:'#49306b'} onPress={()=>setRoomType('audio')}/></View><Text style={S.muted}>{ui("الغرفة عامة للمستخدمين المسجلين. يمكنك ضبط رمز دخول من إعدادات الغرفة.")}</Text><Btn title={ui("فتح الغرفة")} onPress={createRoom}/></>);
-  if(page==='rooms')return layout(ui("الغرف"),<><Btn title={ui("➕ إنشاء غرفة")} onPress={()=>go('create')}/><TextInput style={S.input} value={roomSearch} onChangeText={setRoomSearch} placeholder={ui("ابحث بالاسم أو معرّف الغرفة")}/><Text style={S.muted}>{ui("يمكنك إخفاء غرف المستخدمين المحظورين وإلغاء الحظر من ملفك الشخصي.")}</Text>{roomError?<Text style={{color:'#ffa6a6'}}>{roomError}</Text>:null}{rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)&&(r.name?.toLowerCase().includes(roomSearch.trim().toLowerCase())||r.id.toLowerCase().includes(roomSearch.trim().toLowerCase()))).length===0?<Text style={S.muted}>{ui("لا توجد غرف مطابقة")}</Text>:rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)&&(r.name?.toLowerCase().includes(roomSearch.trim().toLowerCase())||r.id.toLowerCase().includes(roomSearch.trim().toLowerCase()))).map(r=><View key={r.id} style={S.panel}><TouchableOpacity onPress={()=>enterRoom(r)}><Text style={S.title}>{r.type==='video'?'📹':'🎙'} {r.name}</Text><Text style={S.gold}>#{r.id.slice(0,9)}{ui(" 🌐 · غرفة مباشرة")}</Text></TouchableOpacity>{r.ownerUid===user?.uid&&<Btn title={ui("إغلاق غرفتي")} color="#96334f" onPress={()=>closeMyRoom(r)}/>}</View>)}</>);
   if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:'#49306b'} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 Pi" color={paymentMethod==='pi'?PINK:'#49306b'} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر Pi بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} Pi`:ui("أدخل سعر Pi")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من Pi = 1,200 ماسة. يتغير سعر Pi صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر Pi الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة Pi يحتاجان إعدادات دفع فعلية.")}</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
@@ -1286,7 +1312,39 @@ export default function App(){
     {visibleNumber?.offers.map(o=><View key={o.number} style={S.shop}><Text style={S.white}>{o.number}</Text><Small title={ui("شراء · ")+fmt(o.cost)+' 💎'} onPress={()=>numberAction('buy',o.number)}/></View>)}
     {visibleNumber?.owned.map(n=><Small key={n} title={(visibleNumber.number===n?'✓ ':ui("استخدام "))+n} onPress={()=>numberAction('equip',n)}/>)}</View><View style={S.panel}><Text style={S.gold}>{ui("هدية ترحيبية · 💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة")}</Text></View>{GOODS.map((g,i)=><View key={i} style={S.shop}><Text style={{fontSize:25}}>{g[0]}</Text><View style={{flex:1}}><Text style={S.white}>{ui(g[1])}</Text><Text style={S.gold}>{g[2]} 💎</Text></View>{inventory.includes(g[1])?<Small title={equipped[g[3]]===g[1]?ui("إزالة"):ui("تفعيل")} onPress={()=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>:<Small title={ui("شراء")} color={PINK} onPress={()=>buyGood(g)}/>}</View>)}</>);
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
-  if(page==='profile')return layout(ui("الملف الشخصي"),<>{myProfile}<LanguageDropdown selected={locale} onPick={pickLocale} label={ui('تغيير اللغة')}/>{policyLinks(ui("سياسة الخصوصية"),ui("شروط الخدمة"))}<Btn title={ui("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title={ui("اختيار صورة من الاستوديو")} onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert(ui("الصورة"),e.message)}}}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>);
+  if(page==='profile')return <HubScreen title={ui('حسابي')}
+    action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
+    <AccountHub name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
+      balance={visibleNumber?.balance} copy={{balance:ui('رصيد الماس'),photo:ui('الصورة الشخصية')}}
+      shortcuts={[
+        {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
+        {icon:'#',label:ui('أرقام مميزة'),onPress:()=>go('store')},
+        {icon:'↗',label:ui('الأرباح'),onPress:()=>go('earningsWallet')},
+      ]}
+      settings={[
+        {label:ui('تعديل الملف الشخصي'),onPress:()=>go('profileEdit')},
+        {label:ui('الإعدادات'),onPress:()=>go('accountSettings')},
+      ]}/>
+  </HubScreen>;
+  if(page==='accountSettings'){
+    const openPolicy=path=>location.assign(path);
+    return <HubScreen title={ui('الإعدادات')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}>
+      <LanguageDropdown selected={locale} onPick={pickLocale} label={ui('تغيير اللغة')}/>
+      <HubRows items={[
+        {label:ui('الملف الشخصي والحسابات المحظورة'),onPress:()=>go('profileEdit')},
+        {label:ui('سياسة الخصوصية'),onPress:()=>openPolicy('/privacy')},
+        {label:ui('شروط الخدمة'),onPress:()=>openPolicy('/terms')},
+        {label:ui('مشاركة Clipi'),onPress:()=>Share.share({message:location.origin+'/'}).catch(()=>Alert.alert(ui('تعذرت المشاركة')))},
+        ...(SHOW_UNRELEASED_DEMOS?[
+          {label:ui('الألعاب'),onPress:()=>go('games')},
+          {label:ui('الهدايا'),onPress:()=>go('gifts')},
+          {label:ui('أرباح المضيف'),onPress:()=>go('earnings')}
+        ]:[]),
+        {label:ui('تسجيل الخروج'),destructive:true,onPress:logout},
+      ]}/>
+    </HubScreen>;
+  }
+  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Btn title={ui("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title={ui("اختيار صورة من الاستوديو")} onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert(ui("الصورة"),e.message)}}}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>,()=>go('profile'));
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="light-content"/>
