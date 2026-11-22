@@ -1,5 +1,5 @@
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
-import {LanguagePicker} from './LanguagePicker';
+import {LanguageDropdown, LanguagePicker} from './LanguagePicker';
 import {languages, readLocale, saveLocale} from './languages.mjs';
 import {choosePhoto} from './photo';
 import {Image} from 'react-native';
@@ -705,7 +705,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
 }
 
 export default function App(){
-  const [locale,setLocale]=useState(()=>readLocale(()=>window.localStorage));
+  const [locale,setLocale]=useState(()=>readLocale(()=>window.localStorage)||'en');
   const [choosingLocale,setChoosingLocale]=useState(false);
   const words=languages[locale]||languages.en;
   useEffect(()=>setInterfaceLanguage(locale),[locale]);
@@ -1187,7 +1187,7 @@ export default function App(){
       <View style={[S.page,{justifyContent:'center',padding:24}]}>
         {children}
         {!!authError&&<Text accessibilityLiveRegion="polite" style={S.white}>{locale==='ar'?authError:words.error}</Text>}
-        <Small title={words.change} onPress={()=>setChoosingLocale(true)}/>
+        <LanguageDropdown selected={locale} onPick={pickLocale} label={words.change}/>
         {policyLinks(words.privacy,words.terms)}
       </View>
     </div>;
@@ -1312,7 +1312,6 @@ export default function App(){
   </View>;
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
-  if(!locale)return <LanguagePicker onPick={pickLocale}/>;
   return <View style={{flex:1}}>{renderPage()}
     <Modal visible={choosingLocale} onRequestClose={()=>setChoosingLocale(false)}>
       <LanguagePicker onPick={pickLocale} onBack={()=>setChoosingLocale(false)}/>
