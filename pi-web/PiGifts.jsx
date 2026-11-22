@@ -50,7 +50,7 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
     lock.current = attempt;
     const active = () => lock.current === attempt;
     setBusy(true);
-    setMessage(ui("جاري تسجيل الدخول إلى Pi…"));
+    setMessage(ui("جاري تسجيل الدخول إلى PI…"));
     function end(text) {
       if (!active()) return;
       clearTimeout(timer);
@@ -58,7 +58,7 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
       setBusy(false);
       setMessage(text);
     }
-    let timer = setTimeout(() => end(ui("تأخر رد Pi على طلب صلاحية الدفع. حاول مجددًا.")), 30000);
+    let timer = setTimeout(() => end(ui("تأخر رد PI على طلب صلاحية الدفع. حاول مجددًا.")), 30000);
     try {
       const pending = [];
       let accessToken;
@@ -80,9 +80,9 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
       if (pending.length) return end(ui("تم تأكيد الدفعة السابقة. يمكنك اختيار هدية الآن."));
       const send = (action, paymentId, txid) => request(action,{roomId,paymentId,txid,accessToken},sessionId);
       if (!active()) return;
-      setMessage(ui("جاري فتح محفظة Pi…"));
+      setMessage(ui("جاري فتح محفظة PI…"));
       timer = setTimeout(() => {
-        if (active()) setMessage(ui("تأخر رد المحفظة. إذا ما ظهرت، أعد فتح الغرفة في Pi Browser وتحقق من حالة الدفعة."));
+        if (active()) setMessage(ui("تأخر رد المحفظة. إذا ما ظهرت، أعد فتح الغرفة في PI Browser وتحقق من حالة الدفعة."));
       }, 20000);
       await sdk.createPayment({amount:gift.amount,memo:'Clipi app wallet · '+gift.name,metadata:{destination:'app_wallet',gift:id,roomId,...(recipient?{recipientUid:recipient.uid,recipientName:recipient.name}:{})}},{
         onReadyForServerApproval: paymentId => {
@@ -99,16 +99,16 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
         onCancel: () => end(ui("أُلغي الدفع.")),
         onError: () => end(ui("تعذّر إكمال الدفع."))
       });
-    } catch {end(window.Pi?ui("تعذّر بدء الدفع. تحقق من صلاحية المدفوعات في حساب Pi ثم حاول مجددًا."):ui("لم يتم تحميل خدمة Pi. حدّث الصفحة داخل Pi Browser."))}
+    } catch {end(window.Pi?ui("تعذّر بدء الدفع. تحقق من صلاحية المدفوعات في حساب PI ثم حاول مجددًا."):ui("لم يتم تحميل خدمة PI. حدّث الصفحة داخل PI Browser."))}
   }
   if (!open) return null;
   return <section role="dialog" aria-modal="true" dir="auto" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1000,maxHeight:"85vh",overflowY:"auto",background:'#201631',color:'white',padding:16,borderRadius:16}}>
-    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا Pi")}</strong>
-    <p>{ui("دفعة Pi حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.")}</p>
-    <p role="status">{paused ? ui("هدايا Pi المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.") : message || (catalog ? ui("اختَر هدية") : ui("جاري تحميل الهدايا…"))}</p>
+    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا PI")}</strong>
+    <p>{ui("دفعة PI حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.")}</p>
+    <p role="status">{paused ? ui("هدايا PI المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.") : message || (catalog ? ui("اختَر هدية") : ui("جاري تحميل الهدايا…"))}</p>
     <div style={{display:'flex',gap:8,marginTop:12}}>{Object.entries(catalog||{}).map(([id,g]) =>
       <button key={id} disabled={busy} onClick={() => buy(id,g)} style={{flex:1,padding:10,borderRadius:12,background:'#453263',color:'white'}}>
-        <span style={{fontSize:28}}>{g.icon}</span><br/>{ui(g.name)}<br/>{g.amount} Pi
+        <span style={{fontSize:28}}>{g.icon}</span><br/>{ui(g.name)}<br/>{g.amount} PI
       </button>)}</div>
   </section>;
 }

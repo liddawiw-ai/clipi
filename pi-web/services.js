@@ -14,7 +14,7 @@ export const Alert={alert(title,message='',buttons){
 }};
 let initialized=false;
 export function piSdk(){
- if(!window.Pi)throw Error(ui("افتح الرابط داخل Pi Browser وسجّل دخولك إلى Pi."));
+ if(!window.Pi)throw Error(ui("افتح الرابط داخل PI Browser وسجّل دخولك إلى PI."));
  if(!initialized){window.Pi.init({version:'2.0',sandbox:false});initialized=true}
  return window.Pi;
 }
@@ -22,7 +22,7 @@ export async function piLogin(){
  const session=await piSdk().authenticate(['username'],()=>{});
  const res=await fetch('/auth/pi',{method:'POST',headers:{Authorization:'Bearer '+session.accessToken}});
  const data=await res.json();
- if(!res.ok)throw Error(data.error||ui("تعذر تأكيد حساب Pi"));
+ if(!res.ok)throw Error(data.error||ui("تعذر تأكيد حساب PI"));
  const {user}=await auth().signInWithCustomToken(data.token);
  if(data.username&&user.displayName!==data.username)await user.updateProfile({displayName:data.username});
 }
