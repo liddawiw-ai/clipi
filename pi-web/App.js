@@ -244,7 +244,7 @@ function RoomMedia(props){
   return <RoomMediaSession {...props} runtime={runtime}/>;
 }
 
-function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,session,onSeat,people,initialMedia,speakerMuted}){
+function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,people,initialMedia,speakerMuted}){
   const {AudioSession,LiveKitRoom}=runtime;
   const [credentials,setCredentials]=useState(()=>initialMedia?.canPublish===canPublish?initialMedia:null);
   const firstToken=useRef(credentials);
@@ -284,18 +284,21 @@ function RoomMediaSession({room,userId,canPublish,audio,blocked,guests,runtime,s
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false} speakerMuted={speakerMuted}
     onError={()=>setError(ui("تعذر الاتصال بالبث"))}
     onDisconnected={()=>setError(ui("انقطع اتصال البث"))}>
-    <ConnectedMedia runtime={runtime} room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests} people={people} onSeat={onSeat}/>
+    <ConnectedMedia runtime={runtime} room={room} canPublish={canPublish} audio={audio} blocked={blocked} guests={guests} people={people} lockedSlots={lockedSlots} onSeat={onSeat}/>
   </LiveKitRoom>;
 }
 
-function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,onSeat,people}){
+function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,onSeat,lockedSlots,people}){
   const {VideoTrack,isTrackReference,useConnectionState,useLocalParticipant,useParticipants,useTracks,ConnectionState,Track}=runtime;
   const state=useConnectionState();
   const {localParticipant,isMicrophoneEnabled,isCameraEnabled}=useLocalParticipant();
   const tracks=useTracks([Track.Source.Camera],{onlySubscribed:true});
   const participants=useParticipants();
   const guestCamera=tracks.find(track=>Object.prototype.hasOwnProperty.call(guests,track.participant.identity)&&!blocked.includes(track.participant.identity)&&isTrackReference(track));
-  const seats=Object.entries(guests).filter(([uid])=>uid!==room.ownerUid);
+  const seats=[];
+  for(const person of people.filter(p=>p.seat&&p.uid!==room.ownerUid)){
+    let i=person.seat-1;while(seats[i])i++;seats[i]=[person.uid,person.name];
+  }
   const host=participants.find(participant=>participant.identity===room.ownerUid);
 
   const camera=tracks.find(track=>track.participant.identity===room.ownerUid&&isTrackReference(track));
@@ -349,14 +352,14 @@ function ConnectedMedia({room,canPublish,audio,blocked,guests,runtime,session,on
         <View style={S.seatGrid}>{Array.from({length:AUDIO_GUEST_SEATS},(_,i)=>{
           const [uid,label]=seats[i]||[];
           const person=participants.find(participant=>participant.identity===uid);
-          return <TouchableOpacity key={i} accessibilityLabel={label||ui("مقعد متاح")} style={S.seatItem} onPress={()=>{if(uid&&uid===localParticipant.identity){Alert.alert(label,'',[{text:isMicrophoneEnabled?ui("كتم ميكروفوني"):ui("تشغيل ميكروفوني"),onPress:()=>{if(canPublish)void toggle('microphone');else Alert.alert(ui("الميكروفون مكتوم من المضيف"))}},{text:ui("إغلاق")}]);return}onSeat(uid,label)}}>
-          <View style={[S.throne,people.find(p=>p.uid===uid)?.frame===1&&{borderColor:GOLD,borderWidth:3}]}><Text style={{fontSize:23}}>{uid?(person?.isMicrophoneEnabled?'🎙️':'💺'):'+'}</Text></View>
+          return <TouchableOpacity key={i} accessibilityLabel={label||ui("مقعد متاح")} style={S.seatItem} onPress={()=>{if(uid&&uid===localParticipant.identity){Alert.alert(label,'',[{text:isMicrophoneEnabled?ui("كتم ميكروفوني"):ui("تشغيل ميكروفوني"),onPress:()=>{if(canPublish)void toggle('microphone');else Alert.alert(ui("الميكروفون مكتوم من المضيف"))}},{text:ui("إغلاق")}]);return}onSeat(uid,label,i+1)}}>
+          <View style={[S.throne,people.find(p=>p.uid===uid)?.frame===1&&{borderColor:GOLD,borderWidth:3}]}><Text style={{fontSize:23}}>{uid?(person?.isMicrophoneEnabled?'🎙️':'💺'):lockedSlots.includes(i+1)?'🔒':'+'}</Text></View>
           <Text numberOfLines={1} style={S.tiny}>{label||i+1}</Text>
         </TouchableOpacity>})}</View></>:
         !camera&&<Text style={mediaStyles.status}>{ui("كاميرا المضيف مغلقة")}</Text>}
     {canPublish&&state===ConnectionState.Connected&&!busy&&<View style={mediaStyles.controls}>
       <TouchableOpacity accessibilityLabel={isMicrophoneEnabled?ui("كتم الميكروفون"):ui("تشغيل الميكروفون")} style={S.small} onPress={()=>toggle('microphone')}><Text style={S.white}>{isMicrophoneEnabled?'🎙️':'🔇'}</Text></TouchableOpacity>
-      {!audio&&<Small title={isCameraEnabled?ui("إغلاق الكاميرا"):ui("تشغيل الكاميرا")} onPress={()=>toggle('camera')}/>}
+      {!audio&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={isCameraEnabled?'إغلاق الكاميرا':'تشغيل الكاميرا'} style={S.small} onPress={()=>toggle('camera')}><Text style={S.white}>{isCameraEnabled?'📹':'📷'}</Text></TouchableOpacity>}
     </View>}
   </>;
 }
@@ -403,16 +406,23 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   const requests=people.filter(p=>p.waiting&&!blocked.includes(p.uid));
   const requested=self?.waiting;
   const act=(op,extra)=>membership.act(op,extra).catch(e=>Alert.alert(ui("الغرفة"),e.message));
-  function onSeat(uid,label){
-    if(!uid){if(!isHost&&!self?.seat)void act('request');return}
+  const [seatMenu,setSeatMenu]=useState(null);
+  function onSeat(uid,label,slot){
+    if(!uid&&!isHost){if(!isHost&&!self?.seat)void act('request');return}
     const person=people.find(p=>p.uid===uid);
     const options=[];
-    if(uid!==userId)options.push({text:ui("🎁 إرسال هدية إلى ")+label,onPress:()=>{setRecipient({uid,name:label});setGiftOpen(true)}});
-    if(isHost&&uid!==userId)options.push(
+    if(isHost&&slot){
+      const locked=membership.state?.lockedSlots?.includes(slot);
+      options.push({text:locked?'فتح المقعد':'إغلاق المقعد',onPress:()=>act('slot',{slot,locked:!locked,uid})});
+    }
+
+    if(uid&&uid!==userId)options.push({text:ui("🎁 إرسال هدية إلى ")+label,onPress:()=>{setRecipient({uid,name:label});setGiftOpen(true)}});
+    if(isHost&&uid&&uid!==userId)options.push(
+      {text:'حظر من الغرفة',onPress:()=>act('ban',{uid})},
       {text:person?.muted?ui("السماح بالميكروفون"):ui("كتم الميكروفون"),onPress:()=>act(person?.muted?'unmute':'mute',{uid})},
       {text:ui("إنزال عن المقعد"),onPress:()=>act('demote',{uid})},
-      {text:ui("طرد من الغرفة"),onPress:()=>act('kick',{uid})});
-    Alert.alert(ui("مقعد ")+label,'',[...options,{text:ui("إغلاق")}]);
+      {text:ui("طرد من الغرفة"),onPress:()=>act('eject',{uid})});
+    setSeatMenu({label:label||String(slot),options});
   }
   useEffect(()=>{
     const unsub=roomRef.onSnapshot(d=>{
@@ -583,20 +593,21 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
   </Modal>;
   if(!membership.state)return <View style={S.page}><Text style={S.title}>{room.name}</Text><Text style={S.white}>{ui(membership.error)||ui("جارٍ دخول الغرفة…")}</Text>
     {membership.pinRequired&&<TextInput style={S.input} value={pin} maxLength={4} keyboardType="number-pad" secureTextEntry onChangeText={setPin} placeholder={ui("رمز الغرفة")}/>}
-    {membership.error&&<Btn title={ui("دخول")} onPress={()=>membership.join(pin)}/>}<Small title={ui("رجوع")} onPress={exitRoomOnce}/></View>;
+    {membership.error&&<Btn title={ui("دخول")} onPress={()=>membership.join(pin)}/>}<Small title={ui("رجوع")} onPress={isHost?closeHostedRoom:exitRoomOnce}/></View>;
   return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?'#102b2a':'#081923'}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="light-content"/>
     {audio&&<View pointerEvents="none" style={S.audioBackdrop}><View style={S.blueGlow}/><View style={S.royalGlow}/><Text style={S.bgCrown}>♛</Text><Text style={S.bgOrnament}>✦ ✧ ♛ ✧ ✦</Text></View>}
     {!!membership.state?.theme&&membership.state.theme!=='default'&&<Image pointerEvents="none" resizeMode="cover" style={[StyleSheet.absoluteFillObject,{width:'100%',height:'100%'}]} source={{uri:MEDIA_ENDPOINT+'/themes/'+(['palace','aurora','dunes'].includes(membership.state.theme)?membership.state.theme+'.jpg':encodeURIComponent(room.id)+'/'+membership.state.theme)}}/>}
     {audio&&<View pointerEvents="none" style={S.roomThemeShade}/>}
-    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} onSeat={onSeat} speakerMuted={speakerMuted}/></View>}
+    {!audio&&<View style={[StyleSheet.absoluteFillObject,{paddingTop:110}]}><RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} onSeat={onSeat} speakerMuted={speakerMuted}/></View>}
+    <Modal visible={!!seatMenu} transparent onRequestClose={()=>setSeatMenu(null)}><View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}><Text style={S.title}>{seatMenu?.label}</Text>{seatMenu?.options.map(option=><Small key={option.text} title={option.text} onPress={()=>{setSeatMenu(null);option.onPress()}}/>)}<Small title="إغلاق" onPress={()=>setSeatMenu(null)}/></View></View></Modal>
     {roomSettings}
     {shareSheet}
     <GlobalGreedyPreview visible={globalGameOpen&&minimized} onRestoreRoom={onRestore} roomName={room.name} diamonds={diamonds}
       onBet={onBet} onCredit={onCredit} onClose={()=>setGlobalGameOpen(false)}/>
     <View style={S.roomTop}>
       <View style={S.roomTopRow}>
-        <Small title={ui("✕ خروج")} onPress={exitRoomOnce}/>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={S.white}>✕</Text></TouchableOpacity>
         <View style={S.roomIdentity}>
           <Text style={S.roomName} numberOfLines={1}>{room.name}</Text>
           <Text style={S.roomType}>{audio?ui("🎙 غرفة صوتية"):ui("📹 بث فيديو")}</Text>
@@ -608,7 +619,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onSendGift,onBet,on
         </TouchableOpacity>
       </View>
     </View>
-    {audio&&<RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} onSeat={onSeat} speakerMuted={speakerMuted}/>}
+    {audio&&<RoomMedia room={room} userId={userId} canPublish={isHost||isGuest} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(isHost||isGuest)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} onSeat={onSeat} speakerMuted={speakerMuted}/>}
     <View pointerEvents="none" style={{flex:1}}/>
 
     {isHost&&stagePanelVisible&&requests.length>0&&!keyboardOn&&<ScrollView style={mediaStyles.requests}>
@@ -839,10 +850,25 @@ export default function App(){
   useEffect(()=>{
     if(!user?.uid)return;
     setRooms([]);setRoomError('');
+    let candidates=[],live=new Set(),mounted=true,pending=false;
+    const display=()=>setRooms(candidates.filter(r=>r.status==='open'&&live.has(r.id)));
+    async function refresh(){
+      if(pending)return;
+      pending=true;
+      try{
+        const response=await fetch(MEDIA_ENDPOINT+'/active-rooms');
+        if(!response.ok)throw Error('تعذر التحقق من الغرف المفتوحة');
+        const data=await response.json();
+        if(mounted){live=new Set(data.rooms);display();setRoomError('')}
+      }catch(e){if(mounted){live.clear();display();setRoomError(e.message)}}
+      finally{pending=false}
+    }
+    void refresh();
+    const interval=setInterval(refresh,10000);
     const unsub=firestore().collection('rooms').orderBy('createdAt','desc').limit(50).onSnapshot(snapshot=>{
-      setRooms(snapshot.docs.map(d=>({id:d.id,...d.data()})));setRoomError('');
+      candidates=snapshot.docs.map(d=>({id:d.id,...d.data()}));display();
     },e=>{setRooms([]);setRoomError(ui("تعذر تحميل الغرف: ")+e.message)});
-    return unsub;
+    return ()=>{mounted=false;clearInterval(interval);unsub()};
   },[user?.uid]);
   useEffect(()=>{
     if(!user?.uid){setBlockedUsers([]);return;}
@@ -1375,7 +1401,7 @@ const S=StyleSheet.create({
   gameHistory:{color:'#d8bbfa',fontSize:11,marginVertical:1},gameFooter:{gap:5,paddingTop:4,borderTopWidth:1,borderTopColor:'#503666'},
   gameAmounts:{flexDirection:'row',gap:5},gameAmount:{flex:1,minWidth:0,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:'#41285b',height:34,paddingHorizontal:3},
   gameAmountSelected:{backgroundColor:'#7d45b0',borderWidth:1,borderColor:'#d9adff'},gameAmountText:{color:'#fff',fontSize:13,fontWeight:'800'},
-  hostSeat:{alignSelf:'center',alignItems:'center',paddingVertical:5,paddingHorizontal:18,maxWidth:'82%'},
+  hostSeat:{alignSelf:'stretch',width:'100%',alignItems:'center',paddingVertical:5},
   hostCrown:{width:72,height:72,borderWidth:2,borderColor:'#ffe2a4',borderRadius:36,backgroundColor:'#745292',alignItems:'center',justifyContent:'center'},
   hostCrownText:{fontSize:29,color:'#ffe2a4'},hostSeatName:{fontWeight:'900',color:'#fff',marginTop:2,fontSize:14},hostSeatRole:{color:'#ffe2a4',fontSize:11},
   roomTop:{paddingHorizontal:10,paddingTop:8,paddingBottom:5,backgroundColor:'#15102bea',borderBottomColor:'#4c3469',borderBottomWidth:1},

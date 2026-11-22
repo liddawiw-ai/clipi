@@ -30,6 +30,11 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path==='/active-rooms'&&request.method==='GET'){
+      const q=await roomStore(env.PI_GIFTS_DB);
+      const rows=await q('SELECT h.room FROM room_host h JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
+      return json({rooms:rows.results.map(row=>row.room)});
+    }
     if(request.method==='GET'&&path.startsWith('/themes/')){
       if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
       const parts=/^\/themes\/([A-Za-z0-9_-]{1,128})\/([a-f0-9-]{36})$/.exec(path);
