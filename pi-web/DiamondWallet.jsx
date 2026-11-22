@@ -70,10 +70,11 @@ export function DiamondWallet({uid}){
   }
   return <section className="clipi-wallet-cards" dir="auto">
     <BalanceCard icon="💎" tone="sky" label={label('الماس المشترى','Purchased diamonds')} value={data?.diamonds??'…'} action={label('شحن','Top up')} onPress={()=>document.getElementById('clipi-packs')?.scrollIntoView({block:'start'})}/>
+    <BalanceCard icon="♡" tone="rose" label={label('الماس المستهدف','Target diamonds')} value={(data?.receivedDiamonds??'…')+' 💎'}/>
+    <p>{label('كل ماسة يرسلها لك مستخدم في هدية تُضاف إلى هذا الإجمالي.','Every diamond someone sends you in a gift adds one diamond to this total.')}</p>
     <BalanceCard icon="✦" tone="sand" label={label('مكافآت المضيف','Host rewards')} value={(data?data.rewardPi:'…')+' PI'}/>
-    <BalanceCard icon="♡" tone="rose" label={label('هدف ماس الهدايا','Gift diamond goal')} value={(data?.progress??'…')+' / 10,000 💎'}/>
+    <p>{label('التقدّم نحو المكافأة التالية','Progress toward the next reward')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>
     <p>{label('كل 10,000 ماسة هدايا تُسجّل للمضيف مكافأة قدرها 5 PI داخل كليبي.','Every 10,000 gift diamonds records a 5 PI host reward in Clipi.')}</p>
-    <p>{label('إجمالي ماس الهدايا المستلم','Total gift diamonds received')} · {data?.receivedDiamonds??'…'} 💎</p>
     {data?.ownerBox&&<section aria-label={label('صندوق ماس المالك','Owner diamond box')}>
       <h3>{label('صندوق ماس المالك','Owner diamond box')}</h3>
       <BalanceCard icon="💎" tone="sky" label={label('الماس المشحون للمستخدمين','Diamonds credited to buyers')} value={data.ownerBox.sold}/>

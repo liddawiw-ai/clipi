@@ -8,6 +8,8 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
   const current=useRef({onEntry,onExit,username,equipped,avatar});
   current.current={onEntry,onExit,username,equipped,avatar};
   const known=useRef(null),sequence=useRef(0),lastApplied=useRef(0),alive=useRef(true);
+  const [supportBalance,setSupportBalance]=useState(null);
+  const lastBalanceResponse=useRef(0);
   async function act(op,extra={}){
     const index=++sequence.current;
     const token=await auth().currentUser?.getIdToken();
@@ -19,6 +21,11 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
         if(op==='poll'&&[403,404].includes(response.status)){current.current.onExit(ui(data.error));return}
       }
       throw Error(ui(data.error)||ui("تعذّر الاتصال بالغرفة"));
+    }
+    const diamonds=data.senderDiamonds??data.supportBalance;
+    if(alive.current&&index>lastBalanceResponse.current&&Number.isSafeInteger(diamonds)){
+      lastBalanceResponse.current=index;
+      setSupportBalance(diamonds);
     }
     if(op==='giftRecipient')return data;
     if(op==='paidGift')return data.receipt;
@@ -56,5 +63,5 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     timer=setTimeout(poll,3500);
     return()=>{stopped=true;clearTimeout(timer)};
   },[roomId,joined]);
-  return {state,error,pinRequired,joining,join,act,session};
+  return {state,supportBalance,error,pinRequired,joining,join,act,session};
 }

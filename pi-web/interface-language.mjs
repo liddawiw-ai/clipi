@@ -5,6 +5,8 @@ const english = {
   "أُضيفت الهدية إلى هدف": "Gift credited to the goal of",
   "تعذّر تأكيد الهدية. أعد المحاولة.": "Gift confirmation unavailable. Retry to check this gift.",
   "رصيد الماس المشترى غير كافٍ": "Insufficient purchased diamonds",
+  "الماس المشترى": "Purchased diamonds",
+  "رصيد متجر الأرقام": "Number store balance",
   "المايك": "Microphone",
   "قفل": "Lock",
   "كتم": "Mute",

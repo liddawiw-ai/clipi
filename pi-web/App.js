@@ -397,7 +397,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [giftNotice,setGiftNotice]=useState('');
   const [giftIssue,setGiftIssue]=useState('');
   const [lookupAttempt,retryLookup]=useState(0);
-  const [paidBalance,setPaidBalance]=useState(null);
   const paidNonce=useRef(null),giftSending=useRef(false);
   const [giftTarget,setGiftTarget]=useState(null);
   const [targetProfile,setTargetProfile]=useState(null);
@@ -416,6 +415,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const membership=useRoomSession(room.id,username,equipped,entries=>{
     setFxId(v=>v+1);setFx(['🏎️',ui("دخل الغرفة ")+entries.map(p=>p.name).join('، '),0,entries.some(p=>p.ride)?'car':'party']);
   },reason=>{Alert.alert(ui("الغرفة"),reason);exitRoomOnce()},avatar);
+  const paidBalance=membership.supportBalance;
   const people=membership.state?.people||[];
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
   const self=people.find(p=>p.uid===userId);
@@ -438,7 +438,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   function openGifts(uid){
     Keyboard.dismiss();
     setTargetProfile(null);
-    setPaidBalance(null);
     setGiftIssue('');
     setGiftNotice('');
     setGiftTarget(uid&&uid!==userId?uid:null);
@@ -452,10 +451,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     if(!giftOpen||!selectedPresent)return;
     let active=true;
     membership.act('giftRecipient',{recipient:giftTarget}).then(data=>{
-      if(active){
-        setTargetProfile(data.recipient);
-        setPaidBalance(data.senderDiamonds);
-      }
+      if(active)setTargetProfile(data.recipient);
     }).catch(error=>{if(active)setGiftIssue(error.message)});
     return ()=>{active=false};
   },[giftOpen,giftTarget,selectedPresent,lookupAttempt]);
@@ -1394,7 +1390,7 @@ export default function App(){
   if(page==='profile')return <HubScreen title={ui('حسابي')}
     action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
     <AccountHub name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
-      balance={visibleNumber?.balance} copy={{balance:ui('رصيد الماس'),photo:ui('الصورة الشخصية')}}
+      balance={visibleNumber?.purchasedDiamonds} copy={{balance:ui('الماس المشترى'),photo:ui('الصورة الشخصية')}}
       shortcuts={[
         {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
         {icon:'#',label:ui('المتجر'),onPress:()=>go('store')},

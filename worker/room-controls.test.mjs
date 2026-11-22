@@ -6,7 +6,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {account,price} from './identity.mjs';
 import {roomStore,roomControls} from './room-controls.mjs';
 
-test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
+test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   const sql=new DatabaseSync(':memory:');
   // Exercise the same SQL and parameter binding as D1, including its change count.
   const db={prepare(query){return {bind(...args){return {
@@ -252,6 +252,46 @@ test('audio seating, moderation, PIN, chat and visit expiry', async()=>{
   assert.equal((await call('host','settings',{theme:'palace'})).theme,'palace');
   assert.equal((await call('u1','poll')).theme,'palace');
 
+  await t.test('a verified pack funds gifts at face value across reward milestones',async()=>{
+    const uid='pi:pack-buyer',recipient='gift-seat-8';
+    const txid='b'.repeat(64),paymentId='target-test-pack';
+    const payment={
+      identifier:paymentId,user_uid:'pack-buyer',direction:'user_to_app',network:'Pi Network',amount:16,
+      metadata:{kind:'diamond_pack',uid,diamonds:16000,rate:1000},transaction:{txid},
+      status:{developer_approved:true,developer_completed:true,transaction_verified:true}
+    };
+    const fetchBeforePack=globalThis.fetch;
+    try{
+      globalThis.fetch=async url=>Response.json(url.endsWith('/me')?{uid:'pack-buyer'}:payment);
+      const complete=()=>piGifts(new Request('https://example.test/pi-gifts/complete',{method:'POST',
+        body:JSON.stringify({kind:'diamond_pack',paymentId,txid,accessToken:'fixture'})}),
+        {PI_GIFTS_NETWORK:'mainnet',PI_NETWORK_API_KEY:'fixture',PI_GIFTS_DB:db},(body,status=200)=>({status,...body}));
+      assert.equal((await complete()).completed,true);
+      assert.equal((await complete()).completed,true);
+    }finally{globalThis.fetch=fetchBeforePack}
+    assert.equal((await giftRoom(uid,'join')).supportBalance,16000);
+    const before=await readWallet(q,recipient);
+    assert.equal(before.receivedDiamonds,10);
+    for(const [gift,cost,remaining,total,progress] of [
+      ['مروحية الماس',9990,6010,10000,0],['خاتم',500,5510,10500,500]
+    ]){
+      const payload={recipient,gift,cost,nonce:crypto.randomUUID()};
+      const result=await giftRoom(uid,'paidGift',payload);
+      assert.equal(result.receipt.diamonds,cost);
+      assert.equal(result.senderDiamonds,remaining);
+      assert.deepEqual(await giftRoom(uid,'paidGift',payload),result);
+      assert.equal((await numbers(uid,'read')).purchasedDiamonds,remaining);
+      assert.equal((await giftRoom(uid,'giftRecipient',{recipient})).senderDiamonds,remaining);
+      assert.equal((await readWallet(q,uid)).diamonds,remaining);
+      const credited=await readWallet(q,recipient);
+      assert.equal(credited.receivedDiamonds,total);
+      assert.equal(credited.progress,progress);
+      assert.equal(credited.rewardPi,5);
+      assert.equal(credited.diamonds,before.diamonds);
+    }
+    assert.equal((await readWallet(q,'gift-host')).receivedDiamonds,10);
+    assert.equal((await readWallet(q,second)).diamonds,890);
+  });
 });
 
 test('current and previous Pi pack receipts',async()=>{

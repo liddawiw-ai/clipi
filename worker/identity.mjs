@@ -1,3 +1,5 @@
+import {paidBalance} from './diamond-wallet.mjs';
+
 export const offers=['1234567','7777777','121212','345678','12221','12345','8888','1234','777','909','1122334','456789','67890','5656','787'];
 export function price(id){
   const lengthPrice={7:50,6:200,5:1000,4:5000,3:20000}[id.length];
@@ -29,6 +31,6 @@ export async function account(q,uid,input,allowance,json){
   const active=await q('SELECT number FROM selected_number WHERE uid=?',uid).first();
   const owned=(await q('SELECT number FROM public_numbers WHERE uid=?',uid).all()).results.map(r=>r.number);
   const available=(await q('SELECT number FROM public_numbers WHERE cost>0').all()).results.map(r=>r.number);
-  const balance=await q(`SELECT ? - (${spend}) AS balance`,allowance,uid,uid,uid).first();
-  return json({number:active?.number||normal.number,owned,balance:balance.balance,offers:offers.filter(n=>!available.includes(n)).map(number=>({number,cost:price(number)}))});
+  const balances=await q(`SELECT ? - (${spend}) AS balance, ${paidBalance} AS purchasedDiamonds`,allowance,uid,uid,uid,uid,uid).first();
+  return json({number:active?.number||normal.number,owned,...balances,offers:offers.filter(n=>!available.includes(n)).map(number=>({number,cost:price(number)}))});
 }
