@@ -50,7 +50,7 @@ module.exports = {
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
-    extra: {directCheckout: process.env.EAS_BUILD_PROFILE !== 'production' && process.env.CLIPI_DISTRIBUTION !== 'store', googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
+    extra: {internalIosCheckout: ['development','preview'].includes(process.env.EAS_BUILD_PROFILE) || process.env.CLIPI_DISTRIBUTION === 'internal', directCheckout: process.env.EAS_BUILD_PROFILE !== 'production' && process.env.CLIPI_DISTRIBUTION !== 'store', googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
     plugins
   }
 };
