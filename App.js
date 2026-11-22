@@ -252,12 +252,23 @@ function RoomMedia({room,userId,canPublish,audio,blocked,guests}){
   const [credentials,setCredentials]=useState(null);
   const [error,setError]=useState('');
   const [attempt,setAttempt]=useState(0);
+  // Do not initialize native audio before the backend authorizes a connection.
+  // In particular, a failed /voice/token response must never start WebRTC audio.
   useEffect(()=>{
-    if(!MEDIA_CONFIGURED||!RTC_NATIVE_ENABLED)return;
-    const start=AudioSession.startAudioSession();
-    void start.catch(()=>setError('تعذر بدء جلسة الصوت'));
-    return()=>{void start.catch(()=>{}).then(()=>AudioSession.stopAudioSession()).catch(()=>{});};
-  },[]);
+    if(!MEDIA_CONFIGURED||!RTC_NATIVE_ENABLED||!credentials?.token)return;
+    let mounted=true;
+    let started=false;
+    void AudioSession.startAudioSession().then(()=>{
+      started=true;
+      if(!mounted)return AudioSession.stopAudioSession();
+    }).catch(()=>{
+      if(mounted)setError('تعذر بدء جلسة الصوت. تحقق من إعدادات الجهاز.');
+    });
+    return()=>{
+      mounted=false;
+      if(started)void AudioSession.stopAudioSession().catch(()=>{});
+    };
+  },[credentials?.token]);
   useEffect(()=>{
     if(!MEDIA_CONFIGURED||!RTC_NATIVE_ENABLED)return;
     const controller=new AbortController();
