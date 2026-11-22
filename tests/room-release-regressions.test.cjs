@@ -26,3 +26,12 @@ test('production profile is an AAB, not APK',()=>{
   assert.equal(eas.build.production.android.buildType,'app-bundle');
   assert.equal(config.android.package,'com.walid.clipi');
 });
+
+test('payout country must be selected before bank or wallet fields',()=>{
+  assert.match(app,/useState\(null\);\s*const \[payoutCountryMenuOpen/);
+  assert.match(app,/if\(!payoutCountry\)\{Alert\.alert\('الدولة'/);
+  assert.match(app,/payoutCountry&&<>/);
+  for(const wallet of ['Zain Cash الأردن','Vodafone Cash','AsiaHawala','FastPay','urpay','Barq'])
+    assert.ok(app.includes(wallet),wallet);
+  assert.match(app,/لا يرسل بيانات بنكية لخادم ولا يسحب أموالًا/);
+});
