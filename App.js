@@ -62,8 +62,8 @@ const PAYOUT_WALLETS={
     'QNB Wallet','CIB Smart Wallet','ALEXBANK Wallet',
     'محفظة بنك مصري أخرى'
   ],
-  IQ:['ZainCash العراق','محفظة عراقية أخرى'],
-  SA:['stc pay / STC Bank','محفظة سعودية أخرى'],
+  IQ:['ZainCash العراق','AsiaHawala','FastPay','محفظة عراقية أخرى'],
+  SA:['STC Bank / stc pay','urpay','Barq','محفظة سعودية أخرى'],
   AE:['e& money','محفظة إماراتية أخرى'],
   PS:['محفظة فلسطينية محلية'],
   LB:['محفظة لبنانية محلية'],
@@ -637,7 +637,8 @@ export default function App(){
   const [inventory,setInventory]=useState(['👑 إطار فاخر','🏎️ دخول سيارة فاخرة']);
   const [equipped,setEquipped]=useState({frame:'👑 إطار فاخر',ride:'🏎️ دخول سيارة فاخرة'});
   const [spent,setSpent]=useState(0),[received,setReceived]=useState(0),[supportLog,setSupportLog]=useState([]);
-  const [payoutCountry,setPayoutCountry]=useState('JO');
+  const [payoutCountry,setPayoutCountry]=useState(null);
+  const [payoutCountryMenuOpen,setPayoutCountryMenuOpen]=useState(false);
   const [payoutOtherCountry,setPayoutOtherCountry]=useState('');
   const [payoutMethod,setPayoutMethod]=useState('wallet');
   const [payoutProvider,setPayoutProvider]=useState('Zain Cash الأردن');
@@ -657,10 +658,12 @@ export default function App(){
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['wallet','earnings','payout','store','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
-  const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
+  const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry);
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
     setPayoutCountry(code);
+    setPayoutCountryMenuOpen(false);
+    setPayoutMethod('wallet');setPayoutOtherProvider('');
     setPayoutProvider((PAYOUT_WALLETS[code]||PAYOUT_WALLETS.OTHER)[0]);
     setPayoutAccount('');setPayoutBankName('');setPayoutSwift('');
   }
@@ -669,6 +672,7 @@ export default function App(){
     const amount=Number(payoutAmount.replace(',','.'));
     const provider=payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -')
       ?payoutOtherProvider.trim():payoutProvider;
+    if(!payoutCountry){Alert.alert('الدولة','اختر الدولة أولًا');return;}
     if(payoutCountry==='OTHER'&&!payoutOtherCountry.trim()){Alert.alert('الدولة','اكتب اسم الدولة');return;}
     if(!payoutHolder.trim()||payoutHolder.trim().length<3){
       Alert.alert('اسم المستفيد','أدخل الاسم الحقيقي للمستفيد');return;
@@ -1002,14 +1006,19 @@ export default function App(){
       <Text style={S.muted}>هذه شاشة اختيار وتجهيز طلب، لا تتم عبرها أي مدفوعات أو إيداعات. يجب التحقق من اعتماد المزود في دولة المستفيد أولًا.</Text>
       <Text style={S.white}>الرصيد القابل للسحب: $0.00</Text>
     </View>
-    <Text style={S.label}>الدولة / البلد</Text>
-    <View style={S.choiceWrap}>
-      {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.choice,payoutCountry===c[0]&&S.choiceActive]}>
+    <Text style={S.label}>اختر الدولة</Text>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel="اختر الدولة للسحب" style={S.payoutCountrySelector} onPress={()=>setPayoutCountryMenuOpen(v=>!v)}>
+      <Text style={S.white}>{payoutCountryInfo?payoutCountryInfo[1]:'🌍 اختر الدولة'}</Text>
+      <Text style={S.gold}>{payoutCountryMenuOpen?'▴':'▾'}</Text>
+    </TouchableOpacity>
+    {payoutCountryMenuOpen&&<View style={S.payoutCountryDropdown}>
+      {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.payoutCountryOption,payoutCountry===c[0]&&S.choiceActive]}>
         <Text style={S.white}>{c[1]}</Text>
       </TouchableOpacity>)}
-    </View>
+    </View>}
+    {payoutCountry&&<>
     {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder="اسم الدولة" value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
-    <Text style={S.muted}>البلد المختار: {payoutCountryInfo[1]} · العملة المرجعية: {payoutCountryInfo[2]} (دون احتساب صرف فعلي)</Text>
+    <Text style={S.muted}>البلد المختار: {payoutCountryInfo?.[1]} · العملة المرجعية: {payoutCountryInfo?.[2]} (دون احتساب صرف فعلي)</Text>
     <Text style={S.label}>طريقة الاستلام</Text>
     <View style={S.row}>
       <Btn title="📱 محفظة هاتف" color={payoutMethod==='wallet'?PINK:'#49306b'} onPress={()=>setPayoutMethod('wallet')}/>
@@ -1037,6 +1046,7 @@ export default function App(){
     <TextInput style={S.input} keyboardType="decimal-pad" value={payoutAmount} onChangeText={setPayoutAmount} placeholder="0.00"/>
     <Btn title="حفظ مسودة طلب السحب فقط" onPress={createPayoutDraft}/>
     <Text style={S.muted}>لا تتاح الموافقة أو التحويل حتى يكون لديك رصيد مستحق تم تأكيده من الخادم، مع التحقق من الهوية والبلد والأهلية ورسوم التحويل.</Text>
+    </>}
     {payoutDrafts.length>0&&<Text style={S.title}>مسودات الطلبات في هذه الجلسة</Text>}
     {payoutDrafts.map(d=><View key={d.id} style={S.panel}>
       <Text style={S.white}>{d.country} · {d.provider} · ${d.amount.toFixed(2)}</Text>
@@ -1075,6 +1085,7 @@ export default function App(){
 const S=StyleSheet.create({
   starPage:{flex:1,backgroundColor:'#ffbd66'},starTopBar:{backgroundColor:'#f9a64a',paddingTop:Platform.OS==='ios'?45:12,paddingBottom:9,paddingHorizontal:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},starClose:{width:27,height:27,borderRadius:14,backgroundColor:'#d96229',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#fff2c7'},starCloseText:{color:'white',fontSize:23,fontWeight:'900',lineHeight:24},starRules:{color:'#8b4d0c',fontWeight:'900',fontSize:12,backgroundColor:'#ffe093',padding:6,borderRadius:14},starBrand:{backgroundColor:'#14a66b',borderRadius:7,borderWidth:2,borderColor:'#f5ef8e',paddingHorizontal:9,paddingVertical:5},starBrandText:{color:'white',fontWeight:'900',fontSize:19},starRound:{color:'#9a4c12',fontSize:10,fontWeight:'800'},starScroll:{paddingHorizontal:10,paddingBottom:32,alignItems:'stretch'},starWheel:{width:326,height:326,alignSelf:'center',marginTop:7,marginBottom:3,position:'relative'},starWheelRing:{position:'absolute',width:244,height:244,left:41,top:41,borderRadius:122,borderWidth:15,borderColor:'#f28c22',backgroundColor:'#eaa14e',shadowColor:'#a8470c',shadowOpacity:.5,shadowRadius:10,elevation:7},starFood:{position:'absolute',width:78,height:78,borderRadius:39,backgroundColor:'#f99a35',borderWidth:4,borderColor:'#ffdf70',alignItems:'center',justifyContent:'center',elevation:4},starFoodLit:{backgroundColor:'#e8f38e',borderColor:'#1cc46a',borderWidth:5},starFoodEmoji:{fontSize:28},starFoodLabel:{color:'#a4480e',fontWeight:'900',fontSize:10},starStake:{color:'#7b290b',fontSize:9,fontWeight:'900'},starCenter:{position:'absolute',top:114,left:114,width:98,height:98,borderRadius:49,backgroundColor:'#02ad70',borderWidth:7,borderColor:'#ffda49',alignItems:'center',justifyContent:'center',elevation:9},starCenterTop:{fontSize:11,color:'white',fontWeight:'900'},starCenterTime:{fontSize:29,color:'#fff64c',fontWeight:'900'},starBanner:{backgroundColor:'#0ca66b',borderWidth:3,borderColor:'#ffdf7a',borderRadius:7,padding:7,marginTop:3},starBannerText:{color:'white',fontWeight:'900',textAlign:'center',fontSize:13},starBetTray:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#b65b1c',padding:6,borderRadius:12,marginTop:7,borderWidth:3,borderColor:'#ffe49c'},starBetChip:{backgroundColor:'#fff6df',borderRadius:8,paddingVertical:10,paddingHorizontal:4,minWidth:'18%',alignItems:'center',borderWidth:2,borderColor:'#f5b75a'},starBetActive:{backgroundColor:'#ffe15c',borderColor:'#00aa72'},starBetText:{fontSize:11,fontWeight:'900',color:'#8a4a1b'},starInfoRow:{flexDirection:'row',gap:5,marginTop:9},starInfoPill:{flex:1,backgroundColor:'#e88c25',borderRadius:24,borderWidth:2,borderColor:'#fff0a2',alignItems:'center',justifyContent:'center',paddingVertical:7},starInfoText:{fontSize:10,color:'white',fontWeight:'800'},starInfoValue:{fontSize:14,color:'white',fontWeight:'900'},starBottomStrip:{flexDirection:'row',justifyContent:'space-around',marginTop:10,marginBottom:8,backgroundColor:'#d16e25',borderRadius:16,paddingVertical:7},starMiniFood:{width:30,height:30,borderRadius:15,backgroundColor:'#fff5d6',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#f6c45b'},starDisclaimer:{color:'#7d3b0d',fontSize:11,textAlign:'center',marginTop:8,fontWeight:'700'},
 
+  payoutCountrySelector:{backgroundColor:'#32245b',borderWidth:1,borderColor:GOLD,borderRadius:13,padding:15,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:8},payoutCountryDropdown:{backgroundColor:'#251a45',borderWidth:1,borderColor:'#6b568e',borderRadius:12,marginTop:4,overflow:'hidden'},payoutCountryOption:{padding:13,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#6b568e'},
   choiceWrap:{flexDirection:'row',flexWrap:'wrap',marginVertical:5},choice:{paddingHorizontal:10,paddingVertical:10,borderRadius:12,backgroundColor:'#32245b',margin:3,borderWidth:1,borderColor:'#4e4770'},choiceActive:{backgroundColor:'#7c2866',borderColor:GOLD},
   pkOverlay:{position:'absolute',top:115,left:8,right:8,zIndex:18,elevation:18,backgroundColor:'rgba(12,19,48,.92)',borderWidth:1,borderColor:'#e2bf6c',borderRadius:15,padding:10},pkTitleRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},pkTitle:{color:'#ffe49c',fontSize:16,fontWeight:'900'},pkClose:{padding:8},pkDuelRow:{flexDirection:'row',alignItems:'center',marginTop:9,gap:4},pkPlayer:{flex:1,minHeight:84,borderWidth:2,borderRadius:12,alignItems:'center',justifyContent:'center',padding:5,backgroundColor:'#223b68'},pkPlayerName:{color:'white',fontWeight:'900',textAlign:'center',fontSize:12},pkPlayerHint:{color:'#d6d9ef',fontSize:10,textAlign:'center',marginTop:5},pkVs:{width:34,alignItems:'center'},pkScoreBar:{flexDirection:'row',height:30,overflow:'hidden',borderRadius:16,marginTop:10},pkScoreSide:{flex:1,alignItems:'center',justifyContent:'center'},pkScoreText:{color:'white',fontSize:12,fontWeight:'900'},pkStatus:{color:'#fff',textAlign:'center',marginTop:8,fontWeight:'700'},pkInvite:{backgroundColor:'#7040a7',padding:10,alignItems:'center',borderRadius:10,marginTop:8},pkFootnote:{color:'#d2c8db',fontSize:10,textAlign:'center',marginTop:8},
   roomMenuButton:{width:44,height:44,alignItems:'center',justifyContent:'center',marginLeft:8,borderRadius:12,backgroundColor:'#21437b',borderWidth:1,borderColor:GOLD},roomMenuDots:{color:GOLD,fontSize:29,fontWeight:'900',lineHeight:35},roomMenuShade:{...StyleSheet.absoluteFillObject,zIndex:80,elevation:80},roomMenuDismiss:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.25)'},roomMenuPanel:{position:'absolute',top:104,right:10,width:220,backgroundColor:'#182a55',borderColor:GOLD,borderWidth:1,borderRadius:16,paddingVertical:7,elevation:15},roomMenuItem:{paddingHorizontal:16,paddingVertical:13,borderBottomWidth:StyleSheet.hairlineWidth,borderBottomColor:'#5874a2'},roomMenuItemText:{color:'#fff',fontSize:15,fontWeight:'700',textAlign:'right'},piPaymentButton:{minHeight:45,flexDirection:'row',alignItems:'center',gap:8,paddingHorizontal:13,paddingVertical:7,borderRadius:12,marginVertical:6},piCoin:{width:30,height:30,borderRadius:15,backgroundColor:'#512a80',borderWidth:2,borderColor:'#f3cc62',alignItems:'center',justifyContent:'center'},piCoinMark:{fontSize:24,color:'#f3cc62',fontWeight:'900',lineHeight:28},
