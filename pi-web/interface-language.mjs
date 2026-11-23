@@ -1,6 +1,11 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "قفل المايك": "Lock microphone",
+  "المايك مشغول أو مقفل": "This microphone is occupied or locked",
+  "إغلاق قائمة المايك": "Close microphone menu",
+  "صعود": "Take seat",
+  "المايك الرئيسي": "Main microphone",
   "تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.": "A gift needs another host or speaker on a microphone.",
   "اختر مستلمًا للهدية": "Choose a gift recipient",
   "إرسال": "Send",

@@ -34,6 +34,13 @@ export async function roomStore(db) {
   if(!initialized){await db.batch(tables.map(sql=>db.prepare(sql)));initialized=true}
   return (sql,...args)=>db.prepare(sql).bind(...args);
 }
+// Existing audio rooms use seat 0 for the owner's main mic and for listeners.
+// Number 9 represents a deliberate move to the main mic. An off-stage owner uses -1.
+const MAIN_MIC=9;
+function mayPublish(member,host,type){
+  if(type!=='audio')return host||Boolean(member.seat&&!member.muted);
+  return !member.muted&&(member.seat>0||(host&&member.seat===0));
+}
 async function pinHash(secret,room,pin){
   const bytes=new TextEncoder();
   const key=await crypto.subtle.importKey('raw',bytes.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
@@ -49,11 +56,11 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(path==='/token'){
     if(!visit && !policy && !member)return null; // Existing clients in an unmanaged room.
     if(!member||member.visit!==visit||member.seen<cutoff)return json({error:'أعد الدخول إلى الغرفة'},403);
-    return {publisher:host||Boolean(member.seat&&!member.muted),name:member.name};
+    return {publisher:mayPublish(member,host,type),name:member.name};
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
-  if(!['join','poll','leave','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!['join','poll','leave','move','stepDown','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient'].includes(op))return json({error:'طلب غير صالح'},400);
   if(!host&&['join','poll'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
@@ -65,12 +72,15 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       if(await pinHash(env.LIVEKIT_API_SECRET,room,input.pin)!==policy.pin)return json({error:'رمز الغرفة غير صحيح',pinRequired:true},403);
       await q('UPDATE room_attempt SET hits=hits-1 WHERE room=? AND uid=? AND bucket=? AND hits>0',room,user,bucket).run();
     }
-    const entered=await q(`INSERT INTO room_member(room,uid,visit,name,frame,ride,joined,seen)
-      SELECT ?,?,?,?,?,?,?,? WHERE COALESCE((SELECT pin FROM room_policy WHERE room=?),'')=?
+    const entered=await q(`INSERT INTO room_member(room,uid,visit,name,frame,ride,joined,seen,seat)
+      SELECT ?,?,?,?,?,?,?,?,CASE WHEN ? AND (
+        EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=0) OR
+        EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid<>? AND seat=9 AND banned=0 AND seen>=?)
+      ) THEN -1 ELSE 0 END WHERE COALESCE((SELECT pin FROM room_policy WHERE room=?),'')=?
       ON CONFLICT(room,uid) DO UPDATE SET visit=excluded.visit,name=excluded.name,frame=excluded.frame,ride=excluded.ride,
-      seat=CASE WHEN visit=excluded.visit AND seen>=? THEN seat ELSE 0 END,muted=CASE WHEN visit=excluded.visit THEN muted ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
+      seat=CASE WHEN visit=excluded.visit AND seen>=? THEN seat ELSE excluded.seat END,muted=CASE WHEN visit=excluded.visit THEN muted ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
       joined=CASE WHEN visit=excluded.visit THEN joined ELSE excluded.joined END,seen=excluded.seen WHERE banned=0`,
-      room,user,visit,name,Number(Boolean(input.frame)),Number(Boolean(input.ride)),now,now,room,policy?.pin||'',cutoff).run();
+      room,user,visit,name,Number(Boolean(input.frame)),Number(Boolean(input.ride)),now,now,Number(host&&type==='audio'),room,room,user,cutoff,room,policy?.pin||'',cutoff).run();
     if(!entered.meta.changes){
       const currentPolicy=await q('SELECT length(pin)>0 AS protected FROM room_policy WHERE room=?',room).first();
       return json({error:'تغيرت صلاحية الدخول، أعد المحاولة',pinRequired:!host&&Boolean(currentPolicy?.protected)},403);
@@ -82,7 +92,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(op==='giftRecipient'){
     if(typeof input.recipient!=='string')return json({error:'اختر مستلمًا للهدية'},400);
-    const target=await q('SELECT m.uid,m.name,a.avatar FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=? AND (m.seat>0 OR m.uid=?)',room,input.recipient,cutoff,ownerUid).first();
+    const target=await q('SELECT m.uid,m.name,a.avatar FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=? AND (m.seat>0 OR (m.uid=? AND m.seat=0))',room,input.recipient,cutoff,ownerUid).first();
     if(!target||target.uid===user)return json({error:'المستلم غير متاح'},409);
     const balance=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
     return json({recipient:target,senderDiamonds:balance.diamonds});
@@ -98,13 +108,34 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='slot'){
     const slot=input.slot;
     if(!host||type!=='audio'||!Number.isInteger(slot)||slot<0||slot>8||typeof input.locked!=='boolean')return json({error:'طلب غير صالح'},403);
-    if(slot===0){
-      if(input.locked)await q('INSERT OR IGNORE INTO room_lock VALUES(?,0)',room).run();
-      else await q('DELETE FROM room_lock WHERE room=? AND slot=0',room).run();
-    }else if(input.locked){
-      const [,removed]=await env.PI_GIFTS_DB.batch([q('INSERT OR IGNORE INTO room_lock VALUES(?,?)',room,slot),q('UPDATE room_member SET seat=0,waiting=0 WHERE room=? AND seat=? RETURNING uid',room,slot)]);
+    if(input.locked){
+      const stored=slot===0?MAIN_MIC:slot;
+      const [,removed]=await env.PI_GIFTS_DB.batch([
+        q('INSERT OR IGNORE INTO room_lock VALUES(?,?)',room,slot),
+        q(`UPDATE room_member SET seat=CASE WHEN uid=? THEN -1 ELSE 0 END,waiting=0
+          WHERE room=? AND (seat=? OR (?=0 AND uid=? AND seat=0)) RETURNING uid`,ownerUid,room,stored,slot,ownerUid)
+      ]);
       for(const occupant of removed.results)await disconnect(occupant.uid);
     }else await q('DELETE FROM room_lock WHERE room=? AND slot=?',room,slot).run();
+  }
+  if(op==='move'){
+    const slot=input.slot;
+    if(type!=='audio'||!Number.isInteger(slot)||slot<0||slot>8)return json({error:'المقعد غير صالح'},400);
+    const stored=slot===0?MAIN_MIC:slot;
+    // Claim and release in one UPDATE, including lock and occupancy checks at write time.
+    const moved=await q(`UPDATE room_member SET seat=?,waiting=0 WHERE room=? AND uid=? AND visit=? AND seen>=? AND banned=0
+      AND NOT EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=?)
+      AND (? OR NOT EXISTS(SELECT 1 FROM room_policy WHERE room=? AND locked=1))
+      AND NOT EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid<>? AND banned=0 AND seen>=?
+        AND (seat=? OR (?=0 AND uid=? AND seat=0)))`,
+      stored,room,user,visit,cutoff,room,slot,Number(host),room,room,user,cutoff,stored,slot,ownerUid).run();
+    if(!moved.meta.changes)return json({error:'المايك مشغول أو مقفل'},409);
+  }
+  if(op==='stepDown'){
+    if(type!=='audio')return json({error:'المقعد غير صالح'},400);
+    const released=await q(`UPDATE room_member SET seat=?,waiting=0 WHERE room=? AND uid=? AND visit=?
+      AND (seat>0 OR (? AND seat=0))`,host?-1:0,room,user,visit,Number(host)).run();
+    if(released.meta.changes)await disconnect(user);
   }
   if(op==='settings'){
     if(!host)return json({error:'للمضيف فقط'},403);
@@ -128,8 +159,8 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
         // Release occupied guest microphones only on the transition to locked.
         // Host-approved speakers may still join while the room is locked.
         const [removed]=await env.PI_GIFTS_DB.batch([
-          q(`UPDATE room_member SET seat=0,waiting=0,muted=0 WHERE room=? AND seat>0
-            AND NOT EXISTS(SELECT 1 FROM room_policy WHERE room=? AND locked=1) RETURNING uid`,room,room),
+          q(`UPDATE room_member SET seat=0,waiting=0,muted=0 WHERE room=? AND uid<>? AND seat>0
+            AND NOT EXISTS(SELECT 1 FROM room_policy WHERE room=? AND locked=1) RETURNING uid`,room,ownerUid,room),
           save
         ]);
         await Promise.all(removed.results.map(person=>disconnect(person.uid)));
@@ -152,8 +183,15 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     if(!host||typeof input.uid!=='string'||input.uid===user)return json({error:'للـمضيف فقط'},403);
     const uid=input.uid;
     if(op==='approve'){
-      const r=await claim(uid,'waiting=1').run();
-      if(!r.meta.changes)return json({error:'المقعد ممتلئ أو انتهى الطلب'},409);
+      const slot=input.slot;
+      if(slot!==undefined&&(type!=='audio'||!Number.isInteger(slot)||slot<0||slot>8))return json({error:'المقعد غير صالح'},400);
+      const requested=slot===0
+        ?q(`UPDATE room_member SET seat=9,waiting=0 WHERE room=? AND uid=? AND seat=0 AND banned=0 AND waiting=1 AND seen>=?
+            AND NOT EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=0)
+            AND NOT EXISTS(SELECT 1 FROM room_member WHERE room=? AND banned=0 AND seen>=? AND (seat=9 OR (uid=? AND seat=0)))`,
+            room,uid,cutoff,room,room,cutoff,ownerUid)
+        :claim(uid,'waiting=1',slot);
+      if(!(await requested.run()).meta.changes)return json({error:'المقعد ممتلئ أو انتهى الطلب'},409);
     }else{
       const update={reject:'waiting=0',demote:'seat=0,waiting=0,muted=0',kick:'seat=0,waiting=0,banned=1',ban:'seat=0,waiting=0,banned=1',eject:"seat=0,waiting=0,seen=0,visit=''",mute:'muted=1',unmute:'muted=0'}[op];
       await q('UPDATE room_member SET '+update+' WHERE room=? AND uid=?',room,uid).run();
@@ -169,7 +207,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const recipient=input.recipient??ownerUid;
     if(typeof recipient!=='string'||!recipient||recipient===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=? AND (seat>0 OR uid=?)) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,ownerUid).run();
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=? AND (seat>0 OR (uid=? AND seat=0))) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,ownerUid).run();
     const sent=await q(`SELECT room,host,gift,cost,nonce,${paidBalance} AS senderDiamonds FROM paid_room_gift WHERE sender=? AND nonce=?`,user,user,user,nonce).first();
     if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==recipient)return json({error:'Purchased diamonds insufficient or host offline'},409);
     return json({senderDiamonds:sent.senderDiamonds,receipt:{nonce:sent.nonce,recipient:sent.host,gift:sent.gift,diamonds:sent.cost}});
@@ -194,7 +232,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   ]);
   const me=people.results.find(person=>person.uid===user);
   if(!me)return json({error:'انتهت جلسة الغرفة'},403);
-  const media=op==='join'&&mediaToken?await mediaToken(host||Boolean(me.seat&&!me.muted)):undefined;
+  const media=op==='join'&&mediaToken?await mediaToken(mayPublish(me,host,type)):undefined;
   const wallet=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
   const theme=await q('SELECT theme FROM room_theme WHERE room=?',room).first();
   const locks=await q('SELECT slot FROM room_lock WHERE room=?',room).all();
