@@ -370,6 +370,7 @@ const english = {
   "انتهت جلسة الغرفة": "The room session expired",
   "للمضيف فقط": "Hosts only",
   "للـمضيف فقط": "Hosts only",
+  "تعذّرت قراءة الصورة. اختر صورة JPEG أو PNG.": "Could not read this photo. Choose a JPEG or PNG image.",
   "صورة غير صالحة": "Invalid photo",
   "المقعد ممتلئ أو انتهى الطلب": "The seat is taken or the request has expired",
   "الرصيد غير كافٍ أو المستلم غادر الغرفة": "Insufficient balance or recipient left the room",

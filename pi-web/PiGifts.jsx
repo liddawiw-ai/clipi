@@ -103,7 +103,7 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
   }
   if (!open) return null;
   return <section role="dialog" aria-modal="true" dir="auto" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1000,maxHeight:"85vh",overflowY:"auto",background:'#201631',color:'white',padding:16,borderRadius:16}}>
-    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا PI")}</strong>
+    <button style={{background:'transparent',border:0,color:'white',fontSize:24,textShadow:'0 1px 3px #211522'}} onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا PI")}</strong>
     <p>{ui("دفعة PI حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.")}</p>
     <p role="status">{paused ? ui("هدايا PI المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.") : message || (catalog ? ui("اختَر هدية") : ui("جاري تحميل الهدايا…"))}</p>
     <div style={{display:'flex',gap:8,marginTop:12}}>{Object.entries(catalog||{}).map(([id,g]) =>

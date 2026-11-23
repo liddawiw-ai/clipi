@@ -4,8 +4,9 @@ import ClipiCollection from './ClipiCollection';
 import GiftFX from './GiftEffect';
 import {DiamondWallet} from './DiamondWallet';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
+import {PolicySheet,PolicyModal} from './PolicySheet';
 import {RoomTermsNotice} from './RoomTermsNotice';
-import {AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
+import {AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
 import {LanguageDropdown} from './LanguagePicker';
 import {languages, readLocale, saveLocale} from './languages.mjs';
@@ -21,7 +22,7 @@ import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
 const MEDIA_ENDPOINT=location.origin, MEDIA_CONFIGURED=true;
-const PINK='#f43b80',GOLD='#ffe39a',BLUE='#0758b7';
+const PINK='#f43b80',GOLD='#ffe39a';
 const WELCOME=0;
 // Purchases and payouts remain disabled in this build.
 const REAL_PURCHASES_ENABLED=false,REAL_PAYOUTS_ENABLED=false;
@@ -75,8 +76,23 @@ function normalizeRoomPin(value){
     .replace(/[۰-۹]/g,digit=>String(digit.charCodeAt(0)-0x6f0)).replace(/[^0-9]/g,'').slice(0,4);
 }
 
-function Btn({title,onPress,color=PINK,disabled=false}){return <TouchableOpacity disabled={disabled} onPress={onPress} style={[S.btn,{backgroundColor:disabled?'#666':color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
-function Small({title,onPress,color='#295098'}){return <TouchableOpacity onPress={onPress} style={[S.small,{backgroundColor:color}]}><Text style={S.white}>{title}</Text></TouchableOpacity>}
+const ORANGE='#ffad69';
+function Btn({title,onPress,color=ORANGE,disabled=false}){
+  return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress}
+    style={[S.btn,{backgroundColor:disabled?'#524951':color},color===ORANGE&&S.compact]}>
+    <Text style={[S.white,color===ORANGE&&!disabled&&S.orangeInk]}>{title}</Text>
+  </TouchableOpacity>;
+}
+function Small({title,onPress,color=ORANGE}){
+  return <TouchableOpacity accessibilityRole="button" onPress={onPress} style={[S.small,S.compact,{backgroundColor:color}]}>
+    <Text style={[S.white,color===ORANGE&&S.orangeInk]}>{title}</Text>
+  </TouchableOpacity>;
+}
+function WindowControl({label,icon,onPress,style}){
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[S.roomMenuTrigger,style]}>
+    <Text style={S.roomControlGlyph}>{icon}</Text>
+  </TouchableOpacity>;
+}
 
 
 
@@ -169,11 +185,11 @@ function GlobalGreedyPreview({visible,onClose,onRestoreRoom,roomName,diamonds,on
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
     <View style={S.gameOverlay}>
       <TouchableOpacity accessibilityLabel="إغلاق اللعبة" style={StyleSheet.absoluteFillObject} onPress={onClose}/>
-      {onRestoreRoom&&<TouchableOpacity accessibilityLabel={ui("تكبير الغرفة")} style={{position:'absolute',right:12,bottom:sheetHeight+8,width:76,height:76,backgroundColor:'#412951',borderRadius:12,borderWidth:2,borderColor:GOLD,alignItems:'center',justifyContent:'center'}} onPress={onRestoreRoom}><Text>🎙️</Text><Text numberOfLines={1} style={S.white}>{roomName}</Text></TouchableOpacity>}
+      {onRestoreRoom&&<WindowControl label={ui("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:sheetHeight+8}} onPress={onRestoreRoom}/>}
       <View style={[S.gameSheet,{height:sheetHeight}]} accessibilityViewIsModal>
         <View style={S.sheetHandle}/>
         <View style={S.gameBar}>
-          <Small title={ui("إغلاق")} onPress={onClose}/>
+          <WindowControl icon="×" label={ui("إغلاق")} onPress={onClose}/>
           <View style={S.gameHeading}>
             <Text style={S.gameTitle}>Greedy Star</Text>
             <Text style={S.gameMeta} numberOfLines={1}>{roomName} · {label} · {state.remaining} ث</Text>
@@ -403,11 +419,11 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
-  const [termsLanguage,setTermsLanguage]=useState(()=>document.documentElement.lang==='ar'?'ar':'en');
-  const [hasNewMessage,setHasNewMessage]=useState(false);
-  function openRoomTerms(){
-    const path=termsLanguage==='ar'?'/terms#arabic':'/terms';
-    window.open(path,'_blank','noopener,noreferrer');
+  const [legacyMessages,setLegacyMessages]=useState(0);
+  const [policyOrigin,setPolicyOrigin]=useState(null);
+  function openRoomPolicy(page){
+    setPolicyOrigin(roomMenu==='settings'?'settings':null);
+    setRoomMenu(page);
   }
   const [stagePanelVisible,setStagePanelVisible]=useState(false),[blocked,setBlocked]=useState([]);
   const chatRef=useRef(null),sendingRef=useRef(false),roomClosedRef=useRef(false),exitHandledRef=useRef(false),closingByHostRef=useRef(false);
@@ -517,7 +533,10 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     let receivedHistory=false;
     return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot({includeMetadataChanges:true},snapshot=>{
       setLegacyChat(snapshot.docs.map(d=>({...d.data(),id:d.id,legacy:true})));
-      if(receivedHistory&&snapshot.docChanges().some(change=>change.type==='added'))setHasNewMessage(true);
+      if(receivedHistory){
+        const added=snapshot.docChanges().filter(change=>change.type==='added').length;
+        if(added)setLegacyMessages(total=>Math.min(4,total+added));
+      }
       if(!snapshot.metadata.fromCache)receivedHistory=true;
     },()=>{});
   },[room.id,admitted]);
@@ -562,7 +581,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     setSending(true);
     try{
       await membership.act('message',{text});
-      setHasNewMessage(true);
       // Do not erase edits typed while the network request was in flight.
       setMessage(current=>current.trim()===text?'':current);
       setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
@@ -594,16 +612,19 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     setRoomMenu(null);
   }
   function goBackFromRoomMenu(){
-    if(roomMenu==='themes')setRoomMenu('settings');
+    if(roomMenu==='terms'||roomMenu==='privacy')setRoomMenu(policyOrigin);
+    else if(roomMenu==='themes')setRoomMenu('settings');
     else closeRoomMenu();
   }
   const roomSettings=<Modal visible={roomMenu!==null&&!minimized} transparent animationType="fade" onRequestClose={goBackFromRoomMenu}>
-    <View style={S.roomMenuOverlay}>
+    {roomMenu==='terms'||roomMenu==='privacy'
+      ?<PolicySheet key={roomMenu} page={roomMenu} endpoint={MEDIA_ENDPOINT} onClose={goBackFromRoomMenu}/>
+      :<View style={S.roomMenuOverlay}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={closeRoomMenu}/>
       <KeyboardAvoidingView style={S.roomMenuPanel} behavior={Platform.OS==='ios'?'padding':undefined}>
         <View style={S.hostSettingsHeading}>
           <Text style={S.title}>{roomMenu==='themes'?ui("ثيمات الغرفة"):ui("إعدادات الغرفة")}</Text>
-          <Small title={roomMenu==='themes'?ui("رجوع"):ui("إغلاق")} onPress={goBackFromRoomMenu}/>
+          <WindowControl icon={roomMenu==='themes'?'‹':'×'} label={roomMenu==='themes'?ui("رجوع"):ui("إغلاق")} onPress={goBackFromRoomMenu}/>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
           {roomMenu==='themes'&&isHost?<>
@@ -619,9 +640,10 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
               setShareStatus('');
               setShareOpen(true);
             }}/>
-            <RoomOption title={ui("شروط الخدمة")} onPress={openRoomTerms}/>
+            <RoomOption title={ui("شروط الخدمة")} onPress={()=>openRoomPolicy('terms')}/>
+            <RoomOption title={ui("سياسة الخصوصية")} onPress={()=>openRoomPolicy('privacy')}/>
             <RoomOption title={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} onPress={()=>{setChatVisible(v=>!v);closeRoomMenu()}}/>
-            <RoomOption title={ui("تصغير الغرفة")} onPress={()=>{closeRoomMenu();onMinimize()}}/>
+            <RoomOption plain title={ui("تصغير الغرفة")} onPress={()=>{closeRoomMenu();onMinimize()}}/>
             {isHost&&<>
               <RoomOption title={ui("ثيمات الغرفة")} onPress={()=>{Keyboard.dismiss();setPin('');setRoomMenu('themes')}}/>
               <RoomOption title={membership.state?.locked?ui("🔓 فتح المايكات"):ui("🔒 قفل المايكات")} disabled={roomActionPending} onPress={()=>updateRoomSettings({locked:!membership.state.locked})}/>
@@ -632,12 +654,12 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
                 void updateRoomSettings({pin},true)
               }}/>
               {membership.state?.protected&&<RoomOption title={ui("إلغاء قفل الغرفة")} disabled={roomActionPending} onPress={()=>updateRoomSettings({pin:''},true)}/>}
-              <RoomOption title={ui("إغلاق الغرفة للجميع")} color="#912c48" onPress={()=>{closeRoomMenu();confirmCloseHostedRoom()}}/>
+              <RoomOption plain title={ui("إغلاق الغرفة للجميع")} onPress={()=>{closeRoomMenu();confirmCloseHostedRoom()}}/>
             </>}
           </>}
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </View>}
   </Modal>;
   const shareSheet=<Modal visible={shareOpen} transparent animationType="slide" onRequestClose={()=>setShareOpen(false)}>
     <View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}>
@@ -654,7 +676,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
           const result=await shareRoomInvitation(navigator,{title:room.name,url:inviteUrl});
           setShareStatus(result==='unavailable'?ui("انسخ الرابط وأرسله من تطبيق المحادثة."):'');
         }}/>}
-        <Small title={ui("إغلاق")} onPress={()=>setShareOpen(false)}/>
+        <WindowControl icon="×" label={ui("إغلاق")} onPress={()=>setShareOpen(false)}/>
       </View>
     </View></View>
   </Modal>;
@@ -748,8 +770,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
     <View style={S.roomBottom}>
       {!audio&&!keyboardOn&&<View style={S.roomSeatAction}>{stagePanel()}</View>}
-      <RoomTermsNotice language={termsLanguage} onLanguage={setTermsLanguage} onRead={openRoomTerms}
-        chatRevision={membership.state.chatRevision} hasNewMessage={hasNewMessage}/>
+      <RoomTermsNotice onRead={openRoomPolicy} chatRevision={membership.state.chatRevision} legacyMessages={legacyMessages}/>
       <View style={S.roomDock}>
         <View style={S.roomComment}>
           <TextInput style={S.messageInput} value={message} maxLength={500} onChangeText={setMessage}
@@ -809,6 +830,29 @@ export default function App(){
   const [email,setEmail]=useState(''),[password,setPassword]=useState('');
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
+  const [policy,setPolicy]=useState(null);
+  const pickingPhoto=useRef(false);
+  const selectedEmoji=useRef(null);
+  async function pickAccountPhoto(){
+    const account=auth().currentUser;
+    if(!account||pickingPhoto.current)return;
+    pickingPhoto.current=true;
+    try{
+      const photo=await choosePhoto(420);
+      if(!photo||auth().currentUser?.uid!==account.uid)return;
+      const db=firestore();
+      const profile=db.collection('users').doc(account.uid);
+      await db.runTransaction(async transaction=>{
+        const current=await transaction.get(profile);
+        const update={avatar:photo,updatedAt:firestore.FieldValue.serverTimestamp()};
+        if(!current.exists)update.displayName=(account.displayName||name||ui("مستخدم")).trim().slice(0,35)||ui("مستخدم");
+        transaction.set(profile,update,{merge:true});
+      });
+      if(auth().currentUser?.uid===account.uid){selectedEmoji.current=null;setAvatar(photo)}
+    }catch(error){
+      if(auth().currentUser?.uid===account.uid)Alert.alert(ui("الصورة"),error.message);
+    }finally{pickingPhoto.current=false}
+  }
   const profileSetupRef=useRef(false);
   const currentSessionUidRef=useRef(undefined);
   // جميع هذه الأرصدة عرض محلي فقط، لا تُمنح فعليًا لكل حساب على Firebase.
@@ -892,6 +936,7 @@ export default function App(){
       // Local demo data must never leak between Firebase accounts on the same device.
       if(currentSessionUidRef.current!==u?.uid){
         currentSessionUidRef.current=u?.uid;
+        selectedEmoji.current=null;setAvatar('👤');
         setBalance({welcome:WELCOME,purchased:0,owner:0});
 
         setInventory([ui("👑 إطار فاخر"),ui("🏎️ دخول سيارة فاخرة")]);
@@ -983,10 +1028,10 @@ export default function App(){
     if(!editing&&(await firestore().collection('users').doc(u.uid).get()).exists)return;
     const displayName=(label||u.displayName||ui("مستخدم")).trim();
     if(!displayName||displayName.length>35)throw new Error(ui("اسم المستخدم يجب أن يكون بين 1 و35 حرفًا"));
-    await firestore().collection('users').doc(u.uid).set({
-      displayName,avatar,updatedAt:firestore.FieldValue.serverTimestamp()
-    },{merge:true});
-    setName(displayName);
+    const update={displayName,updatedAt:firestore.FieldValue.serverTimestamp()};
+    if(!editing||selectedEmoji.current)update.avatar=selectedEmoji.current||avatar;
+    await firestore().collection('users').doc(u.uid).set(update,{merge:true});
+    if(auth().currentUser?.uid===u.uid)setName(displayName);
   }
   async function emailLogin(){
     if(busy)return;
@@ -1264,11 +1309,11 @@ export default function App(){
   }
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="light-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
   const visibleNumber=identity?.uid===user?.uid?identity:null;
-  const myProfile=<View style={S.card}>{avatar.startsWith('data:image/')?<Image accessibilityLabel={ui("الصورة الشخصية")} style={{width:80,height:80,borderRadius:40}} source={{uri:avatar}}/>:<Text style={{fontSize:54}}>{avatar}</Text>}<Text style={S.title}>{name||user?.displayName||ui("مستخدم")} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{ui(equipped.frame)}</Text><Text style={S.white}>{ui(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)}{ui(" ماسة")}</Text>}</View>;
+  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={ui("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||ui("مستخدم")} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{ui(equipped.frame)}</Text><Text style={S.white}>{ui(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)}{ui(" ماسة")}</Text>}</View>;
 
   function policyLinks(privacy,terms){return <View style={S.row}>
-    <Small title={privacy} onPress={()=>location.assign('/privacy')}/>
-    <Small title={terms} onPress={()=>location.assign('/terms')}/>
+    <Small title={privacy} onPress={()=>setPolicy('privacy')}/>
+    <Small title={terms} onPress={()=>setPolicy('terms')}/>
   </View>}
   function signInFrame(children){
     return <div lang={locale} dir={words.direction} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
@@ -1289,7 +1334,7 @@ export default function App(){
       setBusy(true);setAuthError('');
       try{await piLogin()}catch(error){setAuthError(error.message)}finally{setBusy(false)}
     }}/>
-    <Btn color="#3a5264" title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
+    <Btn color={ORANGE} title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
   </>);
   if(!user||page==='login')return signInFrame(<>
     <Text style={S.title}>{words.emailLogin}</Text>
@@ -1389,7 +1434,7 @@ export default function App(){
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
   if(page==='profile')return <HubScreen title={ui('حسابي')}
     action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
-    <AccountHub name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
+    <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
       balance={visibleNumber?.purchasedDiamonds} copy={{balance:ui('الماس المشترى'),photo:ui('الصورة الشخصية')}}
       shortcuts={[
         {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
@@ -1404,19 +1449,18 @@ export default function App(){
       ]}/>
   </HubScreen>;
   if(page==='hostCenter')return <HubScreen title={ui("مركز المضيف")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
-    <AccountHub name={name||user?.displayName||ui("مستخدم")} avatar={avatar} number={visibleNumber?.number}
+    <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui("مستخدم")} avatar={avatar} number={visibleNumber?.number}
       balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:ui("غرفي المفتوحة"),photo:ui("الصورة الشخصية")}} unit="♫"
       shortcuts={[{icon:'＋',label:ui("إنشاء غرفة"),onPress:()=>go('create')},{icon:'◇',label:ui("المحفظة"),onPress:()=>go('wallet')}]}
       settings={[{label:ui("استعراض الغرف"),onPress:()=>go('rooms')},{label:ui("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='accountSettings'){
-    const openPolicy=path=>location.assign(path);
     return <HubScreen title={ui('الإعدادات')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}>
       <LanguageDropdown selected={locale} onPick={pickLocale} label={ui('تغيير اللغة')}/>
       <HubRows items={[
         {label:ui('الملف الشخصي والحسابات المحظورة'),onPress:()=>go('profileEdit')},
-        {label:ui('سياسة الخصوصية'),onPress:()=>openPolicy('/privacy')},
-        {label:ui('شروط الخدمة'),onPress:()=>openPolicy('/terms')},
+        {label:ui('سياسة الخصوصية'),onPress:()=>setPolicy('privacy')},
+        {label:ui('شروط الخدمة'),onPress:()=>setPolicy('terms')},
         {label:ui('مشاركة Clipi'),onPress:()=>Share.share({message:location.origin+'/'}).catch(()=>Alert.alert(ui('تعذرت المشاركة')))},
         ...(SHOW_UNRELEASED_DEMOS?[
           {label:ui('الألعاب'),onPress:()=>go('games')},
@@ -1427,11 +1471,11 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Small title={ui("اختيار صورة من الاستوديو")} onPress={async()=>{try{const photo=await choosePhoto(420);if(photo)setAvatar(photo)}catch(e){Alert.alert(ui("الصورة"),e.message)}}}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>setAvatar(a)}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>,()=>go('profile'));
+  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color="#7040a7" onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color="#96334f" onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color="#555" onPress={logout}/></>,()=>go('profile'));
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="light-content"/>
-    <View style={S.starTopBar}><TouchableOpacity onPress={leaveGame} style={S.starClose}><Text style={S.starCloseText}>×</Text></TouchableOpacity><Text style={S.starRules} onPress={()=>Alert.alert('قواعد اللعبة','محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.')}>📜 قاعدة</Text><View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View><Text style={S.starRound}>جولة تجريبية</Text></View>
+    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert('قواعد اللعبة','محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.')}>📜 قاعدة</Text><View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View><Text style={S.starRound}>جولة تجريبية</Text></View>
     <ScrollView contentContainerStyle={S.starScroll}>
       <View style={S.starWheel}>
         <View style={S.starWheelRing}/>
@@ -1453,9 +1497,10 @@ export default function App(){
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>{renderPage()}
+    <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
-    {mini&&activeRoom&&<TouchableOpacity accessibilityLabel={ui("تكبير الغرفة")} onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
+    {mini&&activeRoom&&<WindowControl label={ui("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:72}} onPress={()=>setMini(false)}/>}
   </View>;
 }
 
@@ -1477,6 +1522,8 @@ const S=StyleSheet.create({
   hostCrownText:{fontSize:29,color:'#ffe2a4'},hostSeatName:{fontWeight:'900',color:'#fff',marginTop:2,fontSize:14},hostSeatRole:{color:'#ffe2a4',fontSize:11},
   roomTop:{paddingHorizontal:10,paddingTop:8,paddingBottom:5,backgroundColor:'transparent'},
   roomTopRow:{flexDirection:'row',alignItems:'center',gap:8},roomIdentity:{flex:1,alignItems:'center'},roomName:{fontSize:17,fontWeight:'900',color:'#fff'},roomType:{color:'#dac7ef',fontSize:11},
+  compact:{alignSelf:"center",maxWidth:"100%",paddingVertical:8,paddingHorizontal:13,borderRadius:12},
+  orangeInk:{color:"#32180b",textAlign:"center"},
   roomMenuTrigger:{width:44,height:44,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},
   roomControlGlyph:{fontSize:23,color:'white',fontWeight:'800',textShadowColor:'#100b18',textShadowOffset:{width:0,height:1},textShadowRadius:4},
   roomMenuDots:{color:'white',fontSize:30,fontWeight:'700'},
@@ -1499,7 +1546,7 @@ const S=StyleSheet.create({
   navItem:{minWidth:64,minHeight:46,justifyContent:'center',alignItems:'center',borderRadius:13,paddingHorizontal:8},navActive:{backgroundColor:'#57377a'},
   navIcon:{fontSize:20},navLabel:{fontSize:11,color:'#efe3ff',fontWeight:'700'},
 
-  starPage:{flex:1,backgroundColor:'#ffbd66'},starTopBar:{backgroundColor:'#f9a64a',paddingTop:Platform.OS==='ios'?45:12,paddingBottom:9,paddingHorizontal:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},starClose:{width:27,height:27,borderRadius:14,backgroundColor:'#d96229',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#fff2c7'},starCloseText:{color:'white',fontSize:23,fontWeight:'900',lineHeight:24},starRules:{color:'#8b4d0c',fontWeight:'900',fontSize:12,backgroundColor:'#ffe093',padding:6,borderRadius:14},starBrand:{backgroundColor:'#14a66b',borderRadius:7,borderWidth:2,borderColor:'#f5ef8e',paddingHorizontal:9,paddingVertical:5},starBrandText:{color:'white',fontWeight:'900',fontSize:19},starRound:{color:'#9a4c12',fontSize:10,fontWeight:'800'},starScroll:{paddingHorizontal:10,paddingBottom:32,alignItems:'stretch'},starWheel:{width:326,height:326,alignSelf:'center',marginTop:7,marginBottom:3,position:'relative'},starWheelRing:{position:'absolute',width:244,height:244,left:41,top:41,borderRadius:122,borderWidth:15,borderColor:'#f28c22',backgroundColor:'#eaa14e',shadowColor:'#a8470c',shadowOpacity:.5,shadowRadius:10,elevation:7},starFood:{position:'absolute',width:78,height:78,borderRadius:39,backgroundColor:'#f99a35',borderWidth:4,borderColor:'#ffdf70',alignItems:'center',justifyContent:'center',elevation:4},starFoodLit:{backgroundColor:'#e8f38e',borderColor:'#1cc46a',borderWidth:5},starFoodEmoji:{fontSize:28},starFoodLabel:{color:'#a4480e',fontWeight:'900',fontSize:10},starStake:{color:'#7b290b',fontSize:9,fontWeight:'900'},starCenter:{position:'absolute',top:114,left:114,width:98,height:98,borderRadius:49,backgroundColor:'#02ad70',borderWidth:7,borderColor:'#ffda49',alignItems:'center',justifyContent:'center',elevation:9},starCenterTop:{fontSize:11,color:'white',fontWeight:'900'},starCenterTime:{fontSize:29,color:'#fff64c',fontWeight:'900'},starBanner:{backgroundColor:'#0ca66b',borderWidth:3,borderColor:'#ffdf7a',borderRadius:7,padding:7,marginTop:3},starBannerText:{color:'white',fontWeight:'900',textAlign:'center',fontSize:13},starBetTray:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#b65b1c',padding:6,borderRadius:12,marginTop:7,borderWidth:3,borderColor:'#ffe49c'},starBetChip:{backgroundColor:'#fff6df',borderRadius:8,paddingVertical:10,paddingHorizontal:4,minWidth:'18%',alignItems:'center',borderWidth:2,borderColor:'#f5b75a'},starBetActive:{backgroundColor:'#ffe15c',borderColor:'#00aa72'},starBetText:{fontSize:11,fontWeight:'900',color:'#8a4a1b'},starInfoRow:{flexDirection:'row',gap:5,marginTop:9},starInfoPill:{flex:1,backgroundColor:'#e88c25',borderRadius:24,borderWidth:2,borderColor:'#fff0a2',alignItems:'center',justifyContent:'center',paddingVertical:7},starInfoText:{fontSize:10,color:'white',fontWeight:'800'},starInfoValue:{fontSize:14,color:'white',fontWeight:'900'},starBottomStrip:{flexDirection:'row',justifyContent:'space-around',marginTop:10,marginBottom:8,backgroundColor:'#d16e25',borderRadius:16,paddingVertical:7},starMiniFood:{width:30,height:30,borderRadius:15,backgroundColor:'#fff5d6',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#f6c45b'},starDisclaimer:{color:'#7d3b0d',fontSize:11,textAlign:'center',marginTop:8,fontWeight:'700'},
+  starPage:{flex:1,backgroundColor:'#ffbd66'},starTopBar:{backgroundColor:'#f9a64a',paddingTop:Platform.OS==='ios'?45:12,paddingBottom:9,paddingHorizontal:9,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},starRules:{color:'#8b4d0c',fontWeight:'900',fontSize:12,backgroundColor:'#ffe093',padding:6,borderRadius:14},starBrand:{backgroundColor:'#14a66b',borderRadius:7,borderWidth:2,borderColor:'#f5ef8e',paddingHorizontal:9,paddingVertical:5},starBrandText:{color:'white',fontWeight:'900',fontSize:19},starRound:{color:'#9a4c12',fontSize:10,fontWeight:'800'},starScroll:{paddingHorizontal:10,paddingBottom:32,alignItems:'stretch'},starWheel:{width:326,height:326,alignSelf:'center',marginTop:7,marginBottom:3,position:'relative'},starWheelRing:{position:'absolute',width:244,height:244,left:41,top:41,borderRadius:122,borderWidth:15,borderColor:'#f28c22',backgroundColor:'#eaa14e',shadowColor:'#a8470c',shadowOpacity:.5,shadowRadius:10,elevation:7},starFood:{position:'absolute',width:78,height:78,borderRadius:39,backgroundColor:'#f99a35',borderWidth:4,borderColor:'#ffdf70',alignItems:'center',justifyContent:'center',elevation:4},starFoodLit:{backgroundColor:'#e8f38e',borderColor:'#1cc46a',borderWidth:5},starFoodEmoji:{fontSize:28},starFoodLabel:{color:'#a4480e',fontWeight:'900',fontSize:10},starStake:{color:'#7b290b',fontSize:9,fontWeight:'900'},starCenter:{position:'absolute',top:114,left:114,width:98,height:98,borderRadius:49,backgroundColor:'#02ad70',borderWidth:7,borderColor:'#ffda49',alignItems:'center',justifyContent:'center',elevation:9},starCenterTop:{fontSize:11,color:'white',fontWeight:'900'},starCenterTime:{fontSize:29,color:'#fff64c',fontWeight:'900'},starBanner:{backgroundColor:'#0ca66b',borderWidth:3,borderColor:'#ffdf7a',borderRadius:7,padding:7,marginTop:3},starBannerText:{color:'white',fontWeight:'900',textAlign:'center',fontSize:13},starBetTray:{flexDirection:'row',justifyContent:'space-between',backgroundColor:'#b65b1c',padding:6,borderRadius:12,marginTop:7,borderWidth:3,borderColor:'#ffe49c'},starBetChip:{backgroundColor:'#fff6df',borderRadius:8,paddingVertical:10,paddingHorizontal:4,minWidth:'18%',alignItems:'center',borderWidth:2,borderColor:'#f5b75a'},starBetActive:{backgroundColor:'#ffe15c',borderColor:'#00aa72'},starBetText:{fontSize:11,fontWeight:'900',color:'#8a4a1b'},starInfoRow:{flexDirection:'row',gap:5,marginTop:9},starInfoPill:{flex:1,backgroundColor:'#e88c25',borderRadius:24,borderWidth:2,borderColor:'#fff0a2',alignItems:'center',justifyContent:'center',paddingVertical:7},starInfoText:{fontSize:10,color:'white',fontWeight:'800'},starInfoValue:{fontSize:14,color:'white',fontWeight:'900'},starBottomStrip:{flexDirection:'row',justifyContent:'space-around',marginTop:10,marginBottom:8,backgroundColor:'#d16e25',borderRadius:16,paddingVertical:7},starMiniFood:{width:30,height:30,borderRadius:15,backgroundColor:'#fff5d6',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#f6c45b'},starDisclaimer:{color:'#7d3b0d',fontSize:11,textAlign:'center',marginTop:8,fontWeight:'700'},
 
   choiceWrap:{flexDirection:'row',flexWrap:'wrap',marginVertical:5},choice:{paddingHorizontal:10,paddingVertical:10,borderRadius:12,backgroundColor:'#32245b',margin:3,borderWidth:1,borderColor:'#4e4770'},choiceActive:{backgroundColor:'#7c2866',borderColor:GOLD},
   page:{flex:1,backgroundColor:'#190e20'},gamePage:{flex:1,backgroundColor:'#7d391d'},content:{padding:16,paddingBottom:40},white:{color:'white',fontWeight:'700'},gold:{color:GOLD,fontWeight:'900'},muted:{color:'#c5bdd3',marginVertical:8,lineHeight:19},title:{color:'white',fontSize:19,fontWeight:'900',marginVertical:10},label:{color:'white',fontWeight:'800',marginTop:13,marginBottom:6},logo:{color:'white',fontSize:52,fontWeight:'900',textAlign:'center',marginTop:46},big:{color:GOLD,fontSize:28,fontWeight:'900',marginVertical:9},input:{backgroundColor:'white',color:'#111',padding:13,borderRadius:12,marginVertical:5},btn:{padding:13,borderRadius:12,alignItems:'center',marginVertical:6,minWidth:82},small:{paddingVertical:8,paddingHorizontal:10,borderRadius:10,marginHorizontal:3,alignItems:'center',justifyContent:'center'},header:{paddingTop:48,paddingBottom:15,paddingHorizontal:12,backgroundColor:'#312035',flexDirection:'row',justifyContent:'space-between',alignItems:'center'},headerTitle:{color:'white',fontWeight:'900',fontSize:17},nav:{backgroundColor:'#260d45',flexDirection:'row',justifyContent:'space-around',paddingVertical:15},banner:{backgroundColor:PINK,padding:19,borderRadius:16,marginBottom:12},card:{backgroundColor:'#322037',padding:18,borderRadius:16,alignItems:'center',marginVertical:9},panel:{backgroundColor:'#39233d',padding:14,borderRadius:13,marginVertical:9},row:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',flexWrap:'wrap'},shop:{backgroundColor:'#39233d',padding:12,borderRadius:12,marginBottom:8,flexDirection:'row',alignItems:'center'},avatarChoice:{backgroundColor:'#322037',padding:10,margin:5,borderRadius:10},hostSettingsShade:{flex:1,backgroundColor:'rgba(0,0,0,.65)',justifyContent:'flex-end'},hostSettingsPanel:{backgroundColor:'#2a1b43',padding:18,paddingBottom:34,borderTopLeftRadius:24,borderTopRightRadius:24},hostSettingsHeading:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:12},room:{flex:1,minWidth:0,overflow:'hidden'},miniRoom:{flex:1,backgroundColor:'#291d43',justifyContent:'center',padding:25,gap:18},audioBackdrop:{...StyleSheet.absoluteFillObject,overflow:'hidden'},blueGlow:{position:'absolute',top:-150,left:-180,width:500,height:500,borderRadius:250,backgroundColor:'#7951ae',opacity:.46},royalGlow:{position:'absolute',bottom:-100,right:-170,width:460,height:460,borderRadius:230,backgroundColor:'#d0a34f',opacity:.22},bgOrnament:{position:'absolute',top:'48%',alignSelf:'center',fontSize:45,color:'#d6b66a',opacity:.16},bgCrown:{position:'absolute',top:'35%',alignSelf:'center',fontSize:155,color:'white',opacity:.08},videoBlank:{...StyleSheet.absoluteFillObject,backgroundColor:'#142246',alignItems:'center',justifyContent:'center',padding:20},liveHeader:{paddingTop:49,paddingBottom:9,paddingHorizontal:11,flexDirection:'row',alignItems:'center',backgroundColor:'rgba(0,17,48,.65)'},tiny:{color:'#d2e1fa',fontSize:10,textAlign:'center',fontWeight:'600'},liveTag:{backgroundColor:PINK,borderRadius:17,padding:9},avatars:{flexDirection:'row',alignItems:'center',paddingHorizontal:12,paddingVertical:8,backgroundColor:'rgba(0,18,47,.35)'},guestAvatar:{width:59,height:58,borderRadius:13,borderWidth:1,borderColor:GOLD,backgroundColor:'rgba(4,27,70,.85)',marginRight:8,alignItems:'center',justifyContent:'center'},videoControls:{flexDirection:'row',justifyContent:'center',marginTop:8},pip:{position:'absolute',bottom:205,right:12,width:142,borderRadius:13,borderWidth:2,borderColor:GOLD,backgroundColor:'#24375d',padding:5,alignItems:'center',zIndex:8},pipPreview:{height:112,width:'100%',backgroundColor:'#364d77',borderRadius:8,alignItems:'center',justifyContent:'center'},callPanel:{position:'absolute',top:175,left:12,right:12,backgroundColor:'#11264b',borderWidth:1,borderColor:GOLD,padding:15,borderRadius:15,alignItems:'center',zIndex:20},seatHeading:{color:GOLD,fontSize:18,fontWeight:'900',textAlign:'center',marginTop:20,marginBottom:18},seatGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',paddingHorizontal:12},seatItem:{width:'24%',alignItems:'center',marginBottom:12},throne:{width:52,height:52,borderWidth:1,borderColor:'#f3d39290',borderRadius:26,backgroundColor:'#ffffff35',alignItems:'center',justifyContent:'center',shadowColor:'#e5c080',shadowOpacity:.55,shadowRadius:13,elevation:7},throneCrown:{position:'absolute',top:-19,fontSize:25,color:GOLD},seatGem:{position:'absolute',bottom:-10,fontSize:14,color:'#fce7b6'},seatRequest:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',backgroundColor:'#16396c',padding:8,marginHorizontal:12,marginBottom:5,borderRadius:12},actions:{flexDirection:'row',justifyContent:'space-between',paddingHorizontal:9,marginBottom:5},chat:{maxHeight:125,minHeight:45,marginHorizontal:9,marginBottom:5},bubble:{backgroundColor:'rgba(0,20,56,.82)',borderRadius:10,padding:8,alignSelf:'flex-start',marginTop:4},composer:{flexDirection:'row',alignItems:'center',paddingHorizontal:10,paddingTop:8,paddingBottom:Platform.OS==='ios'?20:10,backgroundColor:'rgba(0,18,51,.94)'},composerGift:{width:43,height:43,borderRadius:22,backgroundColor:'#235398',alignItems:'center',justifyContent:'center',marginRight:7},messageInput:{flex:1,minWidth:0,height:42,borderRadius:16,backgroundColor:'#1b3d78',color:'white',paddingHorizontal:14,textAlign:'right'},sendButton:{width:34,height:39,borderRadius:12,backgroundColor:'#23765e',justifyContent:'center',alignItems:'center',marginLeft:7},giftDrawer:{position:'absolute',bottom:Platform.OS==='ios'?78:63,left:8,right:8,height:260,padding:9,borderRadius:18,borderWidth:1,borderColor:'#578ad7',backgroundColor:'#0d265c',zIndex:25,elevation:15},drawerHeader:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:9},giftGrid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between',paddingBottom:10},giftTile:{width:'19%',height:72,marginBottom:7,borderRadius:9,backgroundColor:'#21498d',alignItems:'center',justifyContent:'center',padding:2},giftName:{color:'white',fontSize:9,fontWeight:'800',textAlign:'center'},giftCost:{color:GOLD,fontSize:9},fxOverlay:{...StyleSheet.absoluteFillObject,zIndex:100,elevation:100,alignItems:'center',justifyContent:'center'},fxCenter:{alignItems:'center',justifyContent:'center'},fxIcon:{fontSize:112,textAlign:'center'},fxSpark:{color:GOLD,fontSize:28,textAlign:'center',textShadowColor:'#fff5bb',textShadowRadius:10},fxFire:{fontSize:75,textAlign:'center'},wheel:{width:296,height:296,borderRadius:148,borderWidth:8,borderColor:GOLD,backgroundColor:'#b16a29',alignSelf:'center',marginVertical:24,position:'relative'},slot:{position:'absolute',width:64,height:64,borderRadius:32,backgroundColor:'#ffc970',borderWidth:2,borderColor:'white',alignItems:'center',justifyContent:'center'},slotLit:{backgroundColor:'#78ed8e',borderColor:'#00f74e',borderWidth:4},slotLabel:{fontSize:10,color:'#51240c',fontWeight:'900'},wheelMiddle:{position:'absolute',left:99,top:99,width:82,height:82,borderRadius:41,backgroundColor:'#079e52',borderWidth:4,borderColor:GOLD,alignItems:'center',justifyContent:'center'}
