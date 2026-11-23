@@ -79,12 +79,19 @@ export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, sea
   </>;
 }
 
-export function AccountHub({name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
+export function AccountPhoto({avatar,label,onPress}){
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.photoButton}>
+    {avatar?.startsWith('data:image/')?<Image source={{uri:avatar}} style={s.avatar}/>
+      :<View style={s.avatar}><Text style={s.avatarIcon}>{avatar||'👤'}</Text></View>}
+    <View pointerEvents="none" style={s.editBadge}><Text style={s.editGlyph}>✎</Text></View>
+  </TouchableOpacity>;
+}
+
+export function AccountHub({onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
   return <>
     <View style={s.account}><GoldFrame/>
       <View style={s.identity}>
-        {avatar?.startsWith('data:image/')?<Image accessibilityLabel={copy.photo} source={{uri:avatar}} style={s.avatar}/>
-        :<View style={s.avatar}><Text style={s.avatarIcon}>{avatar||'👤'}</Text></View>}
+        <AccountPhoto avatar={avatar} onPress={onPhoto} label={photoLabel||copy.photo}/>
         <View style={{flex:1}}>
           <Text style={s.profileName} numberOfLines={2}>{name}</Text>
           <Text style={s.profileId}>ID · {number??'…'}</Text>
@@ -113,6 +120,9 @@ export function HubRows({items}) {
 }
 
 const s = StyleSheet.create({
+  photoButton:{alignSelf:'center',position:'relative'},
+  editBadge:{position:'absolute',bottom:-2,right:-2,width:23,height:23,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'#ffad69',borderWidth:2,borderColor:'#302233'},
+  editGlyph:{color:'#30180a',fontWeight:'900',fontSize:13},
   screen:{flex:1,backgroundColor:'#150e1c'},
   header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:14,paddingBottom:10},
   heading:{fontFamily:'serif',fontSize:29,fontWeight:'800',color:ink,flexShrink:1},

@@ -1,0 +1,28 @@
+{
+  "privacy": {
+    "en": [
+      "Privacy Policy",
+      "Clipi uses your sign-in identifier, including your PI account identifier when you sign in with PI. Firebase processes profile information, room activity and chat messages. LiveKit carries the audio and video you choose to share with participants.",
+      "For confirmed diamond purchases, Clipi records the payment identifier. For room gifts, Clipi records the room, gift and diamonds sent and received. Keep your wallet passphrase private."
+    ],
+    "ar": [
+      "سياسة الخصوصية",
+      "يستخدم كليبي معرّف تسجيل الدخول، بما فيه معرّف حساب PI عند الدخول باستخدام PI. يعالج Firebase معلومات الملف الشخصي ونشاط الغرف ورسائل الدردشة. ينقل LiveKit الصوت والفيديو اللذين تختار مشاركتهما مع المشاركين.",
+      "يسجّل كليبي معرّف الدفع عند تأكيد شراء الماس. وعند إرسال هدية، يسجّل الغرفة والهدية وعدد الماسات المُرسلة والمُستلمة. احتفظ بعبارة مرور محفظتك لنفسك."
+    ]
+  },
+  "terms": {
+    "en": [
+      "Terms of Service",
+      "You choose what to share in a room. Respect other participants and share only content you have permission to broadcast. Room gifts spend purchased diamonds.",
+      "In PI Browser, 1,000 diamonds cost 1 PI. The external app shows its available packs and payment options before checkout.",
+      "Every 10,000 purchased diamonds received in room gifts records a 5 PI reward in the recipient’s Clipi account. Remaining diamonds carry forward."
+    ],
+    "ar": [
+      "شروط الخدمة",
+      "أنت تختار ما تشاركه في الغرفة. احترم المشاركين وشارك فقط المحتوى الذي تملك إذنًا ببثّه. تُخصم هدايا الغرفة من الماس المشترى.",
+      "في PI Browser، سعر 1,000 ماسة هو 1 PI. يعرض التطبيق الخارجي الباقات وخيارات الدفع المتاحة قبل الشراء.",
+      "لكل 10,000 ماسة مشتراة يتلقاها المستخدم عبر هدايا الغرف، تُسجّل مكافأة قدرها 5 PI في حسابه داخل كليبي. ويُرحّل الماس المتبقي للدورة التالية."
+    ]
+  }
+}

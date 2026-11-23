@@ -15,6 +15,7 @@ const plugins = [
   '@react-native-firebase/app-check',
   ['expo-local-authentication', {faceIDPermission: 'السماح لـ Clipi باستخدام Face ID لفتح محفظة النقاط والأرباح بأمان'}],
   googleIosScheme ? ['@react-native-google-signin/google-signin', {iosUrlScheme: googleIosScheme}] : '@react-native-google-signin/google-signin',
+  ['expo-image-picker', {photosPermission: 'السماح لكليبي باختيار صورة الحساب أو خلفية الغرفة'}],
   ['expo-camera', {
     cameraPermission: 'السماح لـ Clipi باستخدام الكاميرا للبث المباشر',
     microphonePermission: 'السماح لـ Clipi باستخدام الميكروفون في البث المباشر'

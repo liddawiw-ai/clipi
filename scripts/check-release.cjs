@@ -12,6 +12,9 @@ assert(!source.includes('setRole('), 'Unsecured fake moderator role toggle remai
 assert(source.includes('SHOW_UNRELEASED_DEMOS=__DEV__'), 'Unreleased demos are not hidden');
 assert(rules.includes("resource.data.status == 'open'"), 'Closed room protections missing');
 assert(rules.includes('reporterUid == request.auth.uid'), 'Report identity constraint missing');
+const lock=JSON.parse(fs.readFileSync('package-lock.json','utf8'));
+assert(pkg.dependencies['expo-file-system']&&lock.packages['node_modules/expo-file-system'],
+  'The Android image picker needs the top-level Expo FileSystem package for AppDirectories');
 assert(pkg.dependencies['@react-native-firebase/auth']&&pkg.dependencies['@react-native-firebase/firestore']);
 assert(pkg.main==='node_modules/expo/AppEntry.js', 'Expo entry must call registerRootComponent; direct App.js main causes launch crash');
 assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App.js default component export');
@@ -25,7 +28,7 @@ assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser')
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
 assert(source.includes('canPublish&&state===ConnectionState.Connected')&&source.includes('canPublish={isHost||isGuest}'), 'Viewer camera guard missing');
-assert(source.includes('displayName,avatar,updatedAt:'), 'Profile avatar save missing');
+assert(source.includes('const update={avatar:photo,updatedAt:')&&source.includes('transaction.set(profile,update,{merge:true})')&&source.includes('onPhoto={pickAccountPhoto}'), 'Profile avatar save missing');
 assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
 assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
 assert(source.includes('sendingRef=useRef(false)'), 'Synchronous message send guard missing');
