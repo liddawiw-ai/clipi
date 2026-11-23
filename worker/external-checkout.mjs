@@ -23,6 +23,31 @@ export function quotePi(dollars,ticker,now){
   if(!Number.isFinite(Number(amount))||Number(amount)<=0)throw cannot('سعر PI غير صالح.',503);
   return amount;
 }
+async function marketQuote(dollars,env){
+  const headers=env.COINGECKO_DEMO_KEY?{'x-cg-demo-api-key':env.COINGECKO_DEMO_KEY}:{};
+  try{
+    const data=await remote('https://api.coingecko.com/api/v3/simple/price?ids=pi-network&vs_currencies=usd&include_last_updated_at=true',{headers});
+    return quotePi(dollars,data['pi-network'],Date.now());
+  }catch{
+    // Shared egress can exhaust the public feed quota. Preserve the same freshness check for each source.
+  }
+  try{
+    const data=await remote('https://api.kraken.com/0/public/Trades?pair=PIUSD&count=1');
+    const trade=data.result?.PIUSD?.at(-1);
+    if(Array.isArray(trade)&&data.error?.length===0){
+      return quotePi(dollars,{usd:Number(trade[0]),last_updated_at:trade[2]},Date.now());
+    }
+  }catch{
+    // A recent direct USD trade is not always available.
+  }
+  try{
+    const ticker=await remote('https://api.coinpaprika.com/v1/tickers/pi2-pi-network');
+    if(ticker.id==='pi2-pi-network'&&ticker.symbol==='PI'){
+      return quotePi(dollars,{usd:ticker.quotes?.USD?.price,last_updated_at:Date.parse(ticker.last_updated)/1000},Date.now());
+    }
+  }catch{}
+  throw cannot('تعذّر الحصول على سعر حديث لعملة Pi. أعد المحاولة بعد قليل.',503);
+}
 function stripe(env,path,options={}){
   return remote('https://api.stripe.com/v1/'+path,{...options,headers:{Authorization:'Bearer '+env.STRIPE_SECRET_KEY,...options.headers}});
 }
@@ -90,8 +115,7 @@ export async function accountCheckout(env,uid,input,origin){
   const now=Date.now();
   let order=await q('SELECT * FROM native_checkout WHERE id=?',id).first();
   if(!order){
-   const price=method==='pi'?await remote('https://api.coingecko.com/api/v3/simple/price?ids=pi-network&vs_currencies=usd&include_last_updated_at=true',{headers:env.COINGECKO_DEMO_KEY?{'x-cg-demo-api-key':env.COINGECKO_DEMO_KEY}:{}}):null;
-   const amount=method==='pi'?quotePi(dollars,price['pi-network'],now):String(dollars);
+   const amount=method==='pi'?await marketQuote(dollars,env):String(dollars);
    await q('INSERT OR IGNORE INTO native_checkout(id,uid,method,dollars,diamonds,amount,expires) VALUES(?,?,?,?,?,?,?)',id,uid,method,dollars,dollars*(method==='pi'?1200:1000),amount,now+(method==='pi'?300000:1800000)).run();
    order=await q('SELECT * FROM native_checkout WHERE id=?',id).first();
   }

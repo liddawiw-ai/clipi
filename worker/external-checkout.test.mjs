@@ -12,9 +12,13 @@ test('native USD and market PI orders settle only to their initiating account',a
  const q=await roomStore(db),origin='https://example.test',uid='native-account',id=crypto.randomUUID(),paymentId='test-pi',txid='c'.repeat(64);
  const old=globalThis.fetch;
  let piApproved=false,piCompleted=false,piSubmitted=false,piCancelled=false,amount=20,stripePaid=false,stripeId;
+ let priceMode='normal';
  const piDto=()=>({identifier:paymentId,metadata:{kind:'native_diamonds',order:id},direction:'user_to_app',network:'Pi Network',user_uid:'payer',amount,
   status:{developer_approved:piApproved,developer_completed:piCompleted,transaction_verified:piCompleted&&piSubmitted,user_cancelled:piCancelled},transaction:piSubmitted?{txid}:null});
  globalThis.fetch=async(url,opt={})=>{
+  if(url.includes('coingecko')&&priceMode!=='normal')return new Response('',{status:429});
+  if(url.includes('api.kraken.com'))return Response.json({error:[],result:{PIUSD:[['0.04','10',priceMode==='kraken'?Date.now()/1000:1]]}});
+  if(url.includes('api.coinpaprika.com'))return Response.json({id:'pi2-pi-network',symbol:'PI',quotes:{USD:{price:.08}},last_updated:priceMode==='paprika'?new Date().toISOString():new Date(0).toISOString()});
   if(url.includes('coingecko'))return Response.json({'pi-network':{usd:.05,last_updated_at:Math.floor(Date.now()/1000)}});
   if(url.endsWith('/me'))return Response.json({uid:opt.headers.Authorization==='Bearer payer'?'payer':'other'});
   if(url.endsWith('/approve'))piApproved=true;
@@ -73,6 +77,10 @@ test('native USD and market PI orders settle only to their initiating account',a
   await storeEvent('CANCELLATION');await storeEvent('CANCELLATION');assert.equal((await readWallet(q,uid)).diamonds,2200);
   const forged=await externalPayment(new Request(origin+'/external-checkout/webhook',{method:'POST',body:'{}'}),env);
   assert.equal(forged.status,400);
+  for(const [source,expectedAmount] of [['kraken',25],['paprika',12.5]]){
+   priceMode=source;const fallback=await buy(crypto.randomUUID(),'pi');assert.equal(fallback.status,200);assert.equal(Number((await fallback.json()).amount),expectedAmount);
+  }
+  priceMode='stale';assert.equal((await buy(crypto.randomUUID(),'pi')).status,503);
   assert.throws(()=>quotePi(1,{usd:.05,last_updated_at:1},Date.now()));
  }finally{globalThis.fetch=old;sql.close()}
 });
