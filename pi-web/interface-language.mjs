@@ -1,6 +1,8 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "إغلاق اللعبة": "Close game",
+  "ألعاب": "Games",
   "اختر ما تريد تشغيله عند قبول طلبك.": "Choose which devices to enable if your request is accepted.",
   "صوت فقط": "Audio only",
   "صوت وكاميرا": "Microphone and camera",

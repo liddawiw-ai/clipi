@@ -1,4 +1,4 @@
-const kinds=['room','participant','message','purchase','deletion'];
+const kinds=['video','room','participant','message','purchase','deletion'];
 const uuid=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 export async function supportCase(q,uid,owner,input,json){
   const staff=Boolean(owner&&uid===owner);

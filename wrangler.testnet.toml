@@ -12,3 +12,7 @@ PI_GIFTS_TESTNET = "1"
 binding = "PI_GIFTS_DB"
 database_name = "clipi-pi-testnet-gifts"
 database_id = "6ba719ff-1708-4151-b6b9-f95f5871cf6b"
+
+[[r2_buckets]]
+binding = "SHORT_VIDEOS"
+bucket_name = "clipi-testnet-shorts"

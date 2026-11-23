@@ -1,3 +1,7 @@
+import {tableSchema} from './profile-tables.mjs';
+import {trialSchema} from './trial-diamonds.mjs';
+import {agencySchema} from './agencies.mjs';
+import {shortSchema} from './short-videos.mjs';
 import {walletSchema,paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
@@ -9,6 +13,13 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_theme(room TEXT PRIMARY KEY,theme TEXT NOT NULL,image TEXT)',
   'CREATE TABLE IF NOT EXISTS room_policy (room TEXT PRIMARY KEY,pin TEXT NOT NULL DEFAULT \'\',locked INTEGER NOT NULL DEFAULT 0)',
   'CREATE TABLE IF NOT EXISTS room_member (room TEXT,uid TEXT,visit TEXT,name TEXT,frame INTEGER DEFAULT 1,ride INTEGER DEFAULT 1,seat INTEGER DEFAULT 0,waiting INTEGER DEFAULT 0,muted INTEGER DEFAULT 0,banned INTEGER DEFAULT 0,joined INTEGER,seen INTEGER,PRIMARY KEY(room,uid))',
+  'CREATE TABLE IF NOT EXISTS room_entrance_id(room TEXT,uid TEXT,token TEXT NOT NULL,PRIMARY KEY(room,uid))',
+  `CREATE TRIGGER IF NOT EXISTS room_entry_insert AFTER INSERT ON room_member
+    BEGIN INSERT INTO room_entrance_id VALUES(NEW.room,NEW.uid,lower(hex(randomblob(12)))) ON CONFLICT(room,uid) DO UPDATE SET token=excluded.token; END`,
+  `CREATE TRIGGER IF NOT EXISTS room_entry_visit AFTER UPDATE OF visit ON room_member WHEN OLD.visit<>NEW.visit
+    BEGIN INSERT INTO room_entrance_id VALUES(NEW.room,NEW.uid,lower(hex(randomblob(12)))) ON CONFLICT(room,uid) DO UPDATE SET token=excluded.token; END`,
+  `CREATE TRIGGER IF NOT EXISTS room_entry_leave AFTER DELETE ON room_member
+    BEGIN DELETE FROM room_entrance_id WHERE room=OLD.room AND uid=OLD.uid; END`,
   'CREATE TABLE IF NOT EXISTS gift_avatar(uid TEXT PRIMARY KEY, avatar TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_attempt (room TEXT,uid TEXT,bucket INTEGER,hits INTEGER,PRIMARY KEY(room,uid))',
   'CREATE TABLE IF NOT EXISTS room_gift_target (payment TEXT PRIMARY KEY,uid TEXT,name TEXT)',
@@ -33,6 +44,10 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_host(room TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_lock(room TEXT,slot INTEGER,PRIMARY KEY(room,slot))',
   ...walletSchema,
+  ...agencySchema,
+  ...trialSchema,
+  ...shortSchema,
+  ...tableSchema,
   'CREATE INDEX IF NOT EXISTS recent_paid_room_gifts ON paid_room_gift(room)',
   'CREATE INDEX IF NOT EXISTS room_chat_recent ON room_chat(room,id)'
 ];
@@ -79,6 +94,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       if(await pinHash(env.LIVEKIT_API_SECRET,room,input.pin)!==policy.pin)return json({error:'رمز الغرفة غير صحيح',pinRequired:true},403);
       await q('UPDATE room_attempt SET hits=hits-1 WHERE room=? AND uid=? AND bucket=? AND hits>0',room,user,bucket).run();
     }
+    const ride=input.ride===true?1:Number.isInteger(input.ride)&&[0,1,2,3,4,6].includes(input.ride)?input.ride:0;
     const entered=await q(`INSERT INTO room_member(room,uid,visit,name,frame,ride,joined,seen,seat)
       SELECT ?,?,?,?,?,?,?,?,CASE WHEN ? AND (
         EXISTS(SELECT 1 FROM room_lock WHERE room=? AND slot=0) OR
@@ -87,7 +103,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       ON CONFLICT(room,uid) DO UPDATE SET visit=excluded.visit,name=excluded.name,frame=excluded.frame,ride=excluded.ride,
       seat=CASE WHEN visit=excluded.visit AND seen>=? THEN seat ELSE excluded.seat END,muted=CASE WHEN visit=excluded.visit THEN muted ELSE 0 END,waiting=CASE WHEN visit=excluded.visit THEN waiting ELSE 0 END,
       joined=CASE WHEN visit=excluded.visit THEN joined ELSE excluded.joined END,seen=excluded.seen WHERE banned=0`,
-      room,user,visit,name,Number(Boolean(input.frame)),Number(Boolean(input.ride)),now,now,Number(host&&type==='audio'),room,room,user,cutoff,room,policy?.pin||'',cutoff).run();
+      room,user,visit,name,Number(Boolean(input.frame)),ride,now,now,Number(host&&type==='audio'),room,room,user,cutoff,room,policy?.pin||'',cutoff).run();
     if(!entered.meta.changes){
       const currentPolicy=await q('SELECT length(pin)>0 AS protected FROM room_policy WHERE room=?',room).first();
       return json({error:'تغيرت صلاحية الدخول، أعد المحاولة',pinRequired:!host&&Boolean(currentPolicy?.protected)},403);
@@ -264,7 +280,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   ]);
   if(member&&now-member.seen>=20)await q('UPDATE room_member SET seen=? WHERE room=? AND uid=? AND visit=?',now,room,user,visit).run();
   const [people,settings,history,pinned]=await Promise.all([
-    q('SELECT uid,name,frame,ride,seat,waiting,muted,joined FROM room_member WHERE room=? AND banned=0 AND seen>=? ORDER BY joined,uid',room,cutoff).all(),
+    q('SELECT m.uid,m.name,m.frame,CASE WHEN m.ride IN (5,7) THEN 0 ELSE m.ride END AS ride,m.seat,m.waiting,m.muted,m.joined,e.token AS entranceId FROM room_member m LEFT JOIN room_entrance_id e ON e.room=m.room AND e.uid=m.uid WHERE m.room=? AND m.banned=0 AND m.seen>=? ORDER BY m.joined,m.uid',room,cutoff).all(),
     q(`SELECT p.locked,length(p.pin)>0 AS protected,COALESCE(a.revision,0) AS chatRevision,COALESCE(c.slow,0) AS slow,f.words
       FROM (SELECT ? AS room) r LEFT JOIN room_policy p ON p.room=r.room
       LEFT JOIN room_chat_activity a ON a.room=r.room LEFT JOIN room_chat_config c ON c.room=r.room LEFT JOIN room_chat_filter f ON f.room=r.room`,room).first(),

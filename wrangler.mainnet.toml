@@ -23,3 +23,7 @@ database_name = "clipi-mainnet-gifts"
 database_id = "43dfb59b-6af5-4742-85f4-a3d4f983d422"
 
 [previews]
+
+[[r2_buckets]]
+binding = "SHORT_VIDEOS"
+bucket_name = "clipi-mainnet-shorts"

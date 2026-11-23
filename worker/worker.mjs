@@ -1,3 +1,7 @@
+import {profileTables} from './profile-tables.mjs';
+import {trialAccount} from './trial-diamonds.mjs';
+import {agencyAccount} from './agencies.mjs';
+import {shortAccount,receiveShort,serveShort} from './short-videos.mjs';
 import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
 import {readWallet} from './diamond-wallet.mjs';
@@ -53,14 +57,22 @@ export default {
       if(!row?.image)return json({error:'Not found'},404);
       return new Response(Uint8Array.from(atob(row.image.split(',')[1]),v=>v.charCodeAt(0)),{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,max-age=3600'}});
     }
-    if(path==='/account-number'&&request.method==='POST'){
+    if (/^\/shorts\/starter\/(palace|aurora|dunes)\.mp4$/.test(path) && ['GET','HEAD'].includes(request.method) && env.CLIPI_APP) return env.CLIPI_APP.fetch(request);
+    const shortFile=/^\/shorts\/media\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+    if(shortFile && ['GET','HEAD'].includes(request.method))return serveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),shortFile[1],json);
+    if((path==='/account-number'&&request.method==='POST')||(shortFile&&request.method==='PUT')){
       const token=(request.headers.get('Authorization')||'').match(/^Bearer ([^ ]{1,8192})$/)?.[1];
       if(!token)return json({error:'سجل الدخول'},401);
       const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
       if(!check.ok)return json({error:'تعذّر التحقق من الحساب'},check.status===400?401:502);
       const uid=(await check.json()).users?.[0]?.localId;
       if(!uid)return json({error:'سجل الدخول'},401);
+      if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json);
       const input=await request.json().catch(()=>null);
+      if(typeof input?.op==='string'&&input.op.startsWith('table'))return profileTables(await roomStore(env.PI_GIFTS_DB),uid,input,json);
+      if(typeof input?.op==='string'&&input.op.startsWith('trial'))return trialAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.SHORT_VIDEOS));
       if(['externalCreate','externalOrders','externalStoreAccount'].includes(input?.op))return accountCheckout(env,uid,input,new URL(request.url).origin);
       if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);

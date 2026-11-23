@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {roomStore} from './room-controls.mjs';
+import {readWallet} from './diamond-wallet.mjs';
+import {shortAccount,receiveShort,serveShort} from './short-videos.mjs';
+
+test('video uploads, playback ranges, likes, comments and non-cash gifts',async()=>{
+  const sql=new DatabaseSync(':memory:');
+  const db={prepare(query){return {query,bind(...args){return {
+    run:()=>({meta:sql.prepare(query).run(...args)}),all:()=>({results:sql.prepare(query).all(...args)}),first:()=>sql.prepare(query).get(...args)
+  };}};},batch(statements){for(const {query} of statements)sql.exec(query);}};
+  const q=await roomStore(db),json=(body,status=200)=>({status,...body});
+  const api=(uid,op,extras,configured=true)=>shortAccount(q,uid,{op,...extras},json,configured);
+  assert.equal((await api('owner','shortPrepare',{},false)).status,503);
+  const {id}=await api('owner','shortPrepare',{title:'مقطعي'});
+  assert.equal((await api('other','shortList',{})).clips.length,0);
+  const bytes=Uint8Array.from([0,0,0,16,102,116,121,112,105,115,111,109,0,0,0,0]);
+  const objects=new Map(),bucket={
+    put:async(k,v)=>objects.set(k,v),delete:async k=>objects.delete(k),head:async k=>({size:objects.get(k).length}),
+    get:async(k,{range}={})=>({body:range?objects.get(k).slice(range.offset,range.offset+range.length):objects.get(k)})
+  };
+  const upload=(uid,data=bytes)=>receiveShort(new Request('https://test.local/',{method:'PUT',headers:{'Content-Length':String(data.length)},body:data}),bucket,q,uid,id,json);
+  assert.equal((await upload('other')).status,404);
+  assert.equal((await upload('owner',new Uint8Array(16))).status,415);
+  assert.equal((await upload('owner')).id,id);
+  await upload('owner');assert.equal(objects.size,1);
+  assert.equal((await api('other','shortList',{})).clips[0].id,id);
+  const range=await serveShort(new Request('https://test.local/',{headers:{Range:'bytes=4-7'}}),bucket,q,id,json);
+  assert.equal(range.status,206);assert.equal(await range.text(),'ftyp');
+  const invalid=await serveShort(new Request('https://test.local/',{headers:{Range:'bytes=200-'}}),bucket,q,id,json);
+  assert.equal(invalid.status,416);
+  const clip={clip:id};
+  for(let n=0;n<3;n++)assert.equal((await api('viewer','shortLike',{...clip,liked:true})).likes,1);
+  assert.deepEqual(await api('viewer2','shortState',clip),{status:200,likes:1,liked:false});
+  assert.equal((await api('viewer','shortLike',{...clip,liked:false})).likes,0);
+  const comment={...clip,nonce:crypto.randomUUID(),body:'أهلًا'};
+  for(let n=0;n<2;n++)assert.equal((await api('viewer','shortComment',comment)).comments.length,1);
+  await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?)','p','viewer',30,'tx').run();
+  const gift={...clip,nonce:crypto.randomUUID(),gift:'وردة حمراء'};
+  for(let n=0;n<2;n++)assert.equal((await api('viewer','shortGift',gift)).status,200);
+  assert.equal((await readWallet(q,'viewer')).diamonds,20);
+  const owner=await readWallet(q,'owner');assert.equal(owner.earningsUnits,0);assert.equal(owner.collected,0);assert.equal(owner.rewardPi,0);
+  assert.equal((await api('viewer','shortGift',{...gift,nonce:crypto.randomUUID(),gift:'قلب'})).status,409);
+  assert.equal((await readWallet(q,'viewer')).diamonds,20);
+});
