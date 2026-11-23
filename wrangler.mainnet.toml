@@ -22,6 +22,14 @@ binding = "PI_GIFTS_DB"
 database_name = "clipi-mainnet-gifts"
 database_id = "43dfb59b-6af5-4742-85f4-a3d4f983d422"
 
+[[durable_objects.bindings]]
+name = "CLIP_MEDIA"
+class_name = "ClipiVideo"
+
+[[migrations]]
+tag = "clipi-media-v1"
+new_sqlite_classes = ["ClipiVideo"]
+
 [previews]
 
 # The production account manages the optional SHORT_VIDEOS upload bucket.

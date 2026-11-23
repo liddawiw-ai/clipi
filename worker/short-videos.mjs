@@ -1,10 +1,10 @@
+import {getVideo,putVideo,readMp4,playback} from './video-storage.mjs';
 import {authorState,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
 import {paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
 const starterIds = ['palace','aurora','dunes'];
 const publishedId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
-const maxBytes = 24 * 1024 * 1024;
 export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_clip(id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, object_key TEXT)',
   'CREATE TABLE IF NOT EXISTS short_like(clip TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(clip,uid))',
@@ -53,41 +53,42 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
   return json({error:'طلب غير صالح'},400);
 }
 
-export async function receiveShort(request, bucket, q, uid, id, json) {
-  if (!bucket) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
+export async function receiveShort(request, bucket, q, uid, id, json, videos) {
+  if (!bucket && !videos) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
   const row=await q('SELECT object_key FROM short_clip WHERE owner=? AND id=?',uid,id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
   if (row.object_key) return json({id});
-  const size=Number(request.headers.get('content-length'));
-  if (!size || size > maxBytes || size < 12) return json({error:'اختر ملف MP4 حجمه حتى ٢٤ ميغابايت'},413);
-  const bytes=new Uint8Array(await request.arrayBuffer());
-  if (bytes.length!==size || String.fromCharCode(...bytes.slice(4,8))!=='ftyp') return json({error:'اختر فيديو بصيغة MP4'},415);
-  const key='shorts/'+crypto.randomUUID()+'.mp4';
-  await bucket.put(key,bytes,{httpMetadata:{contentType:'video/mp4'}});
+  let key;
+  if (videos) {
+    key = 'cloud/' + id;
+    const stored = await putVideo(videos, key, request);
+    if (!stored.ok) return stored;
+  } else {
+    const bytes = await readMp4(request);
+    if (bytes instanceof Response) return bytes;
+    key = 'shorts/' + crypto.randomUUID() + '.mp4';
+    await bucket.put(key, bytes, {httpMetadata: {contentType: 'video/mp4'}});
+  }
   const outcome=await q('UPDATE short_clip SET object_key=? WHERE id=? AND owner=? AND object_key IS NULL',key,id,uid).run();
-  if (!outcome.meta.changes) await bucket.delete(key);
+  if (!videos && !outcome.meta.changes) await bucket.delete(key);
   return json({id});
 }
 
-export async function serveShort(request, bucket, q, id, json) {
-  if (!bucket) return json({error:'التخزين غير متاح'},503);
+export async function serveShort(request, bucket, q, id, json, videos) {
+  if (!bucket && !videos) return json({error:'التخزين غير متاح'},503);
   const row=await q('SELECT object_key FROM short_clip WHERE id=? AND object_key IS NOT NULL',id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
-  const head=await bucket.head(row.object_key);
-  if (!head) return json({error:'الفيديو غير موجود'},404);
-  const headers=new Headers({'Content-Type':'video/mp4','Accept-Ranges':'bytes','Cache-Control':'public, max-age=86400','Content-Length':String(head.size)});
-  let range;
-  const value=request.headers.get('Range');
-  if (value) {
-    const m=/^bytes=(\d*)-(\d*)$/.exec(value);
-    const start=m?.[1] ? Number(m[1]) : Math.max(head.size-Number(m?.[2]),0);
-    const end=m?.[1] && m?.[2] ? Math.min(Number(m[2]),head.size-1) : head.size-1;
-    if (!m || (!m[1]&&!m[2]) || !(start>=0 && start<=end && start<head.size)) return new Response(null,{status:416,headers:{'Content-Range':'bytes */'+head.size}});
-    range={offset:start,length:end-start+1};
-    headers.set('Content-Range',`bytes ${start}-${end}/${head.size}`);
-    headers.set('Content-Length',String(range.length));
+  if (row.object_key.startsWith('cloud/')) {
+    return videos ? getVideo(videos, row.object_key, request) : json({error:'التخزين غير متاح'},503);
   }
-  const data=request.method==='HEAD'?null:await bucket.get(row.object_key,range?{range}:{});
-  if(request.method!=='HEAD'&&!data)return json({error:'الفيديو غير موجود'},404);
-  return new Response(data?.body||null,{status:range?206:200,headers});
+  if (!bucket) return json({error:'التخزين غير متاح'},503);
+  const head = await bucket.head(row.object_key);
+  if (!head) return json({error:'الفيديو غير موجود'},404);
+  const spec = playback(request, head.size);
+  if (spec instanceof Response) return spec;
+  const {status, headers, offset, length} = spec;
+  const options = status === 206 ? {range: {offset, length}} : {};
+  const data = request.method === 'HEAD' ? null : await bucket.get(row.object_key, options);
+  if (request.method !== 'HEAD' && !data) return json({error:'الفيديو غير موجود'},404);
+  return new Response(data?.body || null, {status, headers});
 }
