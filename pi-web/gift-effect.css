@@ -59,6 +59,24 @@
 .t-breath{animation-name:gift-trail-breath}@keyframes gift-trail-breath{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(75px,var(--x)) scale(1.4)}}
 @media(prefers-reduced-motion:reduce){.gift-stage *{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0ms!important}.gift-stage{animation:none}}
 
-.clipi-wallet-cards{color:#f5ddbe;overflow-wrap:anywhere}.clipi-wallet-cards button,.clipi-wallet-cards input{border:1px solid #ab8a60;border-radius:12px;padding:10px;margin:3px;color:#f5ddbe;background:#36233c}.clipi-wallet-cards button{cursor:pointer}.clipi-wallet-cards h3{margin-top:24px}
-
-.clipi-wallet-cards button{width:auto;max-width:100%;padding:8px 13px;border-color:#ffad69;background:#ffad69;color:#32180b;font-weight:700;cursor:pointer}.clipi-wallet-cards button:disabled{opacity:.55}
+.clipi-wallet-cards {
+  color: #173e38;
+  overflow-wrap: anywhere;
+  font-family: system-ui, sans-serif;
+  line-height: 1.55;
+}
+.clipi-wallet-cards h3 {margin: 24px 0 8px; color: #173e38}
+.clipi-wallet-cards p {color: #47635b}
+.clipi-wallet-cards input, .clipi-wallet-cards button {
+  border: 1px solid #c7d8cd;
+  border-radius: 12px;
+  padding: 8px 13px;
+  margin: 3px;
+  max-width: 100%;
+  min-height: 44px;
+  color: #173e38;
+  background: #fffefa;
+  font: inherit;
+}
+.clipi-wallet-cards button {background: #d9f1e5; cursor: pointer; font-weight: 700}
+.clipi-wallet-cards button:disabled {opacity: .55}

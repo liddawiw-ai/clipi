@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import React,{useState} from 'react';
 import {Clipboard,Modal,Platform,ScrollView,Share,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import pages from './policy-content.json';
@@ -50,12 +51,12 @@ export function PolicyModal({page,endpoint,onClose}){
 }
 
 const s=StyleSheet.create({
-  backdrop:{flex:1,backgroundColor:'rgba(15,9,21,.68)',alignItems:'center',justifyContent:'center',padding:16},
-  sheet:{width:'100%',maxWidth:480,maxHeight:'88%',paddingHorizontal:18,paddingBottom:16,borderRadius:20,borderWidth:1,borderColor:'#826348',backgroundColor:'#291e2a'},
+  backdrop:{flex:1,backgroundColor:theme.scrim,alignItems:'center',justifyContent:'center',padding:16},
+  sheet:{width:'100%',maxWidth:480,maxHeight:'88%',paddingHorizontal:18,paddingBottom:16,borderRadius:20,borderWidth:1,borderColor:theme.line,backgroundColor:theme.paper},
   heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:4},
-  brand:{fontSize:18,fontWeight:'800',color:'#ffc485'},
-  close:{width:44,height:44,justifyContent:'center',alignItems:'center'},cross:{color:'white',fontWeight:'600',fontSize:28},
-  content:{gap:16,paddingVertical:5},section:{gap:6},title:{color:'#ffdfb3',fontWeight:'800',fontSize:18},
-  text:{color:'#fff8ee',fontSize:14,lineHeight:21},actions:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:12},
-  action:{backgroundColor:'#ffad69',paddingVertical:8,paddingHorizontal:12,borderRadius:12},actionText:{color:'#32180b',fontWeight:'700',fontSize:13}
+  brand:{fontSize:18,fontWeight:'800',color:theme.accent},
+  close:{width:44,height:44,justifyContent:'center',alignItems:'center'},cross:{color:theme.ink,fontWeight:'600',fontSize:28},
+  content:{gap:16,paddingVertical:5},section:{gap:6},title:{color:theme.ink,fontWeight:'800',fontSize:18},
+  text:{color:theme.ink,fontSize:14,lineHeight:21},actions:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:12},
+  action:{backgroundColor:'transparent',paddingVertical:8,paddingHorizontal:12,borderRadius:12},actionText:{color:theme.accent,fontWeight:'700',fontSize:13}
 });

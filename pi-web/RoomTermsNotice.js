@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {Animated,Platform,StyleSheet,Text,View} from 'react-native';
 
@@ -26,7 +27,7 @@ export function RoomTermsNotice({onRead,chatRevision,legacyMessages}){
 const s=StyleSheet.create({
   notice:{paddingHorizontal:8,paddingBottom:6,backgroundColor:'transparent'},
   links:{flexDirection:'row',flexWrap:'wrap',gap:12,justifyContent:'flex-end',paddingBottom:2},
-  ink:{color:'#fff',fontSize:12,lineHeight:17,fontWeight:'600',textShadowColor:'#110b13',textShadowOffset:{width:0,height:1},textShadowRadius:3},
-  link:{color:'#ffdfac',fontWeight:'800',textDecorationLine:'underline'},
+  ink:{color:theme.secondary,fontSize:12,lineHeight:17,fontWeight:'600',},
+  link:{color:theme.accent,fontWeight:'800',textDecorationLine:'underline'},
   ar:{textAlign:'right',writingDirection:'rtl'},en:{textAlign:'left',writingDirection:'ltr'}
 });

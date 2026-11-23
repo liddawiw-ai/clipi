@@ -1,9 +1,10 @@
+import {theme} from './ClipiTheme';
 import React, {useId, useRef, useState} from 'react';
 import {languages} from './languages.mjs';
 
 const choices = ['en','ar',...Object.keys(languages).filter(code=>code!=='en'&&code!=='ar')];
 const button = {
-  border:'1px solid #8462ad', borderRadius:10, background:'#382054', color:'white',
+  border:'1px solid '+theme.line, borderRadius:10, background:'transparent', color:theme.ink,
   padding:'10px 12px', font:'inherit', textAlign:'start', cursor:'pointer',
   width:'100%', minHeight:44, boxSizing:'border-box'
 };

@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import React, {useRef, useState} from 'react';
 import {Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
@@ -9,8 +10,8 @@ export function RoomAction({icon, label, active, onPress}) {
   </TouchableOpacity>;
 }
 
-export function RoomOption({title, onPress, color, disabled, plain}) {
-  return <TouchableOpacity accessibilityRole="button" disabled={disabled} style={[s.option,color&&{backgroundColor:color},plain&&{backgroundColor:'transparent'},disabled&&s.disabled]} onPress={onPress}>
+export function RoomOption({title, onPress, disabled}) {
+  return <TouchableOpacity accessibilityRole="button" disabled={disabled} style={[s.option,disabled&&s.disabled]} onPress={onPress}>
     <Text style={s.optionText}>{title}</Text>
   </TouchableOpacity>;
 }
@@ -92,35 +93,35 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
 
 const s=StyleSheet.create({
   action:{width:40,height:42,borderRadius:13,backgroundColor:'transparent',alignItems:'center',justifyContent:'center'},
-  glyph:{fontSize:19,fontWeight:'800',color:'#f3fff8',textShadowColor:'#100b18',textShadowOffset:{width:0,height:1},textShadowRadius:4},
-  active:{backgroundColor:'transparent'},
-  activeGlyph:{color:'#ffdc86',fontWeight:'800'},
-  option:{width:"47%",minHeight:46,padding:8,borderRadius:12,backgroundColor:"#244741",justifyContent:"center"},
-  optionText:{color:"#effff5",fontSize:13,fontWeight:"700",textAlign:"center"},
-  overlay:{flex:1,justifyContent:'flex-end',backgroundColor:'#07191460'},
-  sheet:{backgroundColor:'#132e2b',borderTopLeftRadius:22,borderTopRightRadius:22,padding:12,maxHeight:'64%'},
+  glyph:{fontSize:19,fontWeight:'800',color:theme.accent,},
+  active:{backgroundColor:'transparent',borderBottomColor:theme.accent},
+  activeGlyph:{color:theme.accent,fontWeight:'800'},
+  option:{width:'100%',minHeight:44,padding:8,borderRadius:0,backgroundColor:'transparent',justifyContent:"center",borderBottomWidth:1,borderBottomColor:theme.line,alignItems:'stretch',paddingHorizontal:4,paddingVertical:8},
+  optionText:{color:theme.ink,fontSize:15,fontWeight:'600',textAlign:'auto'},
+  overlay:{flex:1,justifyContent:'flex-end',backgroundColor:theme.scrim},
+  sheet:{backgroundColor:theme.paper,borderTopLeftRadius:26,borderTopRightRadius:26,padding:14,maxHeight:'72%',borderWidth:1,borderColor:theme.line},
   sheetHeading:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8},
-  title:{fontSize:18,fontWeight:'800',color:'#effff5'},
-  sub:{fontSize:12,color:'#d3ede1'},
+  title:{fontSize:20,fontWeight:'800',color:theme.ink},
+  sub:{fontSize:12,color:theme.secondary},
   tabs:{flexGrow:0,maxHeight:43,marginBottom:8},
   tabContent:{alignItems:'center',gap:6},
-  tab:{backgroundColor:'#244741',paddingVertical:8,paddingHorizontal:11,borderRadius:12},
+  tab:{backgroundColor:'transparent',paddingVertical:8,paddingHorizontal:11,borderRadius:0,borderBottomWidth:1,borderBottomColor:theme.line},
   catalog:{maxHeight:234,minHeight:80},
   grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},
-  gift:{width:'24%',minHeight:83,marginBottom:5,backgroundColor:'#1d3d36',borderWidth:1,borderColor:'#315950',borderRadius:10,padding:4,alignItems:'center'},
-  check:{position:'absolute',top:2,right:5,color:'#ffca89',fontSize:15,fontWeight:'900'},
-  selectedGift:{borderColor:'#a7e3c7',backgroundColor:'#2a5549'},
+  gift:{width:'24%',minHeight:83,marginBottom:5,backgroundColor:theme.canvas,borderWidth:1,borderColor:theme.line,borderRadius:12,padding:4,alignItems:'center'},
+  check:{position:'absolute',top:2,right:5,color:theme.accent,fontSize:15,fontWeight:'900'},
+  selectedGift:{borderColor:theme.accent,backgroundColor:theme.mint},
   giftIcon:{fontSize:23},
-  giftName:{fontSize:10,fontWeight:'700',color:'#effff5',textAlign:'center'},
-  price:{fontSize:10,color:'#bbefd9',marginTop:3},
+  giftName:{fontSize:12,fontWeight:'700',color:theme.ink,textAlign:'center'},
+  price:{fontSize:11,color:theme.secondary,marginTop:3},
   footer:{direction:'ltr',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,
-    marginTop:8,paddingTop:5,borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:'#45635b'},
+    marginTop:8,paddingTop:5,borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:theme.line},
   edgeAction:{minWidth:44,minHeight:44,paddingHorizontal:6,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},
   funds:{flex:1,alignItems:'center',justifyContent:'center'},
-  balance:{color:'#d3ede1',fontSize:12,textAlign:'center'},
-  walletText:{color:'#f0f9f4',fontSize:14,fontWeight:'700'},
-  sendText:{color:'#ffc17d',fontSize:15,fontWeight:'800'},
-  inactive:{color:'#9aafa5'},
-  shop:{paddingHorizontal:8,paddingVertical:4},shopText:{color:'#ffc17d',fontSize:12,fontWeight:'700'},
+  balance:{color:theme.ink,fontSize:12,textAlign:'center'},
+  walletText:{color:theme.accent,fontSize:14,fontWeight:'700'},
+  sendText:{color:theme.accent,fontSize:15,fontWeight:'800'},
+  inactive:{color:theme.secondary},
+  shop:{paddingHorizontal:8,paddingVertical:4},shopText:{color:theme.gold,fontSize:12,fontWeight:'700'},
   disabled:{opacity:.48},
 });
