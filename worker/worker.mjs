@@ -33,7 +33,7 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if(path.startsWith('/external-checkout/'))return externalPayment(request,env);
-    if(path==='/external-checkout'&&request.method==='GET'&&env.CLIPI_APP)return env.CLIPI_APP.fetch(new URL('/external-checkout.html',request.url));
+    if(path==='/external-checkout'&&request.method==='GET'&&env.CLIPI_APP)return env.CLIPI_APP.fetch(request);
     if(path==='/active-rooms'&&request.method==='GET'){
       const q=await roomStore(env.PI_GIFTS_DB);
       const rows=await q('SELECT h.room FROM room_host h JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();

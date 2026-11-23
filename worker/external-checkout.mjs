@@ -38,6 +38,26 @@ async function settleCard(q,env,o){
   await credit(q,o,s.id,'stripe:'+s.payment_intent);
   return true;
 }
+function piRequest(env,path,options={},authorization='Key '+env.PI_NETWORK_API_KEY){
+  return remote('https://api.minepi.com/v2/'+path,{...options,headers:{Authorization:authorization,'Content-Type':'application/json'}});
+}
+function matchesPiOrder(payment,order,paymentId,payer){
+  return !!payer && payment?.identifier===paymentId && payment.user_uid===payer &&
+    payment.metadata?.kind==='native_diamonds' && payment.metadata.order===order.id &&
+    payment.direction==='user_to_app' && payment.network==='Pi Network' &&
+    Number(payment.amount)===Number(order.amount) && !payment.status?.cancelled && !payment.status?.user_cancelled;
+}
+async function settlePi(q,env,order,payment,txid){
+  if(!matchesPiOrder(payment,order,order.payment,order.payer)||!payment.status?.developer_approved||
+      !/^[a-f0-9]{64}$/i.test(txid||'')||(payment.transaction?.txid&&payment.transaction.txid!==txid))return false;
+  const confirmed=payment.status.developer_completed?payment:await piRequest(env,'payments/'+order.payment+'/complete',{
+    method:'POST',body:JSON.stringify({txid})
+  });
+  if(!matchesPiOrder(confirmed,order,order.payment,order.payer)||!confirmed.status?.developer_completed||
+      !confirmed.status.transaction_verified||confirmed.transaction?.txid!==txid)return false;
+  await credit(q,order,order.payment,txid);
+  return true;
+}
 export async function accountCheckout(env,uid,input,origin){
  try{
   if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'الدفع متاح على الشبكة الرئيسية فقط'},503);
@@ -49,8 +69,18 @@ export async function accountCheckout(env,uid,input,origin){
    return json(await q('SELECT id FROM native_store_account WHERE uid=?',uid).first());
   }
   if(input.op==='externalOrders'){
-    const rows=(await q("SELECT o.* FROM native_checkout o LEFT JOIN diamond_purchase d ON d.payment='native:'||o.method||':'||o.payment WHERE o.uid=? AND d.payment IS NULL AND o.method='card' AND o.payment IS NOT NULL AND o.expires>? ORDER BY o.rowid DESC LIMIT 8",uid,Date.now()-86400000).all()).results;
-    for(const row of rows)await settleCard(q,env,row);
+    const pending="SELECT o.* FROM native_checkout o LEFT JOIN diamond_purchase d ON d.payment='native:'||o.method||':'||o.payment WHERE o.uid=? AND d.payment IS NULL AND o.payment IS NOT NULL";
+    const cards=(await q(pending+" AND o.method='card' AND o.expires>? ORDER BY o.rowid DESC LIMIT 8",uid,Date.now()-86400000).all()).results;
+    if(env.PI_NETWORK_API_KEY){
+      const piOrders=(await q(pending+" AND o.method='pi' AND o.payer IS NOT NULL ORDER BY (o.id=?) DESC,o.rowid DESC LIMIT 8",uid,uuid.test(input.order||'')?input.order:'').all()).results;
+      for(const order of piOrders){
+        try{
+          const payment=await piRequest(env,'payments/'+order.payment);
+          if(payment.transaction?.txid)await settlePi(q,env,order,payment,payment.transaction.txid);
+        }catch{ /* A later wallet refresh can retry this order independently. */ }
+      }
+    }
+    for(const row of cards)await settleCard(q,env,row);
     return json({ok:true});
   }
   const {method,dollars,id}=input;
@@ -138,27 +168,25 @@ export async function externalPayment(request,env){
   if(!o)return json({},404);
   if(path==='/external-checkout/quote'){
    const account=await q('SELECT number FROM selected_number WHERE uid=? UNION ALL SELECT number FROM public_numbers WHERE uid=? AND cost=0 LIMIT 1',o.uid,o.uid).first();
-   return json({diamonds:o.diamonds,amount:o.amount,dollars:o.dollars,account:account?.number,expires:o.expires});
+   const paid=o.payment&&await q('SELECT 1 AS done FROM diamond_purchase WHERE payment=? AND uid=?','native:pi:'+o.payment,o.uid).first();
+   return json({diamonds:o.diamonds,amount:o.amount,dollars:o.dollars,account:account?.number,expires:o.expires,state:paid?'paid':o.payment?'pending':'open'});
   }
   const action=path.split('/').pop();
   if(!['approve','complete'].includes(action)||!env.PI_NETWORK_API_KEY||typeof token!=='string'||token.length>4096||!/^[\w-]{1,128}$/.test(paymentId||''))return json({},400);
-  const pi=(p,auth,opts={})=>remote('https://api.minepi.com/v2/'+p,{...opts,headers:{Authorization:auth,'Content-Type':'application/json'}});
-  const auth='Key '+env.PI_NETWORK_API_KEY,pp='payments/'+paymentId;
-  const [who,p]=await Promise.all([pi('me','Bearer '+token),pi(pp,auth)]);
-  if(!who.uid||p.identifier!==paymentId||p.user_uid!==who.uid||p.metadata?.kind!=='native_diamonds'||p.metadata?.order!==id||p.direction!=='user_to_app'||p.network!=='Pi Network'||Number(p.amount)!==Number(o.amount)||p.status?.cancelled||p.status?.user_cancelled)return json({},403);
+  const pp='payments/'+paymentId;
+  const [who,p]=await Promise.all([piRequest(env,'me',{},'Bearer '+token),piRequest(env,pp)]);
+  if(!matchesPiOrder(p,o,paymentId,who.uid))return json({},403);
   if(action==='approve'){
    if(o.expires<=Date.now()&&!p.status?.developer_approved)return json({error:'انتهت صلاحية السعر'},409);
    const locked=await q("UPDATE native_checkout SET payment=?,payer=? WHERE id=? AND (payment IS NULL OR (payment=? AND payer=?))",paymentId,who.uid,id,paymentId,who.uid).run();
    if(!locked.meta.changes)return json({},409);
-   if(!p.status?.developer_approved)await pi(pp+'/approve',auth,{method:'POST',body:'{}'});
+   if(!p.status?.developer_approved)await piRequest(env,pp+'/approve',{method:'POST',body:'{}'});
    return json({ok:true});
   }
   if(o.payment!==paymentId||o.payer!==who.uid||!p.status?.developer_approved)return json({},409);
   const txid=input.txid||p.transaction?.txid;
   if(!/^[a-f0-9]{64}$/i.test(txid||''))return json({},400);
-  const done=p.status.developer_completed?p:await pi(pp+'/complete',auth,{method:'POST',body:JSON.stringify({txid})});
-  if(!done.status?.transaction_verified||!done.status?.developer_completed||done.transaction?.txid!==txid)return json({},409);
-  await credit(q,o,paymentId,txid);
+  if(!await settlePi(q,env,o,p,txid))return json({},409);
   return json({ok:true,diamonds:o.diamonds});
  }catch(e){return json({error:e.status?e.message:'تعذّر تأكيد الدفعة. أعد المحاولة.'},e.status||503)}
 }
