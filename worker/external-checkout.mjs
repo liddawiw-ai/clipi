@@ -7,6 +7,7 @@ export const orderSchema="CREATE TABLE IF NOT EXISTS native_checkout(id TEXT PRI
 async function store(env){
   const q=await roomStore(env.PI_GIFTS_DB);
   await q(orderSchema).run();
+  await q('CREATE TABLE IF NOT EXISTS native_store_account(id TEXT PRIMARY KEY,uid TEXT UNIQUE NOT NULL)').run();
   return q;
 }
 async function remote(url,options={}){
@@ -74,6 +75,14 @@ export async function accountCheckout(env,uid,input,origin){
  try{
   if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'الدفع متاح على الشبكة الرئيسية فقط'},503);
   const q=await store(env);
+  if(input.op==='externalStoreAccount'){
+   const app={PLAY_STORE:env.RC_ANDROID_APP_ID,APP_STORE:env.RC_APPLE_APP_ID}[input.store];
+   if(!app||!env.RC_WEBHOOK_SECRET)return json({error:'لم يُفعّل ربط المتجر بعد'},503);
+   await q('INSERT OR IGNORE INTO native_store_account(id,uid) VALUES(?,?)',crypto.randomUUID(),uid).run();
+   const account=await q('SELECT id FROM native_store_account WHERE uid=?',uid).first();
+   const key=input.store==='PLAY_STORE'?env.RC_GOOGLE_PUBLIC_KEY:env.RC_APPLE_PUBLIC_KEY;
+   return json({...account,publicKey:/^(goog|appl)_[a-zA-Z0-9]+$/.test(key||'')?key:undefined});
+  }
   if(input.op==='externalOrders'){
     const pending="SELECT o.* FROM native_checkout o LEFT JOIN diamond_purchase d ON d.payment='native:'||o.method||':'||o.payment WHERE o.uid=? AND d.payment IS NULL AND o.payment IS NOT NULL";
     if(env.PI_NETWORK_API_KEY){
@@ -105,6 +114,27 @@ export async function externalPayment(request,env){
  try{
   if(env.PI_GIFTS_NETWORK!=='mainnet'||request.method!=='POST')return json({},404);
   const path=new URL(request.url).pathname;
+  if(path==='/external-checkout/store-webhook'){
+   const header=request.headers.get('Authorization')||'',secret=env.RC_WEBHOOK_SECRET;
+   if(!secret||header.length!==secret.length+7||!header.startsWith('Bearer '))return json({},401);
+   let mismatch=0;
+   for(let i=0;i<secret.length;i++)mismatch|=header.charCodeAt(i+7)^secret.charCodeAt(i);
+   if(mismatch)return json({},401);
+   const e=(await request.json()).event;
+   if(!e||e.environment!=='PRODUCTION'||!['NON_RENEWING_PURCHASE','CANCELLATION'].includes(e.type))return json({ok:true});
+   const expected={PLAY_STORE:env.RC_ANDROID_APP_ID,APP_STORE:env.RC_APPLE_APP_ID}[e.store];
+   if(!expected||e.app_id!==expected)return json({},403);
+   const diamonds=Number(/^clipi_diamonds_(\d+)$/.exec(e.product_id)?.[1]);
+   if(!multipliers.includes(diamonds/1000))return json({ok:true});
+   if(typeof e.transaction_id!=='string'||!e.transaction_id||e.transaction_id.length>250)return json({},400);
+   const q=await store(env);
+   const account=await q('SELECT uid FROM native_store_account WHERE id=?',e.app_user_id).first();
+   if(!account)return json({},409);
+   const id='store:'+e.store+':'+e.transaction_id;
+   if(e.type==='CANCELLATION')await q('INSERT INTO native_purchase_reversal(payment,diamonds) VALUES(?,?) ON CONFLICT(payment) DO NOTHING',id,diamonds).run();
+   else await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?) ON CONFLICT(payment) DO NOTHING',id,account.uid,diamonds,id).run();
+   return json({ok:true});
+  }
   const input=await request.json(),{id,paymentId,token}=input;
   if(!uuid.test(id))return json({},400);
   const q=await store(env),o=await q("SELECT * FROM native_checkout WHERE id=? AND method='pi'",id).first();

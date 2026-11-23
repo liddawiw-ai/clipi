@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import {ui} from './interface-language.mjs';
 import React, {useEffect, useRef, useState} from 'react';
 import {auth, piSdk} from './services';
@@ -102,12 +103,12 @@ export function PiGifts({roomId, recipient, sessionId, open, close, show}) {
     } catch {end(window.Pi?ui("تعذّر بدء الدفع. تحقق من صلاحية المدفوعات في حساب PI ثم حاول مجددًا."):ui("لم يتم تحميل خدمة PI. حدّث الصفحة داخل PI Browser."))}
   }
   if (!open) return null;
-  return <section role="dialog" aria-modal="true" dir="auto" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1000,maxHeight:"85vh",overflowY:"auto",background:'#201631',color:'white',padding:16,borderRadius:16}}>
-    <button onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا PI")}</strong>
+  return <section role="dialog" aria-modal="true" dir="auto" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:1000,maxHeight:"85vh",overflowY:"auto",background:theme.paper,color:theme.ink,padding:16,borderRadius:16}}>
+    <button style={{background:'transparent',border:0,color:theme.ink,fontSize:24,textShadow:'0 1px 3px #211522'}} onClick={close} aria-label={ui("إغلاق")}>×</button> <strong>{ui("هدايا PI")}</strong>
     <p>{ui("دفعة PI حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.")}</p>
     <p role="status">{paused ? ui("هدايا PI المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.") : message || (catalog ? ui("اختَر هدية") : ui("جاري تحميل الهدايا…"))}</p>
     <div style={{display:'flex',gap:8,marginTop:12}}>{Object.entries(catalog||{}).map(([id,g]) =>
-      <button key={id} disabled={busy} onClick={() => buy(id,g)} style={{flex:1,padding:10,borderRadius:12,background:'#453263',color:'white'}}>
+      <button key={id} disabled={busy} onClick={() => buy(id,g)} style={{flex:1,padding:10,borderRadius:12,background:theme.paper,color:theme.ink}}>
         <span style={{fontSize:28}}>{g.icon}</span><br/>{ui(g.name)}<br/>{g.amount} PI
       </button>)}</div>
   </section>;

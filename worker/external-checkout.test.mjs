@@ -59,6 +59,16 @@ test('external Pi orders recover verified transactions once for the initiating n
   assert.equal((await pay('complete')).status,200);
   assert.equal((await readWallet(q,uid)).diamonds,1200);
   assert.equal((await readWallet(q,'pi:payer')).diamonds,0);
+  const configured={...env,RC_ANDROID_APP_ID:'play-app',RC_WEBHOOK_SECRET:'unit-test'};
+  const account=await (await accountCheckout(configured,uid,{op:'externalStoreAccount',store:'PLAY_STORE'},origin)).json();
+  assert.match(account.id,/^[a-f0-9-]{36}$/);
+  const storeEvent=(type,environment='PRODUCTION',secret='unit-test')=>externalPayment(new Request(origin+'/external-checkout/store-webhook',
+   {method:'POST',headers:{Authorization:'Bearer '+secret},body:JSON.stringify({event:{app_id:'play-app',store:'PLAY_STORE',app_user_id:account.id,
+   type,environment,transaction_id:'gp-order',product_id:'clipi_diamonds_2000'}})}),configured);
+  assert.equal((await storeEvent('NON_RENEWING_PURCHASE','PRODUCTION','wrong')).status,401);
+  await storeEvent('NON_RENEWING_PURCHASE','SANDBOX');assert.equal((await readWallet(q,uid)).diamonds,1200);
+  await storeEvent('NON_RENEWING_PURCHASE');await storeEvent('NON_RENEWING_PURCHASE');assert.equal((await readWallet(q,uid)).diamonds,3200);
+  await storeEvent('CANCELLATION');await storeEvent('CANCELLATION');assert.equal((await readWallet(q,uid)).diamonds,1200);
   for(const [source,expectedAmount] of [['kraken',25],['paprika',12.5]]){
    priceMode=source;const fallback=await buy(crypto.randomUUID(),'pi');assert.equal(fallback.status,200);assert.equal(Number((await fallback.json()).amount),expectedAmount);
   }
