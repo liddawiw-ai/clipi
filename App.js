@@ -1017,10 +1017,12 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
 export default function App(){
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
-  const returnToWallet=useRef(false);
+  const returnToWallet=useRef(false),checkoutOrder=useRef(null);
   useEffect(()=>{
     function onUrl(url){
-      if(!/^clipi:\/\/wallet\/?$/.test(url||''))return;
+      const match=/^clipi:\/\/wallet\/?(?:\?order=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.exec(url||'');
+      if(!match)return;
+      checkoutOrder.current=match[1]||null;
       returnToWallet.current=true;
       if(auth().currentUser){setMini(true);go('wallet');setWalletRequest(v=>v+1)}
     }
@@ -1045,7 +1047,7 @@ export default function App(){
       if(active&&page==='wallet')timer=setTimeout(refresh,15000);
     }
     setGiftWalletError('');
-    if(page==='wallet')void mediaRequest('/account-number',{op:'externalOrders'}).catch(()=>{}).then(()=>{if(active)void refresh()});
+    if(page==='wallet')void mediaRequest('/account-number',{op:'externalOrders',order:checkoutOrder.current}).catch(()=>{}).then(()=>{if(active)void refresh()});
     else void refresh();
     return ()=>{active=false;clearTimeout(timer)};
   },[user?.uid,page,walletRequest]);
