@@ -1,6 +1,9 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.": "A gift needs another host or speaker on a microphone.",
+  "اختر مستلمًا للهدية": "Choose a gift recipient",
+  "إرسال": "Send",
   "بانتظار صعود مستلم على المايك": "Waiting for a recipient to take a microphone",
   "أُضيفت الهدية إلى هدف": "Gift credited to the goal of",
   "تعذّر تأكيد الهدية. أعد المحاولة.": "Gift confirmation unavailable. Retry to check this gift.",
