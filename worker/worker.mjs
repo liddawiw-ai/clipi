@@ -32,6 +32,11 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if((path==='/external-checkout/'||path==='/external-checkout.html')&&request.method==='GET'&&env.CLIPI_APP){
+      const canonical=new URL(request.url);
+      canonical.pathname='/external-checkout';
+      return Response.redirect(canonical.href,308);
+    }
     if(path.startsWith('/external-checkout/'))return externalPayment(request,env);
     if(path==='/external-checkout'&&request.method==='GET'&&env.CLIPI_APP)return env.CLIPI_APP.fetch(request);
     if(path==='/active-rooms'&&request.method==='GET'){
