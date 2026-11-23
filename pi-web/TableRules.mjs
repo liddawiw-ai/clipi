@@ -2,17 +2,28 @@ import {rack,poolMove} from './PoolRules.mjs';
 export const games={ludo:'لودو',jackaroo:'جاكارو',pool:'بلياردو'};
 export const seatsFor=k=>k==='jackaroo'?[4]:k==='pool'?[2]:[2,3,4];
 const copy=x=>JSON.parse(JSON.stringify(x));
-export function deal(g,rng){
-  const d=Array.from({length:52},(_,i)=>i%13+1);
-  for(let i=51;i>0;i--){const j=Math.floor(rng()*(i+1));[d[i],d[j]]=[d[j],d[i]];}
-  g.hands=Array.from({length:4},()=>d.splice(0,4));g.deck=d;
+const suits=['clubs','diamonds','hearts','spades'];
+
+function dealHands(g,amount){
+  g.hands=Array.from({length:4},()=>g.deck.splice(0,amount));
+  if(g.deckSuits)g.handSuits=Array.from({length:4},()=>g.deckSuits.splice(0,amount));
+  if(g.partnerExchange)g.exchange={start:g.turn,picks:[null,null,null,null]};
 }
-export function match(kind,count,rng=Math.random){
+export function deal(g,rng){
+  const cards=Array.from({length:52},(_,i)=>i);
+  for(let i=cards.length-1;i>0;i--){
+    const j=Math.floor(rng()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]];
+  }
+  g.deck=cards.map(n=>n%13+1);
+  g.deckSuits=cards.map(n=>suits[Math.floor(n/13)]);
+  dealHands(g,4);
+}
+export function match(kind,count,rng=Math.random,{partnerExchange=false}={}){
   if(!Object.hasOwn(games,kind)||!seatsFor(kind).includes(count))throw Error('عدد اللاعبين غير مناسب');
   const g={kind,count,turn:0,winner:null,note:''};
   if(kind==='pool')return {...g,balls:rack(),groups:[null,null],inHand:false};
   g.pieces=Array.from({length:count},()=>[-1,-1,-1,-1]);
-  g.die=0;if(kind==='jackaroo')deal(g,rng);return g;
+  g.die=0;if(kind==='jackaroo'){g.partnerExchange=partnerExchange;deal(g,rng);}return g;
 }
 export const trackSize=g=>g.kind==='ludo'?52:64;
 export const offset=(g,s)=>g.kind==='ludo'&&g.count===2?s*26:s*trackSize(g)/4;
@@ -81,14 +92,33 @@ function generate(g){
   if(options.some(o=>!o.pass))return options.filter(o=>!o.pass);
   return options;
 }
+export function choicesWithPositions(g){
+  if(g.exchange||g.winner!==null||g.kind==='pool'||g.kind==='ludo'&&!g.die)return [];
+  return generate(g);
+}
 export function choices(g){
-  if(g.winner!==null||g.kind==='pool'||g.kind==='ludo'&&!g.die)return [];
-  return generate(g).map(({id,label})=>({id,label}));
+  return choicesWithPositions(g).map(({id,label})=>({id,label}));
 }
 export function move(state,a,rng=Math.random){
   if(state.winner!==null||!a||typeof a!=='object')throw Error('الحركة غير متاحة');
   const g=copy(state),advance=()=>{g.turn=(g.turn+1)%g.count;};
   if(g.kind==='pool'){poolMove(g,a);return g;}
+  if(g.exchange){
+    const seat=g.turn,index=a.cardIndex;
+    if(a.type!=='exchange'||!Number.isInteger(index)||index<0||index>=g.hands[seat].length)
+      throw Error('اختر ورقة من يدك لتمريرها');
+    const {picks,start}=g.exchange;
+    picks[seat]=index;
+    if(picks.some(p=>p===null)){advance();return g;}
+    const handoff=g.hands.map((hand,i)=>({rank:hand[picks[i]],suit:g.handSuits[i][picks[i]]}));
+    for(let i=0;i<4;i++){
+      const incoming=handoff[(i+2)%4];
+      g.hands[i][picks[i]]=incoming.rank;
+      g.handSuits[i][picks[i]]=incoming.suit;
+    }
+    delete g.exchange;g.turn=start;g.note='تبادل الشريكان الأوراق';return g;
+  }
+
   if(g.kind==='ludo'&&a.type==='roll'&&!g.die){
     g.die=1+Math.floor(rng()*6);g.note='نتيجة النرد '+g.die;
     if(!generate(g).length){g.note+=' · لا توجد حركة';if(g.die!==6)advance();g.die=0;}
@@ -103,12 +133,17 @@ export function move(state,a,rng=Math.random){
     else if(g.die!==6)advance();
     g.die=0;
   }else{
-    g.hands[g.turn].splice(g.hands[g.turn].indexOf(Number(a.id.split('/')[0])),1);
+    const rank=Number(a.id.split('/')[0]),hand=g.hands[g.turn];
+    const index=a.cardIndex??hand.indexOf(rank);
+    if(!Number.isInteger(index)||index<0||hand[index]!==rank)throw Error('الورقة المختارة غير متاحة');
+    const suit=g.handSuits?.[g.turn]?.[index]??null;
+    g.lastCard={rank,suit,seat:g.turn};
+    hand.splice(index,1);g.handSuits?.[g.turn]?.splice(index,1);
     if(homeDone(g,g.turn)&&homeDone(g,(g.turn+2)%4))g.winner=g.turn%2;
     advance();
     if(g.hands.every(hand=>!hand.length)){
       if(!g.deck.length)deal(g,rng);
-      else{const amount=Math.min(4,g.deck.length/4);g.hands=g.hands.map(()=>g.deck.splice(0,amount));}
+      else dealHands(g,Math.min(4,g.deck.length/4));
     }
   }
   return g;
@@ -116,6 +151,7 @@ export function move(state,a,rng=Math.random){
 export function viewFor(g,seat){
   if(!g)return null;
   if(g.kind!=='jackaroo')return g;
-  const {deck,hands,...rest}=g;
-  return {...rest,hands:hands.map((h,i)=>i===seat?h:[]),handSizes:hands.map(h=>h.length)};
+  const {deck,deckSuits,hands,handSuits,exchange,...rest}=g;
+  const visible=rows=>rows.map((row,i)=>i===seat?row:[]);
+  return {...rest,...(exchange?{exchange:{start:exchange.start}}:{}),hands:visible(hands),...(handSuits?{handSuits:visible(handSuits)}:{}),handSizes:hands.map(h=>h.length)};
 }

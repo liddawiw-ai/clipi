@@ -1,4 +1,5 @@
 import {theme} from './ClipiTheme';
+import {FeedIcon} from './FeedControls';
 import GoldFrame from './GoldFrame';
 import React from 'react';
 import {Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
@@ -9,17 +10,12 @@ const accent = theme.accent;
 const covers = ['#d0eadf', '#dce6f9', '#f6e2d0', '#e9e1f2'];
 
 export function ClipiDock({items, page, onNavigate}) {
-  return <View style={s.dock}>
-    {items.map(({id, icon, label}) => {
-      const active = id === page;
-      const create = id === 'create';
-      return <TouchableOpacity key={id} accessibilityRole="tab" accessibilityState={{selected:active}}
-        style={s.dockItem} onPress={()=>onNavigate(id)}>
-        <Text style={[s.dockIcon,active&&s.active,create&&s.createIcon]}>{icon}</Text>
-        <Text numberOfLines={1} style={[s.dockLabel,active&&s.active]}>{label}</Text>
-      </TouchableOpacity>;
-    })}
-  </View>;
+  return <div className="clipi-dock" role="tablist">
+    {items.map(({id,label})=><button type="button" key={id} role="tab" aria-selected={id===page}
+      data-create={id==='create'} onClick={()=>onNavigate(id)}>
+      <span><FeedIcon name={id} size={id==='create'?20:23}/></span><span>{label}</span>
+    </button>)}
+  </div>;
 }
 
 export function HubScreen({title, action, children, dock}) {
@@ -158,11 +154,6 @@ const s = StyleSheet.create({
   manage:{borderTopWidth:1,borderColor:theme.line,padding:9},
   manageText:{color:theme.danger,fontSize:13,fontWeight:'700'},
   welcome:{marginTop:12,borderRadius:14,backgroundColor:theme.sand,padding:13},
-  dock:{flexDirection:'row',backgroundColor:theme.paper,borderTopWidth:1,borderTopColor:theme.line,paddingTop:7,paddingBottom:9,paddingHorizontal:5},
-  dockItem:{alignItems:'center',justifyContent:'center',flex:1,minHeight:48},
-  dockIcon:{color:muted,fontSize:22,lineHeight:27,fontWeight:'700'},
-  dockLabel:{color:muted,fontWeight:'600',fontSize:10},
-  createIcon:{backgroundColor:theme.mint,color:theme.accent,borderRadius:11,minWidth:34,textAlign:'center'},
   profileName:{color:theme.ink,fontWeight:'800',fontSize:22},profileId:{color:theme.secondary,marginTop:3},account:{overflow:'hidden',backgroundColor:theme.paper,borderRadius:22,padding:19,marginBottom:12,minHeight:172},
   identity:{flexDirection:'row',alignItems:'center',gap:11},
   avatar:{width:64,height:64,borderRadius:32,borderWidth:2,borderColor:theme.brass,backgroundColor:theme.paper,justifyContent:'center',alignItems:'center'},

@@ -49,3 +49,13 @@ export async function choosePhoto(max){
     return data;
   }finally{URL.revokeObjectURL(url)}
 }
+
+export async function shortProfile(viewer){
+  const {name,avatar}=viewer||{};
+  if(!avatar?.startsWith('data:image/')||avatar.length<=36000)return {name,avatar};
+  try{const img=new Image();img.src=avatar;await img.decode();const canvas=document.createElement('canvas');
+    const ratio=72/Math.max(img.naturalWidth,img.naturalHeight);
+    canvas.width=Math.max(1,Math.round(img.naturalWidth*ratio));canvas.height=Math.max(1,Math.round(img.naturalHeight*ratio));
+    canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);return {name,avatar:canvas.toDataURL('image/jpeg',.65)};
+  }catch{return {name,avatar:''};}
+}

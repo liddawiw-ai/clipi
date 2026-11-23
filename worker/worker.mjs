@@ -57,7 +57,7 @@ export default {
       if(!row?.image)return json({error:'Not found'},404);
       return new Response(Uint8Array.from(atob(row.image.split(',')[1]),v=>v.charCodeAt(0)),{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,max-age=3600'}});
     }
-    if (/^\/shorts\/starter\/(palace|aurora|dunes)\.mp4$/.test(path) && ['GET','HEAD'].includes(request.method) && env.CLIPI_APP) return env.CLIPI_APP.fetch(request);
+    if (/^\/shorts\/starter\/(palace|aurora|dunes)\.(mp4|jpg)$/.test(path) && ['GET','HEAD'].includes(request.method) && env.CLIPI_APP) return env.CLIPI_APP.fetch(request);
     const shortFile=/^\/shorts\/media\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
     if(shortFile && ['GET','HEAD'].includes(request.method))return serveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),shortFile[1],json);
     if((path==='/account-number'&&request.method==='POST')||(shortFile&&request.method==='PUT')){

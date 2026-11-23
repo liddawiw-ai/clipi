@@ -32,10 +32,29 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   assert.equal(invalid.status,416);
   const clip={clip:id};
   for(let n=0;n<3;n++)assert.equal((await api('viewer','shortLike',{...clip,liked:true})).likes,1);
-  assert.deepEqual(await api('viewer2','shortState',clip),{status:200,likes:1,liked:false});
+  const state=await api('viewer2','shortState',clip);
+  assert.equal(state.likes,1);assert.equal(state.liked,false);assert.equal(state.commentCount,0);assert.equal(state.owner,'owner');
   assert.equal((await api('viewer','shortLike',{...clip,liked:false})).likes,0);
   const comment={...clip,nonce:crypto.randomUUID(),body:'أهلًا'};
   for(let n=0;n<2;n++)assert.equal((await api('viewer','shortComment',comment)).comments.length,1);
+  const root=(await api('viewer','shortComments',clip)).comments[0].id;
+  const reply={...clip,body:'رد',nonce:crypto.randomUUID(),parent:root,profile:{name:'وليد',avatar:'و'}};
+  for(let i=0;i<2;i++){
+    const posted=await api('author','shortComment',reply);
+    assert.equal(posted.count,2);assert.equal(posted.comments[0].name,'وليد');assert.ok(posted.comments[0].created);
+  }
+  assert.equal((await api('viewer','shortComments',clip)).comments[0].replyCount,1);
+  const heart={...clip,commentId:root,liked:true};
+  for(let i=0;i<2;i++)assert.equal((await api('owner','shortCommentLike',heart)).likes,1);
+  assert.equal((await api('viewer','shortComments',clip)).comments[0].creatorLiked,1);
+  assert.equal((await api('viewer','shortCommentLike',{...heart,clip:'dunes'})).status,404);
+  assert.equal((await api('viewer','shortComment',{...reply,clip:'dunes'})).status,404);
+  await api('viewer','shortFollow',{...clip,following:true});
+  assert.equal((await api('viewer','shortState',clip)).following,true);
+  assert.equal((await api('other','shortState',clip)).following,false);
+  const asset={...clip,body:'',media:'heart',nonce:crypto.randomUUID()};
+  assert.equal((await api('viewer','shortComment',asset)).comments[0].media,'heart');
+  assert.equal((await api('viewer','shortComment',{...asset,media:'invalid'})).status,400);
   await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?)','p','viewer',30,'tx').run();
   const gift={...clip,nonce:crypto.randomUUID(),gift:'وردة حمراء'};
   for(let n=0;n<2;n++)assert.equal((await api('viewer','shortGift',gift)).status,200);

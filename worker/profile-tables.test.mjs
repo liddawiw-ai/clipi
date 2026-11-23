@@ -61,3 +61,41 @@ test('pool resolves contact, rebounds, pockets, scratch and legal eight-ball win
   g.balls=[{n:0,x:9,y:9},{n:8,x:80,y:80},{n:9,x:55,y:89}];g=move(g,{type:'shot',angle:-3*Math.PI/4,power:30});
   assert.equal(g.inHand,true);assert.equal(g.turn,1);assert.ok(g.balls.find(b=>b.n===0));assert.throws(()=>placeCue(g.balls,80,80));
 });
+
+test('Jackaroo deals a unique 52-card deck, hides other suits and spends the selected physical card',async()=>{
+  const {viewFor}=await import('../pi-web/TableRules.mjs');
+  const game=match('jackaroo',4,()=>.37);
+  const ranks=game.hands.flat().concat(game.deck),suits=game.handSuits.flat().concat(game.deckSuits);
+  assert.equal(new Set(ranks.map((rank,i)=>rank+'/'+suits[i])).size,52);
+  const masked=viewFor(game,1);
+  assert.deepEqual(masked.handSuits,[[],game.handSuits[1],[],[]]);
+  assert.ok(!('deckSuits' in masked));
+  game.hands[0]=[1,1,2];game.handSuits[0]=['spades','hearts','clubs'];
+  const a={type:'move',id:'1/d/0',cardIndex:1};
+  assert.throws(()=>move(game,{...a,cardIndex:2}));
+  const next=move(game,a);
+  assert.deepEqual(next.lastCard,{rank:1,suit:'hearts',seat:0});
+  assert.deepEqual(next.handSuits[0],['spades','clubs']);
+  const legacy=structuredClone(game);delete legacy.handSuits;delete legacy.deckSuits;
+  assert.equal(move(legacy,{type:'move',id:'1/d/0'}).lastCard.suit,null);
+});
+
+test('partners exchange four selected physical cards simultaneously, then return to the first turn',async()=>{
+  const {viewFor}=await import('../pi-web/TableRules.mjs');
+  let game=match('jackaroo',4,()=>.38,{partnerExchange:true});
+  const original=structuredClone(game);
+  assert.equal(choices(game).length,0);
+  assert.throws(()=>move(game,{type:'move',id:'1/d/0'}));
+  for(let seat=0;seat<4;seat++){
+    assert.equal(game.turn,seat);
+    assert.ok(!('picks' in viewFor(game,seat).exchange));
+    game=move(game,{type:'exchange',cardIndex:seat});
+  }
+  assert.equal(game.turn,0);assert.ok(!game.exchange);
+  for(let seat=0;seat<4;seat++){
+    const partner=(seat+2)%4;
+    assert.equal(game.hands[seat][seat],original.hands[partner][partner]);
+    assert.equal(game.handSuits[seat][seat],original.handSuits[partner][partner]);
+  }
+  assert.ok(choices(game).length>0);
+});

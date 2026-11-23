@@ -1,6 +1,6 @@
 import {build} from 'esbuild';
 import {copyFile} from 'node:fs/promises';
-await build({entryPoints:['main.jsx'],bundle:true,minify:true,outfile:'dist/clipi-app.js',loader:{'.js':'jsx','.mp3':'dataurl','.jpg':'dataurl','.png':'dataurl'},alias:{'react-native':'react-native-web'},define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
+await build({entryPoints:['main.jsx'],bundle:true,minify:true,outfile:'dist/clipi-app.js',loader:{'.js':'jsx','.mp3':'dataurl','.jpg':'dataurl','.png':'dataurl','.gif':'dataurl'},alias:{'react-native':'react-native-web'},define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
 await build({entryPoints:['policy-links.mjs'],bundle:true,minify:true,outfile:'dist/clipi-policy-links.js'});
 await copyFile('index.html','dist/index.html');
 
@@ -12,4 +12,6 @@ await mkdir('dist/themes',{recursive:true});
 for(const [key,data] of Object.entries(themes))await writeFile('dist/themes/'+key+'.jpg',Buffer.from(data,'base64'));
 
 await mkdir('dist/shorts/starter',{recursive:true});
-for(const id of ['palace','aurora','dunes'])await copyFile('assets/shorts/'+id+'.mp4','dist/shorts/starter/'+id+'.mp4');
+for(const id of ['palace','aurora','dunes']){
+  for(const ext of ['mp4','jpg'])await copyFile('assets/shorts/'+id+'.'+ext,'dist/shorts/starter/'+id+'.'+ext);
+}

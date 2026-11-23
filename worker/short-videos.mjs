@@ -1,3 +1,4 @@
+import {authorState,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
 import {paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
@@ -8,24 +9,26 @@ export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_clip(id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, object_key TEXT)',
   'CREATE TABLE IF NOT EXISTS short_like(clip TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(clip,uid))',
   'CREATE TABLE IF NOT EXISTS short_comment(clip TEXT NOT NULL, uid TEXT NOT NULL, nonce TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(uid,nonce))',
-  'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)'
+  'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)',
+  ...socialSchema
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
   if (op === 'shortList') {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
-    const rows = await q('SELECT rowid AS cursor,id,title FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
+    const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
     return json({clips: rows.results});
   }
   if (op === 'shortPrepare') {
     if (!hasStorage) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
+    await saveShortProfile(q,uid,input.profile);
     const id = crypto.randomUUID();
     const title = String(input.title || '').trim().slice(0,100);
     await q('INSERT INTO short_clip(id,owner,title) VALUES(?,?,?)',id,uid,title).run();
     return json({id});
   }
-  if (!starterIds.includes(clip) && !(publishedId.test(clip) && await q('SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first()))
-    return json({error:'الفيديو غير متاح'},404);
+  const owner=starterIds.includes(clip)?'clipi:official':publishedId.test(clip)?(await q('SELECT owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first())?.owner:null;
+  if(!owner)return json({error:'الفيديو غير متاح'},404);
   if (op === 'shortLike' || op === 'shortState') {
     if (op === 'shortLike') {
       if (typeof input.liked !== 'boolean') return json({error:'اختيار غير صالح'},400);
@@ -33,17 +36,9 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
       else await q('DELETE FROM short_like WHERE clip=? AND uid=?',clip,uid).run();
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
-    return json({...state,liked:Boolean(state.liked)});
+    return json({...state,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
-  if (op === 'shortComment' || op === 'shortComments') {
-    if (op === 'shortComment') {
-      const body = String(input.body || '').trim();
-      if (!body || body.length>450 || !publishedId.test(input.nonce)) return json({error:'تحقّق من التعليق'},400);
-      await q('INSERT OR IGNORE INTO short_comment(clip,uid,nonce,body) VALUES(?,?,?,?)',clip,uid,input.nonce,body).run();
-    }
-    const rows=await q('SELECT rowid AS id,body FROM short_comment WHERE clip=? ORDER BY rowid DESC LIMIT 50',clip).all();
-    return json({comments:rows.results});
-  }
+  if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
   if (op === 'shortGift') {
     const gift=diamondGifts.get(input.gift);
     if (!gift || !publishedId.test(input.nonce)) return json({error:'هدية غير صالحة'},400);

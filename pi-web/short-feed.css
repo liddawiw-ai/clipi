@@ -1,0 +1,54 @@
+.clipi-feed-shell,.clipi-feed-stage,.clipi-dock,.clipi-feed-sheet,.clipi-feed-live,.clipi-caption,.clipi-action-stack{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif}
+.clipi-feed-shell{position:relative;isolation:isolate;display:flex;flex:1;min-height:0;justify-content:center;overflow:hidden;background:#0b1011}
+.clipi-feed-stage{display:flex;flex-direction:column;position:relative;width:100%;max-width:510px;min-height:0;background:#0a0d0e}
+.clipi-ambient{display:none;pointer-events:none}
+@media(min-width:650px){.clipi-ambient{display:block;position:absolute;inset:-48px;background:var(--scene,linear-gradient(130deg,#1a3536,#192128)) center / cover;filter:blur(38px) saturate(.65);opacity:.32}.clipi-feed-stage{box-shadow:0 0 70px #0008}}
+.clipi-clip-shade{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(4,10,14,.51),transparent 20%,transparent 49%,rgba(3,8,13,.16) 67%,rgba(3,8,13,.87) 100%)}
+.clipi-feed-header{position:absolute;top:max(8px,env(safe-area-inset-top));left:0;right:0;display:flex;justify-content:center;pointer-events:none}
+.clipi-feed-shell button,.clipi-dock button,.clipi-feed-sheet button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button.clipi-feed-live{pointer-events:auto;display:inline-flex;align-items:center;gap:8px;min-height:46px;padding:0 12px;border:0;background:transparent;color:#fff;font-size:20px;font-weight:750;text-shadow:0 1px 5px #000,0 1px 12px #0009}
+.clipi-feed-live svg{color:#abffe2;filter:drop-shadow(0 1px 3px #041c19)}
+.clipi-action-stack{position:absolute;inset-inline-end:10px;bottom:20px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.clipi-feed-shell .clipi-feed-action{box-sizing:border-box;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:46px;min-height:46px;padding:4px;border:0;border-radius:16px;background:transparent;color:#fff;filter:drop-shadow(0 1px 3px #101519);font-size:12px;font-weight:650}
+.clipi-feed-action[aria-pressed=true]{color:#ff758d}
+.clipi-feed-action.action-gift{color:#ffdfad}
+.clipi-feed-action:active,.clipi-feed-live:active{transform:scale(.93)}
+.clipi-caption{position:absolute;inset-inline-start:20px;inset-inline-end:70px;bottom:22px;color:white;pointer-events:none;text-align:start;text-shadow:0 2px 8px #0009}
+.clipi-caption h2{margin:0 0 5px;font-size:clamp(25px,5vw,32px);font-weight:750;line-height:1.35;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.clipi-caption p{margin:4px 0;font-size:14px}
+.clipi-caption-meta{display:flex;align-items:center;gap:9px;min-height:40px}
+.clipi-byline{font:italic 750 15px/1 -apple-system,BlinkMacSystemFont,Arial,sans-serif;letter-spacing:-.8px}
+.clipi-caption-meta .clipi-audio{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0;border:0;background:transparent;color:#f0f2f2;font-size:12px;text-shadow:0 1px 4px #000}
+.clipi-byline+.clipi-audio::before{content:"";height:12px;width:1px;background:#ffffff68;margin-inline-end:4px}
+.clipi-progress{position:absolute;bottom:0;inset-inline:0;height:2px;background:#ffffff2b;pointer-events:none;direction:ltr}
+.clipi-progress span{display:block;background:#d2ffed;width:100%;height:100%;transform:scaleX(0);transform-origin:left}
+.clipi-dock{display:flex;align-items:stretch;justify-content:space-evenly;background:#101519;border-top:1px solid #ffffff19;padding:4px max(4px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(4px,env(safe-area-inset-left));color:#a6b0b4}
+.clipi-dock button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:1;min-width:0;min-height:54px;max-width:135px;border:0;border-radius:9px;background:transparent;color:inherit;font-size:12px;line-height:1.3}
+.clipi-dock button span:first-child{height:25px;display:grid;place-items:center}
+.clipi-dock button[aria-selected=true]{color:#abffe2;font-weight:700}
+.clipi-dock button[data-create=true] span:first-child{color:#102b23;background:#abffe2;border-radius:9px;width:35px}
+.clipi-feed-shell button:focus-visible,.clipi-dock button:focus-visible,.clipi-feed-sheet button:focus-visible{outline:2px solid #8ceecb;outline-offset:-2px}
+.clipi-sheet-overlay{position:fixed;inset:0;display:flex;justify-content:center;align-items:flex-end;background:#03070ba3}
+.clipi-feed-sheet{box-sizing:border-box;width:min(100%,510px);padding:17px 20px max(24px,env(safe-area-inset-bottom));border-radius:25px 25px 0 0;border:1px solid #354345;background:#141d20;color:#f4f7f6;box-shadow:0 -16px 50px #07131840;max-height:90%;overflow-y:auto}
+.clipi-feed-sheet header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.clipi-feed-sheet h2{margin:0;font-size:22px;line-height:1.4}
+.clipi-feed-sheet header button{color:#c0c9c9;background:transparent;border:0;display:grid;place-items:center;width:44px;height:44px}
+.clipi-feed-sheet .clipi-sheet-choice{box-sizing:border-box;display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:10px 5px;background:transparent;color:#f2f7f5;border:0;border-top:1px solid #ffffff16;text-align:start;font-size:17px;font-weight:650}
+.clipi-choice-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:#29383b;color:#ccdbd9}
+.choice-mic .clipi-choice-icon{background:#1c3b34;color:#a9f1d8}
+.choice-camera .clipi-choice-icon{background:#333044;color:#d9caff}
+@media(max-height:550px){.clipi-action-stack{bottom:4px;gap:0}.clipi-caption{bottom:7px}.clipi-feed-sheet{padding-block:8px}.clipi-feed-sheet .clipi-sheet-choice{min-height:48px}}
+@media(max-height:425px) and (min-aspect-ratio:1/1){.clipi-action-stack{flex-direction:row;bottom:7px}.clipi-caption{bottom:57px}.clipi-feed-action{margin:0}.clipi-feed-stage{max-width:100%}}
+
+.clipi-upload-audio{position:absolute;left:14px;top:14px}
+.clipi-upload-audio .clipi-audio{color:white;background:#182327;border:0;border-radius:20px;padding:8px 12px}
+
+.clipi-action-stack{inset-inline-end:auto;left:6px;bottom:12px}
+.clipi-caption{inset-inline:auto;left:76px;right:15px;text-align:right;direction:rtl}
+.clipi-caption h2{font-size:20px;margin:0}.clipi-caption p{font-size:15px}
+.clipi-caption-meta{justify-content:flex-start;min-height:34px}
+.clipi-author-badge{display:flex;flex-direction:column;align-items:center;margin-bottom:2px}
+.clipi-feed-shell .clipi-follow{position:relative;margin-top:-6px;border:0;border-radius:14px;background:#ff4825;color:#fff;font-size:11px;font-weight:700;padding:2px 8px;min-height:19px}
+.clipi-feed-shell .action-like[aria-pressed=true]{color:#ff4769}
+.clipi-feed-shell .action-more{min-height:35px}
+.clipi-dock{background:#050505}.clipi-dock button[aria-selected=true]{color:#fff}.clipi-dock button[data-create=true] span:first-child{background:transparent;border:2px solid #fff;border-radius:50%;color:#fff;width:30px;height:30px}

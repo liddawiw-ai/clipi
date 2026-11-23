@@ -1,21 +1,26 @@
-import React,{useEffect,useRef} from 'react';
+import React,{useEffect,useImperativeHandle,useRef} from 'react';
 
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
+export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
 export const nonce=()=>crypto.randomUUID();
-export function Player({source,active=true,muted=true}){
+export function Player({source,active=true,muted=true,playerRef,onMuteRequired,poster,onTimeUpdate,fit='cover'}){
   const ref=useRef(null);
+  useImperativeHandle(playerRef,()=>ref.current,[]);
   useEffect(()=>{
     const video=ref.current;
+    let current=true;
     function sync(){
       if(!active||document.hidden){video.pause();return;}
       video.muted=muted;
-      video.play().catch(()=>{});
+      video.play().catch(error=>{
+        if(current&&!document.hidden&&!muted&&error.name==='NotAllowedError')onMuteRequired?.(true);
+      });
     }
     sync();
     document.addEventListener('visibilitychange',sync);
-    return ()=>{document.removeEventListener('visibilitychange',sync);video.pause();};
-  },[source,active,muted]);
-  return <video ref={ref} src={source} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover'}}/>;
+    return ()=>{current=false;document.removeEventListener('visibilitychange',sync);video.pause();};
+  },[source,active,muted,onMuteRequired]);
+  return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
 }
 export function pickShort(){
   return new Promise((resolve,reject)=>{

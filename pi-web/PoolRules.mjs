@@ -1,5 +1,13 @@
-export const tableWidth=100, tableHeight=176, ballRadius=2.6;
-export const pockets=[[0,0],[100,0],[0,88],[100,88],[0,176],[100,176]];
+import {matterShot, physicsVersion, tableWidth, tableHeight, ballRadius, pockets} from './MatterPool.mjs';
+export {tableWidth, tableHeight, ballRadius, pockets};
+export const simulate = matterShot;
+
+// Historical multiplayer records have no physics marker and must reproduce
+// the old server's paths. New records identify their solver with the shot.
+export function replayShot(record) {
+  const solve = record.physics===physicsVersion ? matterShot : legacyShot;
+  return solve(record.before,record.angle,record.power,true);
+}
 export function rack(){
   const balls=[{n:0,x:50,y:134}],ids=[1,10,3,2,8,13,12,5,15,6,4,14,7,9,11];
   for(let row=0;row<5;row++)for(let col=0;col<=row;col++){
@@ -15,7 +23,7 @@ export function placeCue(balls,x,y){
   if(!legalSpot(balls,x,y))throw Error('اختَر مكانًا خاليًا للكرة البيضاء');
   return [{n:0,x,y},...balls.filter(b=>b.n!==0)];
 }
-export function simulate(balls,angle,power,captureFrames=false){
+function legacyShot(balls,angle,power,captureFrames=false){
   if(!Number.isFinite(angle)||!Number.isInteger(power)||power<1||power>100)throw Error('ضربة غير صالحة');
   const active=balls.map(b=>({...b,vx:0,vy:0})),cue=active.find(b=>!b.n);
   if(!cue)throw Error('ضع الكرة البيضاء');
@@ -66,7 +74,7 @@ export function poolMove(g,a){
   const wrong=onBlack?first!==8:group?ballGroup(first)!==group:first===8;
   const foul=first===null||wrong||fallen.includes(0)||(!fallen.length&&!result.rail);
   g.balls=result.balls;
-  g.shot={before,angle:a.angle,power:a.power,number:(g.shot?.number||0)+1};
+  g.shot={physics:physicsVersion,before,angle:a.angle,power:a.power,number:(g.shot?.number||0)+1};
   const other=1-g.turn;
   if(fallen.includes(8)){g.winner=onBlack&&!foul?g.turn:other;return;}
   const firstColor=fallen.map(ballGroup).find(Boolean);
