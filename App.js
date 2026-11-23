@@ -498,7 +498,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
   const paidNonce=useRef(null),giftSending=useRef(false);
-  const [paidBalance,setPaidBalance]=useState(null);
   const [giftTarget,setGiftTarget]=useState(null),[targetProfile,setTargetProfile]=useState(null);
   const [roomActionPending,setRoomActionPending]=useState(false);
   const roomActionLock=useRef(false);
@@ -507,7 +506,6 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [speakerMuted,setSpeakerMuted]=useState(false);
   const [giftNotice,setGiftNotice]=useState('');
   const [giftIssue,setGiftIssue]=useState('');
-  const [lookupAttempt,retryLookup]=useState(0);
   const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
@@ -523,6 +521,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const membership=useRoomSession(room.id,username,equipped,entries=>{
     setFxId(v=>v+1);setFx(['🏎️','دخل الغرفة '+entries.map(p=>p.name).join('، '),0,entries.some(p=>p.ride)?'car':'party']);
   },reason=>{if(closingByHostRef.current){exitRoomOnce();return;}if(exitHandledRef.current)return;Alert.alert('الغرفة',reason);exitRoomOnce()},avatar);
+  const paidBalance=membership.supportBalance;
   const people=membership.state?.people||[];
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
   const self=people.find(p=>p.uid===userId);
@@ -544,35 +543,44 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   }
   function openGifts(uid){
     Keyboard.dismiss();
-    setTargetProfile(null);
-    setPaidBalance(null);
+    if(!giftOpen||giftTarget!==uid)setTargetProfile(null);
     setGiftIssue('');
     setGiftNotice('');
     setGiftTarget(uid&&uid!==userId?uid:null);
-    retryLookup(v=>v+1);
     setGiftOpen(true);
   }
   const giftPeople=people.filter(person=>person.uid!==userId&&!blocked.includes(person.uid)&&
     (person.uid===room.ownerUid||person.seat>0));
-  const selectedPresent=giftPeople.some(person=>person.uid===giftTarget);
+  const selectedPerson=giftPeople.find(person=>person.uid===giftTarget);
+  const selectedPresent=!!selectedPerson;
+  const defaultRecipient=giftPeople.find(person=>person.uid===room.ownerUid)?.uid||giftPeople[0]?.uid;
+  useEffect(()=>{
+    if(giftOpen&&!giftTarget&&defaultRecipient){
+      setGiftIssue('');
+      setGiftTarget(defaultRecipient);
+    }
+  },[giftOpen,giftTarget,defaultRecipient]);
   useEffect(()=>{
     if(!giftOpen||!selectedPresent)return;
     let active=true;
     membership.act('giftRecipient',{recipient:giftTarget}).then(data=>{
-      if(active){
-        setTargetProfile(data.recipient);
-        setPaidBalance(data.senderDiamonds);
-      }
-    }).catch(error=>{if(active)setGiftIssue(error.message)});
+      if(active&&data.recipient?.uid===giftTarget)setTargetProfile(data.recipient);
+    }).catch(()=>{if(active)setTargetProfile(null)});
     return ()=>{active=false};
-  },[giftOpen,giftTarget,selectedPresent,lookupAttempt]);
+  },[giftOpen,giftTarget,selectedPresent]);
   useEffect(()=>{
     if(!giftNotice)return;
     const timer=setTimeout(()=>setGiftNotice(''),6500);
     return ()=>clearTimeout(timer);
   },[giftNotice]);
   async function sendRoomGift(gift){
-    if(giftSending.current||!selectedPresent||targetProfile?.uid!==giftTarget||roomClosedRef.current)return;
+    if(giftSending.current)return;
+    if(roomClosedRef.current){setGiftIssue("الغرفة مغلقة");return}
+    if(!selectedPerson){
+      setGiftIssue(giftPeople.length?"اختر مستلمًا للهدية":"تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.");
+      return;
+    }
+    setGiftIssue('');
     const key=JSON.stringify([room.id,giftTarget,gift[1]]);
     if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:Crypto.randomUUID()};
     const nonce=paidNonce.current.nonce;
@@ -584,9 +592,12 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
       }
       paidNonce.current=null;
       setGiftOpen(false);
-      setGiftNotice("أُضيفت الهدية إلى هدف"+' '+targetProfile.name+' · '+fmt(receipt.diamonds)+' 💎');
+      setGiftNotice("أُضيفت الهدية إلى هدف"+' '+selectedPerson.name+' · '+fmt(receipt.diamonds)+' 💎');
       setFxId(v=>v+1);setFx(gift);
-    }catch(error){setGiftIssue(error.message)}finally{giftSending.current=false}
+    }catch(error){
+      setGiftIssue(error.message==='Purchased diamonds insufficient or host offline'
+        ?"الرصيد غير كافٍ أو المستلم غادر الغرفة":error.message);
+    }finally{giftSending.current=false}
   }
   function onSeat(event,uid,label,slot,toggleMic,micOn,stepDown,stepUp){
     if(!uid&&!isHost){
@@ -829,19 +840,17 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     <RoomGiftSheet visible={giftOpen&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={value=>value}
-      copy={{title:"صندوق الهدايا",close:"إغلاق",balance:"الماس المشترى",send:"إرسال الهدية",sending:"جارٍ إرسال الهدية"}}
-      recipient={selectedPresent?(targetProfile?.name||giftPeople.find(p=>p.uid===giftTarget)?.name):"اختر مستلمًا للهدية"}
-      recipientAvatar={selectedPresent?targetProfile?.avatar:null} balance={paidBalance}
-      canSend={selectedPresent&&targetProfile?.uid===giftTarget&&Number.isSafeInteger(paidBalance)}
+      copy={{title:"صندوق الهدايا",close:"إغلاق",balance:"الماس المشترى",wallet:"المحفظة",shop:"شراء الماس",send:"إرسال"}}
+      recipient={selectedPerson?.name||"اختر مستلمًا للهدية"}
+      recipientAvatar={selectedPresent&&targetProfile?.uid===giftTarget?targetProfile.avatar:null} balance={paidBalance}
+      onWallet={()=>{setGiftOpen(false);onWallet()}}
+      onShop={()=>{setGiftOpen(false);onShop()}}
       onClose={()=>setGiftOpen(false)} onSend={sendRoomGift}>
-      {giftPeople.length>1&&<ScrollView horizontal style={{flexGrow:0}} keyboardShouldPersistTaps="handled">
+      {(giftPeople.length>1||(!selectedPresent&&giftPeople.length>0))&&<ScrollView horizontal style={{flexGrow:0}} keyboardShouldPersistTaps="handled">
         {giftPeople.map(person=><Small key={person.uid} title={person.name} onPress={()=>openGifts(person.uid)}/>)}
       </ScrollView>}
       {!selectedPresent&&<Text style={S.white}>{giftPeople.length?"اختر مستلمًا للهدية":"بانتظار صعود مستلم على المايك"}</Text>}
-      {!!giftIssue&&<View><Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>
-        {!targetProfile&&selectedPresent&&<Small title={"إعادة المحاولة"} onPress={()=>openGifts(giftTarget)}/>}</View>}
-      <Small title="شراء الماس" onPress={()=>{setGiftOpen(false);onShop()}}/>
-      <Small title={"المحفظة"} onPress={()=>{setGiftOpen(false);onWallet()}}/>
+      {!!giftIssue&&<Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>}
     </RoomGiftSheet>
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
     <View style={S.roomBottom}>
@@ -865,8 +874,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
           <RoomAction icon="▤" label={chatVisible?"إخفاء الدردشة":"إظهار الدردشة"} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
         </>}
-        <RoomAction icon="🎁" label={"صندوق الهدايا"} active={giftOpen} onPress={()=>openGifts(
-          giftPeople.find(person=>person.uid===room.ownerUid)?.uid||giftPeople[0]?.uid)}/>
+        <RoomAction icon="🎁" label={"صندوق الهدايا"} active={giftOpen} onPress={()=>openGifts(defaultRecipient)}/>
       </View>
     </View>
     {fx&&<GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/>}

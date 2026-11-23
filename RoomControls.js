@@ -15,25 +15,25 @@ export function RoomOption({title, onPress, color, disabled, plain}) {
   </TouchableOpacity>;
 }
 
-export function RoomGiftSheet({visible, gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, canSend=true, onClose, onSend, children}) {
+export function RoomGiftSheet({visible, gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.overlay}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
       {visible&&<GiftPanel gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
-        recipient={recipient} recipientAvatar={recipientAvatar} canSend={canSend} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
+        recipient={recipient} recipientAvatar={recipientAvatar} onWallet={onWallet} onShop={onShop} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
     </View>
   </Modal>;
 }
 
-function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, canSend=true, onClose, onSend, children}) {
+function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   const [category,setCategory]=useState(allLabel);
   const [selected,setSelected]=useState(null);
   const [pending,setPending]=useState(false);
   const sending=useRef(false);
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
-  const affordable=selected&&Number.isSafeInteger(balance)&&balance>=selected[2];
+  const insufficient=selected&&Number.isSafeInteger(balance)&&balance<selected[2];
   async function send(){
-    if(!selected||!affordable||!canSend||sending.current)return;
+    if(!selected||sending.current)return;
     sending.current=true;
     setPending(true);
     try{await onSend(selected)}finally{sending.current=false;setPending(false)}
@@ -51,14 +51,18 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
     </View>
     <ScrollView horizontal style={s.tabs} showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabContent}>
       {categories.map(item=><TouchableOpacity key={item} accessibilityRole="tab"
-        accessibilityState={{selected:category===item}} onPress={()=>setCategory(item)} style={[s.tab,category===item&&s.active]}>
+        disabled={pending} accessibilityState={{selected:category===item}} onPress={()=>{
+          setCategory(item);
+          if(item!==allLabel&&selected?.[4]!==item)setSelected(null);
+        }} style={[s.tab,category===item&&s.active]}>
         <Text style={[s.sub,category===item&&s.activeGlyph]}>{translate(item)}</Text>
       </TouchableOpacity>)}
     </ScrollView>
     <ScrollView style={s.catalog} contentContainerStyle={s.grid} keyboardShouldPersistTaps="handled">
       {gifts.filter(gift=>category===allLabel||category===gift[4]).map(gift=>
         <TouchableOpacity key={gift[1]} accessibilityRole="button" accessibilityState={{selected:selected===gift}}
-          onPress={()=>setSelected(gift)} style={[s.gift,selected===gift&&s.selectedGift]}>
+          disabled={pending} onPress={()=>setSelected(gift)} style={[s.gift,selected===gift&&s.selectedGift]}>
+          {selected===gift&&<Text accessible={false} style={s.check}>✓</Text>}
           <Text style={s.giftIcon}>{gift[0]}</Text>
           <Text numberOfLines={2} style={s.giftName}>{translate(gift[1])}</Text>
           <Text style={s.price}>{gift[2]} 💎</Text>
@@ -66,13 +70,21 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
       )}
     </ScrollView>
     {children}
-    {selected&&Number.isSafeInteger(balance)&&!affordable&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
+    {insufficient&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
     <View style={s.footer}>
-      <Text style={s.sub}>{copy.balance} · {balance??'…'} 💎</Text>
-      <TouchableOpacity disabled={!affordable||!canSend||pending} accessibilityRole="button"
-        accessibilityState={{disabled:!affordable||!canSend||pending,busy:pending}}
-        style={[s.send,(!affordable||!canSend||pending)&&s.disabled]} onPress={send}>
-        <Text style={s.sendText}>{pending?copy.sending:copy.send}</Text>
+      <TouchableOpacity accessibilityRole="button" disabled={pending} onPress={onWallet} style={s.edgeAction}>
+        <Text style={s.walletText}>{copy.wallet}</Text>
+      </TouchableOpacity>
+      <View style={s.funds}>
+        <Text style={s.balance}>{copy.balance} · {balance??'…'} 💎</Text>
+        {onShop&&<TouchableOpacity accessibilityRole="button" disabled={pending} onPress={onShop} style={s.shop}>
+          <Text style={s.shopText}>{copy.shop}</Text>
+        </TouchableOpacity>}
+      </View>
+      <TouchableOpacity accessibilityRole="button" disabled={!selected||pending}
+        accessibilityState={{disabled:!selected||pending,busy:pending}}
+        style={s.edgeAction} onPress={send}>
+        <Text style={[s.sendText,(!selected||pending)&&s.inactive]}>{copy.send}</Text>
       </TouchableOpacity>
     </View>
   </View>;
@@ -96,12 +108,19 @@ const s=StyleSheet.create({
   catalog:{maxHeight:234,minHeight:80},
   grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},
   gift:{width:'24%',minHeight:83,marginBottom:5,backgroundColor:'#1d3d36',borderWidth:1,borderColor:'#315950',borderRadius:10,padding:4,alignItems:'center'},
+  check:{position:'absolute',top:2,right:5,color:'#ffca89',fontSize:15,fontWeight:'900'},
   selectedGift:{borderColor:'#a7e3c7',backgroundColor:'#2a5549'},
   giftIcon:{fontSize:23},
   giftName:{fontSize:10,fontWeight:'700',color:'#effff5',textAlign:'center'},
   price:{fontSize:10,color:'#bbefd9',marginTop:3},
-  footer:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:8},
-  send:{minHeight:40,justifyContent:'center',paddingHorizontal:16,backgroundColor:'#a7e3c7',borderRadius:10},
-  sendText:{color:'#173b30',fontWeight:'800'},
+  footer:{direction:'ltr',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,
+    marginTop:8,paddingTop:5,borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:'#45635b'},
+  edgeAction:{minWidth:44,minHeight:44,paddingHorizontal:6,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},
+  funds:{flex:1,alignItems:'center',justifyContent:'center'},
+  balance:{color:'#d3ede1',fontSize:12,textAlign:'center'},
+  walletText:{color:'#f0f9f4',fontSize:14,fontWeight:'700'},
+  sendText:{color:'#ffc17d',fontSize:15,fontWeight:'800'},
+  inactive:{color:'#9aafa5'},
+  shop:{paddingHorizontal:8,paddingVertical:4},shopText:{color:'#ffc17d',fontSize:12,fontWeight:'700'},
   disabled:{opacity:.48},
 });
