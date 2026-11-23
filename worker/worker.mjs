@@ -1,3 +1,4 @@
+import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
 import {readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
@@ -56,12 +57,15 @@ export default {
       if(!uid)return json({error:'سجل الدخول'},401);
       const input=await request.json().catch(()=>null);
       if(['externalCreate','externalOrders','externalStoreAccount'].includes(input?.op))return accountCheckout(env,uid,input,new URL(request.url).origin);
+      if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){
+        return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      }
       if(input?.op==='wallet')return json(await readWallet(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID));
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
       return account(await roomStore(env.PI_GIFTS_DB),uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
     }
     if (env.CLIPI_APP && request.method === 'GET') {
-      if (['/', '/room', '/room/'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
+      if (['/', '/room', '/room/', '/delete-account'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
       if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
       if (['/clipi-app.js','/clipi-app.css','/clipi-policy-links.js'].includes(path))return env.CLIPI_APP.fetch(request);
     }

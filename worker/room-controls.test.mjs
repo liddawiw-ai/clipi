@@ -1,3 +1,4 @@
+import {supportCase} from './support-case.mjs';
 import {piGifts} from './pi-gifts.mjs';
 import {readWallet} from './diamond-wallet.mjs';
 import test from 'node:test';
@@ -21,6 +22,48 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
+  await t.test('room chat settings, word filtering and pinned deletion persist across sessions',async()=>{
+    const room='audit-room',owner='audit-host',viewer='audit-viewer';
+    const action=(uid,op,extra={})=>call(uid,op,extra,'/room-control',room,owner);
+    await action(owner,'join');await action(viewer,'join');
+    assert.equal((await action(viewer,'settings',{slow:5})).status,403);
+    await action(owner,'settings',{slow:15,words:['blocked']});
+    const state=await action(viewer,'poll');
+    assert.equal(state.slow,15);
+    assert.equal(state.words,undefined);
+    assert.equal((await action(viewer,'message',{text:'BLOCKED phrase'})).status,422);
+    const twins=await Promise.all(['hello','again'].map(text=>action(viewer,'message',{text})));
+    assert.deepEqual(twins.map(r=>r.status).sort(),[200,429]);
+    const first=twins.find(r=>r.status===200).chat[0];
+    assert.equal((await action(viewer,'pinMessage',{id:first.id})).status,403);
+    await action(owner,'pinMessage',{id:first.id});
+    assert.equal((await action(viewer,'poll')).pinned.id,first.id);
+    await action(viewer,'deleteMessage',{id:first.id});
+    await action(owner,'message',{text:'welcome'});
+    assert.equal((await action(owner,'poll')).pinned,null);
+    assert.equal((await action(owner,'poll')).chatRevision,2);
+    await action(owner,'settings',{slow:0,words:[]});
+    assert.equal((await action(viewer,'message',{text:'blocked'})).status,200);
+  });
+  await t.test('support cases are scoped, retryable and visible to the operator',async()=>{
+    const q=await roomStore(db);
+    const run=(uid,input)=>supportCase(q,uid,'operator',input,(body,status=200)=>({...body,status}));
+    const req={op:'caseCreate',kind:'purchase',detail:'Unexpected amount',subject:'receipt-123',id:crypto.randomUUID()};
+    const r=await run('requester',req);
+    assert.equal(r.id,req.id);
+    assert.equal((await run('requester',req)).id,r.id);
+    assert.equal((await run('other',{op:'caseList'})).cases.length,0);
+    assert.equal((await run('other',{op:'caseQueue'})).status,403);
+    assert.equal((await run('other',{op:'caseReviewed',id:r.id})).status,403);
+    assert.equal((await run('operator',{op:'caseQueue'})).cases[0].subject,'receipt-123');
+    await run('operator',{op:'caseReviewed',id:r.id});
+    assert.equal((await run('requester',{op:'caseList'})).cases[0].state,'reviewed');
+    const deletion={...req,id:crypto.randomUUID(),kind:'deletion'};
+    const [a,b]=await Promise.all([run('requester',deletion),run('requester',{...deletion,id:crypto.randomUUID()})]);
+    assert.equal(a.id,b.id);
+    await run('operator',{op:'caseReviewed',id:a.id});
+    assert.equal((await run('requester',{op:'caseList'})).deletion,a.id);
+  });
   await t.test('moves preserve occupancy, microphone permissions and gifts including the main mic',async()=>{
     const room='moving-mics',host='owner',guest='speaker',other='listener';
     const act=(uid,op,args={},path='/room-control')=>call(uid,op,args,path,room,host);

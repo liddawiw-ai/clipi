@@ -13,7 +13,7 @@ async function payment(action,data){
   const response=await fetch('/pi-gifts/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   if(!response.ok)throw Error(label('تعذر تأكيد الدفعة. تحقق من المحفظة قبل إعادة المحاولة.','Payment confirmation failed. Check your wallet before retrying.'));
 }
-export function DiamondWallet({uid}){
+export function DiamondWallet({uid,onHelp}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
   const lock=useRef(false);
@@ -84,10 +84,11 @@ export function DiamondWallet({uid}){
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
     {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة PI','PI payment ID')} placeholder={label('معرّف دفعة PI (اختياري)','PI payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
     <h3>{label('سجل شحن الماس','Diamond credit history')}</h3>
-    {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}</p>)}
+    {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}{p.reversed?' · '+label('ماس مسترد','Diamonds refunded')+' '+p.reversed:''}</p>)}
+    <button onClick={onHelp}>{label('مشكلة في عملية شراء','Purchase issue')}</button>
     <h3 id="clipi-packs">{label('شراء الماس','Buy diamonds')}</h3>
     {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} PI</button>):<p>{label('ادخل بحساب PI لشراء الماس','Sign in with PI to buy diamonds')}</p>}
     <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
-    {data?.history.map((g,i)=><p key={i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {g.units?label('رصيد سابق','Previous credit')+' '+g.units/20+' PI':label('ماسات للمكافأة','Reward diamonds')+' '+rewardDiamonds(g.cost)} · {label('غرفة','Room')} {g.room}</p>)}
+    {data?.history.map((g,i)=><p key={g.receipt?g.sender+g.receipt:i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {g.units?label('رصيد سابق','Previous credit')+' '+g.units/20+' PI':label('ماسات للمكافأة','Reward diamonds')+' '+rewardDiamonds(g.cost)} · {label('غرفة','Room')} {g.room} · {g.receipt}</p>)}
   </section>
 }

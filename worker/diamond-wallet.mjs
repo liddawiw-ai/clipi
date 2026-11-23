@@ -20,8 +20,8 @@ export const walletSchema=[
 export const paidBalance='(SELECT COALESCE(SUM(p.diamonds-COALESCE(r.diamonds,0)),0) FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE uid=?) - (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE sender=?)';
 export async function readWallet(q,uid,ownerUid){
   const totals=await q(`SELECT ${paidBalance} AS diamonds,(SELECT COALESCE(SUM(CAST(ROUND(hostUnits*100) AS INTEGER)),0)/100.0 FROM paid_room_gift WHERE host=?) AS earningsUnits,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=? AND hostUnits=0) AS collected,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=?) AS receivedDiamonds`,uid,uid,uid,uid,uid).first();
-  const history=await q(`SELECT gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
-  const purchases=await q('SELECT payment,diamonds FROM diamond_purchase WHERE uid=? ORDER BY rowid DESC LIMIT 30',uid).all();
+  const history=await q(`SELECT nonce AS receipt,gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
+  const purchases=await q('SELECT p.payment,p.diamonds,COALESCE(r.diamonds,0) AS reversed FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE p.uid=? ORDER BY p.rowid DESC LIMIT 30',uid).all();
   const pending=await q('SELECT c.payment FROM diamond_checkout c LEFT JOIN diamond_purchase p ON p.payment=c.payment WHERE c.uid=? AND p.payment IS NULL ORDER BY c.rowid DESC LIMIT 30',uid).all();
   const ownerBox=ownerUid&&uid===ownerUid?await q(`SELECT
     (SELECT COALESCE(SUM(diamonds),0) FROM diamond_purchase) AS sold,
