@@ -59,7 +59,12 @@ export function DiamondWallet({uid}){
       const session=await sdk.authenticate(['username','payments'],p=>{if(p.transaction?.txid)pending.push(p)});
       if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
       const accessToken=session.accessToken;
-      for(const old of pending)await payment('complete',{kind:old.metadata?.kind,roomId:old.metadata?.roomId,paymentId:old.identifier,txid:old.transaction?.txid,accessToken});
+      for(const old of pending){
+        if(old.metadata?.kind==='native_diamonds'){
+          const result=await fetch('/external-checkout/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:old.metadata.order,paymentId:old.identifier,txid:old.transaction.txid,token:accessToken})});
+          if(!result.ok)throw Error(label('راجع الدفعة السابقة في محفظة التطبيق الخارجي.','Review the previous payment in the external app wallet.'));
+        }else await payment('complete',{kind:old.metadata?.kind,roomId:old.metadata?.roomId,paymentId:old.identifier,txid:old.transaction?.txid,accessToken});
+      }
       if(pending.length){await refresh();finish(label('تمت مراجعة الدفعة السابقة','Previous payment reconciled'));return}
       await sdk.createPayment({amount:packPrice(diamonds),memo:'Clipi · '+diamonds+' diamonds',metadata:{kind:'diamond_pack',uid,diamonds,rate:diamondsPerPi}},{
         onReadyForServerApproval:id=>payment('approve',{paymentId:id,kind:'diamond_pack',accessToken}).catch(e=>setMessage(e.message)),
