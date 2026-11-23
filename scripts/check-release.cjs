@@ -21,7 +21,7 @@ assert(/export default function App\s*\(/.test(source), 'Expo AppEntry needs App
 assert(eas.build.preview.android.buildType==='apk');
 assert(eas.build.production.android.buildType==='app-bundle', 'Play Store production requires AAB');
 const configured=require('../app.config.js').expo;
-assert(configured.android.versionCode===30, 'Android versionCode must be incremented for new release');
+assert(configured.android.versionCode===32, 'Android versionCode must be incremented for new release');
 assert(configured.ios.buildNumber==='1', 'iOS buildNumber must be explicit');
 assert(configured.android.package===configured.ios.bundleIdentifier, 'App identifiers must match the intended package');
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
@@ -57,9 +57,10 @@ const tray=fs.readFileSync('RoomControls.js','utf8');
 assert(tray.includes('gifts.filter(')&&tray.includes('setCategory(item)'),'Gift categories missing');
 assert(source.includes('const GIFTS='),'Gift catalog missing');
 assert(source.includes('مركبة فضائية')&&source.includes('رولز رويس الماسية')&&source.includes('وردة حمراء'),'Reference-inspired gift groups missing');
-assert(source.includes("kind==='dragon'")&&source.includes("['plane','helicopter','spaceship','space']"),'Distinct gift animations missing');
-
-assert(source.includes('kind===\'dragon\'')&&source.includes('const beams=Array.from({length:12}'),'Existing gifts must retain animations and full-screen lighting');
+const score=fs.readFileSync('giftScores.js','utf8');
+const catalog=JSON.parse(source.match(/const GIFTS=(.*?);\n/)[1]);
+for(const [,name] of catalog)assert(score.includes("'"+name+"':"),'Missing gift score: '+name);
+assert(!source.includes("setFx(['🏎️'")&&!fs.readFileSync('GiftMotion.js','utf8').includes('const beams='),'Opening a room must not launch a gift or light beams');
 assert(source.includes('setMini(true)')&&source.includes('setMini(false)'),'Room minimize/restore controls missing');
 assert(!legacyStore.includes('setDiamonds('),'Legacy store must not mint diamonds from the client');
 assert(legacyStore.includes('الشراء غير مفعّل'),'Legacy store must clearly mark purchases disabled');

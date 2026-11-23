@@ -6,7 +6,7 @@ import {storeBilling} from './storeBilling';
 const units=[1,2,5,10,20,50,100];
 const fmt=n=>n.toLocaleString('en-US');
 export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurrentUser}){
- const [method,methodTo]=useState('card'),[count,select]=useState(1),[offer,setOffer]=useState(null);
+ const [method,methodTo]=useState(externalAllowed?'pi':'card'),[count,select]=useState(1),[offer,setOffer]=useState(null);
  const [storeMessage,setStoreMessage]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[fallback,setFallback]=useState('');
  const lock=useRef(false),attempt=useRef(null);
@@ -48,10 +48,10 @@ export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurr
  }
  const selected=pi?1200:1000;
  return <View style={s.body}>
-  <View style={s.segment}>{(externalAllowed?[['card','الدولار'],['pi','عملة PI']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{label}</Text></TouchableOpacity>)}</View>
-  <View style={s.summary}><Text style={s.eyebrow}>{pi?'الدفع من PI Browser':'الدفع بالدولار'}</Text><Text style={s.amount}>💎 {fmt(count*selected)}</Text><Text style={s.desc}>{pi?'بقيمة '+count+' USD حسب سعر PI عند الطلب':nativeStore?'السعر الأساسي '+count+' USD · '+storeName:count+' USD عبر Visa أو Google Pay عند توفره'}</Text></View>
+  <View style={s.segment}>{(externalAllowed?[['pi','عملة PI']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{label}</Text></TouchableOpacity>)}</View>
+  <View style={s.summary}><Text style={s.eyebrow}>{pi?'الدفع من PI Browser':storeName}</Text><Text style={s.amount}>💎 {fmt(count*selected)}</Text><Text style={s.desc}>{pi?'بقيمة '+count+' USD حسب سعر PI عند الطلب':nativeStore?'السعر حسب بلد حسابك في '+storeName:count+' USD عبر Visa أو Google Pay عند توفره'}</Text></View>
   <Text style={s.title}>اختر الباقة</Text>
-  <View style={s.grid}>{units.map(n=><TouchableOpacity key={n} disabled={busy} onPress={()=>{select(n);reset()}} accessibilityRole="button" accessibilityState={{selected:count===n}} style={[s.pack,count===n&&s.chosen]}><Text style={s.number}>{fmt(n*selected)} 💎</Text><Text style={s.price}>{n} USD</Text></TouchableOpacity>)}</View>
+  <View style={s.grid}>{units.map(n=><TouchableOpacity key={n} disabled={busy} onPress={()=>{select(n);reset()}} accessibilityRole="button" accessibilityState={{selected:count===n}} style={[s.pack,count===n&&s.chosen]}><Text style={s.number}>{fmt(n*selected)} 💎</Text>{pi&&<Text style={s.price}>{n} USD</Text>}</TouchableOpacity>)}</View>
   {offer&&pi&&<Text accessibilityLiveRegion="polite" style={s.desc}>{offer.amount} PI · السعر صالح حتى {new Date(offer.expires).toLocaleTimeString('ar')}</Text>}
   {nativeStore&&offer&&<Text style={s.desc}>{storeName} · {offer.localPrice}</Text>}
   {!!storeMessage&&<Text style={s.desc}>{storeMessage}</Text>}
