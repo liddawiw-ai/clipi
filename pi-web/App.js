@@ -477,7 +477,11 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     return ()=>clearTimeout(timer);
   },[giftNotice]);
   async function sendRoomGift(gift){
-    if(giftSending.current||!selectedPresent||targetProfile?.uid!==giftTarget||roomClosedRef.current)return;
+    if(giftSending.current)return;
+    if(roomClosedRef.current){setGiftIssue(ui("الغرفة مغلقة"));return;}
+    if(!selectedPresent||!giftTarget){setGiftIssue(ui("اختر مستلمًا للهدية من الموجودين في الغرفة أولًا"));return;}
+    if(targetProfile?.uid!==giftTarget){setGiftIssue(ui("جارٍ التحقق من المستلم. حاول مرة أخرى بعد لحظة."));return;}
+    setGiftIssue('');
     const key=JSON.stringify([room.id,giftTarget,gift[1]]);
     if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:crypto.randomUUID()};
     const nonce=paidNonce.current.nonce;
@@ -754,7 +758,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     <RoomGiftSheet visible={giftOpen&&!minimized}
       gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),send:ui("إرسال الهدية"),sending:ui("جارٍ إرسال الهدية")}}
+      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),send:ui("إرسال"),sending:ui("جارٍ الإرسال")}}
       recipient={selectedPresent?(targetProfile?.name||giftPeople.find(p=>p.uid===giftTarget)?.name):ui("اختر مستلمًا للهدية")}
       recipientAvatar={selectedPresent?targetProfile?.avatar:null} balance={paidBalance}
       canSend={selectedPresent&&targetProfile?.uid===giftTarget&&Number.isSafeInteger(paidBalance)}
