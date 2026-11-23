@@ -33,7 +33,8 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
   const affordable=selected&&Number.isSafeInteger(balance)&&balance>=selected[2];
   async function send(){
-    if(!selected||!affordable||!canSend||sending.current)return;
+    if(!selected||!affordable||sending.current)return;
+    // A selected gift enables the action; the room handler validates recipient and authorization.
     sending.current=true;
     setPending(true);
     try{await onSend(selected)}finally{sending.current=false;setPending(false)}
@@ -69,9 +70,9 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
     {selected&&Number.isSafeInteger(balance)&&!affordable&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
     <View style={s.footer}>
       <Text style={s.sub}>{copy.balance} · {balance??'…'} 💎</Text>
-      <TouchableOpacity disabled={!affordable||!canSend||pending} accessibilityRole="button"
-        accessibilityState={{disabled:!affordable||!canSend||pending,busy:pending}}
-        style={[s.send,(!affordable||!canSend||pending)&&s.disabled]} onPress={send}>
+      <TouchableOpacity disabled={!affordable||pending} accessibilityRole="button"
+        accessibilityState={{disabled:!affordable||pending,busy:pending}}
+        style={[s.send,(!affordable||pending)&&s.disabled]} onPress={send}>
         <Text style={s.sendText}>{pending?copy.sending:copy.send}</Text>
       </TouchableOpacity>
     </View>
@@ -101,7 +102,7 @@ const s=StyleSheet.create({
   giftName:{fontSize:10,fontWeight:'700',color:'#effff5',textAlign:'center'},
   price:{fontSize:10,color:'#bbefd9',marginTop:3},
   footer:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,marginTop:8},
-  send:{minHeight:40,justifyContent:'center',paddingHorizontal:16,backgroundColor:'#a7e3c7',borderRadius:10},
-  sendText:{color:'#173b30',fontWeight:'800'},
+  send:{minHeight:34,justifyContent:'center',paddingHorizontal:18,paddingVertical:5,backgroundColor:'#f28c28',borderRadius:10},
+  sendText:{color:'#ffffff',fontWeight:'800',fontSize:13},
   disabled:{opacity:.48},
 });
