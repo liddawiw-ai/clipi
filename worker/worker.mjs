@@ -32,7 +32,14 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if(env.PI_GIFTS_NETWORK==='mainnet'){
-      if(path==='/external-checkout'&&request.method==='GET'&&env.CLIPI_APP)return env.CLIPI_APP.fetch(request);
+      if(request.method==='GET'&&env.CLIPI_APP){
+        if(path==='/external-checkout')return env.CLIPI_APP.fetch(request);
+        if(path==='/external-checkout/'||path==='/external-checkout.html'){
+          const canonical=new URL(request.url);
+          canonical.pathname='/external-checkout';
+          return Response.redirect(canonical.href,308);
+        }
+      }
       if(['/external-checkout/quote','/external-checkout/approve','/external-checkout/complete'].includes(path))return externalPayment(request,env);
     }
     if(path==='/active-rooms'&&request.method==='GET'){
