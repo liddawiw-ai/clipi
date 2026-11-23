@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
 import functions from '@react-native-firebase/functions';
@@ -107,16 +108,16 @@ export default function EarningsWalletScreen({onBack}){
  </ScrollView>
 }
 const S=StyleSheet.create({
- lockScreen:{justifyContent:'center',padding:24,alignItems:'center'},lockIcon:{fontSize:62,marginBottom:18},error:{color:'#ffb6c1',textAlign:'center',marginTop:12},
- page:{flex:1,backgroundColor:'#170b2c'},body:{padding:18,paddingTop:45,paddingBottom:35},
- panel:{backgroundColor:'#302051',padding:18,borderRadius:14,marginVertical:10},
- heading:{fontSize:21,fontWeight:'900',color:'white',marginBottom:12},
- number:{fontSize:28,fontWeight:'900',color:'#ffe39a',marginBottom:8},
- value:{fontSize:19,color:'#91f2bd',fontWeight:'800',marginBottom:8},
- label:{color:'#ddd0ee',marginVertical:5,lineHeight:21},
- button:{backgroundColor:'#a72f73',padding:14,borderRadius:12,marginTop:9,alignItems:'center'},
- option:{backgroundColor:'#443165',padding:12,borderRadius:10,marginVertical:3},
- selected:{backgroundColor:'#695087',borderColor:'#ffe39a',borderWidth:1},
- buttonText:{color:'white',fontWeight:'900'},
- input:{backgroundColor:'white',padding:13,borderRadius:9,marginVertical:7,color:'#222'}
+ lockScreen:{justifyContent:'center',padding:24,alignItems:'center',backgroundColor:theme.canvas},lockIcon:{fontSize:62,marginBottom:18},error:{color:theme.danger,textAlign:'center',marginTop:12},
+ page:{flex:1,backgroundColor:theme.canvas},body:{padding:18,paddingTop:45,paddingBottom:35},
+ panel:{backgroundColor:theme.paper,padding:18,borderRadius:14,marginVertical:10},
+ heading:{fontSize:21,fontWeight:'900',color:theme.ink,marginBottom:12},
+ number:{fontSize:28,fontWeight:'900',color:theme.ink,marginBottom:8},
+ value:{fontSize:19,color:theme.ink,fontWeight:'800',marginBottom:8},
+ label:{color:theme.secondary,marginVertical:5,lineHeight:21},
+ button:{backgroundColor:theme.mint,padding:14,borderRadius:12,marginTop:9,alignItems:'center'},
+ option:{backgroundColor:'transparent',padding:12,borderRadius:10,marginVertical:3},
+ selected:{backgroundColor:theme.mint,borderColor:theme.line,borderWidth:1},
+ buttonText:{color:theme.ink,fontWeight:'900'},
+ input:{backgroundColor:theme.paper,padding:13,borderRadius:9,marginVertical:7,color:theme.ink}
 });

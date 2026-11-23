@@ -1,3 +1,4 @@
+import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
@@ -70,4 +71,4 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,onBack}){
    {(queue||data?.cases)?.length===0&&<Text style={s.text}>{t('لا توجد طلبات')}</Text>}
  </ScrollView>;
 }
-const s=StyleSheet.create({page:{flex:1,backgroundColor:'#211522'},body:{padding:18,paddingTop:46,gap:12},row:{flexDirection:'row',flexWrap:'wrap',gap:10,alignItems:'center',justifyContent:'space-between'},title:{color:'#ffddb4',fontWeight:'800',fontSize:19},text:{color:'#faf1ed',fontSize:15,lineHeight:22},card:{backgroundColor:'#392b3c',borderRadius:14,padding:12,gap:8},input:{backgroundColor:'#fff',color:'#211522',borderRadius:8,padding:10},button:{alignSelf:'flex-start',backgroundColor:'#ffad69',borderRadius:10,paddingHorizontal:13,paddingVertical:9},action:{color:'#2a1721',fontWeight:'700'}});
+const s=StyleSheet.create({page:{flex:1,backgroundColor:theme.canvas},body:{padding:18,paddingTop:46,gap:12},row:{flexDirection:'row',flexWrap:'wrap',gap:10,alignItems:'center',justifyContent:'space-between'},title:{color:theme.ink,fontWeight:'800',fontSize:19},text:{color:theme.ink,fontSize:15,lineHeight:22},card:{backgroundColor:theme.paper,borderRadius:18,padding:12,gap:8,borderWidth:1,borderColor:theme.line},input:{backgroundColor:theme.paper,color:theme.ink,borderRadius:8,padding:10,borderColor:theme.line,borderWidth:1},button:{alignSelf:'flex-start',backgroundColor:'transparent',borderRadius:0,paddingHorizontal:13,paddingVertical:9,borderBottomWidth:1,borderBottomColor:theme.line},action:{color:theme.accent,fontWeight:'700'}});

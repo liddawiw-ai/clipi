@@ -37,7 +37,7 @@ module.exports = {
   expo: {
     name: 'Clipi', slug: 'clipi2', version: '1.1.0',
     orientation: 'portrait', scheme: 'clipi', icon: './assets/clipi-icon.png',
-    userInterfaceStyle: 'automatic', newArchEnabled: true,
+    userInterfaceStyle: 'light', newArchEnabled: true,
     ios: {
       supportsTablet: true,
       infoPlist: {ITSAppUsesNonExemptEncryption: false},
