@@ -45,11 +45,11 @@ module.exports = {
     },
     android: {
       package: androidPackage,
-      versionCode: 30,
+      versionCode: 31,
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
-    extra: {googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
+    extra: {directPiCheckout: process.env.CLIPI_DISTRIBUTION === 'internal' || ['development','preview'].includes(process.env.EAS_BUILD_PROFILE), googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
     plugins
   }
 };

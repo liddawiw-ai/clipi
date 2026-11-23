@@ -1,3 +1,4 @@
+import PiDiamondShop from './PiDiamondShop';
 import {LoginCover,RoomStudio,BalanceCard} from './ClipiSurfaces';
 import ClipiCollection from './ClipiCollection';
 import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
@@ -27,6 +28,7 @@ function loadRoomMediaRuntime(){
 }
 
 const MEDIA_ENDPOINT=process.env.EXPO_PUBLIC_CLIPI_MEDIA_URL?.trim().replace(/\/+$/,'')||'https://clipi-mainnet.liddawiw.workers.dev';
+const EXTERNAL_PI=Constants.expoConfig?.extra?.directPiCheckout===true;
 const MEDIA_CONFIGURED=/^https:\/\//i.test(MEDIA_ENDPOINT);
 
 const {width:WIDTH,height:HEIGHT}=Dimensions.get('window');
@@ -304,7 +306,10 @@ async function mediaRequest(path,body,signal){
     headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
-  if(!response.ok)throw new Error('تعذر الاتصال بخدمة البث ('+response.status+')');
+  if(!response.ok){
+    const details=path==='/account-number'?await response.json().catch(()=>({})):{};
+    throw Object.assign(new Error(details.error||'تعذر الاتصال بالخدمة ('+response.status+')'),{status:response.status});
+  }
   return response.json();
 }
 
@@ -477,7 +482,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',alignSelf:'flex-end',gap:6,marginHorizontal:8},
 });
 
-function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,minimized}){
+function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onRestore,onWallet,onShop,minimized}){
   const [globalGameOpen,setGlobalGameOpen]=useState(false);
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
@@ -821,6 +826,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
       {!selectedPresent&&<Text style={S.white}>{giftPeople.length?"اختر مستلمًا للهدية":"بانتظار صعود مستلم على المايك"}</Text>}
       {!!giftIssue&&<View><Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>
         {!targetProfile&&selectedPresent&&<Small title={"إعادة المحاولة"} onPress={()=>openGifts(giftTarget)}/>}</View>}
+      {EXTERNAL_PI&&<Small title="شراء الماس بعملة Pi" color="transparent" onPress={()=>{setGiftOpen(false);onShop()}}/>}
       <Small title={"المحفظة"} onPress={()=>{setGiftOpen(false);onWallet()}}/>
     </RoomGiftSheet>
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
@@ -857,6 +863,19 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
 export default function App(){
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
+  const returnToWallet=useRef(false),checkoutOrder=useRef(null);
+  useEffect(()=>{
+    function onUrl(url){
+      const match=/^clipi:\/\/wallet\/?(?:\?order=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.exec(url||'');
+      if(!match)return;
+      checkoutOrder.current=match[1]||null;
+      returnToWallet.current=true;
+      if(auth().currentUser){setMini(true);go('wallet');setWalletRequest(v=>v+1)}
+    }
+    Linking.getInitialURL().then(onUrl).catch(()=>{});
+    const sub=Linking.addEventListener('url',e=>onUrl(e.url));
+    return ()=>sub.remove();
+  },[]);
   const [user,setUser]=useState(null);
   const [giftWallet,setGiftWallet]=useState(null),[giftWalletError,setGiftWalletError]=useState('');
   const [walletRequest,setWalletRequest]=useState(0);
@@ -873,7 +892,9 @@ export default function App(){
       }catch(error){if(active)setGiftWalletError(error.message)}
       if(active&&page==='wallet')timer=setTimeout(refresh,15000);
     }
-    setGiftWalletError('');void refresh();
+    setGiftWalletError('');
+    if(EXTERNAL_PI&&page==='wallet')void mediaRequest('/account-number',{op:'externalOrders',order:checkoutOrder.current}).catch(()=>{}).then(()=>{if(active)void refresh()});
+    else void refresh();
     return ()=>{active=false;clearTimeout(timer)};
   },[user?.uid,page,walletRequest]);
   const [identity,setIdentity]=useState(null),[numberError,setNumberError]=useState('');
@@ -1002,7 +1023,7 @@ export default function App(){
             setAvatar(d.avatar||'👤');
           }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        if(active&&auth().currentUser?.uid===u.uid)go('home');
+        if(active&&auth().currentUser?.uid===u.uid){go(returnToWallet.current?'wallet':'home');returnToWallet.current=false}
       }else{
         setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
         setName('');setRoomError('');
@@ -1377,8 +1398,10 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={createRoom} onClose={()=>go('home')} busy={busy} copy={{close:"رجوع",title:"إنشاء غرفة",name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:"الغرفة عامة للمستخدمين المسجلين."}}/>;
+  if(EXTERNAL_PI&&page==='diamondShop')return layout('شراء الماس',<PiDiamondShop key={user.uid} endpoint={MEDIA_ENDPOINT} request={mediaRequest} uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid}/>,()=>go('wallet'));
   if(page==='wallet'&&!SHOW_UNRELEASED_DEMOS)return layout('محفظة كليبي',<>
     <BalanceCard icon="💎" tone="sky" label="الماس المشترى" value={funded?fmt(funded.diamonds):'…'}/>
+    {EXTERNAL_PI&&<Small title="شراء الماس بعملة Pi" onPress={()=>go('diamondShop')}/>}
     <BalanceCard icon="♡" tone="rose" label="هدف ماس الهدايا" value={(funded?fmt(funded.progress):'…')+' / 10,000 💎'}/>
     <BalanceCard icon="✦" tone="sand" label="مكافآت المضيف" value={(funded?fmt(funded.rewardPi):'…')+' PI'}/>
     <Text style={S.white}>كل 10,000 ماسة تصل إليك من الهدايا تُسجّل لك مكافأة 5 PI داخل كليبي.</Text>
@@ -1524,7 +1547,7 @@ export default function App(){
   return <View style={S.page}><Btn title="الرئيسية" onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>{renderPage()}
-    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label="الغرفة" onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
+    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label="الغرفة" onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onRestore={()=>setMini(false)} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
     {mini&&activeRoom&&<TouchableOpacity accessibilityLabel="تكبير الغرفة" onPress={()=>setMini(false)} style={{position:'absolute',right:12,bottom:72,width:86,height:86,backgroundColor:'#412951',borderRadius:14,borderWidth:2,borderColor:GOLD,justifyContent:'center',alignItems:'center'}}><Text>🎙️</Text><Text numberOfLines={2} style={S.white}>{activeRoom.name}</Text></TouchableOpacity>}
   </View>;

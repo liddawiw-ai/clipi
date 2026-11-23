@@ -3,11 +3,13 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/android-room-terms-30
+      - fix/android-pi-checkout-31
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
   contents: write
+env:
+  CLIPI_DISTRIBUTION: internal
 jobs:
   android-apk:
     runs-on: ubuntu-latest
@@ -35,15 +37,15 @@ jobs:
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build30.apk
+          cp "$apk" Clipi-Android-build31.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build30
-          path: Clipi-Android-build30.apk
+          name: Clipi-Android-build31
+          path: Clipi-Android-build31.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/android-room-terms-30'
+        if: github.ref == 'refs/heads/fix/android-pi-checkout-31'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build30 Clipi-Android-build30.apk --target "$GITHUB_SHA" --title "Clipi Android 30" --notes "Bilingual terms above the chat composer in voice and video rooms." --prerelease
+        run: gh release create android-build31 Clipi-Android-build31.apk --target "$GITHUB_SHA" --title "Clipi Android 31" --notes "Open Pi Browser from the diamond wallet or gift tray and return to the initiating Clipi account." --prerelease
