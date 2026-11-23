@@ -3,27 +3,36 @@ name: Clipi iPhone test IPA
 on:
   workflow_dispatch:
   push:
-    branches: [feature/clipi-stage7-build-fix]
+    branches: [feature/clipi-stage7-build-fix, build/clipi-32-iphone-semi-final]
     paths: [.github/workflows/clipi-ios-ipa.yml]
 
 permissions:
   contents: read
 
 jobs:
-  ios-ipa:
-    runs-on: macos-15
-    timeout-minutes: 45
+  signing-check:
+    runs-on: ubuntu-latest
     steps:
       - name: Check Apple signing configuration
         env:
-          CERTIFICATE: ${{ secrets.CLIPI_IOS_CERTIFICATE_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CLIPI_IOS_CERTIFICATE_PASSWORD }}
-          PROFILE: ${{ secrets.CLIPI_IOS_PROVISION_PROFILE_BASE64 }}
+          CLIPI_IOS_CERTIFICATE_BASE64: ${{ secrets.CLIPI_IOS_CERTIFICATE_BASE64 != '' }}
+          CLIPI_IOS_CERTIFICATE_PASSWORD: ${{ secrets.CLIPI_IOS_CERTIFICATE_PASSWORD != '' }}
+          CLIPI_IOS_PROVISION_PROFILE_BASE64: ${{ secrets.CLIPI_IOS_PROVISION_PROFILE_BASE64 != '' }}
         run: |
-          if [[ -z "$CERTIFICATE" || -z "$CERTIFICATE_PASSWORD" || -z "$PROFILE" ]]; then
-            echo "::error::Set the three Clipi iOS signing secrets: distribution certificate, certificate password, and Ad Hoc provisioning profile."
-            exit 1
-          fi
+          missing=0
+          for key in CLIPI_IOS_CERTIFICATE_BASE64 CLIPI_IOS_CERTIFICATE_PASSWORD CLIPI_IOS_PROVISION_PROFILE_BASE64; do
+            if [[ "${!key}" != "true" ]]; then
+              echo "::error::Missing signing secret $key"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+  ios-ipa:
+    needs: signing-check
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
 
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,6 +46,8 @@ jobs:
           pod install --project-directory=ios
         env:
           CI: '1'
+          EXPO_PUBLIC_FACEBOOK_APP_ID: ${{ vars.EXPO_PUBLIC_FACEBOOK_APP_ID || secrets.EXPO_PUBLIC_FACEBOOK_APP_ID }}
+          EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN: ${{ vars.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || secrets.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}
 
       - name: Install signing material and verify the registered-device profile
         env:
@@ -109,11 +120,11 @@ jobs:
           xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/Clipi.xcarchive" \
             -exportOptionsPlist "$CLIPI_SIGNING_DIR/ExportOptions.plist" -exportPath "$RUNNER_TEMP/clipi-ipa"
           mkdir -p artifacts
-          cp "$RUNNER_TEMP"/clipi-ipa/*.ipa artifacts/Clipi-iPhone-test.ipa
+          cp "$RUNNER_TEMP"/clipi-ipa/*.ipa artifacts/Clipi-32-Semi-Final.ipa
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-iPhone-test
-          path: artifacts/Clipi-iPhone-test.ipa
+          name: Clipi-32-Semi-Final
+          path: artifacts/Clipi-32-Semi-Final.ipa
           if-no-files-found: error
           retention-days: 14
       - name: Remove temporary signing files
