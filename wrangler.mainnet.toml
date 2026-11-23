@@ -24,5 +24,7 @@ database_id = "43dfb59b-6af5-4742-85f4-a3d4f983d422"
 
 [previews]
 
-[[r2_buckets]]
-binding = "SHORT_VIDEOS"
+# The production account manages the optional SHORT_VIDEOS upload bucket.
+# Keep that binding across releases, including releases before it is enabled.
+[unsafe.metadata]
+keep_bindings = ["plain_text", "json", "secret_text", "secret_key", "r2_bucket"]
