@@ -1,64 +1,12 @@
-.gift-theatre{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;overflow:hidden}
-.gift-stage{width:min(76vw,320px);height:min(56vh,300px);position:relative;display:grid;place-items:center;isolation:isolate;animation:gift-show 3.6s both}
-.gift-caption{position:absolute;bottom:3%;left:0;right:0;text-align:center;color:#fff8e1;font:700 18px system-ui;text-shadow:0 2px 6px #17101a}
-@keyframes gift-show{0%,100%{opacity:0}9%,84%{opacity:1}}
-.bloom{--h:349;position:relative;width:160px;height:185px;filter:drop-shadow(0 6px 8px #24152366);transform:rotate(-7deg)}
-.bloom.blue{--h:217}.bloom i,.bird i{display:block;position:absolute}
-.stem{height:91px;width:10px;left:74px;bottom:4px;border-radius:70%;background:linear-gradient(90deg,#24452e,#6f9452,#314c2b);transform:rotate(5deg)}
-.leaf{width:42px;height:20px;border-radius:0 100% 0 100%;background:linear-gradient(28deg,#184c34,#72a257 47%,#3d7943 52%,#234930)}
-.leaf.left{top:132px;left:35px;transform:rotate(17deg)}.leaf.right{top:119px;left:75px;transform:scaleX(-1) rotate(23deg)}
-.corolla{position:absolute;left:79px;top:107px}.petal{width:62px;height:84px;left:-31px;bottom:0;border-radius:55% 48% 42% 45% / 41% 48% 75% 74%;transform-origin:50% 96%;background:radial-gradient(ellipse at 35% 4%,hsl(var(--h) 88% 83%),transparent 36%),linear-gradient(145deg,hsl(var(--h) 75% var(--light)),hsl(var(--h) 78% 35%) 70%,hsl(var(--h) 69% 19%));box-shadow:inset 1px 2px 2px #ffffff52,1px 1px 3px #360b2840;animation:gift-bloom 1.85s cubic-bezier(.2,.68,.18,1) var(--delay) both}
-@keyframes gift-bloom{from{transform:rotate(0) scale(.44,.76)}to{transform:rotate(var(--angle)) scale(var(--size))}}
-.calyx{left:59px;top:96px;width:39px;height:22px;background:linear-gradient(110deg,#214b36,#6c9756,#234b32);clip-path:polygon(0 0,32% 40%,45% 5%,62% 44%,100% 5%,64% 93%,42% 100%)}
-.bird-flight{width:160px;height:120px;animation:gift-flight 3.6s ease-in-out both}.bird{width:100%;height:100%;position:relative;--feather:#5b3e2e;--tip:#291e23;--neck:#eee3ca}.fire .bird{--feather:#f18723;--tip:#9b261d;--neck:#ffe492;filter:drop-shadow(0 0 8px #ff8a32)}.duck .bird{--neck:#38795e;--feather:#9e8770}
+.bird i{display:block;position:absolute}.bird-flight{width:160px;height:120px;position:relative}.bird{width:100%;height:100%;position:relative;--feather:#5b3e2e;--tip:#291e23;--neck:#eee3ca}.fire .bird{--feather:#f18723;--tip:#9b261d;--neck:#ffe492;filter:drop-shadow(0 0 8px #ff8a32)}.duck .bird{--neck:#38795e;--feather:#9e8770}
 .bird .body{background:linear-gradient(160deg,var(--feather),var(--tip));width:88px;height:34px;border-radius:65% 55% 70% 48%;left:31px;top:52px;transform:rotate(-8deg)}
 .bird .wing{width:83px;height:68px;left:22px;bottom:52px;transform-origin:85% 95%;background:repeating-linear-gradient(43deg,var(--feather) 0 9px,var(--tip) 12px,var(--feather) 16px);clip-path:polygon(100% 86%,86% 45%,9% 0,21% 20%,0 10%,17% 34%,0 25%,25% 53%,8% 48%,46% 78%,24% 68%,65% 95%,84% 100%);animation:gift-wing .7s ease-in-out infinite alternate}
 .bird .far{left:45px;filter:brightness(.75);animation-delay:-.22s}.bird .tail{background:var(--feather);width:55px;height:27px;top:65px;left:0;clip-path:polygon(100% 0,88% 60%,6% 100%,14% 72%,0 80%,9% 54%,0 53%)}
 .bird .head{left:101px;top:43px;width:35px;height:30px;background:var(--neck);border-radius:65% 65% 50% 35%;transform:rotate(-7deg)}.bird .bill{left:131px;top:53px;width:19px;height:14px;background:#eab450;clip-path:polygon(0 0,77% 18%,100% 49%,81% 100%,74% 63%,0 68%)}.bird .eye{left:123px;top:51px;width:4px;height:4px;background:#241c14;border-radius:50%}
 @keyframes gift-wing{from{transform:rotate(-12deg) scaleY(1)}to{transform:rotate(10deg) scaleY(-.7)}}
 @keyframes gift-flight{0%{transform:translate(-48%,22%) scale(.62) rotate(-9deg)}45%{transform:translate(-4%,-8%) scale(1.12)}73%{transform:translate(10%,0) scale(1.06)}100%{transform:translate(70%,-34%) scale(.65) rotate(-12deg)}}
-.gift-object{position:relative;font-size:clamp(66px,21vw,110px);line-height:1;animation-duration:2.6s;animation-fill-mode:both;animation-timing-function:ease-in-out}.trail{font:normal 22px system-ui;color:#ffe49c;position:absolute;top:40%;left:44%;animation-duration:1.2s;animation-delay:calc(.3s + var(--i)*.21s);animation-iteration-count:2;animation-fill-mode:both}
-.m-pulse{animation-name:gift-pulse}@keyframes gift-pulse{0%{transform:scale(.7)}52%{transform:scale(1.22)}100%{transform:scale(.95)}}
-.m-kiss{animation-name:gift-kiss}@keyframes gift-kiss{0%{transform:rotate(-15deg) scale(.6)}52%{transform:translateY(-8%) scale(1.15)}100%{transform:translateY(-20%)}}
-.m-clap{animation-name:gift-clap}@keyframes gift-clap{0%{transform:rotate(-14deg)}52%{transform:rotate(12deg)}100%{transform:rotate(-8deg)}}
-.m-twirl{animation-name:gift-twirl}@keyframes gift-twirl{0%{transform:rotate(-65deg)}52%{transform:rotate(25deg)}100%{transform:rotate(0)}}
-.m-freeze{animation-name:gift-freeze}@keyframes gift-freeze{0%{transform:scale(.45)}52%{transform:scale(1.08)}100%{transform:scale(1)}}
-.m-present{animation-name:gift-present}@keyframes gift-present{0%{transform:translateY(32%)}52%{transform:translateY(-4%)}100%{transform:translateY(0)}}
-.m-cuddle{animation-name:gift-cuddle}@keyframes gift-cuddle{0%{transform:rotate(-14deg)}52%{transform:rotate(12deg)}100%{transform:rotate(-4deg)}}
-.m-open{animation-name:gift-open}@keyframes gift-open{0%{transform:scale(.65) rotate(-9deg)}52%{transform:scale(1.15) rotate(6deg)}100%{transform:scale(1)}}
-.m-jingle{animation-name:gift-jingle}@keyframes gift-jingle{0%{transform:rotate(-18deg)}52%{transform:rotate(16deg)}100%{transform:rotate(-6deg)}}
-.m-cast{animation-name:gift-cast}@keyframes gift-cast{0%{transform:rotate(-45deg)}52%{transform:rotate(22deg)}100%{transform:rotate(-12deg)}}
-.m-crown{animation-name:gift-crown}@keyframes gift-crown{0%{transform:translateY(-65%)}52%{transform:translateY(6%)}100%{transform:translateY(0)}}
-.m-jewel{animation-name:gift-jewel}@keyframes gift-jewel{0%{transform:rotateY(-65deg)}52%{transform:rotateY(25deg)}100%{transform:rotateY(0)}}
-.m-hover{animation-name:gift-hover}@keyframes gift-hover{0%{transform:translateY(22%)}52%{transform:translateY(-15%)}100%{transform:translateY(4%)}}
-.m-build{animation-name:gift-build}@keyframes gift-build{0%{transform:scaleY(.25)}52%{transform:scaleY(1.07)}100%{transform:scaleY(1)}}
-.m-launch{animation-name:gift-launch}@keyframes gift-launch{0%{transform:translate(-55%,65%) scale(.55)}52%{transform:translate(0,0)}100%{transform:translate(60%,-75%) scale(.7)}}
-.m-orbit{animation-name:gift-orbit}@keyframes gift-orbit{0%{transform:translate(-60%,10%) rotate(-15deg)}52%{transform:translate(0,-16%) rotate(12deg)}100%{transform:translate(55%,8%)}}
-.m-fly{animation-name:gift-fly}@keyframes gift-fly{0%{transform:translate(-62%,35%) scale(.7)}52%{transform:translate(0,0)}100%{transform:translate(58%,-40%)}}
-.m-drive{animation-name:gift-drive}@keyframes gift-drive{0%{transform:translateX(78%) scale(.65)}52%{transform:translateX(3%)}100%{transform:translateX(-65%)}}
-.m-swoop{animation-name:gift-swoop}@keyframes gift-swoop{0%{transform:translate(-55%,-25%) rotate(-16deg)}52%{transform:translate(0,12%)}100%{transform:translate(42%,-18%)}}
-.m-march{animation-name:gift-march}@keyframes gift-march{0%{transform:translate(-25%,0) rotate(-10deg)}52%{transform:translate(0,-14%) rotate(12deg)}100%{transform:translate(25%,0)}}
-.m-pounce{animation-name:gift-pounce}@keyframes gift-pounce{0%{transform:translate(-35%,24%)}52%{transform:translate(0,-28%)}100%{transform:translate(32%,15%)}}
-.m-hop{animation-name:gift-hop}@keyframes gift-hop{0%{transform:translateY(15%)}52%{transform:translateY(-20%)}100%{transform:translateY(10%)}}
-.m-bounce{animation-name:gift-bounce}@keyframes gift-bounce{0%{transform:scale(.5)}52%{transform:scale(1.18)}100%{transform:scale(1)}}
-.m-unfold{animation-name:gift-unfold}@keyframes gift-unfold{0%{transform:scale(.32) rotate(-22deg)}52%{transform:scale(1.12)}100%{transform:scale(1)}}
-.m-pour{animation-name:gift-pour}@keyframes gift-pour{0%{transform:rotate(0)}52%{transform:rotate(-34deg)}100%{transform:rotate(-8deg)}}
-.m-dance{animation-name:gift-dance}@keyframes gift-dance{0%{transform:rotate(-20deg) translateX(-10%)}52%{transform:rotate(22deg) translateY(-12%)}100%{transform:rotate(-10deg)}}
-.m-recoil{animation-name:gift-recoil}@keyframes gift-recoil{0%{transform:translateX(0)}52%{transform:translateX(12%) rotate(-12deg)}100%{transform:translateX(0)}}
-.m-float{animation-name:gift-float}@keyframes gift-float{0%{transform:translateY(16%) rotate(-10deg)}52%{transform:translateY(-12%) rotate(8deg)}100%{transform:translateY(2%)}}
-.m-drop{animation-name:gift-drop}@keyframes gift-drop{0%{transform:translate(65%,-68%) scale(.5)}52%{transform:translate(0,0)}100%{transform:translate(-36%,28%)}}
-.m-wave{animation-name:gift-wave}@keyframes gift-wave{0%{transform:skewY(-10deg)}52%{transform:skewY(12deg)}100%{transform:skewY(-5deg)}}
-.m-spritz{animation-name:gift-spritz}@keyframes gift-spritz{0%{transform:rotate(-10deg)}52%{transform:translateY(6%) rotate(5deg)}100%{transform:rotate(0)}}
-.m-flutter{animation-name:gift-flutter}@keyframes gift-flutter{0%{transform:translate(-35%,20%) rotate(-14deg)}52%{transform:translate(0,-20%) scaleX(.6)}100%{transform:translate(32%,2%) rotate(13deg)}}
-.t-rise{animation-name:gift-trail-rise}@keyframes gift-trail-rise{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(var(--x),-76px)}}
-.t-drift{animation-name:gift-trail-drift}@keyframes gift-trail-drift{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(55px,var(--x))}}
-.t-pop{animation-name:gift-trail-pop}@keyframes gift-trail-pop{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(var(--x),-38px) scale(1.4)}}
-.t-fall{animation-name:gift-trail-fall}@keyframes gift-trail-fall{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(var(--x),70px) rotate(55deg)}}
-.t-glow{animation-name:gift-trail-glow}@keyframes gift-trail-glow{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(var(--x),-24px) scale(1.35)}}
-.t-exhaust{animation-name:gift-trail-exhaust}@keyframes gift-trail-exhaust{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(-48px,38px) scale(1.45)}}
-.t-breath{animation-name:gift-trail-breath}@keyframes gift-trail-breath{0%{opacity:0;transform:scale(.2)}30%{opacity:.95}100%{opacity:0;transform:translate(75px,var(--x)) scale(1.4)}}
-@media(prefers-reduced-motion:reduce){.gift-stage *{animation-duration:.01ms!important;animation-iteration-count:1!important;animation-delay:0ms!important}.gift-stage{animation:none}}
 
+@media(prefers-reduced-motion:reduce){.bird .wing{animation:none}}
 .clipi-wallet-cards {
   color: #173e38;
   overflow-wrap: anywhere;

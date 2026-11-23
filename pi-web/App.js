@@ -1,3 +1,4 @@
+import GiftMark from './GiftMark';
 import {theme} from './ClipiTheme';
 import MicFace from './MicFace';
 import GoldFrame from './GoldFrame';
@@ -453,7 +454,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const paidNonce=useRef(null),giftSending=useRef(false);
   const [giftTarget,setGiftTarget]=useState(null);
   const [targetProfile,setTargetProfile]=useState(null);
-  const [giftOpen,setGiftOpen]=useState(false),[fx,setFx]=useState(null),[fxId,setFxId]=useState(0),[keyboardOn,setKeyboardOn]=useState(false);
+  const [giftOpen,setGiftOpen]=useState(false),[keyboardOn,setKeyboardOn]=useState(false);
   const roomRef=firestore().collection('rooms').doc(room.id);
   const [legacyChat,setLegacyChat]=useState([]);
   const [legacyMessages,setLegacyMessages]=useState(0);
@@ -465,9 +466,33 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   const [stagePanelVisible,setStagePanelVisible]=useState(false),[blocked,setBlocked]=useState([]);
   const chatRef=useRef(null),sendingRef=useRef(false),roomClosedRef=useRef(false),exitHandledRef=useRef(false),closingByHostRef=useRef(false);
   function exitRoomOnce(){if(!exitHandledRef.current){exitHandledRef.current=true;onExit()}}
+  const [effects,setEffects]=useState([]);
+  const eventCursor=useRef(null);
+  const played=useRef(new Set());
+  function showGift(eventKey,gift){
+    if(!gift||played.current.has(eventKey))return;
+    played.current.add(eventKey);
+    if(played.current.size>256)played.current.delete(played.current.values().next().value);
+    if(!minimized)setEffects(queue=>[...queue,{key:eventKey,gift}]);
+  }
+  const fx=effects[0];
+  function finishGift(){setEffects(queue=>queue.slice(1))}
   const membership=useRoomSession(room.id,username,equipped,entries=>{
-    setFxId(v=>v+1);setFx(['🏎️',ui("دخل الغرفة ")+entries.map(p=>p.name).join('، '),0,entries.some(p=>p.ride)?'car':'party']);
+    const visitors=entries.filter(person=>person.uid!==userId);
+    if(visitors.length)setGiftNotice(ui("دخل الغرفة ")+visitors.map(person=>person.name).join('، '));
   },reason=>{Alert.alert(ui("الغرفة"),reason);exitRoomOnce()},avatar);
+  useEffect(()=>{
+    const events=membership.state?.giftEvents;
+    if(!Array.isArray(events))return;
+    const previous=eventCursor.current;
+    for(const event of events){
+      if(previous!==null&&event.id>previous){
+        showGift(event.sender+'|'+event.nonce,GIFTS.find(gift=>gift[1]===event.gift));
+      }
+    }
+    eventCursor.current=Math.max(previous??0,...events.map(event=>event.id));
+  },[membership.state]);
+  useEffect(()=>{if(minimized)setEffects([])},[minimized]);
   const paidBalance=membership.supportBalance;
   const people=membership.state?.people||[];
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
@@ -549,7 +574,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
       paidNonce.current=null;
       setGiftOpen(false);
       setGiftNotice(ui("أُضيفت الهدية إلى هدف")+' '+selectedPerson.name+' · '+fmt(receipt.diamonds)+' 💎');
-      setFxId(v=>v+1);setFx(gift);
+      showGift(userId+'|'+nonce,gift);
     }catch(error){
       setGiftIssue(error.message==='Purchased diamonds insufficient or host offline'
         ?ui("الرصيد غير كافٍ أو المستلم غادر الغرفة"):error.message);
@@ -927,7 +952,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
         <RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen} onPress={()=>openGifts(defaultRecipient)}/>
       </View>
     </View>
-    {fx&&<div className="room-gift-effect" aria-hidden="true"><GiftFX key={fxId} gift={fx} onDone={()=>setFx(null)}/></div>}
+    {fx&&<div className="room-gift-effect" aria-hidden="true"><GiftFX key={fx.key} gift={fx.gift} muted={speakerMuted||minimized} onDone={finishGift}/></div>}
     <View ref={roomSurface} collapsable={false} pointerEvents={seatMenu?'auto':'none'}
       style={[StyleSheet.absoluteFillObject,{direction:'ltr',zIndex:100,elevation:16}]}
       onLayout={()=>{menuRequest.current++;setSeatMenu(null)}}>
@@ -1579,7 +1604,7 @@ export default function App(){
       goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
       onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
-  if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><Text style={{fontSize:22}}>{g[0]}</Text><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
+  if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
   if(page==='profile')return <HubScreen title={ui('حسابي')}
     action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}

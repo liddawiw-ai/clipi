@@ -33,6 +33,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_host(room TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_lock(room TEXT,slot INTEGER,PRIMARY KEY(room,slot))',
   ...walletSchema,
+  'CREATE INDEX IF NOT EXISTS recent_paid_room_gifts ON paid_room_gift(room)',
   'CREATE INDEX IF NOT EXISTS room_chat_recent ON room_chat(room,id)'
 ];
 let initialized=false;
@@ -270,11 +271,13 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     q('SELECT id,uid AS userUid,name AS userName,text FROM room_chat WHERE room=? ORDER BY id DESC LIMIT 100',room).all(),
     q('SELECT m.id,m.uid AS userUid,m.name AS userName,m.text FROM room_chat_config c JOIN room_chat m ON m.id=c.pin AND m.room=c.room WHERE c.room=?',room).first()
   ]);
+  // Only settled ledger entries can trigger an effect in an authenticated room.
+  const events=await q('SELECT rowid AS id,sender,nonce,gift FROM paid_room_gift WHERE room=? ORDER BY rowid DESC LIMIT 80',room).all();
   const me=people.results.find(person=>person.uid===user);
   if(!me)return json({error:'انتهت جلسة الغرفة'},403);
   const media=op==='join'&&mediaToken?await mediaToken(mayPublish(me,host,type)):undefined;
   const wallet=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
   const theme=await q('SELECT theme FROM room_theme WHERE room=?',room).first();
   const locks=await q('SELECT slot FROM room_lock WHERE room=?',room).all();
-  return json({...(host?{words:JSON.parse(settings.words||'[]')} :{}),pinned:pinned||null,slow:settings.slow,chatRevision:settings.chatRevision,lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),chat:history.results.reverse()});
+  return json({...(host?{words:JSON.parse(settings.words||'[]')} :{}),pinned:pinned||null,slow:settings.slow,chatRevision:settings.chatRevision,lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),giftEvents:events.results.reverse(),chat:history.results.reverse()});
 }

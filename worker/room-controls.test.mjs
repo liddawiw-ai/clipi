@@ -304,6 +304,9 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   assert.equal((await call(second,'poll')).chatRevision,revisionBeforeGift);
   assert.deepEqual(credited.receipt,{nonce:routed.nonce,recipient:routed.recipient,gift:routed.gift,diamonds:routed.cost});
   assert.deepEqual((await call(second,'paidGift',routed)).receipt,credited.receipt);
+  const giftAudience=await call('host','poll');
+  assert.equal(giftAudience.giftEvents.filter(e=>e.sender===second&&e.nonce===routed.nonce&&e.gift===routed.gift).length,1);
+  assert.equal((await call('host','message',{text:'🎁 وردة زرقاء · 30 💎'})).giftEvents.length,giftAudience.giftEvents.length);
   assert.equal((await call(second,'paidGift',{...routed,recipient:'host'})).status,409);
   assert.equal((await readWallet(q,second)).diamonds,980);
   assert.equal((await readWallet(q,'u0')).progress,10);

@@ -91,7 +91,9 @@ export async function accountCheckout(env,uid,input,origin){
    const app={PLAY_STORE:env.RC_ANDROID_APP_ID,APP_STORE:env.RC_APPLE_APP_ID}[input.store];
    if(!app||!env.RC_WEBHOOK_SECRET)return json({error:'لم يُفعّل ربط المتجر بعد'},503);
    await q('INSERT OR IGNORE INTO native_store_account(id,uid) VALUES(?,?)',crypto.randomUUID(),uid).run();
-   return json(await q('SELECT id FROM native_store_account WHERE uid=?',uid).first());
+   const account=await q('SELECT id FROM native_store_account WHERE uid=?',uid).first();
+   const key=input.store==='PLAY_STORE'?env.RC_GOOGLE_PUBLIC_KEY:env.RC_APPLE_PUBLIC_KEY;
+   return json({...account,publicKey:/^(goog|appl)_[a-zA-Z0-9]+$/.test(key||'')?key:undefined});
   }
   if(input.op==='externalOrders'){
     const pending="SELECT o.* FROM native_checkout o LEFT JOIN diamond_purchase d ON d.payment='native:'||o.method||':'||o.payment WHERE o.uid=? AND d.payment IS NULL AND o.payment IS NOT NULL";

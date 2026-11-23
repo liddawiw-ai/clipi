@@ -1,3 +1,4 @@
+import GiftMark from './GiftMark';
 import {theme} from './ClipiTheme';
 import React, {useRef, useState} from 'react';
 import {Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
@@ -64,7 +65,7 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
         <TouchableOpacity key={gift[1]} accessibilityRole="button" accessibilityState={{selected:selected===gift}}
           disabled={pending} onPress={()=>setSelected(gift)} style={[s.gift,selected===gift&&s.selectedGift]}>
           {selected===gift&&<Text accessible={false} style={s.check}>✓</Text>}
-          <Text style={s.giftIcon}>{gift[0]}</Text>
+          <GiftMark gift={gift} size={25}/>
           <Text numberOfLines={2} style={s.giftName}>{translate(gift[1])}</Text>
           <Text style={s.price}>{gift[2]} 💎</Text>
         </TouchableOpacity>
