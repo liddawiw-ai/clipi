@@ -27,7 +27,7 @@ assert(configured.android.package===configured.ios.bundleIdentifier, 'App identi
 assert(source.includes('blockedUsers.map(uid=>')&&source.includes('unblockUser'), 'Blocked-user management missing');
 assert(source.includes('roomSearch')&&source.includes('blockedUsers.includes(r.ownerUid)'), 'Room discovery safety missing');
 assert(source.includes('FACEBOOK_CONFIGURED')&&source.includes('busy||!FACEBOOK_CONFIGURED'), 'Disabled OAuth guard missing');
-assert(source.includes('canPublish&&state===ConnectionState.Connected')&&source.includes('canPublish={isHost||isGuest}'), 'Viewer camera guard missing');
+assert(source.includes('canPublish&&state===ConnectionState.Connected')&&source.includes('canPublish={videoCanPublish}')&&source.includes('videoCanPublish=isHost?(self?.seat??0)>=0:isGuest'), 'Viewer camera guard missing');
 assert(source.includes('const update={avatar:photo,updatedAt:')&&source.includes('transaction.set(profile,update,{merge:true})')&&source.includes('onPhoto={pickAccountPhoto}'), 'Profile avatar save missing');
 assert(!source.includes('roomPass')&&!source.includes('joinPass')&&!source.includes("page==='password'"), 'Unsupported password-room UI remains');
 assert(source.includes('الغرفة عامة للمستخدمين المسجلين'), 'Public-room disclosure missing');
