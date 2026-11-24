@@ -111,7 +111,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
   const stack=groups.find(g=>g.key===open && g.pieces.filter(permitted).length>1);
   useEffect(()=>{setOpen(null);},[game.turn,game.die,game.note,game.winner]);
   function label(p){
-    return 'الحجر '+seats[corner(game,p.seat)].name+' '+arabic[p.piece]+(p.progress<0?' في القاعدة':'');
+    return appText('الحجر')+' '+appText(seats[corner(game,p.seat)].name)+' '+String(p.piece+1)+(p.progress<0?' '+appText('في القاعدة'):'');
   }
   function select(p){
     setOpen(null);

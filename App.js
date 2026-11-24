@@ -237,7 +237,7 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onShop,onRe
             <Animated.View style={[StyleSheet.absoluteFillObject,{transform:[{rotate:angle}]}]}>
             {FOOD.map((food,i)=>{
               const position=(i*360/FOOD.length-90)*Math.PI/180;
-              return <TouchableOpacity key={i} accessibilityLabel={food[1]} disabled={!state.betting} onPress={()=>choose(i)}
+              return <TouchableOpacity key={i} accessibilityLabel={appText(food[1])} disabled={!state.betting} onPress={()=>choose(i)}
                 style={[S.starFood,{width:foodSize,height:foodSize,borderRadius:foodSize/2,
                   left:mid+Math.cos(position)*radius-foodSize/2,top:mid+Math.sin(position)*radius-foodSize/2},
                   (state.phase==='result'&&state.winner===i||Boolean(chosen[i]))&&S.starFoodLit]}>
@@ -252,11 +252,11 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onShop,onRe
             </View>
             {state.phase!=='betting'&&<Text pointerEvents="none" style={[S.gamePointer,{top:0,left:mid-10,zIndex:10,elevation:10}]}>▼</Text>}
           </View>
-          {roundHistory.map(h=><Text key={h.round} style={S.gameHistory}>#{h.round} · {FOOD[h.winner][1]}</Text>)}
+          {roundHistory.map(h=><Text key={h.round} style={S.gameHistory}>#{h.round} · {appText(FOOD[h.winner][1])}</Text>)}
         </ScrollView>
         <View style={S.gameFooter}>
           <Text style={S.gameMeta} accessibilityLiveRegion="polite">
-            {state.phase==='result'?appText('الفائز: ')+FOOD[state.winner][1]+' ×'+FOOD[state.winner][2]:
+            {state.phase==='result'?appText('الفائز: ')+appText(FOOD[state.winner][1])+' ×'+FOOD[state.winner][2]:
               state.betting?appText('اختر حتى 6 خانات · ألماس تجريبي'):appText('العجلة تدور · المراهنة مغلقة')}
           </Text>
           <View style={S.gameAmounts}>{[10,100,500,1000,10000].map(n=>
@@ -1385,15 +1385,15 @@ export default function App(){
   }
   function phoneAuthMessage(e){
     if(/billing[-_ ]not/i.test(`${e?.code||''} ${e?.message||''}`)){
-      return 'رموز SMS غير متاحة حاليًا لأن الفوترة غير مفعّلة لدى مزوّد تسجيل الدخول.';
+      return appText('رموز SMS غير متاحة حاليًا لأن الفوترة غير مفعّلة لدى مزوّد تسجيل الدخول.');
     }
     switch(e?.code){
-      case 'auth/invalid-phone-number': return 'رقم الهاتف غير صحيح. تحقق من رمز الدولة والرقم.';
-      case 'auth/too-many-requests': return 'محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.';
-      case 'auth/quota-exceeded': return 'تم تجاوز حد رسائل التحقق. حاول لاحقًا.';
-      case 'auth/invalid-verification-code': return 'رمز التحقق غير صحيح.';
-      case 'auth/code-expired': return 'انتهت صلاحية الرمز. اطلب رمزًا جديدًا.';
-      case 'auth/network-request-failed': return 'تعذر الاتصال بالشبكة. تحقق من الإنترنت.';
+      case 'auth/invalid-phone-number': return appText('رقم الهاتف غير صحيح. تحقق من رمز الدولة والرقم.');
+      case 'auth/too-many-requests': return appText('محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.');
+      case 'auth/quota-exceeded': return appText('تم تجاوز حد رسائل التحقق. حاول لاحقًا.');
+      case 'auth/invalid-verification-code': return appText('رمز التحقق غير صحيح.');
+      case 'auth/code-expired': return appText('انتهت صلاحية الرمز. اطلب رمزًا جديدًا.');
+      case 'auth/network-request-failed': return appText('تعذر الاتصال بالشبكة. تحقق من الإنترنت.');
       default: return e?.message||'حدث خطأ في التحقق. حاول مرة أخرى.';
     }
   }
@@ -1746,7 +1746,7 @@ export default function App(){
   </>,()=>go('earnings'));
 
   if(page==='store')return <HubScreen title={appText("المتجر")} action={{label:appText("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
-    <ClipiCollection copy={{store:"المتجر",frame:"إطارات",ride:"مؤثرات الدخول",numbers:"أرقام مميزة",owned:"مقتنياتي",buy:"شراء",equip:"تفعيل",remove:"إزالة",retry:"إعادة تحميل الأرقام",translate:x=>x}}
+    <ClipiCollection copy={{store:"المتجر",frame:"إطارات",ride:"مؤثرات الدخول",numbers:"أرقام مميزة",owned:"مقتنياتي",buy:"شراء",equip:"تفعيل",remove:"إزالة",retry:"إعادة تحميل الأرقام",translate:appText}}
       goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
       onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
@@ -1779,7 +1779,7 @@ export default function App(){
       settings={[{label:appText("استعراض الغرف"),onPress:()=>go('rooms')},{label:appText("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
-    newId={Crypto.randomUUID} lang={'ar'} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
+    newId={Crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
   if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:()=>go('accountSettings')}} dock={nav()}>
     <HubRows items={Object.entries(accountLabels).map(([code,labels])=>({
       label:(code===locale?'✓ ':'')+labels.languageName,onPress:()=>selectLanguage(code)
@@ -1820,7 +1820,7 @@ export default function App(){
         </TouchableOpacity>})}
         <View style={S.starCenter}><Text style={S.starCenterTop}>{phase==='betting'?appText('حدد الوقت'):phase==='spinning'?appText('تدور العجلة'):appText('النتيجة')}</Text><Text style={S.starCenterTime}>{phase==='betting'?seconds+'S':phase==='spinning'?'⭐':gameResult?gameResult.item[0]:'★'}</Text></View>
       </View>
-      <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+gameResult.item[1]+' · '+fmt(gameResult.prize)+appText(' 💎 تجريبي'):appText('اختر مقدار الماسة، ثم اضغط على الطعام')}</Text></View>
+      <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+appText(gameResult.item[1])+' · '+fmt(gameResult.prize)+appText(' 💎 تجريبي'):appText('اختر مقدار الماسة، ثم اضغط على الطعام')}</Text></View>
       <View style={S.starBetTray}>{[10000,1000,500,100,10].map(n=><TouchableOpacity key={n} onPress={()=>setBetAmount(n)} style={[S.starBetChip,betAmount===n&&S.starBetActive]}><Text style={S.starBetText}>{n} 💎</Text></TouchableOpacity>)}</View>
       <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>{appText("الماس المتبقي")}</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert(appText('السجل'),history.length?history.map(h=>h.item[0]+' '+h.item[1]+' — '+h.prize+' 💎').join('\n'):appText('لا توجد جولات بعد'))}><Text style={S.starInfoText}>{appText("سجلاتي")}</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>{appText("مجموع الجولة")}</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
       <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
