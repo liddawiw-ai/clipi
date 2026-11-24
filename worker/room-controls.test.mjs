@@ -22,6 +22,38 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
+  await t.test('host cards separate room totals from lifetime received and sent diamonds',async t=>{
+    await roomStore(db);
+    sql.exec('SAVEPOINT host_card');
+    t.after(()=>sql.exec('ROLLBACK TO host_card; RELEASE host_card'));
+    const owner='card-owner',viewer='card-guest',room='card-audio';
+    const action=(uid,op,extra={})=>call(uid,op,extra,'/room-control',room,owner);
+    await action(owner,'join',{avatar:'🌸'});
+    assert.equal((await action(viewer,'hostCard',{details:true})).status,403);
+    await action(viewer,'join');
+    assert.deepEqual(await action(viewer,'hostCard',{includeAvatar:true}),{status:200,avatar:'🌸'});
+    const read=async()=>({...((await action(viewer,'hostCard',{details:true,ownerUid:viewer})).totals)});
+    assert.deepEqual(await read(),{room:0,received:0,sent:0});
+    const paid=sql.prepare('INSERT OR IGNORE INTO paid_room_gift VALUES(?,?,?,?,?,?,0)');
+    paid.run(viewer,'a',room,owner,'gift',950);
+    paid.run(viewer,'a',room,owner,'gift',950);
+    paid.run('donor','a',room,viewer,'gift',1500);
+    paid.run(owner,'b',room,viewer,'gift',350);
+    paid.run(owner,'c','card-video',viewer,'gift',2000);
+    paid.run(owner,'d','short/clip','','gift',500);
+    paid.run('donor','b','card-video',owner,'gift',50);
+    // Restored duplicate receipts retain the current ledger value.
+    const old=sql.prepare('INSERT INTO diamond_gift VALUES(?,?,?,?,?,?)');
+    old.run(viewer,'a',room,owner,'gift',950);
+    old.run('legacy','e',room,owner,'gift',100);
+    const support=sql.prepare('INSERT INTO support_gift VALUES(?,?,?,?,?)');
+    support.run('legacy','e',room,owner,100);
+    support.run('legacy','f',room,owner,50);
+    assert.deepEqual(await read(),{room:2950,received:1150,sent:2350});
+    await action(owner,'stepDown');
+    assert.deepEqual(await read(),{room:2950,received:1150,sent:2350});
+    assert.equal((await action(viewer,'hostCard',{session:crypto.randomUUID(),details:true})).status,403);
+  });
   await t.test('room chat settings, word filtering and pinned deletion persist across sessions',async()=>{
     const room='audit-room',owner='audit-host',viewer='audit-viewer';
     const action=(uid,op,extra={})=>call(uid,op,extra,'/room-control',room,owner);

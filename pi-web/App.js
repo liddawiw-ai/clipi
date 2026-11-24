@@ -1,3 +1,4 @@
+import RoomHostCard from './RoomHostCard';
 import {accountLabels} from './AccountLabels';
 import ProfileGames from './ProfileGames';
 import TrialWallet from './TrialWallet';
@@ -452,7 +453,7 @@ const mediaStyles=StyleSheet.create({
   controls:{flexDirection:'row',alignSelf:'flex-end',gap:6,marginHorizontal:8,backgroundColor:theme.glass,borderRadius:14},
 });
 
-function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onWallet,minimized}){
+function Room({room,locale,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onWallet,minimized}){
   const [gamePanel,setGamePanel]=useState(null);
   const [micBottom,setMicBottom]=useState(0);
   const [roomHeight,setRoomHeight]=useState(0);
@@ -909,7 +910,10 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
     {shareSheet}
     <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
     <View style={[S.roomTop,!audio&&S.videoChrome]}>
-      <View style={S.roomTopRow}>
+      <View style={[S.roomTopRow,audio&&{direction:'ltr'}]}>
+        {audio&&!minimized&&<RoomHostCard hostName={people.find(p=>p.uid===room.ownerUid)?.name||room.ownerName||room.host}
+          ownAvatar={isHost?avatar:null} locale={locale} act={membership.act}
+          lastGiftId={membership.state?.giftEvents?.slice(-1)[0]?.id}/>}
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={S.roomControlGlyph}>✕</Text></TouchableOpacity>
         <View style={S.roomIdentity}>
           <Text style={S.roomName} numberOfLines={1}>{room.name}</Text>
@@ -1753,7 +1757,7 @@ export default function App(){
   }
   return <View style={{flex:1}}>{renderPage()}
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
-    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
+    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} room={activeRoom} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {mini&&activeRoom&&<WindowControl label={ui("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:72}} onPress={()=>setMini(false)}/>}
   </View>;

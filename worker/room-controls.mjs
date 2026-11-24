@@ -51,6 +51,20 @@ const tables = [
   ...shortSchema,
   ...tableSchema,
   'CREATE INDEX IF NOT EXISTS recent_paid_room_gifts ON paid_room_gift(room)',
+  'CREATE INDEX IF NOT EXISTS diamond_gift_by_room ON diamond_gift(room)',
+  'CREATE INDEX IF NOT EXISTS diamond_gift_by_recipient ON diamond_gift(recipient)',
+  'CREATE INDEX IF NOT EXISTS support_gift_by_room ON support_gift(room)',
+  'CREATE INDEX IF NOT EXISTS support_gift_by_recipient ON support_gift(recipient)',
+  // Prefer the latest ledger if an imported historical receipt appears in two formats.
+  `CREATE VIEW IF NOT EXISTS room_level_gifts AS
+    SELECT sender,room,host AS recipient,cost FROM paid_room_gift WHERE host<>'' AND room NOT LIKE 'short/%'
+    UNION ALL
+    SELECT d.sender,d.room,d.recipient,d.cost FROM diamond_gift d
+      WHERE NOT EXISTS (SELECT 1 FROM paid_room_gift p WHERE p.sender=d.sender AND p.nonce=d.nonce)
+    UNION ALL
+    SELECT s.sender,s.room,s.recipient,s.cost FROM support_gift s
+      WHERE NOT EXISTS (SELECT 1 FROM paid_room_gift p WHERE p.sender=s.sender AND p.nonce=s.nonce)
+        AND NOT EXISTS (SELECT 1 FROM diamond_gift d WHERE d.sender=s.sender AND d.nonce=s.nonce)`,
   'CREATE INDEX IF NOT EXISTS room_chat_recent ON room_chat(room,id)'
 ];
 let initialized=false;
@@ -84,8 +98,8 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
-  if(!['join','poll','leave','move','stepDown','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','pinMessage','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient'].includes(op))return json({error:'طلب غير صالح'},400);
-  if(!host&&['join','poll'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
+  if(!['join','poll','leave','move','stepDown','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','pinMessage','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient','hostCard'].includes(op))return json({error:'طلب غير صالح'},400);
+  if(!host&&['join','poll','hostCard'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
@@ -114,6 +128,23 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='join'&&typeof input.avatar==='string'&&input.avatar.length<=620000&&
       (/^data:image\/jpeg;base64,\/9j\/[A-Za-z0-9+/]+=*$/.test(input.avatar)||Array.from(input.avatar).length<=4)){
     await q('INSERT OR REPLACE INTO gift_avatar VALUES(?,?)',user,input.avatar).run();
+  }
+  if(op==='hostCard'){
+    if(type!=='audio'||!ownerUid)return json({error:'بطاقة المضيف متاحة في الغرفة الصوتية'},400);
+    const result={};
+    if(input.includeAvatar===true){
+      const photo=await q(`SELECT COALESCE(
+        (SELECT NULLIF(avatar,'') FROM gift_avatar WHERE uid=?),
+        (SELECT avatar FROM short_profile WHERE uid=?),'') AS avatar`,ownerUid,ownerUid).first();
+      result.avatar=photo.avatar;
+    }
+    if(input.details===true){
+      result.totals=await q(`SELECT
+        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE room=?) AS room,
+        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE recipient=?) AS received,
+        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE sender=?) AS sent`,room,ownerUid,ownerUid).first();
+    }
+    return json(result);
   }
   if(op==='giftRecipient'){
     if(typeof input.recipient!=='string')return json({error:'اختر مستلمًا للهدية'},400);
