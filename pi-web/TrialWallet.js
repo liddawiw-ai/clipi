@@ -1,4 +1,4 @@
-import {uiError,ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {Pressable,Text,View} from 'react-native';
 
@@ -35,13 +35,13 @@ export default function TrialWallet({request,nonce,gifts,Game}){
     {info('المحفظة التجريبية')}
     {issue&&info(issue)}{!wallet&&<Choice onPress={refresh}>{appText("تحديث الرصيد التجريبي")}</Choice>}
     {wallet&&<>
-      {wallet.owner!=null&&<Choice onPress={()=>setBucket('owner')}>{(bucket==='owner'?'✓ ':'')+appText('منحة المالك · ')+wallet.owner.toLocaleString()+' 💎'}</Choice>}
-      <Choice onPress={()=>setBucket('sandbox')}>{(bucket==='sandbox'?'✓ ':'')+appText('رصيد الشحن التجريبي · ')+wallet.sandbox.toLocaleString()+' 💎'}</Choice>
+      {wallet.owner!=null&&<Choice onPress={()=>setBucket('owner')}>{(bucket==='owner'?'✓ ':'')+appText('منحة المالك · ')+wallet.owner.toLocaleString(interfaceLocale())+' 💎'}</Choice>}
+      <Choice onPress={()=>setBucket('sandbox')}>{(bucket==='sandbox'?'✓ ':'')+appText('رصيد الشحن التجريبي · ')+wallet.sandbox.toLocaleString(interfaceLocale())+' 💎'}</Choice>
       <Choice disabled>{appText("الدفع الحقيقي بالدولار · غير مفعّل هنا")}</Choice>
       {info('اختر باقة وطريقة شحن تجريبية')}
       <View style={{flexDirection:'row-reverse',gap:6}}>{[1,5,10].map(d=><Choice key={d} onPress={()=>setUsd(d)}>{(usd===d?'✓ ':'')+'$'+d}</Choice>)}</View>
       <View style={{flexDirection:'row-reverse',gap:6}}>{[['card','بطاقة تجريبية'],['wallet','محفظة تجريبية']].map(([k,title])=><Choice key={k} onPress={()=>setMethod(k)}>{(method===k?'✓ ':'')+appText(title)}</Choice>)}</View>
-      <Choice onPress={()=>apply('trialTopup',{usd,method},appText('أُضيفت ') +(usd*1000).toLocaleString()+appText(' ماسة تجريبية'))}>{appText('محاكاة شحن ')+usd+appText(' دولار · ')+(usd*1000).toLocaleString()+' 💎'}</Choice>
+      <Choice onPress={()=>apply('trialTopup',{usd,method},appText('أُضيفت ') +(usd*1000).toLocaleString(interfaceLocale())+appText(' ماسة تجريبية'))}>{appText('محاكاة شحن ')+usd+appText(' دولار · ')+(usd*1000).toLocaleString(interfaceLocale())+' 💎'}</Choice>
       <Choice onPress={()=>setShowGifts(v=>!v)}>{appText("تجربة هدية")}</Choice>
       {showGifts&&gifts.map(g=><Choice key={g[1]} onPress={()=>apply('trialGift',{gift:g[1]},appText('ظهرت ')+g[0]+' '+appText(g[1])+appText(' في المعاينة'))}>{g[0]+' '+appText(g[1])+' · '+g[2]+' 💎'}</Choice>)}
       <Choice onPress={()=>setPlaying(true)}>{appText("العب Greedy Star بالرصيد التجريبي")}</Choice>

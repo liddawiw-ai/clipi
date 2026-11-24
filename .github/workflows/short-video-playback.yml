@@ -1,0 +1,24 @@
+name: Short-video playback in Chrome
+on:
+  push:
+    branches: [work/clipi-testnet-gifts]
+    paths:
+      - 'pi-web/**'
+      - '.github/workflows/short-video-playback.yml'
+permissions:
+  contents: read
+jobs:
+  playback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: pi-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: npm install --prefix "$RUNNER_TEMP/browser-test" playwright-core@1.56.1 --no-audit --no-fund
+      - run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser-test/node_modules/playwright-core" node tests/browser/check-playback.mjs

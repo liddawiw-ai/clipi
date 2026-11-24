@@ -1,4 +1,4 @@
-import {uiError,ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {BalanceCard} from './ClipiSurfaces';
 import React,{useState,useEffect,useRef} from 'react';
 import {auth,piSdk} from './services';
@@ -93,7 +93,7 @@ export function DiamondWallet({uid,onHelp}){
     {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}{p.reversed?' · '+appText('ماس مسترد')+' '+p.reversed:''}</p>)}
     <button onClick={onHelp}>{appText('مشكلة في عملية شراء')}</button>
     <h3 id="clipi-packs">{appText('شراء الماس')}</h3>
-    {paymentPiUid?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} PI</button>):<p>{appText('ادخل بحساب PI لشراء الماس')}</p>}
+    {paymentPiUid?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString(interfaceLocale())} 💎 · {packPrice(n)} PI</button>):<p>{appText('ادخل بحساب PI لشراء الماس')}</p>}
     <p role="status">{appText(message)}</p><h3>{appText('آخر الهدايا المدفوعة')}</h3>
     {data?.history.map((g,i)=><p key={g.receipt?g.sender+g.receipt:i}>{uid===g.host?appText('واردة'):appText('مرسلة')} · {appText(g.gift)} · {g.cost} 💎 · {g.units?appText('رصيد سابق')+' '+g.units/20+' PI':appText('ماسات للمكافأة')+' '+rewardDiamonds(g.cost)} · {appText('غرفة')} {g.room} · {g.receipt}</p>)}
   </section>

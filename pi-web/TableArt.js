@@ -1,3 +1,4 @@
+import {ui} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {AccessibilityInfo,Image,Pressable,StyleSheet,Text,View} from 'react-native';
 import {cardName} from './TableRules.mjs';
@@ -20,7 +21,7 @@ function Sprite({source,frame,columns,rows,width,height}){
 }
 
 function cardLabel(rank,suit){
-  return 'ورقة '+cardName(rank)+(Object.hasOwn(suitNames,suit)?' '+suitNames[suit]:'');
+  return ui('ورقة')+' '+cardName(rank)+(Object.hasOwn(suitNames,suit)?' '+ui(suitNames[suit]):'');
 }
 export function CardFace({rank,suit,width=49}){
   const height=width*190/140;
@@ -28,7 +29,7 @@ export function CardFace({rank,suit,width=49}){
   return <View style={[styles.legacyCard,{width,height}]}><Text style={styles.rank}>{cardName(rank)}</Text></View>;
 }
 export function LastCard({card,player}){
-  const label='آخر ورقة · '+player;
+  const label=ui('آخر ورقة')+' · '+player;
   return <View accessible accessibilityLabel={label+'، '+cardLabel(card.rank,card.suit)}
     style={{flexDirection:'row-reverse',gap:8,alignItems:'center',marginTop:2}}>
     <CardFace rank={card.rank} suit={card.suit} width={30}/>
@@ -67,7 +68,7 @@ export function Die({value,rollKey}){
   },[rollKey,motionLimited]);
   if(!value&&step<0)return null;
   const [face,rotation,rise]=step<0?[value,0,0]:tumbleFrames[step];
-  return <View accessible accessibilityLabel={value?'نتيجة النرد '+value:'جارٍ رمي النرد'}
+  return <View accessible accessibilityLabel={value?ui('نتيجة النرد')+' '+value:ui('جارٍ رمي النرد')}
     style={{transform:[{translateY:rise},{rotate:rotation+'deg'}]}}>
     <Sprite source={dice} frame={face-1} columns={3} rows={2} width={41} height={41}/>
   </View>;

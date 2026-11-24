@@ -94,7 +94,7 @@ function IdentityCard({name,avatar,number,onPhoto,photoLabel,followAction,childr
       <View style={s.photoColumn}><AccountPhoto avatar={avatar} onPress={onPhoto} label={photoLabel}/>{followAction}</View>
       <View style={{flex:1}}>
         <Text style={s.profileName} numberOfLines={2}>{name}</Text>
-        {(number!=null||onPhoto)&&<Text style={s.profileId}>ID · {number??'…'}</Text>}
+        {(number!=null||onPhoto)&&<Text style={s.profileId}>{appText('معرّف الحساب')} · {number??'…'}</Text>}
       </View>
     </View>
     {children}
