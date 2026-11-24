@@ -1,3 +1,4 @@
+import {accountLabels} from './AccountLabels';
 import ProfileGames from './ProfileGames';
 import TrialWallet from './TrialWallet';
 import AgencyScreen from './AgencyScreen';
@@ -1017,6 +1018,7 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
 export default function App(){
   const [locale,setLocale]=useState(()=>readLocale(()=>window.localStorage)||'en');
   const words=languages[locale]||languages.en;
+  const menu=accountLabels[locale]||accountLabels.en;
   useEffect(()=>setInterfaceLanguage(locale),[locale]);
   function pickLocale(code){
     saveLocale(()=>window.localStorage,code);
@@ -1659,29 +1661,25 @@ export default function App(){
   if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:()=>go('home')}} dock={nav()}>
     <ProfileShorts key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid} translate={ui}/>
   </HubScreen>;
-  if(page==='profileGames')return <HubScreen title={'ألعاب'} action={{label:'رجوع إلى حسابي',onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
-  if(page==='agencies')return <HubScreen title={'الوكالات'} action={{label:'رجوع',onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
-  if(page==='profile')return <HubScreen title={ui('حسابي')}
-    action={{label:ui('الإعدادات'),onPress:()=>go('accountSettings')}} dock={nav()}>
+  if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
+  if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
+  if(page==='profile')return <HubScreen title={menu.account}
+    action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
-      balance={visibleNumber?.purchasedDiamonds} copy={{balance:ui('الماس المشترى'),photo:ui('الصورة الشخصية')}}
+      balance={visibleNumber?.purchasedDiamonds} copy={{balance:menu.balance,photo:ui('الصورة الشخصية')}}
+      compactShortcuts
       shortcuts={[
-        {icon:'♧',label:'الوكالات',onPress:()=>go('agencies')},
-        {icon:'◇',label:ui('المحفظة'),onPress:()=>go('wallet')},
-        {icon:'#',label:ui('المتجر'),onPress:()=>go('store')},
-
-        {icon:'♫',label:ui("الغرف"),onPress:()=>go('rooms')},
-        {icon:'✦',label:ui("مركز المضيف"),onPress:()=>go('hostCenter')},
-      ]}
-      settings={[
-        {label:'ألعاب',onPress:()=>go('profileGames')},
-        {label:ui('تعديل الملف الشخصي'),onPress:()=>go('profileEdit')},
-        {label:ui('الإعدادات'),onPress:()=>go('accountSettings')},
+        {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},
+        {icon:'◇',label:menu.wallet,onPress:()=>go('wallet')},
+        {icon:'#',label:menu.shop,onPress:()=>go('store')},
+        {icon:'♫',label:menu.rooms,onPress:()=>go('rooms')},
+        {icon:'✦',label:menu.host,onPress:()=>go('hostCenter')},
+        {icon:'🎮',label:menu.games,onPress:()=>go('profileGames')},
       ]}>
       <ProfileShorts key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} translate={ui}/>
     </AccountHub>
   </HubScreen>;
-  if(page==='hostCenter')return <HubScreen title={ui("مركز المضيف")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
+  if(page==='hostCenter')return <HubScreen title={menu.host} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui("مستخدم")} avatar={avatar} number={visibleNumber?.number}
       balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:ui("غرفي المفتوحة"),photo:ui("الصورة الشخصية")}} unit="♫"
       shortcuts={[{icon:'＋',label:ui("إنشاء غرفة"),onPress:()=>go('create')},{icon:'◇',label:ui("المحفظة"),onPress:()=>go('wallet')}]}
@@ -1693,13 +1691,13 @@ export default function App(){
     <LinkPiAccount key={user.uid} uid={user.uid} linked={visibleNumber?.piLoginLink==='linked'} onDone={confirmed=>{go('profile');if(confirmed)Alert.alert(ui('تم ربط الحسابين'));}}/>
   </HubScreen>;
   if(page==='accountSettings'){
-    return <HubScreen title={ui('الإعدادات')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}>
-      <LanguageDropdown selected={locale} onPick={pickLocale} label={ui('تغيير اللغة')}/>
+    return <HubScreen title={menu.settings} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+      <LanguageDropdown selected={locale} onPick={pickLocale} label={menu.changeLanguage}/>
       <HubRows items={[
+        {label:menu.edit,onPress:()=>go('profileEdit')},
         ...(window.Pi&&visibleNumber?.piLoginLink?[{label:ui('ربط حساب Pi بحساب البريد'),onPress:()=>go('linkPiAccount')}]:[]),
         {label:ui('الدعم وطلباتي'),onPress:()=>go('help')},
         {label:ui('طلب حذف الحساب'),destructive:true,onPress:deleteAccount},
-        {label:ui('الملف الشخصي والحسابات المحظورة'),onPress:()=>go('profileEdit')},
         {label:ui('سياسة الخصوصية'),onPress:()=>setPolicy('privacy')},
         {label:ui('شروط الخدمة'),onPress:()=>setPolicy('terms')},
         {label:ui('مشاركة Clipi'),onPress:()=>Share.share({message:location.origin+'/'}).catch(()=>Alert.alert(ui('تعذرت المشاركة')))},
@@ -1712,7 +1710,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(ui("الملف الشخصي"),<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('profile'));
+  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>
