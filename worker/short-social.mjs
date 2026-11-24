@@ -30,8 +30,8 @@ export async function socialComments(q,uid,input,json,owner) {
   if(op==='shortCommentLike'){
     const id=Number(input.commentId);
     if(typeof input.liked!=='boolean'||!Number.isSafeInteger(id)||!await q('SELECT 1 FROM short_comment WHERE clip=? AND rowid=?',clip,id).first())return json({error:'التعليق غير متاح'},404);
-    if(input.liked)await q('INSERT OR IGNORE INTO short_comment_heart(comment_id,uid) VALUES(?,?)',id,uid).run();
-    else await q('DELETE FROM short_comment_heart WHERE comment_id=? AND uid=?',id,uid).run();
+    if(input.liked)await q('INSERT OR IGNORE INTO short_comment_heart(comment_id,uid) SELECT rowid,? FROM short_comment WHERE rowid=? AND clip=?',uid,id,clip).run();
+    else await q('DELETE FROM short_comment_heart WHERE comment_id=? AND uid=? AND EXISTS(SELECT 1 FROM short_comment WHERE rowid=? AND clip=?)',id,uid,id,clip).run();
     const result=await q('SELECT COUNT(*) AS likes,COALESCE(MAX(uid=?),0) AS liked,COALESCE(MAX(uid=?),0) AS creatorLiked FROM short_comment_heart WHERE comment_id=?',uid,owner,id).first();
     return json({...result,id});
   }
@@ -43,11 +43,13 @@ export async function socialComments(q,uid,input,json,owner) {
     if((!body&&!media)||body.length>450||!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(String(input.nonce))||!(media===''||reactionIds.has(media)||isJpeg(media,85000)))return json({error:'تعذّر قبول التعليق أو المرفق'},400);
     await saveShortProfile(q,uid,input.profile);
     // Metadata is written first. A partial attempt is invisible to readers until the comment exists.
-    await q('INSERT OR IGNORE INTO short_comment_meta(uid,nonce,clip,parent,created,media) VALUES(?,?,?,?,?,?)',uid,input.nonce,clip,parent,Date.now(),media).run();
+    await q('INSERT OR IGNORE INTO short_comment_meta(uid,nonce,clip,parent,created,media) SELECT ?,?,?,?,?,? WHERE ? OR EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)',uid,input.nonce,clip,parent,Date.now(),media,owner==='clipi:official'?1:0,clip).run();
     const stored=await q('SELECT clip,parent,media FROM short_comment_meta WHERE uid=? AND nonce=?',uid,input.nonce).first();
+    if(!stored)return json({error:'الفيديو غير متاح'},404);
     if(stored.clip!==clip||stored.parent!==parent||stored.media!==media)return json({error:'طلب إرسال مختلف'},409);
-    await q('INSERT OR IGNORE INTO short_comment(clip,uid,nonce,body) VALUES(?,?,?,?)',clip,uid,input.nonce,body).run();
+    await q('INSERT OR IGNORE INTO short_comment(clip,uid,nonce,body) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM short_comment_meta WHERE uid=? AND nonce=? AND clip=?)',clip,uid,input.nonce,body,uid,input.nonce,clip).run();
     const existing=await q('SELECT clip,body FROM short_comment WHERE uid=? AND nonce=?',uid,input.nonce).first();
+    if(!existing)return json({error:'الفيديو غير متاح'},404);
     if(existing.clip!==clip||existing.body!==body)return json({error:'طلب إرسال مختلف'},409);
   }
   const before=Number(input.before)||Number.MAX_SAFE_INTEGER;

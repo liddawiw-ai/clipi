@@ -3,7 +3,7 @@ import {starterVideo} from './video-storage.mjs';
 import {profileTables} from './profile-tables.mjs';
 import {trialAccount} from './trial-diamonds.mjs';
 import {agencyAccount} from './agencies.mjs';
-import {shortAccount,receiveShort,serveShort} from './short-videos.mjs';
+import {shortAccount,receiveShort,serveShort,deleteShort} from './short-videos.mjs';
 import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
 import {readWallet} from './diamond-wallet.mjs';
@@ -77,6 +77,7 @@ export default {
       if(typeof input?.op==='string'&&input.op.startsWith('table'))return profileTables(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('trial'))return trialAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      if(input?.op==='shortDelete')return deleteShort(await roomStore(env.PI_GIFTS_DB),uid,input.clip,json,env.SHORT_VIDEOS,env.CLIP_MEDIA);
       if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.CLIP_MEDIA || env.SHORT_VIDEOS));
       if(['externalCreate','externalOrders','externalStoreAccount'].includes(input?.op))return accountCheckout(env,uid,input,new URL(request.url).origin);
       if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){

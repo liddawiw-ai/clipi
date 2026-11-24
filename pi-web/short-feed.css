@@ -52,3 +52,8 @@ button.clipi-feed-live{pointer-events:auto;display:inline-flex;align-items:cente
 .clipi-feed-shell .action-like[aria-pressed=true]{color:#ff4769}
 .clipi-feed-shell .action-more{min-height:35px}
 .clipi-dock{background:#050505}.clipi-dock button[aria-selected=true]{color:#fff}.clipi-dock button[data-create=true] span:first-child{background:transparent;border:2px solid #fff;border-radius:50%;color:#fff;width:30px;height:30px}
+
+.clipi-caption-meta .clipi-delete-video{pointer-events:auto;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 8px;border:0;background:transparent;color:white;text-shadow:0 1px 4px #000;font:inherit;font-size:13px}
+.clipi-feed-sheet .choice-trash{color:#ffa7a1}.choice-trash .clipi-choice-icon{background:#492e30;color:#ffaaa2}
+.clipi-sheet-note{margin:8px 0 18px;color:#dce3e3;line-height:1.5}
+.clipi-feed-notice{position:absolute;top:70px;align-self:center;max-width:90%;padding:9px 16px;border-radius:12px;background:#172023;color:#fff;pointer-events:none}

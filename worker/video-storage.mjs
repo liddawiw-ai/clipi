@@ -55,6 +55,7 @@ export class ClipiVideo {
   constructor(ctx) {
     this.storage = ctx.storage;
     this.sql = ctx.storage.sql;
+    this.sql.exec('CREATE TABLE IF NOT EXISTS deletion (id INTEGER PRIMARY KEY)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS parts(part INTEGER PRIMARY KEY, bytes BLOB NOT NULL)');
   }
 
@@ -64,17 +65,28 @@ export class ClipiVideo {
   }
 
   async fetch(request) {
+    if (request.method === 'DELETE') {
+      this.storage.transactionSync(() => {
+        this.sql.exec('INSERT OR IGNORE INTO deletion(id) VALUES(1)');
+        this.sql.exec('DELETE FROM parts');
+      });
+      return new Response(null, {status: 204});
+    }
     if (request.method === 'PUT') {
       if (!this.size()) {
         const bytes = await readMp4(request);
         if (bytes instanceof Response) return bytes;
-        this.storage.transactionSync(() => {
-          if (this.size()) return;
+        // Recheck after the body arrived so a late upload cannot restore a removed clip.
+        const retired = this.storage.transactionSync(() => {
+          if (this.sql.exec('SELECT id FROM deletion').toArray().length) return true;
+          if (this.size()) return false;
           for (let offset = 0; offset < bytes.length; offset += chunkBytes) {
             this.sql.exec('INSERT INTO parts(part, bytes) VALUES(?, ?)', offset / chunkBytes,
               bytes.slice(offset, offset + chunkBytes).buffer);
           }
+          return false;
         });
+        if (retired) return failure('الفيديو غير موجود', 404);
       }
       return new Response(null, {status: 204});
     }
@@ -106,6 +118,10 @@ export function putVideo(namespace, key, request) {
   const headers = new Headers({'Content-Type': 'video/mp4'});
   if (request.headers.has('Content-Length')) headers.set('Content-Length', request.headers.get('Content-Length'));
   return namespace.getByName(key).fetch(internalUrl, {method: 'PUT', headers, body: request.body});
+}
+
+export function removeVideo(namespace, key) {
+  return namespace.getByName(key).fetch(internalUrl, {method: 'DELETE'});
 }
 
 export function getVideo(namespace, key, request) {

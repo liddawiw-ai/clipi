@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {roomStore} from './room-controls.mjs';
 import {readWallet} from './diamond-wallet.mjs';
-import {shortAccount,receiveShort,serveShort} from './short-videos.mjs';
+import {shortAccount,receiveShort,serveShort,deleteShort} from './short-videos.mjs';
 
 test('video uploads, playback ranges, likes, comments and non-cash gifts',async()=>{
   const sql=new DatabaseSync(':memory:');
@@ -61,5 +61,22 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   assert.equal((await readWallet(q,'viewer')).diamonds,20);
   const owner=await readWallet(q,'owner');assert.equal(owner.earningsUnits,0);assert.equal(owner.collected,0);assert.equal(owner.rewardPi,0);
   assert.equal((await api('viewer','shortGift',{...gift,nonce:crypto.randomUUID(),gift:'قلب'})).status,409);
+  assert.equal((await readWallet(q,'viewer')).diamonds,20);
+  const remove=(uid,target,storage=bucket)=>deleteShort(q,uid,target,json,storage);
+  assert.equal((await remove('viewer',id)).status,403);
+  assert.equal((await remove('owner','palace')).status,403);
+  assert.equal((await remove('owner',id,{delete:async()=>{throw Error('storage offline');}})).status,503);
+  assert.equal((await api('owner','shortLookup',clip)).clip.owner,'owner');
+  assert.equal((await serveShort(new Request('https://test.local/'),bucket,q,id,json)).headers.get('cache-control'),'private, no-store');
+  assert.equal((await remove('owner',id)).deleted,true);
+  assert.equal((await remove('owner',id)).deleted,true);
+  assert.equal(objects.size,0);
+  assert.equal((await serveShort(new Request('https://test.local/'),bucket,q,id,json)).status,404);
+  assert.equal((await api('owner','shortLookup',clip)).clip,null);
+  assert.equal((await api('viewer','shortList',{})).clips.length,0);
+  assert.equal((await api('viewer','shortState',clip)).status,404);
+  for(const table of ['short_comment','short_comment_meta','short_comment_heart','short_like']){
+    assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0);
+  }
   assert.equal((await readWallet(q,'viewer')).diamonds,20);
 });

@@ -1,6 +1,13 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "حذف الفيديو": "Delete video",
+  "حذف الفيديو؟": "Delete this video?",
+  "سيُحذف المقطع وتعليقاته نهائيًا.": "This video and its comments will be permanently deleted.",
+  "جارٍ الحذف…": "Deleting…",
+  "تم حذف الفيديو": "Video deleted",
+  "تعذّر حذف الفيديو. حاول مجددًا": "Could not delete the video. Try again.",
+  "هذا الفيديو لم يعد متاحًا": "This video is no longer available",
   "إغلاق اللعبة": "Close game",
   "ألعاب": "Games",
   "اختر ما تريد تشغيله عند قبول طلبك.": "Choose which devices to enable if your request is accepted.",

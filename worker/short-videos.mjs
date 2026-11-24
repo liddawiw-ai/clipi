@@ -1,4 +1,4 @@
-import {getVideo,putVideo,readMp4,playback} from './video-storage.mjs';
+import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
 import {authorState,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
 import {paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
@@ -10,7 +10,13 @@ export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_like(clip TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(clip,uid))',
   'CREATE TABLE IF NOT EXISTS short_comment(clip TEXT NOT NULL, uid TEXT NOT NULL, nonce TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(uid,nonce))',
   'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)',
-  ...socialSchema
+  ...socialSchema,
+  `CREATE TRIGGER IF NOT EXISTS short_clip_cleanup AFTER DELETE ON short_clip BEGIN
+    DELETE FROM short_comment_heart WHERE comment_id IN (SELECT rowid FROM short_comment WHERE clip=OLD.id);
+    DELETE FROM short_comment_meta WHERE clip=OLD.id;
+    DELETE FROM short_comment WHERE clip=OLD.id;
+    DELETE FROM short_like WHERE clip=OLD.id;
+  END`
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
@@ -18,6 +24,10 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
     const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
     return json({clips: rows.results});
+  }
+  if (op === 'shortLookup') {
+    const row = publishedId.test(clip) && await q('SELECT id,title,owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first();
+    return json({clip: row || null});
   }
   if (op === 'shortPrepare') {
     if (!hasStorage) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
@@ -32,7 +42,7 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
   if (op === 'shortLike' || op === 'shortState') {
     if (op === 'shortLike') {
       if (typeof input.liked !== 'boolean') return json({error:'اختيار غير صالح'},400);
-      if (input.liked) await q('INSERT OR IGNORE INTO short_like(clip,uid) VALUES(?,?)',clip,uid).run();
+      if (input.liked) await q('INSERT OR IGNORE INTO short_like(clip,uid) SELECT ?,? WHERE ? OR EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)',clip,uid,starterIds.includes(clip)?1:0,clip).run();
       else await q('DELETE FROM short_like WHERE clip=? AND uid=?',clip,uid).run();
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
@@ -44,13 +54,35 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     if (!gift || !publishedId.test(input.nonce)) return json({error:'هدية غير صالحة'},400);
     // Video support spends from the shared purchased ledger. The empty payee never earns rewards.
     const room='short/'+clip;
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${paidBalance})>=? ON CONFLICT(sender,nonce) DO NOTHING`,
-      uid,input.nonce,room,input.gift,gift.cost,uid,uid,gift.cost).run();
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${paidBalance})>=? AND (? OR EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)) ON CONFLICT(sender,nonce) DO NOTHING`,
+      uid,input.nonce,room,input.gift,gift.cost,uid,uid,gift.cost,starterIds.includes(clip)?1:0,clip).run();
     const receipt=await q('SELECT room,gift FROM paid_room_gift WHERE sender=? AND nonce=?',uid,input.nonce).first();
     if (receipt?.room!==room || receipt?.gift!==input.gift) return json({error:'تعذّر إرسال الهدية. تحقّق من رصيد الماس المشترى'},409);
     return json({sent:true});
   }
   return json({error:'طلب غير صالح'},400);
+}
+
+export async function deleteShort(q, uid, id, json, bucket, videos) {
+  if (typeof id !== 'string' || !publishedId.test(id)) return json({error:'لا يمكن حذف هذا الفيديو'},403);
+  const row = await q('SELECT owner,object_key FROM short_clip WHERE id=?',id).first();
+  if (!row) return json({deleted:true});
+  if (row.owner !== uid) return json({error:'يمكن لصاحب الفيديو فقط حذفه'},403);
+  if (!row.object_key) return json({error:'الفيديو غير منشور'},409);
+  try {
+    if (row.object_key.startsWith('cloud/')) {
+      if (!videos) return json({error:'التخزين غير متاح'},503);
+      const result = await removeVideo(videos, row.object_key);
+      if (!result.ok) return json({error:'تعذّر حذف الفيديو. حاول مجددًا'},503);
+    } else {
+      if (!bucket) return json({error:'التخزين غير متاح'},503);
+      await bucket.delete(row.object_key);
+    }
+    await q('DELETE FROM short_clip WHERE id=? AND owner=? AND object_key=?',id,uid,row.object_key).run();
+    return json({deleted:true});
+  } catch {
+    return json({error:'تعذّر حذف الفيديو. حاول مجددًا'},503);
+  }
 }
 
 export async function receiveShort(request, bucket, q, uid, id, json, videos) {
@@ -79,7 +111,11 @@ export async function serveShort(request, bucket, q, id, json, videos) {
   const row=await q('SELECT object_key FROM short_clip WHERE id=? AND object_key IS NOT NULL',id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
   if (row.object_key.startsWith('cloud/')) {
-    return videos ? getVideo(videos, row.object_key, request) : json({error:'التخزين غير متاح'},503);
+    if (!videos) return json({error:'التخزين غير متاح'},503);
+    const stored = await getVideo(videos, row.object_key, request);
+    const response = new Response(stored.body, stored);
+    response.headers.set('Cache-Control', 'private, no-store');
+    return response;
   }
   if (!bucket) return json({error:'التخزين غير متاح'},503);
   const head = await bucket.head(row.object_key);
@@ -87,6 +123,7 @@ export async function serveShort(request, bucket, q, id, json, videos) {
   const spec = playback(request, head.size);
   if (spec instanceof Response) return spec;
   const {status, headers, offset, length} = spec;
+  headers.set('Cache-Control', 'private, no-store');
   const options = status === 206 ? {range: {offset, length}} : {};
   const data = request.method === 'HEAD' ? null : await bucket.get(row.object_key, options);
   if (request.method !== 'HEAD' && !data) return json({error:'الفيديو غير موجود'},404);

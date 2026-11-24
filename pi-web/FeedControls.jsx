@@ -18,6 +18,7 @@ const paths = {
   muted: 'M3 9h4l5-4v14l-5-4H3z M17 9l5 6 M22 9l-5 6',
   sound: 'M3 9h4l5-4v14l-5-4H3z M16 8a6 6 0 0 1 0 8 M19 5a10 10 0 0 1 0 14',
   download: 'M12 3v12 M7 10l5 5 5-5 M4 16v4h16v-4',
+  trash: 'M4 6h16 M9 6V3h6v3 M6 6l1 15h10l1-15 M10 10v7 M14 10v7',
   flag: 'M5 21V4c5-4 9 4 14 0v10c-5 4-9-4-14 0',
   close: 'M6 6l12 12 M18 6 6 18',
 };
@@ -41,12 +42,13 @@ export function FeedAction({icon, label, onClick, selected, count}) {
   </button>;
 }
 
-export function FeedSheet({title, closeLabel, onClose, choices}) {
+export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false}) {
   return <Modal transparent animationType="fade" onRequestClose={onClose}>
     <div className="clipi-sheet-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <section className="clipi-feed-sheet" aria-label={title}>
-        <header><h2>{title}</h2><button type="button" onClick={onClose} aria-label={closeLabel}><FeedIcon name="close" size={19}/></button></header>
-        {choices.map(({label,icon,onClick})=><button type="button" key={icon} className={'clipi-sheet-choice choice-'+icon} onClick={onClick}>
+        <header><h2>{title}</h2><button type="button" disabled={busy} onClick={onClose} aria-label={closeLabel}><FeedIcon name="close" size={19}/></button></header>
+        {note&&<p className="clipi-sheet-note" role="status">{note}</p>}
+        {choices.map(({label,icon,onClick})=><button type="button" key={icon} disabled={busy} className={'clipi-sheet-choice choice-'+icon} onClick={onClick}>
           <span className="clipi-choice-icon"><FeedIcon name={icon} size={24}/></span>{label}
         </button>)}
       </section>

@@ -34,7 +34,7 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?'تشغيل الصوت':'كتم الصوت'}
   </button>;
 }
-function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight}){
+function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
@@ -42,6 +42,29 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
   const [confirmedClip,setConfirmedClip]=useState(null);
   const [balance,setBalance]=useState(null);
   const alive=useRef(true),lock=useRef(false),revision=useRef(0),pending=useRef(null);
+  const deleting=useRef(false);
+  const [busyDelete,setBusyDelete]=useState(false);
+  const canDelete=!!viewer?.uid && !starters[item.id] && (item.owner || stats?.owner)===viewer.uid;
+  function openDelete(){
+    if(!canDelete)return;
+    setMessage('');setDialog('delete');setViewMode('delete');
+  }
+  function cancelDelete(){
+    if(!deleting.current){setDialog('');setViewMode('');}
+  }
+  async function confirmDelete(){
+    if(!canDelete||deleting.current)return;
+    deleting.current=true;setBusyDelete(true);setMessage('');
+    try{
+      await api('shortDelete');
+      onDeleted(item.id);
+    }catch(error){
+      if(alive.current)setMessage(error.message||translate('تعذّر حذف الفيديو. حاول مجددًا'));
+    }finally{
+      deleting.current=false;
+      if(alive.current)setBusyDelete(false);
+    }
+  }
   const source=asVideo(item,endpoint);
   const progress=useRef(null);
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
@@ -123,6 +146,7 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
       <div className="clipi-caption-meta">
 
         <SoundControl {...{playerRef,muted,setMuted}}/>
+        {canDelete&&<button type="button" className="clipi-delete-video" onClick={openDelete}><FeedIcon name="trash" size={17}/>{translate('حذف الفيديو')}</button>}
       </div>
       {!!message&&!dialog&&<p role="status">{message}</p>}
     </div>
@@ -130,9 +154,15 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
     {dialog==='more'&&<FeedSheet title={translate('المزيد')} closeLabel={translate('إغلاق')} onClose={()=>setDialog('')}
       choices={[
         {icon:'gift',label:'إهداء الفيديو',onClick:openGifts},
+        ...(canDelete?[{icon:'trash',label:translate('حذف الفيديو'),onClick:openDelete}]:[]),
         ...(onReport?[{icon:'flag',label:'الإبلاغ عن المقطع أو تعليق',onClick:()=>{setDialog('');onReport(item.id);}}]:[])
       ]}/>}
     </>}
+    {dialog==='delete'&&<FeedSheet title={translate('حذف الفيديو؟')} closeLabel={translate('إغلاق')} onClose={cancelDelete} busy={busyDelete}
+      note={message||translate('سيُحذف المقطع وتعليقاته نهائيًا.')} choices={[
+        {icon:'close',label:translate('إلغاء'),onClick:cancelDelete},
+        {icon:'trash',label:translate(busyDelete?'جارٍ الحذف…':'حذف الفيديو'),onClick:confirmDelete}
+      ]}/>}
     {showing&&<ShortCommentsSheet clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={identity} copy={copy}
@@ -145,7 +175,13 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
 
 export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer}){
   const [items,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
-  const [retry,setRetry]=useState(0);
+  const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
+  const removed=useRef(new Set()),list=useRef(null);
+  useEffect(()=>{
+    if(!notice)return;
+    const timer=setTimeout(()=>setNotice(''),4000);
+    return ()=>clearTimeout(timer);
+  },[notice]);
   const [muted,setMuted]=useState(false);
   const [liveMenu,setLiveMenu]=useState(false);
   const windowHeight=useWindowDimensions().height;
@@ -168,9 +204,14 @@ export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,en
         const {clips}=await request('/account-number',{op:'shortList'});
         if(!current)return;
         page.current=clips.length===30?clips.at(-1).cursor:null;
-        const all=[...clips,...samples];
+        const all=[...clips.filter(c=>!removed.current.has(c.id)),...samples];
         const selected=all.find(c=>c.id===initialId);
-        if(initialId&&!selected&&/^[0-9a-f-]{36}$/i.test(initialId))all.unshift({id:initialId,title:''});
+        if(initialId&&!selected&&!removed.current.has(initialId)&&/^[0-9a-f-]{36}$/i.test(initialId)){
+          const {clip}=await request('/account-number',{op:'shortLookup',clip:initialId});
+          if(!current)return;
+          if(clip&&!removed.current.has(clip.id))all.unshift(clip);
+          else if(new URLSearchParams(location.hash.slice(1)).get('short')===initialId)setNotice(translate('هذا الفيديو لم يعد متاحًا'));
+        }
         else if(selected)all.unshift(...all.splice(all.indexOf(selected),1));
         setActive(0);setItems(all);setError('');
       }catch{if(current)setError('تعذّر تحميل المقاطع الجديدة');}
@@ -184,9 +225,24 @@ export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,en
       const {clips}=await request('/account-number',{op:'shortList',before:page.current});
       if(!mounted.current)return;
       page.current=clips.length===30?clips.at(-1).cursor:null;
-      setItems(old=>old.concat(clips.filter(c=>!old.some(x=>x.id===c.id))));
+      setItems(old=>old.concat(clips.filter(c=>!removed.current.has(c.id)&&!old.some(x=>x.id===c.id))));
     }catch{if(mounted.current)setError('تعذّر تحميل المقاطع الجديدة');}
     finally{loading.current=false;}
+  }
+  function onDeleted(id){
+    removed.current.add(id);
+    if(!mounted.current)return;
+    const next=items.filter(c=>c.id!==id);
+    const index=Math.max(0,Math.min(active,next.length-1));
+    setViewMode('');setActive(index);
+    setItems(old=>old.filter(c=>c.id!==id));setNotice(translate('تم حذف الفيديو'));
+    const url=new URL(window.location.href);
+    const fields=new URLSearchParams(url.hash.slice(1));
+    if(fields.get('short')===id){
+      fields.delete('short');url.hash=fields.toString();
+      window.history.replaceState(window.history.state,'',url);
+    }
+    if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
   const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
@@ -194,12 +250,12 @@ export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,en
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList data={items} scrollEnabled={!viewMode} extraData={[active,muted,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
       <button type="button" aria-expanded={liveMenu} aria-haspopup="dialog" onClick={()=>setLiveMenu(true)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{translate('بث مباشر')}
@@ -209,6 +265,7 @@ export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,en
       {icon:'mic',label:translate('غرف صوتية'),onClick:()=>chooseRooms('audio')},
       {icon:'camera',label:translate('بث فيديو'),onClick:()=>chooseRooms('video')}
     ]}/>}
+    {!!notice&&<div className="clipi-feed-notice" role="status">{notice}</div>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{error} · إعادة المحاولة</Text></Pressable>}
   </View><div style={viewMode?{visibility:'hidden'}:undefined}>{dock}</div></div></div>;
 }
