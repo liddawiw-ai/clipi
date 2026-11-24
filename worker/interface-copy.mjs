@@ -13,6 +13,14 @@ export async function interfaceCopy(path,env){
   const [, ,locale,list,extra]=path.split('/');
   const ids=[...new Set((list||'').split(','))];
   if(extra!==undefined||!Object.hasOwn(languageNames,locale)||ids.length>8||ids.some(id=>!sources.has(id)))return reply({},400);
+  // Arabic release keys and their English translations are available offline.
+  if(locale==='ar'||locale==='en'){
+    const labels=ids.map(id=>{
+      const key=sources.get(id),arabic=/[\u0620-\u064a]/u.test(key);
+      return [id,locale==='ar'?(arabic?key:null):(english[key]||(!arabic?key:null))];
+    });
+    if(labels.every(([,label])=>label))return reply(Object.fromEntries(labels),200,true);
+  }
   const db=env.PI_GIFTS_DB;
   await db.prepare(schema).run();
   const now=Math.floor(Date.now()/1000);

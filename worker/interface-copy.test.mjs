@@ -41,3 +41,12 @@ test('translations accept only release copy, deduplicate concurrent inference an
   assert.equal(calls[0].target_lang,'french');
   assert.equal(calls[0].text,english['إغلاق الغرفة للجميع']);
 });
+
+test('the translation endpoint returns original Arabic and release English for room messages without an inference service',async()=>{
+  const source='إغلاق الغرفة للجميع',id=copyId(source);
+  for(const [code,label] of [['ar',source],['en',english[source]]]){
+    const res=await interfaceCopy('/interface-copy/'+code+'/'+id,{});
+    assert.equal(res.status,200);
+    assert.deepEqual(await res.json(),{[id]:label});
+  }
+});
