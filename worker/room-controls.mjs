@@ -78,6 +78,8 @@ export async function roomStore(db) {
 }
 // Existing audio rooms use seat 0 for the owner's main mic and for listeners.
 // Number 9 represents a deliberate move to the main mic. An off-stage owner uses -1.
+export const helpRoomId='clipi-admin-help';
+export const helpRoomName='أدمن كليبي';
 const MAIN_MIC=9;
 function mayPublish(member,host,type){
   if(type!=='audio')return (host&&member.seat>=0)||Boolean(member.seat>0&&!member.muted);
@@ -97,14 +99,14 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(member?.banned)return json({error:'أخرجك المضيف من الغرفة'},403);
   if(path==='/token'){
     // Legacy admission is only available when a room has no managed microphone policy.
-    if(!visit&&!policy&&!member&&!await q('SELECT 1 FROM room_mic_mode WHERE room=?',room).first())return null;
+    if(room!==helpRoomId&&!visit&&!policy&&!member&&!await q('SELECT 1 FROM room_mic_mode WHERE room=?',room).first())return null;
     if(!member||member.visit!==visit||member.seen<cutoff)return json({error:'أعد الدخول إلى الغرفة'},403);
     return {publisher:mayPublish(member,host,type),name:member.name,...(member.muted?{micAllowed:false}:{})};
   }
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
   if(!['join','poll','leave','move','stepDown','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','pinMessage','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient','hostCard','roomAdmins','setRoomAdmin','inviteChoices','inviteFriends','inviteAtStart'].includes(op))return json({error:'طلب غير صالح'},400);
-  if(!host&&['join','poll','hostCard','giftRecipient'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
+  if(room!==helpRoomId&&!host&&['join','poll','hostCard','giftRecipient'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
@@ -134,7 +136,11 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     EXISTS(SELECT 1 FROM room_admin WHERE uid=? AND room=COALESCE((SELECT root FROM room_continuation WHERE session=?),?)) AS roomAdmin`,
     user,user,room,room).first();
   const appStaff=!!roles.admin||await isAppOwner(q,user,env.CLIPI_OWNER_UID);
-  const moderator=host||appStaff||!!roles.roomAdmin;
+  const official=room===helpRoomId;
+  const moderator=official?appStaff:host||appStaff||!!roles.roomAdmin;
+  if(official && (op==='setRoomAdmin'||(op==='settings'&&input.pin!==undefined))){
+    return json({error:'غرفة المساعدة مفتوحة ويديرها فريق كليبي'},403);
+  }
   if(op==='roomAdmins'||op==='setRoomAdmin'){
     if(!moderator)return json({error:'للمضيف فقط'},403);
     return manageRoomAdmins(q,await rootFor(q,room),ownerUid,user,input,json);

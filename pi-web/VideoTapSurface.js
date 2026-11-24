@@ -5,14 +5,16 @@ const heartSize = 40;
 const nearby = (point, x, y, radius) => Math.hypot(point.x - x, point.y - y) <= radius;
 const activeHeart = require('./assets/actions/like-on.png');
 
-export default function VideoTapSurface({clipId, onDoubleTap}) {
+export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playbackLabel}) {
   const start = useRef(null);
   const firstTap = useRef(null);
   const generation = useRef(0);
   const timeout = useRef(null);
+  const singleTimer = useRef(null);
   const [heart, setHeart] = useState(null);
 
   function cancelGesture() {
+    clearTimeout(singleTimer.current);
     start.current = null;
     firstTap.current = null;
   }
@@ -44,10 +46,16 @@ export default function VideoTapSurface({clipId, onDoubleTap}) {
     }
     const previous = firstTap.current;
     if (!previous || now - previous.time > 320 || !nearby(previous, x, y, 32)) {
+      clearTimeout(singleTimer.current);
       firstTap.current = {x, y, time: now};
+      singleTimer.current = setTimeout(() => {
+        firstTap.current = null;
+        onSingleTap?.();
+      }, 320);
       return;
     }
 
+    clearTimeout(singleTimer.current);
     firstTap.current = null;
     const active = generation.current;
     onDoubleTap(() => {
@@ -86,7 +94,10 @@ export default function VideoTapSurface({clipId, onDoubleTap}) {
   };
 
   return (
-    <View {...handlers} accessible={false} collapsable={false}
+    <View {...handlers} accessible accessibilityRole="button" accessibilityLabel={playbackLabel}
+      accessibilityActions={[{name:'activate'}]} onAccessibilityAction={e=>{if(e.nativeEvent.actionName==='activate')onSingleTap?.()}}
+      onKeyDown={web?e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSingleTap?.()}}:undefined}
+      collapsable={false}
       style={[StyleSheet.absoluteFill, styles.surface, web && styles.web]}>
       {heart && <Image accessible={false} pointerEvents="none" source={activeHeart}
         style={[styles.heart, heart]} />}

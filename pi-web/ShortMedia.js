@@ -3,24 +3,33 @@ import React,{useEffect,useImperativeHandle,useRef} from 'react';
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
 export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
 export const nonce=()=>crypto.randomUUID();
-export function Player({source,active=true,muted=true,playerRef,onMuteRequired,poster,onTimeUpdate,fit='cover'}){
+export function Player({source,active=true,muted=true,playerRef,onMuteRequired,onPlayBlocked,poster,onTimeUpdate,fit='cover'}){
   const ref=useRef(null);
   useImperativeHandle(playerRef,()=>ref.current,[]);
-  useEffect(()=>{
-    const video=ref.current;
-    let current=true;
-    function sync(){
-      if(!active||document.hidden){video.pause();return;}
-      video.muted=muted;
-      video.play().catch(error=>{
-        if(current&&!document.hidden&&!muted&&error.name==='NotAllowedError')onMuteRequired?.(true);
-      });
-    }
-    sync();
-    document.addEventListener('visibilitychange',sync);
-    return ()=>{current=false;document.removeEventListener('visibilitychange',sync);video.pause();};
-  },[source,active,muted,onMuteRequired]);
-  return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
+  const callbacks=useRef({});
+    callbacks.current={onMuteRequired,onPlayBlocked};
+    useEffect(()=>{
+      const video=ref.current;
+      let current=true;
+      function sync(){
+        if(!current)return;
+        if(!active||document.hidden){video.pause();return;}
+        if(!video.paused)return;
+        video.play().catch(error=>{
+          if(!current||document.hidden||!active||error.name!=='NotAllowedError')return;
+          if(!video.muted){
+            video.muted=true;
+            callbacks.current.onMuteRequired?.(true);
+            video.play().catch(e=>{if(current&&e.name==='NotAllowedError')callbacks.current.onPlayBlocked?.()});
+          }else callbacks.current.onPlayBlocked?.();
+        });
+      }
+      video.addEventListener('canplay',sync);
+      document.addEventListener('visibilitychange',sync);
+      sync();
+      return ()=>{current=false;video.removeEventListener('canplay',sync);document.removeEventListener('visibilitychange',sync);video.pause();};
+    },[source,active]);
+    return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
 }
 export function pickShort(){
   return new Promise((resolve,reject)=>{
