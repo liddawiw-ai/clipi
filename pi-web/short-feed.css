@@ -57,3 +57,31 @@ button.clipi-feed-live{pointer-events:auto;display:inline-flex;align-items:cente
 .clipi-feed-sheet .choice-trash{color:#ffa7a1}.choice-trash .clipi-choice-icon{background:#492e30;color:#ffaaa2}
 .clipi-sheet-note{margin:8px 0 18px;color:#dce3e3;line-height:1.5}
 .clipi-feed-notice{position:absolute;top:70px;align-self:center;max-width:90%;padding:9px 16px;border-radius:12px;background:#172023;color:#fff;pointer-events:none}
+
+dialog.clipi-video-delete-dialog{position:fixed;inset:auto;margin:0;transform:translate(-50%,-50%);box-sizing:border-box;width:20rem;overflow:auto;padding:18px;border:1px solid #d6dfdb;border-radius:16px;background:#fffcf9;color:#192625;text-align:start;box-shadow:0 12px 44px #07191055}
+dialog.clipi-video-delete-dialog::backdrop{background:rgba(12,22,20,.48)}
+.clipi-video-delete-dialog h2{margin:0 0 8px;font-size:20px;line-height:1.3}
+.clipi-video-delete-dialog p{margin:0 0 16px;color:#46514e;font-size:15px;line-height:1.5}
+.clipi-video-delete-dialog [role=alert]{color:#8a2726}
+.clipi-video-delete-actions{display:flex;flex-wrap:wrap;gap:8px}
+.clipi-video-delete-actions button{flex:1 1 6rem;width:auto;min-height:44px;padding:8px 12px;border:1px solid #b9c4bf;border-radius:10px;background:#fff;color:#23382f;text-align:center;font:inherit;font-weight:650;cursor:pointer}
+.clipi-video-delete-actions .clipi-video-delete-confirm{background:#942e32;border-color:#942e32;color:white}
+.clipi-video-delete-actions button:disabled{opacity:.65;cursor:wait}
+
+.clipi-profile-gallery{box-sizing:border-box;width:100%;padding:14px;border-radius:16px;background:#fff;color:#192625;text-align:start}
+.clipi-profile-gallery h2{margin:0 0 12px;font-size:20px;line-height:1.35}
+.clipi-profile-gallery p{margin:10px 0;color:#53625b}
+.clipi-profile-gallery>button{min-height:44px;font:inherit}
+.clipi-profile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,56px),62px));gap:6px}
+button.clipi-profile-tile{position:relative;display:block;aspect-ratio:3 / 4;width:100%;min-width:0;overflow:hidden;border:0;border-radius:6px;background:#263334;padding:0;cursor:pointer}
+.clipi-profile-tile img,.clipi-profile-tile video{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
+dialog.clipi-profile-viewer{position:fixed;inset:0;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;overflow:hidden;border:0;border-radius:0;color:white;background:#101518}
+.clipi-profile-video-stage{position:relative;width:100%;height:100%}
+.clipi-profile-viewer button{width:auto;min-width:44px;min-height:44px;border:0;border-radius:12px;padding:8px 12px;font:inherit}
+.clipi-viewer-close,.clipi-viewer-controls button{display:inline-flex;align-items:center;justify-content:center;color:#fff;background:#101518d9;cursor:pointer}
+.clipi-viewer-close{position:absolute;inset-inline-start:max(12px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top))}
+.clipi-viewer-controls{position:absolute;inset-inline:12px;bottom:max(12px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:6px}
+.clipi-viewer-controls button:last-child{margin-inline-start:auto}
+.clipi-profile-menu-backdrop{position:absolute;inset:0;background:#0004}
+.clipi-profile-video-menu{position:absolute;inset-inline-end:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 52px);padding:4px;border-radius:12px;background:#fffefa;color:#872c30;box-shadow:0 6px 24px #0006}
+.clipi-profile-video-menu button{display:flex;align-items:center;gap:8px;background:transparent;color:inherit;font-weight:650;cursor:pointer}

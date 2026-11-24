@@ -1,134 +1,147 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import React, {useCallback, useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
 import {Player} from './ShortMedia';
+import {FeedIcon} from './FeedControls';
+import DeleteVideoDialog from './DeleteVideoDialog';
 
 const unchanged = text => text;
 
-function Action({label, onPress, disabled = false, danger = false}) {
-  return <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress}
-    style={[styles.action, danger && styles.danger, disabled && styles.disabled]}>
-    <Text style={[styles.actionText, danger && styles.dangerText]}>{label}</Text>
-  </Pressable>;
+function ClipTile({source, label, onOpen}) {
+  const tile = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const [image, setImage] = useState('');
+  useEffect(() => {
+    if (!window.IntersectionObserver) {setVisible(true); return;}
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {setVisible(true); observer.disconnect();}
+    }, {rootMargin:'100px'});
+    observer.observe(tile.current);
+    return () => observer.disconnect();
+  }, []);
+
+  function capture(event) {
+    const video = event.currentTarget;
+    if (video.seeking || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 120; canvas.height = 160;
+    const context = canvas.getContext('2d');
+    if (!context) return;
+    const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+    const w = video.videoWidth * scale, h = video.videoHeight * scale;
+    try {
+      context.drawImage(video, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
+      setImage(canvas.toDataURL('image/jpeg', .76));
+    } catch { /* Keep the paused video frame when capture is unavailable. */ }
+  }
+
+  return <button ref={tile} type="button" className="clipi-profile-tile" aria-label={label} onClick={onOpen}>
+    {image ? <img alt="" src={image}/> : visible && <video aria-hidden="true" muted playsInline preload="metadata"
+      src={source + '#t=0.1'} onLoadedMetadata={e => {
+        const v=e.currentTarget;
+        if (Number.isFinite(v.duration) && v.duration>0) v.currentTime=Math.min(.6,v.duration/2);
+      }} onLoadedData={capture} onSeeked={capture}/>}
+  </button>;
+}
+
+function ProfileVideo({clip, source, canDelete, translate, onClose, onDelete}) {
+  const viewer = useRef(null), menuButton = useRef(null), menu = useRef(null), submitting = useRef(false);
+  const [panel,setPanel] = useState(''), [error,setError] = useState(''), [busy,setBusy] = useState(false);
+  const [playing,setPlaying] = useState(true), [muted,setMuted] = useState(true);
+  const menuId = useId();
+
+  useLayoutEffect(() => {
+    const dialog = viewer.current;
+    dialog.showModal();
+    return () => dialog.close();
+  }, []);
+  useEffect(() => { if(panel==='more') menu.current?.focus(); },[panel]);
+
+  function dismiss() {
+    if (submitting.current) return;
+    if (panel) {setPanel(''); menuButton.current?.focus();} else onClose();
+  }
+
+  async function remove() {
+    if (!canDelete || panel!=='delete' || submitting.current) return;
+    submitting.current=true;setBusy(true);setError('');
+    try {await onDelete(clip.id);}
+    catch(e) {setError(e.message || translate('تعذّر حذف الفيديو'));setBusy(false);}
+    finally {submitting.current=false;}
+  }
+
+  return <dialog ref={viewer} className="clipi-profile-viewer" aria-label={clip.title || translate('تشغيل الفيديو')}
+    onCancel={e=>{e.preventDefault();dismiss();}}>
+    <div className="clipi-profile-video-stage">
+      <Player source={source} fit="contain" active={playing && !panel} muted={muted} onMuteRequired={setMuted}/>
+      <button type="button" className="clipi-viewer-close" aria-label={translate('إغلاق')} onClick={dismiss}><FeedIcon name="close"/></button>
+      <div className="clipi-viewer-controls">
+        <button type="button" onClick={()=>setPlaying(!playing)}>{translate(playing?'إيقاف مؤقت':'تشغيل')}</button>
+        <button type="button" aria-label={translate(muted?'تشغيل الصوت':'كتم الصوت')} onClick={()=>setMuted(!muted)}><FeedIcon name={muted?'muted':'sound'}/></button>
+        {canDelete && <button ref={menuButton} type="button" aria-label={translate('المزيد')} aria-expanded={panel==='more'}
+          aria-controls={panel==='more'?menuId:undefined} onClick={()=>setPanel(panel==='more'?'':'more')}><FeedIcon name="more"/></button>}
+      </div>
+      {panel==='more' && canDelete && <>
+        <div className="clipi-profile-menu-backdrop" onClick={dismiss}/>
+        <div id={menuId} className="clipi-profile-video-menu" aria-label={translate('المزيد')}>
+          <button ref={menu} type="button" onClick={()=>{setError('');setPanel('delete');}}><FeedIcon name="trash" size={18}/>{translate('حذف الفيديو')}</button>
+        </div>
+      </>}
+      {panel==='delete' && canDelete && <DeleteVideoDialog translate={translate} busy={busy} error={error} onCancel={dismiss} onConfirm={remove}/>}
+    </div>
+  </dialog>;
 }
 
 export default function ProfileShorts({request, endpoint, authorUid, translate = unchanged}) {
-  const [clips, setClips] = useState([]);
-  const [cursor, setCursor] = useState(null);
-  const [canDelete, setCanDelete] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [selected, setSelected] = useState(null);
-  const [playing, setPlaying] = useState(true);
-  const [muted, setMuted] = useState(true);
-  const [confirmId, setConfirmId] = useState(null);
-  const [deleteError, setDeleteError] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const life = useRef(0), loadingPage = useRef(null), deletingId = useRef(null);
-
+  const [clips,setClips] = useState([]), [cursor,setCursor] = useState(null);
+  const [canDelete,setCanDelete] = useState(false), [loading,setLoading] = useState(true);
+  const [error,setError] = useState(''), [selected,setSelected] = useState(null);
+  const life = useRef(0), loadingPage = useRef(null), more = useRef(null);
   const load = useCallback(async before => {
     const generation = life.current;
     if (loadingPage.current === generation) return;
-    loadingPage.current = generation;
-    setLoading(true);
-    setError('');
+    loadingPage.current = generation;setLoading(true);setError('');
     try {
-      const page = await request('/account-number', {op: 'shortProfileList', owner: authorUid, before});
+      const page = await request('/account-number',{op:'shortProfileList',owner:authorUid,before});
       if (life.current !== generation) return;
-      setClips(current => before == null ? page.clips : [...current, ...page.clips]);
+      setClips(current=>before == null?page.clips:[...current,...page.clips]);
       setCanDelete(page.canDelete === true);
       setCursor(page.nextCursor);
-    } catch (e) {
+    } catch(e) {
       if (life.current === generation) setError(e.message || translate('تعذّر تحميل الفيديوهات'));
     } finally {
-      if (life.current === generation) {
-        loadingPage.current = null;
-        setLoading(false);
-      }
+      if (life.current === generation) {loadingPage.current=null;setLoading(false);}
     }
-  }, [request, authorUid, translate]);
-
+  },[request,authorUid,translate]);
   useEffect(() => {
     life.current++;
-    setClips([]); setCursor(null); setSelected(null); setConfirmId(null);
-    setCanDelete(false); setDeleteError(''); setDeleting(false); deletingId.current = null;
+    setClips([]);setCursor(null);setSelected(null);setCanDelete(false);
     load(null);
-    return () => { life.current++; };
-  }, [load]);
+    return () => {life.current++;};
+  },[load]);
+  useEffect(() => {
+    if (!more.current || !window.IntersectionObserver || loading || error || cursor == null) return;
+    const observer = new IntersectionObserver(([entry])=>{if(entry.isIntersecting) load(cursor);},{rootMargin:'140px'});
+    observer.observe(more.current);
+    return () => observer.disconnect();
+  },[load,cursor,loading,error]);
 
   async function remove(id) {
-    if (!canDelete || deletingId.current != null || confirmId !== id) return;
-    const generation = life.current;
-    deletingId.current = id;
-    setDeleting(true); setDeleteError('');
-    try {
-      await request('/account-number', {op: 'shortDelete', clip: id});
-      if (life.current !== generation) return;
-      setClips(current => current.filter(clip => clip.id !== id));
-      setSelected(current => current === id ? null : current);
-      setConfirmId(null);
-    } catch (e) {
-      if (life.current === generation) setDeleteError(e.message || translate('تعذّر حذف الفيديو'));
-    } finally {
-      if (life.current === generation) { deletingId.current = null; setDeleting(false); }
-    }
+    if (!canDelete || selected?.id!==id) return;
+    const generation=life.current;
+    await request('/account-number',{op:'shortDelete',clip:id});
+    if (life.current!==generation) return;
+    setClips(current=>current.filter(clip=>clip.id!==id));setSelected(null);
   }
 
-  function open(id) {
-    setSelected(id); setPlaying(true); setMuted(true);
-  }
-
-  return <View style={styles.section}>
-    <Text accessibilityRole="header" style={styles.heading}>{translate(authorUid ? 'الفيديوهات' : 'فيديوهاتي')}</Text>
-    {clips.map((clip, index) => <View key={clip.id} style={styles.card}>
-      <View style={styles.row}>
-        <Pressable style={styles.open} accessibilityRole="button" onPress={() => open(clip.id)}
-          accessibilityLabel={translate('تشغيل الفيديو') + ' ' + (clip.title || index + 1)}>
-          <Text style={styles.play}>▶</Text>
-          <Text style={styles.title} numberOfLines={2}>{clip.title || translate('فيديو') + ' ' + (index + 1)}</Text>
-        </Pressable>
-        {canDelete && <Action label={translate('حذف الفيديو')} danger disabled={deleting}
-          onPress={() => { setConfirmId(clip.id); setDeleteError(''); }}/>}
-      </View>
-      {selected === clip.id && <>
-        <View style={styles.video}>
-          <Player key={clip.id} source={endpoint + '/shorts/media/' + clip.id} fit="contain"
-            active={playing} muted={muted} onMuteRequired={setMuted}/>
-        </View>
-        <View style={styles.controls}>
-          <Action label={translate(playing ? 'إيقاف مؤقت' : 'تشغيل')} onPress={() => setPlaying(!playing)}/>
-          <Action label={translate(muted ? 'تشغيل الصوت' : 'كتم الصوت')} onPress={() => setMuted(!muted)}/>
-          <Action label={translate('إغلاق')} onPress={() => setSelected(null)}/>
-        </View>
-      </>}
-      {confirmId === clip.id && <View style={styles.confirm}>
-        <Text style={styles.title}>{translate('حذف الفيديو؟')}</Text>
-        <Text style={styles.muted}>{translate('سيُحذف المقطع وتعليقاته نهائيًا.')}</Text>
-        {!!deleteError && <Text accessibilityRole="alert" style={styles.dangerText}>{deleteError}</Text>}
-        <View style={styles.controls}>
-          <Action label={translate(deleting ? 'جارٍ الحذف…' : 'تأكيد الحذف')} danger disabled={deleting} onPress={() => remove(clip.id)}/>
-          <Action label={translate('إلغاء')} disabled={deleting} onPress={() => setConfirmId(null)}/>
-        </View>
-      </View>}
-    </View>)}
-    {loading && <Text style={styles.muted}>{translate('جارٍ تحميل الفيديوهات…')}</Text>}
-    {!loading && !!error && <View><Text accessibilityRole="alert" style={styles.muted}>{error}</Text>
-      <Action label={translate('إعادة المحاولة')} onPress={() => load(cursor)}/></View>}
-    {!loading && !error && !clips.length && <Text style={styles.muted}>{translate('لا توجد فيديوهات منشورة بعد')}</Text>}
-    {!loading && !error && cursor != null && <Action label={translate('عرض المزيد')} onPress={() => load(cursor)}/>}
-  </View>;
+  const source = clip => endpoint + '/shorts/media/' + clip.id;
+  return <section className="clipi-profile-gallery">
+    <h2>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</h2>
+    <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
+      source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={()=>setSelected(clip)}/>)}</div>
+    {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
+    {!loading && !!error && <><p role="alert">{error}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
+    {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
+    {!loading && !error && cursor!=null && <button type="button" ref={more} onClick={()=>load(cursor)}>{translate('عرض المزيد')}</button>}
+    {selected && <ProfileVideo key={selected.id} clip={selected} source={source(selected)} canDelete={canDelete}
+      translate={translate} onClose={()=>setSelected(null)} onDelete={remove}/>}
+  </section>;
 }
-
-const styles = StyleSheet.create({
-  section: {backgroundColor:'#fff', borderRadius:16, padding:14, gap:10},
-  heading: {fontSize:20, fontWeight:'700', color:'#192625', textAlign:'right'},
-  card: {borderWidth:1, borderColor:'#e0e6e2', borderRadius:12, overflow:'hidden'},
-  row: {flexDirection:'row-reverse', alignItems:'center', padding:7, gap:8},
-  open: {flex:1, minHeight:48, flexDirection:'row-reverse', alignItems:'center', gap:10},
-  play: {color:'#225648', backgroundColor:'#e2f1eb', borderRadius:8, overflow:'hidden', padding:10},
-  title: {flexShrink:1, fontWeight:'600', color:'#192625', textAlign:'right'},
-  video: {height:260, backgroundColor:'#101615'}, controls: {flexDirection:'row-reverse', flexWrap:'wrap', padding:4, gap:5},
-  action: {minHeight:44, justifyContent:'center', paddingHorizontal:10, alignItems:'center', borderRadius:9},
-  actionText: {fontWeight:'600', color:'#225648'}, danger: {backgroundColor:'#fff0ed'},
-  dangerText: {color:'#932c25'}, disabled: {opacity:0.5},
-  muted: {color:'#53625b', textAlign:'right'}, confirm: {padding:10, gap:6, backgroundColor:'#fff7f5'}
-});

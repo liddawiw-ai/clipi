@@ -99,12 +99,12 @@ export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, ba
         <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View>
     </View>
-    {children}
     <View style={s.shortcuts}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
       style={s.shortcut} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>
     </TouchableOpacity>)}</View>
     <HubRows items={settings}/>
+    {children}
   </>;
 }
 

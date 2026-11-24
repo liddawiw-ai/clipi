@@ -4,6 +4,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
+import DeleteVideoDialog from './DeleteVideoDialog';
 import {Player,starters,shareShort,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
@@ -128,11 +129,14 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   },[dialog,item.id]);
   return <View style={s.fill}>
     <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} active={playable&&(!dialog||dialog==='comments')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
-      onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/></View>
+      onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
+      {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
+        onCancel={cancelDelete} onConfirm={confirmDelete}/>}
+    </View>
     {!showing&&<>
     <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
-    {canDelete && !dialog && <button type="button" className="clipi-delete-video" onClick={openDelete}><FeedIcon name="trash" size={17}/>{translate('حذف الفيديو')}</button>}
+    {canDelete && (!dialog || dialog==='delete') && <button type="button" className="clipi-delete-video" onClick={openDelete}><FeedIcon name="trash" size={17}/>{translate('حذف الفيديو')}</button>}
     <div className="clipi-action-stack">
       <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
         style={{border:0,padding:0,background:'transparent',borderRadius:'50%',color:'inherit',display:'inline-flex'}}
@@ -162,11 +166,6 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
         ...(onReport?[{icon:'flag',label:'الإبلاغ عن المقطع أو تعليق',onClick:()=>{setDialog('');onReport(item.id);}}]:[])
       ]}/>}
     </>}
-    {dialog==='delete'&&<FeedSheet title={translate('حذف الفيديو؟')} closeLabel={translate('إغلاق')} onClose={cancelDelete} busy={busyDelete}
-      note={message||translate('سيُحذف المقطع وتعليقاته نهائيًا.')} choices={[
-        {icon:'close',label:translate('إلغاء'),onClick:cancelDelete},
-        {icon:'trash',label:translate(busyDelete?'جارٍ الحذف…':'حذف الفيديو'),onClick:confirmDelete}
-      ]}/>}
     {showing&&<ShortCommentsSheet clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={identity} copy={copy}
