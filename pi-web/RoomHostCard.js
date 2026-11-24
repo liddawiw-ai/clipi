@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Image,Modal,ScrollView,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
 import {accountLabels} from './AccountLabels';
@@ -29,7 +30,7 @@ export function HostLevels({owner,request,locale,initialOpen}){
     let active=true;
     setFailed(false);
     request('/account-number',{op:'hostLevels',owner}).then(data=>{
-      if(!Number.isSafeInteger(data.received)||!Number.isSafeInteger(data.sent))throw Error('Invalid levels');
+      if(!Number.isSafeInteger(data.received)||!Number.isSafeInteger(data.sent))throw Error(appText('Invalid levels'));
       if(active)setTotals(data);
     }).catch(()=>{if(active)setFailed(true)});
     return ()=>{active=false};
@@ -38,16 +39,16 @@ export function HostLevels({owner,request,locale,initialOpen}){
   const earned=totals&&[[copy.hostLevel,totals.received],[copy.supportLevel,totals.sent]].filter(([,value])=>value>=levelSize);
   return <View style={s.levels}>
     <TouchableOpacity accessibilityRole="button" aria-expanded={open} onPress={()=>setOpen(v=>!v)}>
-      <Text style={s.heading}>{copy.hostLevel} · {copy.supportLevel} {open?'⌃':'⌄'}</Text>
+      <Text style={s.heading}>{appText(copy.hostLevel)} · {appText(copy.supportLevel)} {open?'⌃':'⌄'}</Text>
     </TouchableOpacity>
     {open&&(failed?<TouchableOpacity accessibilityRole="button" onPress={()=>setRetry(v=>v+1)}><Text style={s.retry}>{menu.retry}</Text></TouchableOpacity>:
       !totals?<ActivityIndicator/>:<>
-        <DiamondTrack label={copy.hostLevel} caption={copy.received} total={totals.received} format={format}/>
-        <DiamondTrack label={copy.supportLevel} caption={copy.sent} total={totals.sent} format={format}/>
-        <View style={s.group}><Text style={s.heading}>{copy.achievements}</Text>
-          {earned.length?earned.map(([label,value])=><Text key={label} style={s.detail}>{label} · {format(Math.floor(value/levelSize))}</Text>):<Text style={s.detail}>{copy.empty}</Text>}
+        <DiamondTrack label={appText(copy.hostLevel)} caption={appText(copy.received)} total={totals.received} format={format}/>
+        <DiamondTrack label={appText(copy.supportLevel)} caption={appText(copy.sent)} total={totals.sent} format={format}/>
+        <View style={s.group}><Text style={s.heading}>{appText(copy.achievements)}</Text>
+          {earned.length?earned.map(([label,value])=><Text key={label} style={s.detail}>{label} · {format(Math.floor(value/levelSize))}</Text>):<Text style={s.detail}>{appText(copy.empty)}</Text>}
         </View>
-        <View style={s.group}><Text style={s.heading}>{copy.badges}</Text><Text style={s.detail}>{copy.empty}</Text></View>
+        <View style={s.group}><Text style={s.heading}>{appText(copy.badges)}</Text><Text style={s.detail}>{appText(copy.empty)}</Text></View>
       </>)}
   </View>;
 }

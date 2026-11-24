@@ -24,6 +24,45 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
+  for(const type of ['audio','video']){
+    await t.test(type+' room admins manage the room, while host and unrelated rooms stay protected',async t=>{
+      const q=await roomStore(db),room='role-'+type,owner='role-owner',admin='room-manager',guest='role-listener';
+      sql.exec('SAVEPOINT room_roles');t.after(()=>sql.exec('ROLLBACK TO room_roles; RELEASE room_roles'));
+      const act=(uid,op,extra={},id=room)=>call(uid,op,extra,'/room-control',id,owner,type);
+      for(const uid of [owner,admin,guest])await act(uid,'join');
+      for(const [a,b] of [[owner,admin],[admin,owner],[admin,guest],[guest,admin]])await q('INSERT OR IGNORE INTO short_follow VALUES(?,?)',a,b).run();
+      assert.equal((await act(guest,'setRoomAdmin',{uid:guest,enabled:true})).status,403);
+      assert.equal((await act(owner,'setRoomAdmin',{uid:guest,enabled:true})).status,403);
+      assert.equal((await act(owner,'setRoomAdmin',{uid:admin,enabled:true})).ok,true);
+      assert.deepEqual((await act(owner,'roomAdmins')).admins.map(v=>v.uid),[admin]);
+      assert.equal((await act(admin,'settings',{words:['filter'],slow:5,pin:'1234',theme:'dunes'})).theme,'dunes');
+      assert.deepEqual((await act(admin,'poll')).words,['filter']);
+      assert.equal((await act(guest,'poll')).words,undefined);
+      assert.equal((await act(admin,'inviteFriends',{uids:[guest]})).sent,1);
+      assert.equal((await act(admin,'setRoomAdmin',{uid:owner,enabled:false})).status,400);
+      const post=(await act(owner,'message',{text:'filter'})).chat.at(-1);
+      assert.equal((await act(admin,'deleteMessage',{id:post.id})).status,403);
+      assert.equal((await act(admin,'pinMessage',{id:post.id})).status,403);
+      const other=(await act(guest,'message',{text:'ordinary comment'})).chat.at(-1);
+      assert.equal((await act(admin,'pinMessage',{id:other.id})).pinned.id,other.id);
+      assert.equal((await act(admin,'deleteMessage',{id:other.id})).chat.some(v=>v.id===other.id),false);
+      for(const op of ['mute','kick','eject','demote','ban'])assert.equal((await act(admin,op,{uid:owner})).status,403);
+      if(type==='audio'){
+        for(const slot of [0,4]){
+          if(slot)await act(owner,'move',{slot});
+          assert.equal((await act(admin,'slot',{slot,locked:true})).status,403);
+          assert.equal((await act(owner,'poll')).lockedSlots.includes(slot),false);
+        }
+        assert.equal((await act(admin,'slot',{slot:2,locked:true})).lockedSlots.includes(2),true);
+        assert.equal((await act(admin,'settings',{micFree:false,locked:true})).micFree,false);
+        assert.equal((await act(owner,'poll')).people.find(row=>row.uid===owner).seat,4);
+      }
+      const unrelated=room+'-other';await act(owner,'join',{},unrelated);await act(admin,'join',{},unrelated);
+      assert.equal((await act(admin,'settings',{slow:0},unrelated)).status,403);
+      await act(owner,'setRoomAdmin',{uid:admin,enabled:false});
+      assert.equal((await act(admin,'settings',{slow:0})).status,403);
+    });
+  }
   await t.test('reopening a broadcast keeps its ledger, donors and mic permissions independent of new rooms',async t=>{
     const q=await roomStore(db);
     sql.exec('SAVEPOINT room_history');

@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React, {useId, useLayoutEffect, useRef} from 'react';
 
 export default function DeleteVideoDialog({translate, busy, error, onCancel, onConfirm}) {
@@ -48,7 +49,7 @@ export default function DeleteVideoDialog({translate, busy, error, onCancel, onC
     onCancel={event => {event.preventDefault(); event.stopPropagation(); if (!busy) onCancel();}}>
     <h2 id={titleId}>{translate('حذف الفيديو؟')}</h2>
     <p id={noteId}>{translate('سيُحذف المقطع وتعليقاته نهائيًا.')}</p>
-    {error && <p role="alert">{error}</p>}
+    {error && <p role="alert">{appText(error)}</p>}
     <div className="clipi-video-delete-actions">
       <button type="button" autoFocus disabled={busy} onClick={onCancel}>{translate('إلغاء')}</button>
       <button type="button" className="clipi-video-delete-confirm" disabled={busy} onClick={onConfirm}>

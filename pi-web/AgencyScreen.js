@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {Clipboard,Modal,Platform,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
@@ -12,7 +13,7 @@ function Action({title,onPress,disabled,danger=false}){
     style={[s.button,danger&&s.danger,disabled&&{opacity:.45}]}><Text style={[s.action,danger&&s.dangerText]}>{title}</Text></TouchableOpacity>;
 }
 function Field({label,value,onChangeText,numeric}){
-  return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label}
+  return <View style={s.field}><Text style={s.label}>{appText(label)}</Text><TextInput accessibilityLabel={appText(label)}
     value={value} onChangeText={onChangeText} maxLength={numeric?12:220} keyboardType={numeric?'number-pad':'default'} style={s.input}/></View>;
 }
 export default function AgencyScreen({request}){
@@ -29,7 +30,7 @@ export default function AgencyScreen({request}){
     try{
       const result=id?await api('agencyDetail',{id,month}):await api('agencyList',{});
       if(ticket===version.current)setData(result);
-    }catch(error){if(ticket===version.current)setIssue(error.message||'تعذّر تحميل الوكالات');}
+    }catch(error){if(ticket===version.current)setIssue(error.message||appText('تعذّر تحميل الوكالات'));}
   },[api,id,month]);
   useEffect(()=>{void refresh();return ()=>{version.current++;};},[refresh]);
   function go(next){
@@ -45,7 +46,7 @@ export default function AgencyScreen({request}){
       if(op==='agencyCreate'){go(result.id);return;}
       if(op==='agencyDelete'){go(null);return;}
       setEditing(false);setNumber('');await refresh();
-    }catch(error){if(ticket===version.current)setIssue(error.message||'تعذّر حفظ التغيير');}
+    }catch(error){if(ticket===version.current)setIssue(error.message||appText('تعذّر حفظ التغيير'));}
     finally{gate.current=false;setBusy(false);}
   }
   function update(key,value){setForm(f=>({...f,[key]:value}));}
@@ -53,55 +54,55 @@ export default function AgencyScreen({request}){
     try{
       if(Platform.OS==='web'&&globalThis.navigator?.clipboard)await globalThis.navigator.clipboard.writeText(String(id));
       else Clipboard.setString(String(id));
-      setNotice('تم نسخ رقم الوكالة');
-    }catch{setNotice('رقم الوكالة '+id);}
+      setNotice(appText('تم نسخ رقم الوكالة'));
+    }catch{setNotice(appText('رقم الوكالة ')+id);}
   }
   const agency=data?.agency,totals=data?.totals;
   return <View style={s.panel}>
-    {issue?<View><Text accessibilityRole="alert" style={s.error}>{issue}</Text><Action title="إعادة المحاولة" onPress={refresh}/></View>:null}
-    {!data&&!issue?<Text style={s.label}>جارٍ تحميل الوكالات…</Text>:null}
+    {issue?<View><Text accessibilityRole="alert" style={s.error}>{appText(issue)}</Text><Action title={appText("إعادة المحاولة")} onPress={refresh}/></View>:null}
+    {!data&&!issue?<Text style={s.label}>{appText("جارٍ تحميل الوكالات…")}</Text>:null}
     {data&&!id&&<>
-      {data.agencies.map(a=><Action key={a.id} title={a.name+' · '+a.members+' أعضاء'} onPress={()=>go(a.id)}/>)}
-      {!data.agencies.length&&<Text style={s.label}>ما في وكالات مسجّلة حاليًا</Text>}
-      {data.canCreate&&<Action title={creating?'إلغاء':'إضافة وكالة'} onPress={()=>{setCreating(!creating);setForm({});}}/>}
-      {creating&&<><Field label={labels.name} value={form.name||''} onChangeText={v=>update('name',v)}/>
-        <Field label="رقم حساب الوكيل (اختياري)" numeric value={form.agentNumber||''} onChangeText={v=>update('agentNumber',v)}/>
-        <Action title="إنشاء الوكالة" disabled={busy||!form.name?.trim()} onPress={()=>mutate('agencyCreate',form)}/></>}
+      {data.agencies.map(a=><Action key={a.id} title={a.name+' · '+a.members+appText(' أعضاء')} onPress={()=>go(a.id)}/>)}
+      {!data.agencies.length&&<Text style={s.label}>{appText("ما في وكالات مسجّلة حاليًا")}</Text>}
+      {data.canCreate&&<Action title={creating?appText('إلغاء'):appText('إضافة وكالة')} onPress={()=>{setCreating(!creating);setForm({});}}/>}
+      {creating&&<><Field label={appText(labels.name)} value={form.name||''} onChangeText={v=>update('name',v)}/>
+        <Field label={appText("رقم حساب الوكيل (اختياري)")} numeric value={form.agentNumber||''} onChangeText={v=>update('agentNumber',v)}/>
+        <Action title={appText("إنشاء الوكالة")} disabled={busy||!form.name?.trim()} onPress={()=>mutate('agencyCreate',form)}/></>}
     </>}
     {agency&&<>
       <Text style={s.heading}>{agency.name}</Text>
-      <Action title={'نسخ رقم الوكالة · '+id} onPress={copy}/>{!!notice&&<Text style={s.label}>{notice}</Text>}
-      {Object.keys(labels).filter(k=>k!=='name').map(k=><Text key={k} style={s.label}>{labels[k]+' · '+(agency[k]||'غير محدد')}</Text>)}
-      {data.canManage&&<Action title={editing?'إلغاء التعديل':'إعدادات الوكالة'} onPress={()=>{setEditing(!editing);setForm({...agency});}}/>}
-      {data.canDelete&&<Action title="حذف الوكالة" danger disabled={busy} onPress={()=>{setIssue('');setConfirming(true);}}/>}
+      <Action title={appText('نسخ رقم الوكالة · ')+id} onPress={copy}/>{!!notice&&<Text style={s.label}>{appText(notice)}</Text>}
+      {Object.keys(labels).filter(k=>k!=='name').map(k=><Text key={k} style={s.label}>{appText(labels[k])+' · '+(agency[k]||appText('غير محدد'))}</Text>)}
+      {data.canManage&&<Action title={editing?appText('إلغاء التعديل'):appText('إعدادات الوكالة')} onPress={()=>{setEditing(!editing);setForm({...agency});}}/>}
+      {data.canDelete&&<Action title={appText("حذف الوكالة")} danger disabled={busy} onPress={()=>{setIssue('');setConfirming(true);}}/>}
       {confirming&&data.canDelete&&<Modal visible transparent animationType="fade" onRequestClose={()=>{if(!gate.current)setConfirming(false);}}>
         <View style={s.overlay}><View accessibilityViewIsModal style={s.dialog}>
-          <Text accessibilityRole="header" style={s.heading}>{'حذف وكالة «'+agency.name+'»؟'}</Text>
-          <Text style={s.label}>ستُحذف الوكالة من القائمة ويُفصل أعضاؤها عنها. تُحفظ سجلات الدعم السابقة.</Text>
-          {!!issue&&<Text accessibilityRole="alert" style={s.error}>{issue}</Text>}
-          <View style={s.row}><Action title="إلغاء" disabled={busy} onPress={()=>{if(!gate.current){setConfirming(false);setIssue('');}}}/>
-            <Action title={busy?'جارٍ الحذف…':'تأكيد الحذف'} danger disabled={busy} onPress={()=>mutate('agencyDelete',{confirmedName:agency.name})}/></View>
+          <Text accessibilityRole="header" style={s.heading}>{appText('حذف وكالة «')+agency.name+'»؟'}</Text>
+          <Text style={s.label}>{appText("ستُحذف الوكالة من القائمة ويُفصل أعضاؤها عنها. تُحفظ سجلات الدعم السابقة.")}</Text>
+          {!!issue&&<Text accessibilityRole="alert" style={s.error}>{appText(issue)}</Text>}
+          <View style={s.row}><Action title={appText("إلغاء")} disabled={busy} onPress={()=>{if(!gate.current){setConfirming(false);setIssue('');}}}/>
+            <Action title={busy?appText('جارٍ الحذف…'):appText('تأكيد الحذف')} danger disabled={busy} onPress={()=>mutate('agencyDelete',{confirmedName:agency.name})}/></View>
         </View></View>
       </Modal>}
       {editing&&<>{Object.entries(labels).map(([k,label])=><Field key={k} label={label} value={form[k]||''} onChangeText={v=>update(k,v)}/>)}
         {data.canSetRates&&[['host_pct','نسبة المضيف ٪'],['agent_pct','نسبة الوكيل ٪']].map(([k,label])=><Field key={k} numeric label={label} value={String(form[k]??'')} onChangeText={v=>update(k,v)}/>)}
-        <Action title="حفظ الإعدادات" disabled={busy} onPress={()=>mutate('agencyEdit',{...form,host_pct:Number(form.host_pct),agent_pct:Number(form.agent_pct)})}/>
+        <Action title={appText("حفظ الإعدادات")} disabled={busy} onPress={()=>mutate('agencyEdit',{...form,host_pct:Number(form.host_pct),agent_pct:Number(form.agent_pct)})}/>
       </>}
-      {data.roster&&<><Text style={s.heading}>أعضاء الوكالة · {data.roster.length}</Text>
+      {data.roster&&<><Text style={s.heading}>{appText("أعضاء الوكالة · ")}{data.roster.length}</Text>
         {data.roster.map(({number:n})=><Text key={n} selectable style={s.label}>{n}</Text>)}
-        <Field numeric label="رقم العضو في كليبي" value={number} onChangeText={setNumber}/>
-        <View style={s.row}><Action title="إضافة عضو" disabled={busy||!number} onPress={()=>mutate('agencyMemberAdd',{number})}/>
-        <Action title="إزالة عضو" disabled={busy||!number} onPress={()=>mutate('agencyMemberRemove',{number})}/></View></>}
-      <Text style={s.heading}>كشف الرواتب والألماس</Text>
-      <Text style={s.label}>المضيف {agency.host_pct}٪ · الوكيل {agency.agent_pct}٪ · البرنامج {100-agency.host_pct-agency.agent_pct}٪</Text>
-      <View style={s.row}><Action title="الشهر السابق" onPress={()=>setMonth(stepMonth(month,-1))}/><Text style={s.label}>{month}</Text>
-        <Action title="الشهر التالي" disabled={month>=thisMonth()} onPress={()=>setMonth(stepMonth(month,1))}/></View>
-      {totals?<><Text style={s.label}>الماس المستلم · {totals.diamonds}</Text>
+        <Field numeric label={appText("رقم العضو في كليبي")} value={number} onChangeText={setNumber}/>
+        <View style={s.row}><Action title={appText("إضافة عضو")} disabled={busy||!number} onPress={()=>mutate('agencyMemberAdd',{number})}/>
+        <Action title={appText("إزالة عضو")} disabled={busy||!number} onPress={()=>mutate('agencyMemberRemove',{number})}/></View></>}
+      <Text style={s.heading}>{appText("كشف الرواتب والألماس")}</Text>
+      <Text style={s.label}>{appText("المضيف ")}{agency.host_pct}{appText("٪ · الوكيل ")}{agency.agent_pct}{appText("٪ · البرنامج ")}{100-agency.host_pct-agency.agent_pct}٪</Text>
+      <View style={s.row}><Action title={appText("الشهر السابق")} onPress={()=>setMonth(stepMonth(month,-1))}/><Text style={s.label}>{month}</Text>
+        <Action title={appText("الشهر التالي")} disabled={month>=thisMonth()} onPress={()=>setMonth(stepMonth(month,1))}/></View>
+      {totals?<><Text style={s.label}>{appText("الماس المستلم · ")}{totals.diamonds}</Text>
         {Object.entries({host:'المضيف',agent:'الوكيل',platform:'البرنامج'}).filter(([k])=>totals[k]!=null).map(([k,title])=>
-          <Text key={k} style={s.label}>{title+' · '+totals[k]+' نقطة · '+(totals[k]/100).toFixed(2)+' دولار تقديري'}</Text>)}</>:
-        <Text style={s.label}>الكشف الخاص متاح لأعضاء الوكالة وإدارتها</Text>}
+          <Text key={k} style={s.label}>{appText(title)+' · '+totals[k]+appText(' نقطة · ')+(totals[k]/100).toFixed(2)+appText(' دولار تقديري')}</Text>)}</>:
+        <Text style={s.label}>{appText("الكشف الخاص متاح لأعضاء الوكالة وإدارتها")}</Text>}
     </>}
-    {!!id&&<Action title="قائمة الوكالات" onPress={()=>go(null)}/>}
+    {!!id&&<Action title={appText("قائمة الوكالات")} onPress={()=>go(null)}/>}
   </View>;
 }
 const s=StyleSheet.create({panel:{gap:12,padding:16,backgroundColor:'#17233B',borderRadius:14},

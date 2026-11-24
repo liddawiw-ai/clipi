@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {BalanceCard} from './ClipiSurfaces';
 import React,{useState,useEffect,useRef} from 'react';
 import {auth,piSdk} from './services';
@@ -94,7 +95,7 @@ export function DiamondWallet({uid,onHelp}){
     <button onClick={onHelp}>{label('مشكلة في عملية شراء','Purchase issue')}</button>
     <h3 id="clipi-packs">{label('شراء الماس','Buy diamonds')}</h3>
     {paymentPiUid?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} PI</button>):<p>{label('ادخل بحساب PI لشراء الماس','Sign in with PI to buy diamonds')}</p>}
-    <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
+    <p role="status">{appText(message)}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
     {data?.history.map((g,i)=><p key={g.receipt?g.sender+g.receipt:i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {g.units?label('رصيد سابق','Previous credit')+' '+g.units/20+' PI':label('ماسات للمكافأة','Reward diamonds')+' '+rewardDiamonds(g.cost)} · {label('غرفة','Room')} {g.room} · {g.receipt}</p>)}
   </section>
 }

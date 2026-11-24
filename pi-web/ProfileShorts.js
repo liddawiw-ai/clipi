@@ -1,8 +1,8 @@
+import {ui as appText} from './interface-language.mjs';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Modal} from 'react-native';
 import {ShortVideoHome} from './ShortVideoHome';
 
-const unchanged = text => text;
 
 function ClipTile({source, label, onOpen}) {
   const tile = useRef(null);
@@ -41,7 +41,7 @@ function ClipTile({source, label, onOpen}) {
   </button>;
 }
 
-export default function ProfileShorts({playerProps,request, endpoint, authorUid, translate = unchanged}) {
+export default function ProfileShorts({playerProps,request, endpoint, authorUid, translate = appText}) {
   const [clips,setClips] = useState([]), [cursor,setCursor] = useState(null);
   const [canDelete,setCanDelete] = useState(false), [loading,setLoading] = useState(true);
   const [error,setError] = useState(''), [selected,setSelected] = useState(null);
@@ -86,7 +86,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
       source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={()=>setSelected(clip)}/>)}</div>
     {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
-    {!loading && !!error && <><p role="alert">{error}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
+    {!loading && !!error && <><p role="alert">{appText(error)}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
     {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
     {!loading && !error && cursor!=null && <button type="button" ref={more} onClick={()=>load(cursor)}>{translate('عرض المزيد')}</button>}
     {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>

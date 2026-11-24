@@ -1,3 +1,4 @@
+import {interfaceCopy} from './interface-copy.mjs';
 import {invitationInbox} from './broadcast-access.mjs';
 import {reserveBroadcast,rootFor} from './room-history.mjs';
 export {ClipiVideo} from './video-storage.mjs';
@@ -42,6 +43,7 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
     if((path==='/external-checkout/'||path==='/external-checkout.html')&&request.method==='GET'&&env.CLIPI_APP){
       const canonical=new URL(request.url);
       canonical.pathname='/external-checkout';

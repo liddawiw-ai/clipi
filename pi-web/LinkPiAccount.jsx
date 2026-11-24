@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {piLogin,verifyEmailForPi} from './services';
 
@@ -21,12 +22,12 @@ export default function LinkPiAccount({uid,linked,onDone}){
   if(uid.startsWith('pi:')&&linked&&!reauth)return <section style={form}>
     <p>{text('أنت في ملف Pi الأصلي. يمكنك الرجوع إلى حساب كليبي المرتبط الذي يحتوي فيديوهات أندرويد.','This is the original Pi profile. Return to the linked profile to see your Android videos.')}</p>
     <button disabled={busy} style={buttonStyle} onClick={()=>run(async()=>{const result=await piLogin(false,uid);if(result.needsEmail)setReauth(true);else onDone();})}>{text('فتح الحساب المرتبط','Open linked account')}</button>
-    {error&&<p role="alert">{error}</p>}
+    {error&&<p role="alert">{appText(error)}</p>}
   </section>;
   if(!uid.startsWith('pi:'))return <section style={form}>
     <p>{linked?text('أنت في حساب البريد المرتبط. لعرض بيانات Pi السابقة افتح ملف Pi الأصلي.','You are in the linked email profile. Open the original Pi profile for its previous data.'):text('أنت داخل بالبريد. افتح ملف Pi، ثم ارجع إلى إعدادات الربط لتأكيد حساب البريد.','You are signed in with email. Open your Pi profile and return to linking settings to verify the email account.')}</p>
     <button style={buttonStyle} disabled={busy} onClick={()=>run(async()=>{await piLogin(true);onDone();})}>{text('فتح ملف Pi الأصلي','Open original Pi profile')}</button>
-    {error&&<p role="alert">{error}</p>}
+    {error&&<p role="alert">{appText(error)}</p>}
   </section>;
   return <form style={form} onSubmit={event=>{
     event.preventDefault();
@@ -51,6 +52,6 @@ export default function LinkPiAccount({uid,linked,onDone}){
     </>}
     <button style={buttonStyle} type="submit" disabled={busy}>{busy?text('جارٍ التحقق…','Please wait…'):review?text('تأكيد الربط وفتح حساب البريد','Confirm and open email profile'):text('تحقّق من الحسابين','Verify both accounts')}</button>
     {review&&<button style={buttonStyle} type="button" disabled={busy} onClick={()=>{setReview(null);setError('');}}>{text('إلغاء','Cancel')}</button>}
-    {error&&<p role="alert">{error}</p>}
+    {error&&<p role="alert">{appText(error)}</p>}
   </form>;
 }

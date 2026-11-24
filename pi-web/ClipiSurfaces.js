@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import GoldFrame from './GoldFrame';
 import React from 'react';
@@ -12,11 +13,11 @@ export function BalanceCard({icon,label,value,tone='mint',action,onPress}){
 }
 export function RoomStudio({hostField,name,setName,kind,setKind,onStart,onClose,busy,copy}){
  return <ScrollView keyboardShouldPersistTaps="handled" style={s.studio} contentContainerStyle={s.studioBody}>
- <View style={s.top}><TouchableOpacity accessibilityLabel={copy.close} accessibilityRole="button" onPress={onClose}><Text style={s.cross}>×</Text></TouchableOpacity><Text style={s.brand}>Clipi</Text></View>
- <Text style={s.heading}>{copy.title}</Text>
- <View style={s.panel}><GoldFrame/><View style={s.identity}><Text style={s.badge}>{kind==='audio'?'♫':'▶'}</Text><View style={{flex:1}}><Text style={s.pale}>{copy.name}</Text><TextInput style={s.input} accessibilityLabel={copy.name} value={name} onChangeText={setName} maxLength={55}/></View></View>
- <Text style={s.pale}>{copy.mode}</Text><View style={s.modes}>{[['audio','♫',copy.audio],['video','▶',copy.video]].map(([id,icon,title])=><TouchableOpacity key={id} accessibilityRole="button" accessibilityState={{selected:kind===id}} onPress={()=>setKind(id)} style={[s.mode,kind===id&&s.active]}><Text style={[s.modeText,kind===id&&s.activeText]}>{icon}   {title}</Text></TouchableOpacity>)}</View></View>
- <View style={s.bottom}><Text style={s.note}>{copy.note}</Text>{hostField}<TouchableOpacity accessibilityRole="button" disabled={busy} style={[s.start,busy&&{opacity:.6}]} onPress={onStart}><Text style={s.startText}>{copy.start}</Text></TouchableOpacity></View>
+ <View style={s.top}><TouchableOpacity accessibilityLabel={appText(copy.close)} accessibilityRole="button" onPress={onClose}><Text style={s.cross}>×</Text></TouchableOpacity><Text style={s.brand}>Clipi</Text></View>
+ <Text style={s.heading}>{appText(copy.title)}</Text>
+ <View style={s.panel}><GoldFrame/><View style={s.identity}><Text style={s.badge}>{kind==='audio'?'♫':'▶'}</Text><View style={{flex:1}}><Text style={s.pale}>{appText(copy.name)}</Text><TextInput style={s.input} accessibilityLabel={appText(copy.name)} value={name} onChangeText={setName} maxLength={55}/></View></View>
+ <Text style={s.pale}>{appText(copy.mode)}</Text><View style={s.modes}>{[['audio','♫',copy.audio],['video','▶',copy.video]].map(([id,icon,title])=><TouchableOpacity key={id} accessibilityRole="button" accessibilityState={{selected:kind===id}} onPress={()=>setKind(id)} style={[s.mode,kind===id&&s.active]}><Text style={[s.modeText,kind===id&&s.activeText]}>{icon}   {title}</Text></TouchableOpacity>)}</View></View>
+ <View style={s.bottom}><Text style={s.note}>{appText(copy.note)}</Text>{hostField}<TouchableOpacity accessibilityRole="button" disabled={busy} style={[s.start,busy&&{opacity:.6}]} onPress={onStart}><Text style={s.startText}>{appText(copy.start)}</Text></TouchableOpacity></View>
  </ScrollView>;
 }
 const colors={mint:theme.mint,sky:theme.sea,sand:theme.sand,rose:theme.peach};

@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import GiftMark from './GiftMark';
 import {theme} from './ClipiTheme';
 import React, {useEffect, useRef, useState} from 'react';
@@ -80,10 +81,10 @@ function GiftPanel({recipientPicker, gifts, allLabel, translate, copy, recipient
         ?<Image accessibilityLabel={recipient} source={{uri:recipientAvatar}} style={{width:44,height:44,borderRadius:22}}/>
         :<Text accessibilityLabel={recipient} style={{fontSize:27}}>{recipientAvatar||'👤'}</Text>)}
       <View style={{flex:1}}>
-        <Text accessibilityRole="header" style={s.title}>{copy.title}</Text>
+        <Text accessibilityRole="header" style={s.title}>{appText(copy.title)}</Text>
         <Text numberOfLines={1} style={s.sub}>{recipient}</Text>
       </View>
-      <RoomAction icon="×" label={copy.close} onPress={onClose}/>
+      <RoomAction icon="×" label={appText(copy.close)} onPress={onClose}/>
     </View>
     {recipientPicker}
     <ScrollView horizontal style={s.tabs} showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabContent}>
@@ -110,18 +111,18 @@ function GiftPanel({recipientPicker, gifts, allLabel, translate, copy, recipient
     {insufficient&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
     <View style={s.footer}>
       <TouchableOpacity accessibilityRole="button" disabled={pending} onPress={onWallet} style={s.edgeAction}>
-        <Text style={s.walletText}>{copy.wallet}</Text>
+        <Text style={s.walletText}>{appText(copy.wallet)}</Text>
       </TouchableOpacity>
       <View style={s.funds}>
-        <Text style={s.balance}>{copy.balance} · {balance??'…'} 💎</Text>
+        <Text style={s.balance}>{appText(copy.balance)} · {balance??'…'} 💎</Text>
         {onShop&&<TouchableOpacity accessibilityRole="button" disabled={pending} onPress={onShop} style={s.shop}>
-          <Text style={s.shopText}>{copy.shop}</Text>
+          <Text style={s.shopText}>{appText(copy.shop)}</Text>
         </TouchableOpacity>}
       </View>
       <TouchableOpacity accessibilityRole="button" disabled={!canSend}
         accessibilityState={{disabled:!canSend,busy:pending}}
         style={s.edgeAction} onPress={send}>
-        <Text style={[s.sendText,!canSend&&s.inactive]}>{copy.send}</Text>
+        <Text style={[s.sendText,!canSend&&s.inactive]}>{appText(copy.send)}</Text>
       </TouchableOpacity>
     </View>
   </View>;

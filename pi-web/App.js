@@ -1,4 +1,5 @@
-import {useStartInvites,broadcastWords,CircleChoice,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
+import {ui as appText,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
+import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
 import RoomHostCard,{useRoomHost} from './RoomHostCard';
 import {BroadcastName,PreviousRooms,openPreviousBroadcast} from './BroadcastRooms';
 import {accountLabels} from './AccountLabels';
@@ -29,7 +30,7 @@ import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
 import {copyRoomInvitation,roomInvitationId,roomInvitationUrl,shareRoomInvitation} from './room-invitations.mjs';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useRef,useState,useSyncExternalStore} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,useWindowDimensions,Easing,Share,Modal} from 'react-native';
 import LinkPiAccount from './LinkPiAccount';
 import {auth,firestore,piLogin,Alert} from './services';
@@ -38,6 +39,7 @@ import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
 const MEDIA_ENDPOINT=location.origin, MEDIA_CONFIGURED=true;
+configureInterface(MEDIA_ENDPOINT,readLocale(()=>window.localStorage)||'en',null,accountLabels);
 const PINK=theme.peach,GOLD=theme.gold;
 const WELCOME=0;
 // Purchases and payouts remain disabled in this build.
@@ -174,10 +176,10 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
     settle(current);
     if(roundBets.current.round!==current.round)roundBets.current={round:current.round,stakes:{},settled:false};
     const {stakes}=roundBets.current;
-    if(!stakes[i]&&Object.keys(stakes).length>=6)return Alert.alert(ui("الحد الأقصى"),'اختر حتى ست خانات');
+    if(!stakes[i]&&Object.keys(stakes).length>=6)return Alert.alert(ui("الحد الأقصى"),appText('اختر حتى ست خانات'));
     placingTrialBet.current=true;
     try{
-      if(!await onBet(amount,i,current.round))return Alert.alert('اللعب التجريبي','تعذّر تسجيل الاختيار. تحقق من الرصيد وتوقيت الجولة.');
+      if(!await onBet(amount,i,current.round))return Alert.alert(appText('اللعب التجريبي'),appText('تعذّر تسجيل الاختيار. تحقق من الرصيد وتوقيت الجولة.'));
     }finally{placingTrialBet.current=false;}
     if(globalRoundAt(Date.now()).round!==current.round)return;
 
@@ -212,8 +214,8 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
         <View style={S.gameBar}>
           <WindowControl icon="×" label={ui("إغلاق اللعبة")} onPress={onClose}/>
           <View style={S.gameHeading}>
-            <Text style={S.gameTitle}>Greedy Star</Text>
-            <Text style={S.gameMeta} numberOfLines={1}>{roomName} · {label} · {state.remaining} ث</Text>
+            <Text style={S.gameTitle}>{appText("Greedy Star")}</Text>
+            <Text style={S.gameMeta} numberOfLines={1}>{roomName} · {label} · {state.remaining}{appText(" ث")}</Text>
           </View>
           <Text style={S.gameBalance}>💎 {fmt(diamonds)}</Text>
         </View>
@@ -234,7 +236,7 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
             </Animated.View>
             <View style={[S.starCenter,{width:centerSize,height:centerSize,borderRadius:centerSize/2,
               left:mid-centerSize/2,top:mid-centerSize/2}]}>
-              <Text style={S.gameClock}>{state.phase==='result'?FOOD[state.winner][0]:state.remaining+' ث'}</Text>
+              <Text style={S.gameClock}>{state.phase==='result'?FOOD[state.winner][0]:state.remaining+appText(' ث')}</Text>
             </View>
             {state.phase!=='betting'&&<Text pointerEvents="none" style={[S.gamePointer,{top:0,left:mid-10,zIndex:10,elevation:10}]}>▼</Text>}
           </View>
@@ -242,8 +244,8 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
         </ScrollView>
         <View style={S.gameFooter}>
           <Text style={S.gameMeta} accessibilityLiveRegion="polite">
-            {state.phase==='result'?'الفائز: '+FOOD[state.winner][1]+' ×'+FOOD[state.winner][2]:
-              state.betting?'اختر حتى 6 خانات · ألماس تجريبي':'العجلة تدور · المراهنة مغلقة'}
+            {state.phase==='result'?appText('الفائز: ')+FOOD[state.winner][1]+' ×'+FOOD[state.winner][2]:
+              state.betting?appText('اختر حتى 6 خانات · ألماس تجريبي'):appText('العجلة تدور · المراهنة مغلقة')}
           </Text>
           <View style={S.gameAmounts}>{[10,100,500,1000,10000].map(n=>
             <TouchableOpacity key={n} accessibilityRole="button" accessibilityState={{disabled:!state.betting,selected:amount===n}}
@@ -255,7 +257,7 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
   if(inRoom)return panel;
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
     <View style={S.gameOverlay}>
-      <TouchableOpacity accessibilityLabel="إغلاق اللعبة" style={StyleSheet.absoluteFillObject} onPress={onClose}/>
+      <TouchableOpacity accessibilityLabel={appText("إغلاق اللعبة")} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
       {onRestoreRoom&&<WindowControl label={ui("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:sheetHeight+8}} onPress={onRestoreRoom}/>}
       {panel}
     </View>
@@ -332,7 +334,7 @@ function RoomMediaSession({room,userId,canPublish,guestMedia,audio,blocked,guest
   useEffect(()=>{setError('');},[canPublish]);
 
   if(!MEDIA_CONFIGURED)return <Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("عنوان خدمة البث غير مضبوط")}</Text>;
-  if(error)return <View style={mediaStyles.notice}><Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{error}</Text><Small title={ui("إعادة الاتصال")} onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
+  if(error)return <View style={mediaStyles.notice}><Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{appText(error)}</Text><Small title={ui("إعادة الاتصال")} onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
   if(!credentials||credentials.canPublish!==canPublish)return <Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("جاري الاتصال بالبث…")}</Text>;
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false} speakerMuted={speakerMuted}
     onError={()=>setError(ui("تعذر الاتصال بالبث"))}
@@ -624,8 +626,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   }
   function onSeat({slot,person,anchor,micName,showMenu,toggleMic,micOn}){
     const request=++menuRequest.current;
-    const locked=membership.state?.lockedSlots?.includes(slot)||(!isHost&&membership.state?.locked);
-    if(!person&&!locked&&!showMenu&&(isHost||micFree)){void moveToMic(slot);return}
+    const locked=membership.state?.lockedSlots?.includes(slot)||(!canApprove&&membership.state?.locked);
+    if(!person&&!locked&&!showMenu&&(canApprove||micFree)){void moveToMic(slot);return}
     // Measure the seat and the overlay in the same coordinate system on native and web.
     anchor?.measureInWindow((x,y,width,height)=>{
       roomSurface.current?.measureInWindow((rx,ry,rw,rh)=>{
@@ -642,7 +644,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   function micOptions(){
     const {slot,uid}=seatMenu;
     const options=[];
-    if(!uid&&!menuLocked&&(isHost||(micFree&&!membership.state.locked))){
+    if(!uid&&!menuLocked&&(canApprove||(micFree&&!membership.state.locked))){
       options.push({text:ui('صعود'),onPress:()=>moveToMic(slot)});
     }else if(!uid&&!menuLocked&&!onStage&&!isHost){
       options.push({text:requested?ui('إلغاء الطلب'):broadcast.ask,onPress:()=>act(requested?'cancel':'request',{slot,permissionOnly:true})});
@@ -661,7 +663,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
         for(const person of requests)options.push({text:ui('صعود')+' · '+person.name,key:person.uid,
           onPress:()=>act('approve',{uid:person.uid,slot})});
       }
-      if(isHost)options.push({text:menuLocked?ui('فتح المايك'):ui('قفل المايك'),onPress:()=>act('slot',{slot,locked:!menuLocked})});
+      if(!uid||uid!==room.ownerUid||isHost||membership.state.appStaff)options.push({text:menuLocked?ui('فتح المايك'):ui('قفل المايك'),onPress:()=>act('slot',{slot,locked:!menuLocked})});
     }
     if(uid&&uid!==userId){
       options.push({text:ui('إبلاغ عن مشارك'),onPress:()=>startReport('participant',JSON.stringify([room.id,uid]))});
@@ -724,11 +726,11 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     if(!m?.id||!userId)return;
     const own=m.userUid===userId;
     const options=[];
-    if(isHost&&!m.legacy){
+    if(canApprove&&!m.legacy&&(m.userUid!==room.ownerUid||isHost||membership.state.appStaff)){
       const pinned=membership.state?.pinned?.id===m.id;
       options.push({text:pinned?ui('إلغاء التثبيت'):ui('تثبيت الرسالة'),onPress:()=>act('pinMessage',{id:pinned?null:m.id})});
     }
-    if(own||isHost)options.push({text:ui('حذف الرسالة'),onPress:()=>Alert.alert(ui('حذف الرسالة'),ui('هل تريد حذف هذه الرسالة للجميع؟'),[
+    if(own||isHost||(!m.legacy&&canModerate(m.userUid)))options.push({text:ui('حذف الرسالة'),onPress:()=>Alert.alert(ui('حذف الرسالة'),ui('هل تريد حذف هذه الرسالة للجميع؟'),[
       {text:ui('إلغاء'),style:'cancel'},{text:ui('حذف'),style:'destructive',onPress:async()=>{
         try{if(m.legacy)await roomRef.collection('messages').doc(m.id).delete();else await membership.act('deleteMessage',{id:m.id})}
         catch(e){Alert.alert(ui('تعذر حذف الرسالة'),e.message)}
@@ -799,7 +801,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
           <WindowControl icon={['themes','filter','people','friends'].includes(roomMenu)?'‹':'×'} label={['themes','filter','people','friends'].includes(roomMenu)?ui("رجوع"):ui("إغلاق")} onPress={goBackFromRoomMenu}/>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
-          {roomMenu==='friends'&&isHost?<FriendPicker act={membership.act} locale={locale}/>:roomMenu==='filter'&&isHost?<>
+          {roomMenu==='admins'&&canApprove?<RoomAdmins act={membership.act}/>:roomMenu==='friends'&&canApprove?<FriendPicker act={membership.act} locale={locale}/>:roomMenu==='filter'&&canApprove?<>
             <TextInput style={[S.input,{width:'100%'}]} multiline maxLength={820} value={filterDraft} onChangeText={setFilterDraft}
               accessibilityLabel={ui('الكلمات المحظورة')} placeholder={ui('اكتب كل كلمة في سطر')}/>
             <RoomOption title={ui('حفظ')} disabled={roomActionPending} onPress={()=>updateRoomSettings({words:filterDraft.split(/[,،\n]/).map(v=>v.trim()).filter(Boolean)},true)}/>
@@ -812,7 +814,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
                   <Small plain title={ui('طرد')} onPress={()=>act('eject',{uid:p.uid})}/></>}
                 {!blocked.includes(p.uid)&&<Small plain title={ui('حظر المستخدم')} onPress={()=>blockUser(p.uid)}/>}</View>}
             </View>)}
-          </>:roomMenu==='themes'&&isHost?<>
+          </>:roomMenu==='themes'&&canApprove?<>
             {[['default',ui("الأصلي")],['palace',ui("القصر الملكي")],['aurora',ui("الشفق القطبي")],['dunes',ui("كثبان القمر")]].map(([theme,label])=>
               <RoomOption key={theme} title={(membership.state?.theme===theme?'✓ ':'')+label} onPress={()=>act('settings',{theme})}/>)}
             <RoomOption title={ui("اختيار خلفية من الاستوديو")} onPress={async()=>{
@@ -835,7 +837,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
             <RoomOption title={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} onPress={()=>{setChatVisible(v=>!v);closeRoomMenu()}}/>
             <RoomOption title={ui("تصغير الغرفة")} onPress={()=>{closeRoomMenu();onMinimize()}}/>
             {canApprove&&(audio||requests.length>0)&&<RoomOption title={(stagePanelVisible?ui("إخفاء طلبات المقاعد"):ui("طلبات المقاعد"))+' ('+requests.length+')'} onPress={()=>{closeRoomMenu();setStagePanelVisible(v=>!v)}}/>}
-            {isHost&&<>
+            {canApprove&&<>
+              <RoomOption title={appText('تعيين أدمن')} onPress={()=>setRoomMenu('admins')}/>
               <RoomOption title={broadcast.invite} onPress={()=>setRoomMenu('friends')}/>
               {audio&&<MicFreedom label={broadcast.free} value={micFree} disabled={roomActionPending} onChange={value=>updateRoomSettings({micFree:value})}/>}
               <RoomOption title={ui('الكلمات المحظورة')} onPress={()=>{setFilterDraft((membership.state.words||[]).join('\n'));setRoomMenu('filter')}}/>
@@ -849,7 +852,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
                 void updateRoomSettings({pin},true)
               }}/>
               {membership.state?.protected&&<RoomOption title={ui("إلغاء قفل الغرفة")} disabled={roomActionPending} onPress={()=>updateRoomSettings({pin:''},true)}/>}
-              <RoomOption title={ui("إغلاق الغرفة للجميع")} onPress={()=>{closeRoomMenu();confirmCloseHostedRoom()}}/>
+              {isHost&&<RoomOption title={ui("إغلاق الغرفة للجميع")} onPress={()=>{closeRoomMenu();confirmCloseHostedRoom()}}/>}
             </>}
           </>}
         </ScrollView>
@@ -917,8 +920,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
     <View style={S.roomTop} testID="room-header">
       <View style={S.roomHeaderMain}>
-        <View style={[S.roomTopRow,{direction:locale==='ar'?'rtl':'ltr'}]}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
+        <View style={[S.roomTopRow,{direction:isRTL()?'rtl':'ltr'}]}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?appText('إغلاق البث'):appText('مغادرة الغرفة')} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
           <View style={S.roomIdentity}>
             {!!room.name&&room.name.trim()!==displayHostName.trim()&&<Text style={[S.roomName,!audio&&S.onVideo]} numberOfLines={1}>{room.name}</Text>}
             <Text style={[S.roomType,!audio&&S.onVideo]}>{audio?ui("🎙 غرفة صوتية"):ui("📹 بث فيديو")}</Text>
@@ -983,7 +986,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={ui("إرسال التعليق")}
             style={[S.sendButton,(sending||!message.trim())&&{opacity:.5}]}
             disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity>
-          {audio&&!isHost&&!onStage&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={requested?'إلغاء طلب المايك':'طلب مايك'} accessibilityState={{selected:!!requested}} style={S.joinButton} onPress={()=>act(requested?'cancel':'request')}><Text style={[S.white,requested&&{color:GOLD}]}>Join</Text></TouchableOpacity>}
+          {audio&&!isHost&&!onStage&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={requested?appText('إلغاء طلب المايك'):appText('طلب مايك')} accessibilityState={{selected:!!requested}} style={S.joinButton} onPress={()=>act(requested?'cancel':'request')}><Text style={[S.white,requested&&{color:GOLD}]}>Join</Text></TouchableOpacity>}
 
         </View>
         {!keyboardOn&&<>
@@ -1026,9 +1029,9 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     {pickerVisible&&<View style={[S.gameSheet,S.roomGamesPicker]}>
       <View style={S.gameBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={()=>setGamePanel('closed')}/>
         <Text accessibilityRole="header" style={S.gameTitle}>{ui("ألعاب")}</Text></View>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Greedy Star" style={S.gameChoice} onPress={()=>setGamePanel('playing')}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText("Greedy Star")} style={S.gameChoice} onPress={()=>setGamePanel('playing')}>
         <Image accessible={false} source={greedyStarCover} resizeMode="cover" style={S.gameCover}/>
-        <Text style={S.gameCaption}>Greedy Star</Text>
+        <Text style={S.gameCaption}>{appText("Greedy Star")}</Text>
       </TouchableOpacity>
     </View>}
     {gamePanel!==null&&<GlobalGreedyPreview visible={gameVisible} inRoom
@@ -1041,7 +1044,7 @@ export default function App(){
   const [locale,setLocale]=useState(()=>readLocale(()=>window.localStorage)||'en');
   const words=languages[locale]||languages.en;
   const menu=accountLabels[locale]||accountLabels.en;
-  useEffect(()=>setInterfaceLanguage(locale),[locale]);
+  useSyncExternalStore(subscribeInterface,interfaceRevision,interfaceRevision);
   function pickLocale(code){
     saveLocale(()=>window.localStorage,code);
     setInterfaceLanguage(code);
@@ -1144,18 +1147,18 @@ export default function App(){
     const amount=Number(payoutAmount.replace(',','.'));
     const provider=payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -')
       ?payoutOtherProvider.trim():payoutProvider;
-    if(payoutCountry==='OTHER'&&!payoutOtherCountry.trim()){Alert.alert('الدولة','اكتب اسم الدولة');return;}
+    if(payoutCountry==='OTHER'&&!payoutOtherCountry.trim()){Alert.alert(appText('الدولة'),appText('اكتب اسم الدولة'));return;}
     if(!payoutHolder.trim()||payoutHolder.trim().length<3){
-      Alert.alert('اسم المستفيد','أدخل الاسم الحقيقي للمستفيد');return;
+      Alert.alert(appText('اسم المستفيد'),appText('أدخل الاسم الحقيقي للمستفيد'));return;
     }
     if(!Number.isFinite(amount)||amount<=0){
-      Alert.alert('المبلغ','أدخل مبلغًا موجبًا بالدولار للمعاينة');return;
+      Alert.alert(appText('المبلغ'),appText('أدخل مبلغًا موجبًا بالدولار للمعاينة'));return;
     }
     if(payoutMethod==='wallet'&&(!provider||payoutAccount.replace(/\D/g,'').length<7)){
-      Alert.alert('بيانات المحفظة','اختر المحفظة وأدخل رقم هاتف صحيحًا');return;
+      Alert.alert(appText('بيانات المحفظة'),appText('اختر المحفظة وأدخل رقم هاتف صحيحًا'));return;
     }
     if(payoutMethod==='bank'&&(!payoutBankName.trim()||payoutAccount.trim().length<8)){
-      Alert.alert('بيانات البنك','أدخل اسم البنك ورقم الحساب/IBAN');return;
+      Alert.alert(appText('بيانات البنك'),appText('أدخل اسم البنك ورقم الحساب/IBAN'));return;
     }
     // حفظ مسودة محلية فقط. لا نخزن أرقام حسابات كاملة في سجل المسودات.
     const masked=payoutAccount.length>4
@@ -1166,7 +1169,7 @@ export default function App(){
       amount,masked,status:'مسودة فقط - غير مرسلة'
     },...v].slice(0,12));
     setPayoutAccount('');setPayoutSwift('');
-    Alert.alert('مسودة فقط','تم تجهيز معاينة طلب السحب، ولم يتم إرسال طلب أو تحويل أي مبلغ. الرصيد القابل للسحب حاليًا صفر.');
+    Alert.alert(appText('مسودة فقط'),appText('تم تجهيز معاينة طلب السحب، ولم يتم إرسال طلب أو تحويل أي مبلغ. الرصيد القابل للسحب حاليًا صفر.'));
   }
 
   const setBalance=w=>{walletRef.current=w;setWallet(w)};
@@ -1234,7 +1237,7 @@ export default function App(){
       pending=true;
       try{
         const response=await fetch(MEDIA_ENDPOINT+'/active-rooms');
-        if(!response.ok)throw Error('تعذر التحقق من الغرف المفتوحة');
+        if(!response.ok)throw Error(appText('تعذر التحقق من الغرف المفتوحة'));
         const data=await response.json();
         if(mounted){live=new Set(data.rooms);display();setRoomError('')}
       }catch(e){if(mounted){live.clear();display();setRoomError(e.message)}}
@@ -1278,10 +1281,10 @@ export default function App(){
     const address=email.trim();
     const creating=emailMode==='signup';
     const resetting=emailMode==='reset';
-    if(!/^\S+@[^\s@]+\.[^\s@]+$/.test(address))return Alert.alert('البريد','أدخل بريدًا إلكترونيًا صحيحًا.');
-    if(!resetting&&!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً.');
-    if(!resetting&&(!password||(creating&&password.length<6)))return Alert.alert('كلمة المرور','أدخل كلمة المرور. الحساب الجديد يحتاج إلى ستة أحرف على الأقل.');
-    if(creating&&(!name.trim()||name.trim().length>35))return Alert.alert(ui("الاسم"),'أدخل اسمًا من 1 إلى 35 حرفًا.');
+    if(!/^\S+@[^\s@]+\.[^\s@]+$/.test(address))return Alert.alert(appText('البريد'),appText('أدخل بريدًا إلكترونيًا صحيحًا.'));
+    if(!resetting&&!accepted)return Alert.alert(appText('الشروط'),appText('وافق على الشروط أولاً.'));
+    if(!resetting&&(!password||(creating&&password.length<6)))return Alert.alert(appText('كلمة المرور'),appText('أدخل كلمة المرور. الحساب الجديد يحتاج إلى ستة أحرف على الأقل.'));
+    if(creating&&(!name.trim()||name.trim().length>35))return Alert.alert(ui("الاسم"),appText('أدخل اسمًا من 1 إلى 35 حرفًا.'));
 
     Keyboard.dismiss();
     setBusy(true);
@@ -1293,7 +1296,7 @@ export default function App(){
           if(error?.code!=='auth/user-not-found')throw error;
         });
         setEmailMode('login');
-        Alert.alert('استعادة كلمة المرور','إذا كان البريد مرتبطًا بحساب، سيصلك رابط لتعيين كلمة مرور جديدة.');
+        Alert.alert(appText('استعادة كلمة المرور'),appText('إذا كان البريد مرتبطًا بحساب، سيصلك رابط لتعيين كلمة مرور جديدة.'));
         return;
       }
       if(!creating){
@@ -1320,7 +1323,7 @@ export default function App(){
       };
       const message=messages[error?.code]||(resetting?'تعذر إرسال رابط الاستعادة. حاول مجددًا.':creating?'تعذر إنشاء الحساب. تحقق من البيانات وحاول مجددًا.':'تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');
       setAuthError(message);
-      Alert.alert('الدخول بالبريد',message);
+      Alert.alert(appText('الدخول بالبريد'),message);
     }finally{
       profileSetupRef.current=false;
       setPassword('');
@@ -1343,56 +1346,56 @@ export default function App(){
   }
   async function phoneLogin(){
     if(busy)return;
-    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
-    if(!name.trim()||name.trim().length>35)return Alert.alert(ui("الاسم"),'أدخل اسمًا من 1 إلى 35 حرفًا');
+    if(!accepted)return Alert.alert(appText('الشروط'),appText('وافق على الشروط أولاً'));
+    if(!name.trim()||name.trim().length>35)return Alert.alert(ui("الاسم"),appText('أدخل اسمًا من 1 إلى 35 حرفًا'));
     const local=phone.replace(/\D/g,'').replace(/^0+/,'');
-    if(local.length<7||local.length>15)return Alert.alert('الهاتف','أدخل رقم هاتف صحيح من 7 إلى 15 رقمًا');
+    if(local.length<7||local.length>15)return Alert.alert(appText('الهاتف'),appText('أدخل رقم هاتف صحيح من 7 إلى 15 رقمًا'));
     Keyboard.dismiss();
     setBusy(true);setAuthError('');
     try{const c=await auth().signInWithPhoneNumber(COUNTRIES[country][1]+local);setConfirmation(c);setSmsCode('');go('verify')}
-    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('تعذر إرسال SMS',message)}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('تعذر إرسال SMS'),message)}
     finally{setBusy(false)}
   }
   async function verifySms(){
     if(busy)return;
-    if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert('رمز SMS','أدخل ستة أرقام');
+    if(!confirmation||!/^\d{6}$/.test(smsCode.trim()))return Alert.alert(appText('رمز SMS'),appText('أدخل ستة أرقام'));
     profileSetupRef.current=true;
     setBusy(true);setAuthError('');
     try{
       const credential=await confirmation.confirm(smsCode.trim());
       // A valid SMS code must not be reported as invalid if Firestore is unavailable.
       try{await saveProfile(credential.user,name.trim())}
-      catch(e){console.warn('Profile save failed:',e.message);Alert.alert('تعذر حفظ الملف الشخصي','تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.');}
+      catch(e){console.warn('Profile save failed:',e.message);Alert.alert(appText('تعذر حفظ الملف الشخصي'),appText('تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.'));}
       setUser(credential.user);setConfirmation(null);
       await openRoomInvitation(credential.user);
     }
-    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert('فشل التحقق',message)}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('فشل التحقق'),message)}
     finally{profileSetupRef.current=false;setBusy(false)}
   }
   async function googleLogin(){
     if(busy)return;
-    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
-    if(!GOOGLE_WEB_CLIENT_ID)return Alert.alert('إعداد Google','أضف EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID في بيئة EAS، وفعّل Google في Firebase');
+    if(!accepted)return Alert.alert(appText('الشروط'),appText('وافق على الشروط أولاً'));
+    if(!GOOGLE_WEB_CLIENT_ID)return Alert.alert(appText('إعداد Google'),appText('أضف EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID في بيئة EAS، وفعّل Google في Firebase'));
     setBusy(true);setAuthError('');
     try{
       if(Platform.OS==='android')await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
       const result=await GoogleSignin.signIn();
       if(result.type==='cancelled')return;
       const token=result.data?.idToken||result.idToken;
-      if(!token)throw new Error('Google لم يرجع ID Token');
+      if(!token)throw new Error(appText('Google لم يرجع ID Token'));
       const credential=auth.GoogleAuthProvider.credential(token);
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Google profile sync:',profileError.message)}
       setUser(signed.user);go('home');
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
-      const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(detail);Alert.alert('فشل تسجيل Google',detail)
+      const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(detail);Alert.alert(appText('فشل تسجيل Google'),detail)
     }}finally{setBusy(false)}
   }
   async function facebookLogin(){
     if(busy)return;
-    if(!accepted)return Alert.alert('الشروط','وافق على الشروط أولاً');
-    if(!FACEBOOK_CONFIGURED)return Alert.alert('إعداد Facebook','أكمل EXPO_PUBLIC_FACEBOOK_APP_ID وEXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول');
+    if(!accepted)return Alert.alert(appText('الشروط'),appText('وافق على الشروط أولاً'));
+    if(!FACEBOOK_CONFIGURED)return Alert.alert(appText('إعداد Facebook'),appText('أكمل EXPO_PUBLIC_FACEBOOK_APP_ID وEXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول'));
     setBusy(true);setAuthError('');
     try{
       const {LoginManager,AccessToken,AuthenticationToken}=({});
@@ -1403,13 +1406,13 @@ export default function App(){
         const response=await LoginManager.logInWithPermissions(['public_profile','email'],'limited',hashedNonce);
         if(response.isCancelled)return;
         const token=await AuthenticationToken.getAuthenticationTokenIOS();
-        if(!token?.authenticationToken)throw new Error('Facebook Limited Login لم يرجع رمزًا');
+        if(!token?.authenticationToken)throw new Error(appText('Facebook Limited Login لم يرجع رمزًا'));
         credential=auth.FacebookAuthProvider.credential(token.authenticationToken,rawNonce);
       }else{
         const response=await LoginManager.logInWithPermissions(['public_profile','email']);
         if(response.isCancelled)return;
         const token=await AccessToken.getCurrentAccessToken();
-        if(!token?.accessToken)throw new Error('Facebook لم يرجع Access Token');
+        if(!token?.accessToken)throw new Error(appText('Facebook لم يرجع Access Token'));
         credential=auth.FacebookAuthProvider.credential(token.accessToken);
       }
       const signed=await auth().signInWithCredential(credential);
@@ -1417,7 +1420,7 @@ export default function App(){
       catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
       setUser(signed.user);go('home');
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
-      const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(detail);Alert.alert('فشل تسجيل Facebook',detail)
+      const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(detail);Alert.alert(appText('فشل تسجيل Facebook'),detail)
     }}
     finally{setBusy(false)}
   }
@@ -1510,9 +1513,9 @@ export default function App(){
   }
   function resetGame(){clearTimeout(timerRef.current);betsRef.current={};setBets({});setSeconds(30);setLit(-1);setGameResult(null);phaseRef.current='betting';setPhase('betting')}
   function placeBet(i){
-    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return Alert.alert('غير متاح','اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.');
+    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return Alert.alert(appText('غير متاح'),appText('اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.'));
     if(phaseRef.current!=='betting')return;
-    if(!betsRef.current[i]&&Object.keys(betsRef.current).length>=6)return Alert.alert('الحد الأقصى ست خانات');
+    if(!betsRef.current[i]&&Object.keys(betsRef.current).length>=6)return Alert.alert(appText('الحد الأقصى ست خانات'));
     if(!spend(betAmount))return Alert.alert(ui("رصيد غير كافٍ"));
     const b={...betsRef.current,[i]:(betsRef.current[i]||0)+betAmount};betsRef.current=b;setBets(b);
   }
@@ -1536,7 +1539,7 @@ export default function App(){
   useEffect(()=>{if(page==='game'&&phase==='betting'&&seconds===0)spin()},[page,phase,seconds]);
   useEffect(()=>()=>clearTimeout(timerRef.current),[]);
   function leaveGame(){
-    if(phaseRef.current==='spinning')return Alert.alert('انتظر انتهاء الجولة');
+    if(phaseRef.current==='spinning')return Alert.alert(appText('انتظر انتهاء الجولة'));
     if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
     resetGame();go('games');
   }
@@ -1569,49 +1572,49 @@ export default function App(){
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
   const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,followRevision,onFollowChange});
-  const shortPlayerProps={
+  const shortPlayerProps={translate:appText,
     followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
     playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('wallet'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
   };
-  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={ui("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||ui("مستخدم")} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{ui(equipped.frame)}</Text><Text style={S.white}>{ui(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>دعم تجريبي تم إرساله: {fmt(spent)}{ui(" ماسة")}</Text>}</View>;
+  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={ui("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||ui("مستخدم")} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{ui(equipped.frame)}</Text><Text style={S.white}>{ui(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{ui(" ماسة")}</Text>}</View>;
 
   function policyLinks(privacy,terms){return <View style={S.row}>
     <Small title={privacy} onPress={()=>setPolicy('privacy')}/>
     <Small title={terms} onPress={()=>setPolicy('terms')}/>
   </View>}
   function signInFrame(children){
-    return <div lang={locale} dir={words.direction} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
+    return <div lang={locale} dir={appText(words.direction)} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
       <View style={{flexGrow:1,flexShrink:0,justifyContent:'center',backgroundColor:theme.canvas,padding:22}}><LoginCover image={brandIcon}/><View style={{backgroundColor:theme.paper,padding:18,borderRadius:24,gap:5}}>
         {location.pathname==='/delete-account'&&<Text style={S.white}>{ui('سجّل الدخول لطلب حذف حسابك وبياناته.')} · Liddawiw@gmail.com</Text>}
         <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:accepted}} onPress={()=>setAccepted(value=>!value)}>
           <Text style={S.white}>{accepted?'☑':'☐'} {ui('أوافق على شروط الخدمة وقواعد المجتمع')}</Text></TouchableOpacity>
         {children}
         {!!authError&&<Text accessibilityLiveRegion="polite" style={S.white}>{locale==='ar'?authError:words.error}</Text>}
-        <LanguageDropdown selected={locale} onPick={pickLocale} label={words.change}/>
+        <LanguageDropdown selected={locale} onPick={pickLocale} label={appText(words.change)}/>
         {policyLinks(words.privacy,words.terms)}</View>
       </View>
     </div>;
   }
   function renderPage(){
   if(SHOW_UNRELEASED_DEMOS&&page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
-  if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {words.wait}</Text></View>;
+  if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {appText(words.wait)}</Text></View>;
   if((!user||page==='login')&&loginMethod!=='clipi-email')return signInFrame(<>
-    <Text style={S.title}>{words.intro}</Text>
+    <Text style={S.title}>{appText(words.intro)}</Text>
     <Btn color="#11685b" title={busy?words.wait:words.pi} disabled={busy||(!accepted&&location.pathname!=='/delete-account')} onPress={async()=>{
       setBusy(true);setAuthError('');
       try{await piLogin()}catch(error){setAuthError(error.message)}finally{setBusy(false)}
     }}/>
-    <Btn color={ORANGE} title={words.emailLogin} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
+    <Btn color={ORANGE} title={appText(words.emailLogin)} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
   </>);
   if(!user||page==='login')return signInFrame(<>
-    <Text style={S.title}>{words.emailLogin}</Text>
-    <TextInput style={S.input} accessibilityLabel={words.email} placeholder={words.email} value={email} onChangeText={setEmail} autoCapitalize="none"/>
-    <TextInput style={S.input} accessibilityLabel={words.password} placeholder={words.password} value={password} onChangeText={setPassword} secureTextEntry/>
-    <Btn title={words.signIn} disabled={busy} onPress={()=>emailSession(false)}/>
-    <Btn title={words.create} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
-    <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
+    <Text style={S.title}>{appText(words.emailLogin)}</Text>
+    <TextInput style={S.input} accessibilityLabel={appText(words.email)} placeholder={appText(words.email)} value={email} onChangeText={setEmail} autoCapitalize="none"/>
+    <TextInput style={S.input} accessibilityLabel={appText(words.password)} placeholder={appText(words.password)} value={password} onChangeText={setPassword} secureTextEntry/>
+    <Btn title={appText(words.signIn)} disabled={busy} onPress={()=>emailSession(false)}/>
+    <Btn title={appText(words.create)} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
+    <Btn title={appText(words.back)} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
   if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
@@ -1653,62 +1656,62 @@ export default function App(){
   if(page==='create')return <RoomStudio hostField={hostField} name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={()=>go('home')} busy={busy} copy={{close:ui("رجوع"),title:ui("إنشاء غرفة"),name:ui("اسم الغرفة"),mode:ui("نوع الغرفة"),audio:ui("🎙 صوت"),video:ui("📹 فيديو"),start:ui("فتح الغرفة"),note:ui("الغرفة عامة للمستخدمين المسجلين.")}}/>;
   if(!SHOW_UNRELEASED_DEMOS&&['wallet','earningsWallet'].includes(page))return <HubScreen title={ui('المحفظة')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}><DiamondWallet key={user.uid} uid={user.uid} onHelp={()=>go('help')}/>{page==='wallet'&&<TrialWallet key={user.uid} request={mediaRequest} nonce={()=>crypto.randomUUID()} gifts={GIFTS} Game={GlobalGreedyPreview}/>}</HubScreen>;
   if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:theme.sea} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 PI" color={paymentMethod==='pi'?PINK:theme.sea} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر PI بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} PI`:ui("أدخل سعر PI")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من PI = 1,200 ماسة. يتغير سعر PI صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر PI الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة PI يحتاجان إعدادات دفع فعلية.")}</Text></>);
-  if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
+  if(page==='earnings')return layout(appText('أرباح المضيف'),<><Btn title={appText("💼 فتح محفظة النقاط")} onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
-      <Text style={S.title}>🎁 الدعم التجريبي: {fmt(received)} 💎</Text>
-      <Text style={S.big}>💰 القابل للسحب: $0.00</Text>
-      <Text style={S.muted}>رصيد الهدايا لا يساوي أرباحًا ممولة. لن يكتمل السحب إلا بعد ربط خادم مالي، والتحقق من الهوية، ومزود تحويل معتمد.</Text>
-      <Btn title="🌍 اختيار قناة السحب" onPress={()=>go('payout')}/>
+      <Text style={S.title}>{appText("🎁 الدعم التجريبي: ")}{fmt(received)} 💎</Text>
+      <Text style={S.big}>{appText("💰 القابل للسحب: $0.00")}</Text>
+      <Text style={S.muted}>{appText("رصيد الهدايا لا يساوي أرباحًا ممولة. لن يكتمل السحب إلا بعد ربط خادم مالي، والتحقق من الهوية، ومزود تحويل معتمد.")}</Text>
+      <Btn title={appText("🌍 اختيار قناة السحب")} onPress={()=>go('payout')}/>
     </View>
-    <Text style={S.title}>سجل الدعم داخل المعاينة</Text>
+    <Text style={S.title}>{appText("سجل الدعم داخل المعاينة")}</Text>
     {supportLog.map(x=><View key={x.id} style={S.panel}>
       <Text style={S.white}>{x.gift} — {fmt(x.value)} 💎</Text>
-      <Text style={S.muted}>المضيف: {x.host} · المصدر: {x.source.owner?'رصيد مالك':x.source.welcome?'ترحيبي':'مدفوع'}</Text>
+      <Text style={S.muted}>{appText("المضيف: ")}{x.host}{appText(" · المصدر: ")}{x.source.owner?appText('رصيد مالك'):x.source.welcome?appText('ترحيبي'):appText('مدفوع')}</Text>
     </View>)}
   </>);
 
-  if(page==='payout')return layout('قنوات سحب الأرباح',<>
+  if(page==='payout')return layout(appText('قنوات سحب الأرباح'),<>
     <View style={S.panel}>
-      <Text style={S.gold}>التحويل المالي غير مفعّل</Text>
-      <Text style={S.muted}>هذه شاشة اختيار وتجهيز طلب، لا تتم عبرها أي مدفوعات أو إيداعات. يجب التحقق من اعتماد المزود في دولة المستفيد أولًا.</Text>
-      <Text style={S.white}>الرصيد القابل للسحب: $0.00</Text>
+      <Text style={S.gold}>{appText("التحويل المالي غير مفعّل")}</Text>
+      <Text style={S.muted}>{appText("هذه شاشة اختيار وتجهيز طلب، لا تتم عبرها أي مدفوعات أو إيداعات. يجب التحقق من اعتماد المزود في دولة المستفيد أولًا.")}</Text>
+      <Text style={S.white}>{appText("الرصيد القابل للسحب: $0.00")}</Text>
     </View>
-    <Text style={S.label}>الدولة / البلد</Text>
+    <Text style={S.label}>{appText("الدولة / البلد")}</Text>
     <View style={S.choiceWrap}>
       {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.choice,payoutCountry===c[0]&&S.choiceActive]}>
         <Text style={S.white}>{c[1]}</Text>
       </TouchableOpacity>)}
     </View>
-    {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder="اسم الدولة" value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
-    <Text style={S.muted}>البلد المختار: {payoutCountryInfo[1]} · العملة المرجعية: {payoutCountryInfo[2]} (دون احتساب صرف فعلي)</Text>
-    <Text style={S.label}>طريقة الاستلام</Text>
+    {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder={appText("اسم الدولة")} value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
+    <Text style={S.muted}>{appText("البلد المختار: ")}{payoutCountryInfo[1]}{appText(" · العملة المرجعية: ")}{payoutCountryInfo[2]}{appText(" (دون احتساب صرف فعلي)")}</Text>
+    <Text style={S.label}>{appText("طريقة الاستلام")}</Text>
     <View style={S.row}>
-      <Btn title="📱 محفظة هاتف" color={payoutMethod==='wallet'?PINK:theme.sea} onPress={()=>setPayoutMethod('wallet')}/>
-      <Btn title="🏦 بنك / IBAN" color={payoutMethod==='bank'?PINK:theme.sea} onPress={()=>setPayoutMethod('bank')}/>
+      <Btn title={appText("📱 محفظة هاتف")} color={payoutMethod==='wallet'?PINK:theme.sea} onPress={()=>setPayoutMethod('wallet')}/>
+      <Btn title={appText("🏦 بنك / IBAN")} color={payoutMethod==='bank'?PINK:theme.sea} onPress={()=>setPayoutMethod('bank')}/>
     </View>
     {payoutMethod==='wallet'?<>
-      <Text style={S.label}>المحفظة</Text>
+      <Text style={S.label}>{appText("المحفظة")}</Text>
       <View style={S.choiceWrap}>{payoutOptions.map(option=><TouchableOpacity key={option} onPress={()=>setPayoutProvider(option)} style={[S.choice,payoutProvider===option&&S.choiceActive]}>
         <Text style={S.white}>{option}</Text>
       </TouchableOpacity>)}</View>
-      {(payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -'))&&<TextInput style={S.input} placeholder="اسم المحفظة الأخرى" value={payoutOtherProvider} onChangeText={setPayoutOtherProvider}/>}
-      <Text style={S.label}>رقم الهاتف المرتبط بالمحفظة (مع رمز الدولة)</Text>
-      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} keyboardType="phone-pad" placeholder="مثال: +9627..."/>
+      {(payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -'))&&<TextInput style={S.input} placeholder={appText("اسم المحفظة الأخرى")} value={payoutOtherProvider} onChangeText={setPayoutOtherProvider}/>}
+      <Text style={S.label}>{appText("رقم الهاتف المرتبط بالمحفظة (مع رمز الدولة)")}</Text>
+      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} keyboardType="phone-pad" placeholder={appText("مثال: +9627...")}/>
     </>:<>
-      <Text style={S.label}>اسم البنك (أي بنك في الدولة المختارة)</Text>
-      <TextInput style={S.input} value={payoutBankName} onChangeText={setPayoutBankName} placeholder="أدخل اسم البنك كما هو رسميًا"/>
-      <Text style={S.label}>رقم الحساب / IBAN</Text>
-      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} autoCapitalize="characters" placeholder="IBAN أو رقم الحساب"/>
-      <Text style={S.label}>SWIFT / BIC (اختياري في المعاينة)</Text>
-      <TextInput style={S.input} value={payoutSwift} onChangeText={setPayoutSwift} autoCapitalize="characters" placeholder="رمز البنك"/>
+      <Text style={S.label}>{appText("اسم البنك (أي بنك في الدولة المختارة)")}</Text>
+      <TextInput style={S.input} value={payoutBankName} onChangeText={setPayoutBankName} placeholder={appText("أدخل اسم البنك كما هو رسميًا")}/>
+      <Text style={S.label}>{appText("رقم الحساب / IBAN")}</Text>
+      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} autoCapitalize="characters" placeholder={appText("IBAN أو رقم الحساب")}/>
+      <Text style={S.label}>{appText("SWIFT / BIC (اختياري في المعاينة)")}</Text>
+      <TextInput style={S.input} value={payoutSwift} onChangeText={setPayoutSwift} autoCapitalize="characters" placeholder={appText("رمز البنك")}/>
     </>}
-    <Text style={S.label}>الاسم القانوني للمستفيد</Text>
-    <TextInput style={S.input} value={payoutHolder} onChangeText={setPayoutHolder} placeholder="كما هو مسجل بالمحفظة أو البنك"/>
-    <Text style={S.label}>المبلغ المطلوب بالدولار (تجريبي)</Text>
+    <Text style={S.label}>{appText("الاسم القانوني للمستفيد")}</Text>
+    <TextInput style={S.input} value={payoutHolder} onChangeText={setPayoutHolder} placeholder={appText("كما هو مسجل بالمحفظة أو البنك")}/>
+    <Text style={S.label}>{appText("المبلغ المطلوب بالدولار (تجريبي)")}</Text>
     <TextInput style={S.input} keyboardType="decimal-pad" value={payoutAmount} onChangeText={setPayoutAmount} placeholder="0.00"/>
-    <Btn title="حفظ مسودة طلب السحب فقط" onPress={createPayoutDraft}/>
-    <Text style={S.muted}>لا تتاح الموافقة أو التحويل حتى يكون لديك رصيد مستحق تم تأكيده من الخادم، مع التحقق من الهوية والبلد والأهلية ورسوم التحويل.</Text>
-    {payoutDrafts.length>0&&<Text style={S.title}>مسودات الطلبات في هذه الجلسة</Text>}
+    <Btn title={appText("حفظ مسودة طلب السحب فقط")} onPress={createPayoutDraft}/>
+    <Text style={S.muted}>{appText("لا تتاح الموافقة أو التحويل حتى يكون لديك رصيد مستحق تم تأكيده من الخادم، مع التحقق من الهوية والبلد والأهلية ورسوم التحويل.")}</Text>
+    {payoutDrafts.length>0&&<Text style={S.title}>{appText("مسودات الطلبات في هذه الجلسة")}</Text>}
     {payoutDrafts.map(d=><View key={d.id} style={S.panel}>
       <Text style={S.white}>{d.country} · {d.provider} · ${d.amount.toFixed(2)}</Text>
       <Text style={S.muted}>{d.masked} · {d.status}</Text>
@@ -1775,26 +1778,26 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),e.message)}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
-  if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
+  if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>
-    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert('قواعد اللعبة','محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.')}>📜 قاعدة</Text><View style={S.starBrand}><Text style={S.starBrandText}>Greedy Star</Text></View><Text style={S.starRound}>جولة تجريبية</Text></View>
+    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert(appText('قواعد اللعبة'),appText('محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.'))}>{appText("📜 قاعدة")}</Text><View style={S.starBrand}><Text style={S.starBrandText}>{appText("Greedy Star")}</Text></View><Text style={S.starRound}>{appText("جولة تجريبية")}</Text></View>
     <ScrollView contentContainerStyle={S.starScroll}>
       <View style={S.starWheel}>
         <View style={S.starWheelRing}/>
         {FOOD.map((f,i)=>{const angle=(i*45-90)*Math.PI/180;return <TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={[S.starFood,{left:124+Math.cos(angle)*107-39,top:124+Math.sin(angle)*107-39},lit===i&&S.starFoodLit]}>
           <Text style={S.starFoodEmoji}>{f[0]}</Text>
-          <Text style={S.starFoodLabel}>{f[2]} أضعاف</Text>
+          <Text style={S.starFoodLabel}>{f[2]}{appText(" أضعاف")}</Text>
           {bets[i]?<Text style={S.starStake}>{bets[i]} 💎</Text>:null}
         </TouchableOpacity>})}
-        <View style={S.starCenter}><Text style={S.starCenterTop}>{phase==='betting'?'حدد الوقت':phase==='spinning'?'تدور العجلة':'النتيجة'}</Text><Text style={S.starCenterTime}>{phase==='betting'?seconds+'S':phase==='spinning'?'⭐':gameResult?gameResult.item[0]:'★'}</Text></View>
+        <View style={S.starCenter}><Text style={S.starCenterTop}>{phase==='betting'?appText('حدد الوقت'):phase==='spinning'?appText('تدور العجلة'):appText('النتيجة')}</Text><Text style={S.starCenterTime}>{phase==='betting'?seconds+'S':phase==='spinning'?'⭐':gameResult?gameResult.item[0]:'★'}</Text></View>
       </View>
-      <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+gameResult.item[1]+' · '+fmt(gameResult.prize)+' 💎 تجريبي':'اختر مقدار الماسة، ثم اضغط على الطعام'}</Text></View>
+      <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+gameResult.item[1]+' · '+fmt(gameResult.prize)+appText(' 💎 تجريبي'):appText('اختر مقدار الماسة، ثم اضغط على الطعام')}</Text></View>
       <View style={S.starBetTray}>{[10000,1000,500,100,10].map(n=><TouchableOpacity key={n} onPress={()=>setBetAmount(n)} style={[S.starBetChip,betAmount===n&&S.starBetActive]}><Text style={S.starBetText}>{n} 💎</Text></TouchableOpacity>)}</View>
-      <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>الماس المتبقي</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert('السجل',history.length?history.map(h=>h.item[0]+' '+h.item[1]+' — '+h.prize+' 💎').join('\n'):'لا توجد جولات بعد')}><Text style={S.starInfoText}>سجلاتي</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>مجموع الجولة</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
+      <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>{appText("الماس المتبقي")}</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert(appText('السجل'),history.length?history.map(h=>h.item[0]+' '+h.item[1]+' — '+h.prize+' 💎').join('\n'):appText('لا توجد جولات بعد'))}><Text style={S.starInfoText}>{appText("سجلاتي")}</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>{appText("مجموع الجولة")}</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
       <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
-      <Btn title={phase==='betting'?'ابدأ الجولة التجريبية':phase==='result'?'جولة جديدة':'العجلة تدور...'} color={theme.mint} disabled={phase==='spinning'} onPress={phase==='result'?resetGame:spin}/>
-      <Text style={S.starDisclaimer}>نسخة تصميمية مستوحاة من الصورة المرجعية · محاكاة تطويرية فقط، بلا رهانات أو جوائز نقدية.</Text>
+      <Btn title={phase==='betting'?appText('ابدأ الجولة التجريبية'):phase==='result'?appText('جولة جديدة'):appText('العجلة تدور...')} color={theme.mint} disabled={phase==='spinning'} onPress={phase==='result'?resetGame:spin}/>
+      <Text style={S.starDisclaimer}>{appText("نسخة تصميمية مستوحاة من الصورة المرجعية · محاكاة تطويرية فقط، بلا رهانات أو جوائز نقدية.")}</Text>
     </ScrollView>
   </View>;
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
@@ -1804,7 +1807,7 @@ export default function App(){
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
-      if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?'أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.':'End your current broadcast before joining another room.');
+      if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
       const doc=await firestore().collection('rooms').doc(id).get();
       if(auth().currentUser?.uid!==user.uid)throw Error(menu.retry);
       if(!doc.exists||doc.data()?.status!=='open')throw Error(ui('انتهى البث'));

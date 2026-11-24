@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React from 'react';
 import {Modal} from 'react-native';
 import './short-feed.css';
@@ -37,14 +38,14 @@ export function FeedAction({icon, label, onClick, selected, count}) {
       : icon==='comment'
       ? <img src={require('./assets/actions/comment-bubble.png')} width={24} height={24} alt=""/>
       : <FeedIcon name={icon} size={27} filled={icon==='like'||selected}/>}
-    {icon==='share'&&<span>مشاركة</span>}
+    {icon==='share'&&<span>{appText("مشاركة")}</span>}
     {count != null && <span>{Number(count).toLocaleString(document.documentElement.lang || 'ar')}</span>}
   </button>;
 }
 
-export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false}) {
+export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false, videoSettings=false}) {
   return <Modal transparent animationType="fade" onRequestClose={onClose}>
-    <div className="clipi-sheet-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className={'clipi-sheet-overlay'+(videoSettings?' clipi-video-settings':'')} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <section className="clipi-feed-sheet" aria-label={title}>
         <header><h2>{title}</h2><button type="button" disabled={busy} onClick={onClose} aria-label={closeLabel}><FeedIcon name="close" size={19}/></button></header>
         {note&&<p className="clipi-sheet-note" role="status">{note}</p>}

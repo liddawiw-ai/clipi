@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useEffect,useState} from 'react';
 import {Pressable,Text,View,useWindowDimensions} from 'react-native';
 import {trackPos} from './TableRules.mjs';
@@ -11,7 +12,7 @@ function circle(x,y,rad){return {position:'absolute',left:x-rad,top:y-rad,width:
 function marble(key,x,y,r,color,text,onPress){
   const style=[circle(x,y,r),{backgroundColor:color,borderColor:'#E6C078',borderWidth:1,alignItems:'center',justifyContent:'center'}];
   const body=<><View style={[circle(r*.64,r*.45,r*.24),{backgroundColor:'rgba(255,255,255,.54)'}]}/><Text style={{color:'white',fontSize:Math.max(8,r*1.14),fontWeight:'bold',textShadowColor:'#291F1B',textShadowRadius:2}}>{text}</Text></>;
-  return onPress?<Pressable key={key} accessibilityRole="button" accessibilityLabel={'حجر '+text} onPress={onPress} style={style}>{body}</Pressable>:<View key={key} style={style}>{body}</View>;
+  return onPress?<Pressable key={key} accessibilityRole="button" accessibilityLabel={appText('حجر ')+text} onPress={onPress} style={style}>{body}</Pressable>:<View key={key} style={style}>{body}</View>;
 }
 export function Board({game:g,onPiece}){
   const {width}=useWindowDimensions(),side=Math.min(374,Math.max(190,width-58)),ludo=g.kind==='ludo';
@@ -72,7 +73,7 @@ export function PoolBoard({game,angle,placing,onPoint}){
         {n>0&&<Text style={{fontSize:Math.max(5,unit*2.5),fontWeight:'900',color:n===8?'white':'#241C1C',backgroundColor:n===8?'transparent':'#F5ECD4',borderRadius:3}}>{n}</Text>}
         <View style={[circle(unit*1.25,unit,unit*.5),{backgroundColor:'rgba(255,255,255,.7)'}]}/>
       </View>)}
-      <Pressable accessibilityRole="button" accessibilityLabel={placing?'تحديد مكان الكرة البيضاء':'توجيه العصا'} style={{position:'absolute',top:0,bottom:0,left:0,right:0}}
+      <Pressable accessibilityRole="button" accessibilityLabel={placing?appText('تحديد مكان الكرة البيضاء'):appText('توجيه العصا')} style={{position:'absolute',top:0,bottom:0,left:0,right:0}}
         onPress={e=>{if(frame)return;const n=e.nativeEvent,rect=e.currentTarget?.getBoundingClientRect?.();
           const x=rect?(n.clientX-rect.left)/unit:n.locationX/unit,y=rect?(n.clientY-rect.top)/unit:n.locationY/unit;
           if(Number.isFinite(x)&&Number.isFinite(y))onPoint(x,y);

@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,StyleSheet,Switch,Text,TouchableOpacity,View} from 'react-native';
 import {theme} from './ClipiTheme';
@@ -66,6 +67,32 @@ function Action({label,onPress,disabled}){
   return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={s.action}>
     <Text style={[s.text,{color:disabled?theme.secondary:theme.accent}]}>{label}</Text></TouchableOpacity>;
 }
+export function RoomAdmins({act}){
+  const [data,setData]=useState({admins:[],friends:[],next:null}),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const active=useRef(false),locked=useRef(false),action=useRef(act);action.current=act;
+  async function load(after=null,change=null){
+    if(locked.current)return;
+    locked.current=true;setBusy(true);setError('');
+    try{
+      if(change)await action.current('setRoomAdmin',change);
+      const result=await action.current('roomAdmins',{after:after||''});
+      if(active.current)setData(previous=>({...result,friends:after?[...previous.friends,...result.friends]:result.friends}));
+    }catch(e){if(active.current)setError(e.message||'تعذّر تحديث القائمة');}
+    finally{locked.current=false;if(active.current)setBusy(false);}
+  }
+  useEffect(()=>{active.current=true;void load();return ()=>{active.current=false;};},[]);
+  const ids=new Set(data.admins.map(row=>row.uid));
+  return <View style={{gap:8}}>
+    <Text style={s.text}>{appText('أدمن الغرفة')}</Text>
+    {data.admins.map(row=><Action key={row.uid} disabled={busy} label={row.name+' · '+appText('إزالة الصلاحية')} onPress={()=>load(null,{uid:row.uid,enabled:false})}/>)}
+    <Text style={s.text}>{appText('تعيين أدمن')}</Text>
+    {data.friends.filter(row=>!ids.has(row.uid)).map(row=><Action key={row.uid} disabled={busy} label={row.name} onPress={()=>load(null,{uid:row.uid,enabled:true})}/>)}
+    {!busy&&!error&&!data.next&&data.friends.every(row=>ids.has(row.uid))&&<Text style={s.text}>{appText('ليس لديك أصدقاء متاحون للتعيين')}</Text>}
+    {!!error&&<Text accessibilityLiveRegion="polite" style={s.text}>{appText(error)}</Text>}
+    {(data.next||error)&&<Action disabled={busy} label={appText(data.next?'عرض المزيد':'إعادة المحاولة')} onPress={()=>load(data.next)}/>}
+  </View>;
+}
+
 export function FriendPicker({act,locale}){
   const copy=broadcastWords(locale),menu=accountLabels[locale]||accountLabels.en;
   const [rows,setRows]=useState([]),[selected,setSelected]=useState([]),[next,setNext]=useState(null);
@@ -96,7 +123,7 @@ export function FriendPicker({act,locale}){
   return <View>{loaded&&!rows.length&&<Text style={s.text}>{copy.empty}</Text>}
     {rows.map(p=><CircleChoice key={p.uid} label={p.name+(p.invited?' · '+copy.sent:'')} checked={!!p.invited||selected.includes(p.uid)}
       disabled={busy||!!p.invited} onPress={()=>setSelected(list=>list.includes(p.uid)?list.filter(uid=>uid!==p.uid):[...list,p.uid])}/>)}
-    {!!error&&<Text accessibilityLiveRegion="polite" style={s.text}>{error}</Text>}
+    {!!error&&<Text accessibilityLiveRegion="polite" style={s.text}>{appText(error)}</Text>}
     {busy&&<ActivityIndicator/>}
     {(!loaded&&!!error||next)&&<Action label={next?(menu.more||'…'):menu.retry} disabled={busy} onPress={()=>load(next)}/>}
     {rows.length>0&&<Action label={copy.send} disabled={busy||!selected.length} onPress={send}/>}
@@ -129,7 +156,7 @@ export function InviteInbox({request,onJoin,locale,blocked,roomId}){
   }
   if(!current)return null;
   return <View style={s.inbox}><Text accessibilityLiveRegion="polite" style={s.text}>{copy.invite} · {current.name} · {current.title}</Text>
-    {!!error&&<Text style={s.text}>{error}</Text>}<View style={s.row}>
+    {!!error&&<Text style={s.text}>{appText(error)}</Text>}<View style={s.row}>
     <Action label={copy.join} disabled={busy} onPress={()=>respond(true)}/>
     <Action label={menu.back} disabled={busy} onPress={()=>respond(false)}/></View></View>;
 }

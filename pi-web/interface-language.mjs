@@ -1,478 +1,116 @@
-import {readLocale} from './languages.mjs';
+import {english,videoActions} from './interface-copy.mjs';
+import {copyId,languageNames,sources} from './interface-keys.mjs';
 
-const english = {
-  "تم ربط الحسابين": "Accounts linked",
-  "ربط حساب Pi بحساب البريد": "Link Pi to an email account",
-  "فيديوهاتي": "My videos",
-  "الفيديوهات": "Videos",
-  "فيديو": "Video",
-  "لا توجد فيديوهات منشورة بعد": "No videos published yet",
-  "عرض المزيد": "Show more",
-  "جارٍ تحميل الفيديوهات…": "Loading videos\u2026",
-  "إيقاف مؤقت": "Pause",
-  "تشغيل": "Play",
-  "تشغيل الفيديو": "Play video",
-  "عرض الملف الشخصي": "View profile",
-  "تعذّر تحميل الفيديوهات": "Could not load videos",
-  "تعذّر حذف الفيديو": "Could not delete video",
-  "تأكيد الحذف": "Confirm deletion",
-
-  "حذف الفيديو": "Delete video",
-  "حذف الفيديو؟": "Delete this video?",
-  "سيُحذف المقطع وتعليقاته نهائيًا.": "This video and its comments will be permanently deleted.",
-  "جارٍ الحذف…": "Deleting…",
-  "نسخ رابط الفيديو": "Copy video link",
-  "تم نسخ رابط الفيديو": "Video link copied",
-  "تم حذف الفيديو": "Video deleted",
-  "تعذّر حذف الفيديو. حاول مجددًا": "Could not delete the video. Try again.",
-  "هذا الفيديو لم يعد متاحًا": "This video is no longer available",
-  "إغلاق اللعبة": "Close game",
-  "ألعاب": "Games",
-  "اختر ما تريد تشغيله عند قبول طلبك.": "Choose which devices to enable if your request is accepted.",
-  "صوت فقط": "Audio only",
-  "صوت وكاميرا": "Microphone and camera",
-  "الكلمات المحظورة": "Blocked words",
-  "اكتب كل كلمة في سطر": "Enter one term per line",
-  "المشاركون": "Participants",
-  "حفظ": "Save",
-  "تعذّر تبديل الكاميرا": "Could not switch cameras",
-  "تبديل الكاميرا": "Switch camera",
-  "الدعم وطلباتي": "Support and requests",
-  "سبب البلاغ": "Report reason",
-  "سلامة طفل": "Child safety",
-  "إساءة أو تهديد": "Abuse or threats",
-  "احتيال أو انتحال": "Scam or impersonation",
-  "انتهاك الخصوصية": "Privacy violation",
-  "محتوى غير مناسب": "Inappropriate content",
-  "مهلة الدردشة": "Chat interval",
-  "ثانية": "seconds",
-  "رسالة مثبّتة": "Pinned message",
-  "تثبيت الرسالة": "Pin message",
-  "إلغاء التثبيت": "Unpin message",
-  "إبلاغ عن البث": "Report broadcast",
-  "إبلاغ عن مشارك": "Report participant",
-  "حظر المضيف": "Block host",
-  "رقم الطلب": "Request reference",
-  "أوافق على شروط الخدمة وقواعد المجتمع": "I accept the Terms of Service and community rules",
-  "سجّل الدخول لطلب حذف حسابك وبياناته.": "Sign in to request deletion of your account and associated data.",
-  "الوضع البطيء مفعّل. انتظر قبل إرسال رسالة أخرى.": "Slow mode is on. Wait before sending another message.",
-  "تتضمن الرسالة عبارة محظورة في هذه الغرفة": "This message contains a term blocked in this room",
-  "أدخل حتى ٢٠ كلمة، بحد ٤٠ حرفًا للكلمة": "Enter up to 20 terms of 40 characters each.",
-
-  "قفل المايك": "Lock microphone",
-  "المايك مشغول أو مقفل": "This microphone is occupied or locked",
-  "إغلاق قائمة المايك": "Close microphone menu",
-  "صعود": "Take seat",
-  "المايك الرئيسي": "Main microphone",
-  "تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.": "A gift needs another host or speaker on a microphone.",
-  "المستلم غير متاح": "Recipient unavailable",
-  "اختر مستلمًا للهدية": "Choose a gift recipient",
-  "إرسال": "Send",
-  "بانتظار صعود مستلم على المايك": "Waiting for a recipient to take a microphone",
-  "أُضيفت الهدية إلى هدف": "Gift credited to the goal of",
-  "تعذّر تأكيد الهدية. أعد المحاولة.": "Gift confirmation unavailable. Retry to check this gift.",
-  "رصيد الماس المشترى غير كافٍ": "Insufficient purchased diamonds",
-  "الماس المشترى": "Purchased diamonds",
-  "رصيد متجر الأرقام": "Number store balance",
-  "المايك": "Microphone",
-  "قفل": "Lock",
-  "كتم": "Mute",
-  "إنزال": "Move to audience",
-  "إقفال": "Lock",
-  "طرد": "Remove",
-  "إلغاء الكتم": "Unmute",
-  "تشغيل المايك": "Turn on mic",
-  "فتح المايك": "Unlock mic",
-  "إرسال هدية": "Send a gift",
-  "لا توجد طلبات مايك": "No mic requests",
-  "إرسال الهدية": "Send gift",
-  "إنشاء": "Create",
-  "بث مباشر": "Live",
-  "بث فيديو": "Live video",
-  "غرف صوتية": "Voice rooms",
-  "ابدأ غرفة صوتية أو بث فيديو": "Start a voice room or live video",
-  "الإعدادات": "Settings",
-  "رصيد الماس": "Diamond balance",
-  "المحفظة": "Wallet",
-  "الأرباح": "Earnings",
-  "تعديل الملف الشخصي": "Edit profile",
-  "الملف الشخصي والحسابات المحظورة": "Profile and blocked accounts",
-  "مشاركة Clipi": "Share Clipi",
-  "تعذرت المشاركة": "Could not share",
-  "الألعاب": "Games",
-  "أرباح المضيف": "Host earnings",
-  "الكل": "All",
-
-  "تغيير اللغة": "Change language",
-  "وردة حمراء": "Red Rose",
-  "رومانسي": "Romance",
-  "وردة زرقاء": "Blue Rose",
-  "قلب": "Heart",
-  "قلب الأصابع": "Finger Heart",
-  "قبلة": "Kiss",
-  "أحبك": "I Love You",
-  "قفل الحب": "Love Lock",
-  "تصفيق": "Applause",
-  "تفاعل": "Reactions",
-  "مصاص": "Lollipop",
-  "برودة الصيف": "Summer Chill",
-  "نسر ناري": "Fire Eagle",
-  "كيكة": "Cake",
-  "كعكة ماكرون": "Macaron Cake",
-  "دبدوب": "Teddy Bear",
-  "صندوق الكنز": "Treasure Chest",
-  "حقيبة ذهبية": "Gold Bag",
-  "صولجان": "Scepter",
-  "فاخر": "Luxury",
-  "تاج الجواهر": "Jewel Crown",
-  "تاج ملكي": "Royal Crown",
-  "التاج الأعلى": "Grand Crown",
-  "خاتم": "Ring",
-  "مرافقة مدى الحياة": "Lifelong Companion",
-  "قصر": "Palace",
-  "صاروخ أعلى": "Sky Rocket",
-  "مركبة فضائية": "Spaceship",
-  "مركبات": "Vehicles",
-  "مروحية الماس": "Diamond Helicopter",
-  "الطائرات الماسية": "Diamond Planes",
-  "هدية الصاروخ": "Rocket Gift",
-  "صاروخ": "Rocket",
-  "سيارة سباق ذهبية": "Golden Race Car",
-  "سيارة لينكولن بيضاء": "White Lincoln",
-  "رولز رويس الماسية": "Diamond Rolls-Royce",
-  "سيارة فاخرة": "Luxury Car",
-  "تنين ذهبي": "Golden Dragon",
-  "أسطوري": "Legendary",
-  "نسر": "Eagle",
-  "روبوت خارق": "Super Robot",
-  "قطة تحت النجوم": "Cat Under the Stars",
-  "بطة ساحرة": "Enchanted Duck",
-  "حفلة البخت": "Lucky Party",
-  "أزهار الكرز": "Cherry Blossoms",
-  "زهرة بيضاء": "White Flower",
-  "عصير فواكه": "Fruit Juice",
-  "نرقص سويا": "Let’s Dance",
-  "مسدس الماء": "Water Blaster",
-  "طابع الأموال": "Money Stamp",
-  "نيزك": "Meteor",
-  "مسافر الفضاء": "Space Traveler",
-  "غنم": "Sheep",
-  "علم": "Flag",
-  "طاولة الوجبات": "Dinner Table",
-  "حزمة حمراء": "Red Bundle",
-  "باقة ورد": "Bouquet",
-  "عطر": "Perfume",
-  "سيجارة": "Cigarette",
-  "علم الوطن": "National Flag",
-  "فراشة لامعة": "Sparkling Butterfly",
-  "نيرز": "Gem",
-  "👑 إطار فاخر": "👑 Luxury Frame",
-  "🏎️ دخول سيارة فاخرة": "🏎️ Luxury Car Entrance",
-  "إطار فضي": "Silver Frame",
-  "إطار بنفسجي": "Purple Frame",
-  "إطار أسطوري": "Legendary Frame",
-  "دخول بسيارة": "Car Entrance",
-  "دخول رياضي": "Sports Car Entrance",
-  "دخول بصاروخ": "Rocket Entrance",
-  "الحد الأقصى": "Limit reached",
-  "رصيد غير كافٍ": "Insufficient balance",
-  "🎁 إرسال هدية لمضيف الغرفة": "Send gift to the room host",
-  "فتح المقعد": "Unlock seat",
-  "إغلاق المقعد": "Lock seat",
-  "حظر من الغرفة": "Ban from room",
-  "إغلاق": "Close",
-  "تكبير الغرفة": "Restore room",
-  "عنوان خدمة البث غير مضبوط": "Streaming service is not configured",
-  "انتهت جلسة الدخول": "Your session has expired",
-  "تعذر الاتصال بخدمة البث (": "Could not reach the streaming service (",
-  "تعذر تشغيل الصوت والفيديو على هذا الجهاز": "Audio and video are unavailable on this device",
-  "جاري إعداد البث…": "Setting up the stream…",
-  "تعذر بدء جلسة الصوت": "Could not start audio",
-  "إعدادات البث غير صالحة": "Invalid stream settings",
-  "انتهت مهلة الاتصال بالبث": "The stream connection timed out",
-  "إعادة الاتصال": "Reconnect",
-  "جاري الاتصال بالبث…": "Connecting to the stream…",
-  "تعذر الاتصال بالبث": "Could not connect to the stream",
-  "انقطع اتصال البث": "The stream disconnected",
-  "تعذر تشغيل الوسائط": "Could not start media",
-  "تحقق من أذونات الميكروفون والكاميرا.": "Check microphone and camera permissions.",
-  "تحقق من أذونات الكاميرا والميكروفون.": "Check camera and microphone permissions.",
-  "المضيف": "Host",
-  "🎙 صاحب البث": "🎙 Host",
-  "صاحب البث": "Host",
-  "مقعد متاح": "Available seat",
-  "كتم ميكروفوني": "Mute my microphone",
-  "تشغيل ميكروفوني": "Unmute my microphone",
-  "الميكروفون مكتوم من المضيف": "Muted by the host",
-  "متاح": "Available",
-  "كاميرا المضيف مغلقة": "The host’s camera is off",
-  "كتم الميكروفون": "Mute microphone",
-  "تشغيل الميكروفون": "Unmute microphone",
-  "إغلاق الكاميرا": "Turn off camera",
-  "تشغيل الكاميرا": "Turn on camera",
-  "دخل الغرفة": "Joined the room",
-  "الغرفة": "Room",
-  "🎁 إرسال هدية إلى": "🎁 Send gift to",
-  "السماح بالميكروفون": "Allow microphone",
-  "إنزال عن المقعد": "Remove from seat",
-  "طرد من الغرفة": "Remove from room",
-  "مقعد": "Seat",
-  "إلغاء الطلب": "Cancel request",
-  "طلب مقعد": "Request a seat",
-  "حذف الرسالة": "Delete message",
-  "هل تريد حذف هذه الرسالة للجميع؟": "Delete this message for everyone?",
-  "إلغاء": "Cancel",
-  "حذف": "Delete",
-  "تعذر حذف الرسالة": "Could not delete the message",
-  "إبلاغ": "Report",
-  "تم إرسال البلاغ": "Report sent",
-  "تعذر الإبلاغ": "Could not send the report",
-  "حظر المستخدم": "Block user",
-  "تم الحظر": "User blocked",
-  "تعذر الحظر": "Could not block the user",
-  "إدارة الرسالة": "Message options",
-  "مستخدم": "User",
-  "الغرفة مغلقة": "Room closed",
-  "لا يمكن إرسال رسائل بعد إغلاق الغرفة": "You can’t send messages after the room closes",
-  "الرسالة طويلة": "Message too long",
-  "الحد الأقصى 500 حرف": "Maximum 500 characters",
-  "تعذر إرسال الرسالة": "Could not send the message",
-  "لا يمكن إرسال هدايا بعد إغلاق الغرفة": "You can’t send gifts after the room closes",
-  "هدية غير صالحة": "Invalid gift",
-  "عدد هدايا غير صالح": "Invalid gift quantity",
-  "تعذر إنهاء بث الغرفة على الخادم": "Could not end the stream on the server",
-  "تعذر إغلاق الغرفة": "Could not close the room",
-  "إغلاق الغرفة للجميع": "Close room for everyone",
-  "سيتم إغلاق الغرفة ولن يتمكن المشاركون من إرسال رسائل جديدة.": "The room will close and participants will no longer be able to send messages.",
-  "إغلاق الغرفة": "Close room",
-  "ثيمات الغرفة": "Room themes",
-  "إعدادات الغرفة": "Room settings",
-  "رجوع": "Back",
-  "الأصلي": "Default",
-  "القصر الملكي": "Royal Palace",
-  "الشفق القطبي": "Northern Lights",
-  "كثبان القمر": "Moon Dunes",
-  "اختيار خلفية من الاستوديو": "Choose a background from photos",
-  "ثيم الغرفة": "Room theme",
-  "مشاركة الغرفة": "Share room",
-  "إخفاء الدردشة": "Hide chat",
-  "إظهار الدردشة": "Show chat",
-  "تصغير الغرفة": "Minimize room",
-  "🔓 فتح المايكات": "🔓 Unlock microphones",
-  "🔒 قفل المايكات": "🔒 Lock microphones",
-  "إخفاء طلبات المقاعد": "Hide seat requests",
-  "طلبات المقاعد": "Seat requests",
-  "رقم سري من أربع خانات": "Four-digit room PIN",
-  "حفظ رمز الغرفة": "Save room PIN",
-  "أدخل أربعة أرقام": "Enter four digits",
-  "إلغاء قفل الغرفة": "Remove room PIN",
-  "رابط دعوة الغرفة": "Room invitation link",
-  "نسخ الرابط": "Copy link",
-  "تم نسخ رابط الغرفة.": "Room link copied.",
-  "اضغط مطوّلًا على الرابط أعلاه واختر «نسخ».": "Press and hold the link above and choose Copy.",
-  "إرسال الرابط": "Send link",
-  "انسخ الرابط وأرسله من تطبيق المحادثة.": "Copy the link and send it in your messaging app.",
-  "جارٍ دخول الغرفة…": "Joining room…",
-  "رمز الغرفة": "Room PIN",
-  "دخول": "Join",
-  "✕ خروج": "✕ Leave",
-  "🎙 غرفة صوتية": "🎙 Voice room",
-  "📹 بث فيديو": "📹 Live video",
-  "👑 أنت مضيف الغرفة": "👑 You’re the host",
-  "👤 أنت مشاهد": "👤 You’re a viewer",
-  "غرفة صوتية": "Voice room",
-  "غرفة فيديو": "Video room",
-  "اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.": "Press and hold a message for options. The host can delete room messages.",
-  "ماسات الدعم المتاحة:": "Available support diamonds:",
-  "دعم إلى": "Support for",
-  "· لا يدخل في الأرباح أو السحب": "· Does not count toward earnings or withdrawals",
-  "هدية الغرفة": "Room gift",
-  "صندوق الهدايا": "Gift box",
-  "تعليق الغرفة": "Room comment",
-  "اكتب تعليقًا...": "Write a comment…",
-  "إرسال التعليق": "Send comment",
-  "تعذر فتح متجر الأرقام": "Could not open the number shop",
-  "أرقام كليبي": "Clipi numbers",
-  "غرفتي": "My room",
-  "تعذر بدء تسجيل الدخول. أغلق التطبيق وحاول مجددًا.": "Sign-in could not start. Close the app and try again.",
-  "تعذر تحميل الغرف:": "Could not load rooms:",
-  "تم": "Done",
-  "أزلنا هذا الحساب من قائمة الحظر لديك": "This account was removed from your block list",
-  "تعذر إلغاء الحظر": "Could not unblock the user",
-  "تسجيل الدخول": "Sign in",
-  "سجل الدخول أولاً لإدارة حسابك": "Sign in to manage your account",
-  "طلب حذف الحساب": "Request account deletion",
-  "الحذف الشامل غير متاح آليًا في هذه النسخة. لحماية بياناتك لن نحذف ملفك جزئيًا أو نترك بيانات مرتبطة بحساب محذوف. أرسل طلب حذف إلى Liddawiw@gmail.com مع معرّف حسابك الظاهر أدناه. لا ترسل رمز SMS أو كلمة مرور.": "Automatic account deletion is unavailable in this version. Email Liddawiw@gmail.com with your account ID to request deletion. Do not send a password or a verification code.",
-  "نسخ معرّف الحساب": "Copy account ID",
-  "طلب حذف حساب Clipi\\nمعرّف الحساب:": "Clipi account deletion request\\nAccount ID:",
-  "\\nيرجى تأكيد إجراءات حذف البيانات المرتبطة بالحساب.": "\\nPlease confirm the process for deleting data associated with this account.",
-  "يرجى تسجيل الدخول أولًا": "Please sign in first",
-  "اسم المستخدم يجب أن يكون بين 1 و35 حرفًا": "The username must be 1 to 35 characters long",
-  "الاسم": "Name",
-  "تعذر الخروج": "Could not sign out",
-  "الحساب": "Account",
-  "سجّل الدخول أولًا": "Sign in first",
-  "اسم الغرفة": "Room name",
-  "أدخل الاسم": "Enter a name",
-  "تعذر إنشاء الغرفة": "Could not create the room",
-  "غرفة مغلقة": "Closed room",
-  "هذه الغرفة مغلقة الآن": "This room is closed",
-  "مضيف": "Host",
-  "سيُمنع إرسال رسائل جديدة إلى الغرفة بعد إغلاقها، وتبقى الرسائل السابقة محفوظة للإشراف. هل توافق؟": "Close this room? New messages will be disabled. Existing messages will be kept for moderation.",
-  "تعذر الإغلاق": "Could not close",
-  "مملوكة": "Already owned",
-  "معاينة شراء": "Purchase preview",
-  "سعر PI": "PI price",
-  "أدخل سعر PI الحالي بالدولار": "Enter the current PI price in USD",
-  "معاينة PI": "PI preview",
-  "❮ رجوع": "‹ Back",
-  "الرئيسية": "Home",
-  "الغرف": "Rooms",
-  "حسابي": "Account",
-  "الصورة الشخصية": "Profile photo",
-  "ماسة": "diamonds",
-  "أهلًا": "Welcome,",
-  "بك": "friend",
-  "غرف صوتية وبث فيديو مباشر": "Voice rooms and live video",
-  "🎁 هدية ترحيبية": "🎁 Welcome gift",
-  "💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة": "💎 100 diamonds · 👑 Royal frame · 🏎️ Luxury car",
-  "📹 إنشاء غرفة صوتية أو فيديو": "📹 Create a voice or video room",
-  "🚪 استعراض الغرف": "🚪 Browse rooms",
-  "💎 شراء الماسات (تجريبي)": "💎 Buy diamonds (demo)",
-  "🛍 المتجر": "🛍 Shop",
-  "📤 مشاركة Clipi": "📤 Share Clipi",
-  "إنشاء غرفة": "Create room",
-  "نوع الغرفة": "Room type",
-  "📹 فيديو": "📹 Video",
-  "🎙 صوت": "🎙 Voice",
-  "الغرفة عامة للمستخدمين المسجلين. يمكنك ضبط رمز دخول من إعدادات الغرفة.": "The room is public to signed-in users. You can set a PIN in room settings.",
-  "فتح الغرفة": "Open room",
-  "➕ إنشاء غرفة": "➕ Create room",
-  "ابحث بالاسم أو معرّف الغرفة": "Search by room name or ID",
-  "يمكنك إخفاء غرف المستخدمين المحظورين وإلغاء الحظر من ملفك الشخصي.": "You can hide rooms from blocked users and unblock accounts from your profile.",
-  "لا توجد غرف مطابقة": "No matching rooms",
-  "🌐 · غرفة مباشرة": "🌐 · Live room",
-  "إغلاق غرفتي": "Close my room",
-  "محفظة Clipi": "Clipi Wallet",
-  "💎 الرصيد التجريبي": "💎 Demo balance",
-  "هدية الترحيب:": "Welcome gift:",
-  "المشتَرى:": "Purchased:",
-  "معاينة المالك:": "Owner preview:",
-  "طريقة الشراء": "Purchase method",
-  "💵 دولار": "💵 USD",
-  "سعر PI بالدولار (يدوي للمعاينة)": "PI price in USD (manual preview)",
-  "مثال: 0.50": "Example: 0.50",
-  "أدخل سعر PI": "Enter the PI price",
-  "شراء": "Buy",
-  "الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من PI = 1,200 ماسة. يتغير سعر PI صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر PI الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة PI يحتاجان إعدادات دفع فعلية.": "Preview rates: 1 USD equals 1,000 diamonds, or 1,200 diamonds in PI. Enter the current PI price in USD to preview. Prices do not update automatically. No payment is taken.",
-  "المتجر": "Shop",
-  "أرقام مميزة": "Special IDs",
-  "رصيدك ·": "Your balance ·",
-  "إعادة تحميل الأرقام": "Reload IDs",
-  "شراء ·": "Buy ·",
-  "استخدام": "Use",
-  "هدية ترحيبية · 💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة": "Welcome gift · 💎 100 diamonds · 👑 Royal frame · 🏎️ Luxury car",
-  "إزالة": "Remove",
-  "تفعيل": "Equip",
-  "الهدايا": "Gifts",
-  "الهدايا تُرسل من داخل غرفة صوت أو فيديو": "Send gifts from a voice or video room",
-  "استعراض الغرف": "Browse rooms",
-  "الملف الشخصي": "Profile",
-  "سياسة الخصوصية": "Privacy Policy",
-  "شروط الخدمة": "Terms of Service",
-  "💼 محفظة النقاط والأرباح": "💼 Points and earnings wallet",
-  "اختيار صورة من الاستوديو": "Choose a photo",
-  "الصورة": "Photo",
-  "الصورة الرمزية": "Avatar",
-  "حفظ الاسم والصورة": "Save name and photo",
-  "تم الحفظ": "Saved",
-  "خطأ": "Error",
-  "🚫 الحسابات المحظورة (": "🚫 Blocked accounts (",
-  "لا توجد حسابات محظورة": "No blocked accounts",
-  "المستخدم:": "User:",
-  "إلغاء الحظر": "Unblock",
-  "حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.": "Account deletion in this version does not remove old messages or reports. Full data deletion must be available before public launch.",
-  "حذف حسابي": "Delete my account",
-  "تسجيل الخروج": "Sign out",
-  "تعذّر الاتصال بخدمة الهدايا.": "Could not reach the gift service.",
-  "إلى": "to",
-  "الدفع غير متاح حالياً.": "Payments are currently unavailable.",
-  "جاري تسجيل الدخول إلى PI…": "Signing in to PI…",
-  "تأخر رد PI على طلب صلاحية الدفع. حاول مجددًا.": "PI payment authorization timed out. Try again.",
-  "تعذّر تأكيد دفعة سابقة.": "Could not confirm an earlier payment.",
-  "جاري تأكيد دفعة سابقة…": "Confirming an earlier payment…",
-  "تأخر تأكيد الدفعة السابقة. تحقق من حالتها في المحفظة.": "The earlier payment is taking longer to confirm. Check your wallet.",
-  "تم تأكيد الدفعة السابقة. يمكنك اختيار هدية الآن.": "The earlier payment was confirmed. You can now select a gift.",
-  "جاري فتح محفظة PI…": "Opening PI Wallet…",
-  "تأخر رد المحفظة. إذا ما ظهرت، أعد فتح الغرفة في PI Browser وتحقق من حالة الدفعة.": "The wallet is taking longer to respond. Reopen the room in PI Browser and check the payment status.",
-  "بانتظار موافقة خادم Clipi…": "Waiting for Clipi approval…",
-  "بانتظار تأكيدك في المحفظة…": "Waiting for your wallet confirmation…",
-  "تعذرت موافقة الخادم. بانتظار رد المحفظة…": "Clipi could not approve the payment. Waiting for the wallet…",
-  "تم إرسال الهدية.": "Gift sent.",
-  "الدفع بانتظار التأكيد.": "Payment is awaiting confirmation.",
-  "أُلغي الدفع.": "Payment canceled.",
-  "تعذّر إكمال الدفع.": "Could not complete the payment.",
-  "تعذّر بدء الدفع. تحقق من صلاحية المدفوعات في حساب PI ثم حاول مجددًا.": "Could not start payment. Check payment permissions in your PI account and try again.",
-  "لم يتم تحميل خدمة PI. حدّث الصفحة داخل PI Browser.": "PI did not load. Refresh the page in PI Browser.",
-  "هدية إلى": "Gift for",
-  "هدايا الغرفة": "Room gifts",
-  "هدايا PI المدفوعة متوقفة مؤقتًا حتى تتوفر تحويلات المضيفين.": "Paid PI gifts are paused until host payouts are available.",
-  "اختَر هدية": "Choose a gift",
-  "جاري تحميل الهدايا…": "Loading gifts…",
-  "محفظة الأرباح تتطلب التحقق من هوية صاحب الجهاز داخل تطبيق أندرويد.": "The earnings wallet requires device-owner verification in the Android app.",
-  "اختر صورة أصغر": "Choose a smaller image",
-  "تشغيل سماعة الغرفة": "Unmute room audio",
-  "كتم سماعة الغرفة": "Mute room audio",
-  "🔊 تشغيل الصوت": "🔊 Turn on audio",
-  "تعذّر الاتصال بالغرفة": "Could not connect to the room",
-  "جارٍ إرسال الهدية": "Sending the gift",
-  "افتح الرابط داخل PI Browser وسجّل دخولك إلى PI.": "Open the link in PI Browser and sign in to PI.",
-  "تعذر تأكيد حساب PI": "Could not verify your PI account",
-  "أخرجك المضيف من الغرفة": "The host removed you from the room",
-  "أعد الدخول إلى الغرفة": "Rejoin the room",
-  "جلسة غير صالحة": "Invalid session",
-  "طلب غير صالح": "Invalid request",
-  "أدخل رمز الغرفة": "Enter the room PIN",
-  "محاولات كثيرة. حاول بعد عشر دقائق": "Too many attempts. Try again in ten minutes.",
-  "رمز الغرفة غير صحيح": "Incorrect room PIN",
-  "تغيرت صلاحية الدخول، أعد المحاولة": "Room access changed. Try again.",
-  "انتهت جلسة الغرفة": "The room session expired",
-  "للمضيف فقط": "Hosts only",
-  "للـمضيف فقط": "Hosts only",
-  "تعذّرت قراءة الصورة. اختر صورة JPEG أو PNG.": "Could not read this photo. Choose a JPEG or PNG image.",
-  "صورة غير صالحة": "Invalid photo",
-  "المقعد ممتلئ أو انتهى الطلب": "The seat is taken or the request has expired",
-  "الرصيد غير كافٍ أو المستلم غادر الغرفة": "Insufficient balance or recipient left the room",
-  "هدايا PI": "PI gifts",
-  "دفعة PI حقيقية إلى محفظة Clipi. تظهر الهدية في الغرفة وحصة المضيف في هذه التجربة صفر.": "Real PI payment to the Clipi app wallet. The gift appears in the room. The host receives zero PI in this trial.",
-  "مكافآت المضيف": "Host rewards",
-  "إطارات": "Frames",
-  "مؤثرات الدخول": "Entrances",
-  "مقتنياتي": "My collection",
-  "مركز المضيف": "Host center",
-  "غرفي المفتوحة": "My open rooms",
-  "تعليق غير صالح": "Invalid comment",
-  "تعذّر تخصيص رقم الآن": "Could not assign an ID right now",
-  "رقم غير متاح": "ID unavailable",
-  "هذا الرقم مباع": "This ID has already been sold",
-  "رصيد الماس غير كافٍ": "Insufficient diamonds",
-  "الرقم غير مملوك للحساب": "This account does not own the ID",
-  "ماسة بسعر $": "diamonds for $",
-  ". الدفع الحقيقي غير مربوط.": ". Payments are unavailable.",
-  "ماسة مقابل": "diamonds for",
-  "PI وفق السعر المدخل. يتغير سعر PI من حين إلى آخر، ولا يتم تحصيل أي دفع.": "PI at the entered rate. PI rates vary. No payment is taken."
-};
-let arabic = readLocale(() => window.localStorage) === 'ar';
-
-export function setInterfaceLanguage(locale) {
-  arabic = locale === 'ar';
-  document.documentElement.lang = arabic ? 'ar' : 'en';
-  document.documentElement.dir = arabic ? 'rtl' : 'ltr';
+const builtin=new Map(),aliases=new Map(),listeners=new Set(),packs=new Map();
+function register(table){
+  const source=table.ar;
+  for(const key of Object.keys(source)){
+    if(typeof source[key]==='object'){
+      register(Object.fromEntries(Object.entries(table).map(([lang,values])=>[lang,values[key]])));
+    }else if(key!=='languageName'){
+      const values=Object.fromEntries(Object.entries(table).map(([lang,labels])=>[lang,labels[key]]));
+      builtin.set(source[key],values);
+      aliases.set(values.en,source[key]);
+    }
+  }
 }
+register(videoActions);
+for(const [ar,en] of Object.entries(english))if(!aliases.has(en))aliases.set(en,ar);
 
-export function ui(value) {
-  if (arabic || typeof value !== 'string') return value;
-  const key = value.trim();
-  const label = Object.hasOwn(english, key) ? english[key] : null;
-  return label ? value.replace(key, () => label) : value;
+let locale='ar',endpoint='',cache=null,revision=0;
+const inFlight=new Set(),failures=new Map(),pending=new Map(),saveTimers=new Map();
+let scheduled=false;
+export const subscribeInterface=fn=>{listeners.add(fn);return ()=>listeners.delete(fn);};
+export const interfaceRevision=()=>revision;
+export const interfaceLocale=()=>locale;
+export const isRTL=()=>['ar','he','fa','ur'].includes(locale);
+function changed(){revision++;for(const fn of listeners)fn();}
+function packFor(code){
+  if(!packs.has(code))packs.set(code,Object.create(null));
+  return packs.get(code);
+}
+function persist(code){
+  if(!cache||saveTimers.has(code))return;
+  saveTimers.set(code,setTimeout(()=>{
+    saveTimers.delete(code);
+    Promise.resolve().then(()=>cache.write(code,JSON.stringify(packFor(code)))).catch(()=>{});
+  },250));
+}
+export function configureInterface(origin,code,storage,labels){
+  if(labels)register(labels);
+  endpoint=origin;
+  cache=storage||(typeof window!=='undefined'?{
+    read:lang=>window.localStorage.getItem('clipi.ui.v1.'+lang),
+    write:(lang,value)=>window.localStorage.setItem('clipi.ui.v1.'+lang,value)
+  }:null);
+  setInterfaceLanguage(code);
+}
+export function setInterfaceLanguage(code){
+  const next=Object.hasOwn(languageNames,code)?code:'en';
+  const switched=next!==locale;
+  locale=next;
+  if(typeof document!=='undefined'){
+    document.documentElement.lang=locale;
+    document.documentElement.dir=isRTL()?'rtl':'ltr';
+  }
+  if(cache&&!packs.has(next)){
+    const pack=packFor(next);
+    Promise.resolve().then(()=>cache.read(next)).then(raw=>{
+      if(!raw)return;
+      const stored=JSON.parse(raw);
+      for(const [id,value] of Object.entries(stored))if(sources.has(id)&&typeof value==='string'&&!(id in pack))pack[id]=value;
+      if(locale===next)changed();
+    }).catch(()=>{});
+  }
+  if(switched)changed();
+}
+function enqueue(code,id){
+  const key=code+'/'+id;
+  if(!endpoint||inFlight.has(key)||(failures.get(key)||0)>Date.now())return;
+  pending.set(key,{code,id});
+  if(!scheduled){scheduled=true;setTimeout(flush,0);}
+}
+async function flush(){
+  const first=pending.values().next().value;
+  if(!first){scheduled=false;return;}
+  const {code}=first,ids=[];
+  for(const [key,item] of pending){
+    if(item.code!==code)continue;
+    pending.delete(key);
+    if(packFor(code)[item.id])continue;
+    ids.push(item.id);inFlight.add(key);
+    if(ids.length===8)break;
+  }
+  try{
+    if(ids.length){
+      const result=await fetch(endpoint+'/interface-copy/'+code+'/'+ids.join(','));
+      if(!result.ok)throw Error('Translation unavailable');
+      const data=await result.json(),pack=packFor(code);
+      let updated=false;
+      for(const id of ids){
+        if(typeof data[id]==='string'&&data[id]){pack[id]=data[id];updated=true;}
+        else failures.set(code+'/'+id,Date.now()+30000);
+      }
+      if(updated){persist(code);if(code===locale)changed();}
+    }
+  }catch{for(const id of ids)failures.set(code+'/'+id,Date.now()+60000);}
+  finally{
+    for(const id of ids)inFlight.delete(code+'/'+id);
+    if(pending.size)setTimeout(flush,0);else scheduled=false;
+  }
+}
+export function ui(value){
+  if(typeof value!=='string'||!value.trim())return value;
+  const raw=value.trim(),key=aliases.get(raw)||raw;
+  const fixed=builtin.get(key)?.[locale];
+  const id=copyId(key);
+  if(!fixed&&!sources.has(id))return value;
+  let output=fixed||packFor(locale)[id];
+  const sourceLanguage=/[\u0620-\u064a]/u.test(key)?'ar':'en';
+  if(!output){
+    if(locale===sourceLanguage)output=key;
+    else if(locale==='en'&&english[key])output=english[key];
+    else {enqueue(locale,id);output=english[key]||key;}
+  }
+  return value.replace(raw,()=>output);
 }
