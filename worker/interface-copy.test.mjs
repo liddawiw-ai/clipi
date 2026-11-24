@@ -3,7 +3,7 @@ import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {interfaceCopy} from './interface-copy.mjs';
 import {copyId,languageNames,sources} from '../pi-web/interface-keys.mjs';
-import {videoActions,english} from '../pi-web/interface-copy.mjs';
+import {videoActions,roomActions,english} from '../pi-web/interface-copy.mjs';
 import {configureInterface,setInterfaceLanguage,ui,isRTL} from '../pi-web/interface-language.mjs';
 
 test('video settings have offline labels in every offered language and English copy does not leak Arabic',()=>{
@@ -11,6 +11,7 @@ test('video settings have offline labels in every offered language and English c
   for(const code of Object.keys(languageNames)){
     setInterfaceLanguage(code);
     assert.deepEqual(videoActions.ar.map(ui),videoActions[code]);
+    assert.deepEqual(roomActions.ar.map(ui),roomActions[code]);
     assert.equal(isRTL(),['ar','ur','fa','he'].includes(code));
     assert.equal(ui('ليلى ٤٢'),'ليلى ٤٢');
   }

@@ -11,6 +11,10 @@ import {Die,PlayingCard,LastCard} from './TableArt';
 const practice=new Map();
 const colors={surface:'#F4EEE2',ink:'#282D29',line:'#CDBEAA',green:'#164C41'};
 const styles={panel:{backgroundColor:colors.surface,padding:14,gap:10,borderRadius:14},row:{flexDirection:'row-reverse',flexWrap:'wrap',gap:6,alignItems:'center'},heading:{fontSize:20,fontWeight:'800',color:colors.ink,textAlign:'right'},text:{fontSize:15,color:colors.ink,textAlign:'right'},input:{backgroundColor:'#FFFCF6',borderColor:colors.line,borderWidth:1,borderRadius:8,padding:10,textAlign:'center',color:colors.ink}};
+// The game engine sends these labels as fixed move tokens plus card and piece numbers.
+function moveLabel(label){
+  return typeof label==='string'?label.replace(/نتيجة النرد|إنزال حجر|حجر|تمرير/g,part=>appText(part)):label;
+}
 function Action({children,onPress,disabled,selected}){
   return <Pressable accessibilityRole="button" accessibilityState={{disabled:!!disabled,selected:!!selected}} disabled={disabled} onPress={onPress} style={{paddingVertical:10,paddingHorizontal:13,borderRadius:8,backgroundColor:selected?colors.green:'#FFFDF8',borderWidth:1,borderColor:colors.line,opacity:disabled?.52:1}}>
     <Text style={{textAlign:'center',fontWeight:'700',color:selected?'#FFFDF8':colors.ink}}>{children}</Text></Pressable>;
@@ -49,9 +53,9 @@ function Play({g,me,names,send,busy}){
         <View style={styles.row}>{(g.hands[me]||[]).map((c,i)=><PlayingCard key={i} rank={c} suit={g.handSuits?.[me]?.[i]} selected={cardIndex===i} enabled={!locked&&(!!g.exchange||valid.some(o=>Number(o.id.split('/')[0])===c))} onPress={()=>{
           if(g.exchange){send({type:'exchange',cardIndex:i});return;}
           setCardIndex(i);setPiece(null);}}/>)}</View></>}
-      {jack&&card!=null&&<View style={styles.row}>{matches.filter(o=>piece!=null||o.id.endsWith('/pass')).map(o=><Action key={o.id} disabled={locked} onPress={()=>playOption(o.id)}>{o.label}</Action>)}</View>}
+      {jack&&card!=null&&<View style={styles.row}>{matches.filter(o=>piece!=null||o.id.endsWith('/pass')).map(o=><Action key={o.id} disabled={locked} onPress={()=>playOption(o.id)}>{moveLabel(o.label)}</Action>)}</View>}
     </>}
-    {!!g.note&&<Text accessibilityLiveRegion="polite" style={styles.text}>{g.note}</Text>}
+    {!!g.note&&<Text accessibilityLiveRegion="polite" style={styles.text}>{moveLabel(appText(g.note))}</Text>}
   </View>;
 }
 function Table({kind,uid,name,request,onBack}){

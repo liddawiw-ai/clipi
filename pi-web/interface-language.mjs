@@ -1,4 +1,4 @@
-import {english,videoActions} from './interface-copy.mjs';
+import {english,videoActions,roomActions} from './interface-copy.mjs';
 import {copyId,languageNames,sources} from './interface-keys.mjs';
 
 const builtin=new Map(),aliases=new Map(),listeners=new Set(),packs=new Map();
@@ -15,6 +15,7 @@ function register(table){
   }
 }
 register(videoActions);
+register(roomActions);
 for(const [ar,en] of Object.entries(english))if(!aliases.has(en))aliases.set(en,ar);
 
 let locale='ar',endpoint='',cache=null,revision=0;
