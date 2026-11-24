@@ -1,4 +1,4 @@
-import {uiError,ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
@@ -80,21 +80,21 @@ export default function EarningsWalletScreen({onBack}){
   if(!/^\d{6}$/.test(current))return Alert.alert(appText('الرقم السري'),appText('أدخل الرقم السري الحالي'));
   setBusy(true);
   try{const r=await call('previewEarningsWithdrawal')({pin:current,method}),v=r.data;
-   Alert.alert(appText('معاينة فقط'),v.eligible?(method==='cash'?money(v.usdMinor):v.diamonds.toLocaleString('en-US')+appText(' ماسة'))+appText(' — التحويل غير مفعل'):appText('لم تستوفِ الشروط. المتبقي ')+v.remainingPoints+appText(' نقطة أو فترة الانتظار'));
+   Alert.alert(appText('معاينة فقط'),v.eligible?(method==='cash'?money(v.usdMinor):v.diamonds.toLocaleString(interfaceLocale())+appText(' ماسة'))+appText(' — التحويل غير مفعل'):appText('لم تستوفِ الشروط. المتبقي ')+v.remainingPoints+appText(' نقطة أو فترة الانتظار'));
    setPin('');setOldPin('');
   }catch(e){Alert.alert(appText('تعذر المعاينة'),uiError(e))}finally{setBusy(false)}
  }
- const btn=(title,fn)=><TouchableOpacity disabled={busy} onPress={fn} style={S.button}><Text style={S.buttonText}>{title}</Text></TouchableOpacity>;
+ const btn=(title,fn)=><TouchableOpacity disabled={busy} onPress={fn} style={S.button}><Text style={S.buttonText}>{appText(title)}</Text></TouchableOpacity>;
  return <ScrollView style={S.page} contentContainerStyle={S.body}>
   {btn('❮ رجوع',onBack)}
   <Text style={S.heading}>{appText("💼 محفظة ")}{data?.role==='owner'?appText('المالك'):data?.role==='agent'?appText('الوكيل'):appText('المضيف')}</Text>
   <View style={S.panel}>
-   <Text style={S.number}>🪙 {(data?.availablePoints||0).toLocaleString('en-US')}{appText(" نقطة")}</Text>
+   <Text style={S.number}>🪙 {(data?.availablePoints||0).toLocaleString(interfaceLocale())}{appText(" نقطة")}</Text>
    <Text style={S.value}>{appText("القيمة بالدولار: ")}{money(data?.availableUsdMinor)}</Text>
    <Text style={S.label}>{appText("نقاط معلقة: ")}{data?.pendingPoints||0} · {money(data?.pendingUsdMinor)}</Text>
    <Text style={S.label}>{appText("المتبقي للوصول إلى 2,000 نقطة: ")}{data?.remainingPoints??2000}</Text>
    <Text style={S.label}>{appText("طلب سحب واحد كل 15 يومًا. وصول المال مستهدف خلال 5 أيام عمل بعد الموافقة، وليس مضمونًا.")}</Text>
-   {data?.nextEligibleAt&&<Text style={S.label}>{appText("أقرب موعد طلب: ")}{new Date(data.nextEligibleAt).toLocaleDateString('ar')}</Text>}
+   {data?.nextEligibleAt&&<Text style={S.label}>{appText("أقرب موعد طلب: ")}{new Date(data.nextEligibleAt).toLocaleDateString(interfaceLocale())}</Text>}
    {btn('تحديث المحفظة',load)}
   </View>
   <PayoutPicker call={call} data={data} reload={load}/>

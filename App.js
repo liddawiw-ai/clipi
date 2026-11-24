@@ -1,5 +1,5 @@
 import {uiError,setInterfaceLanguage} from './interface-language.mjs';
-import {ui as appText,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
+import {ui as appText,interfaceLocale,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
 import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
 import RoomHostCard,{useRoomHost} from './RoomHostCard';
 import {BroadcastName,PreviousRooms,openPreviousBroadcast} from './BroadcastRooms';
@@ -103,7 +103,7 @@ const PAYOUT_WALLETS={
   OTHER:['محفظة أخرى - اكتب اسمها']
 };
 
-const fmt=x=>Number(x||0).toLocaleString('en-US');
+const fmt=x=>Number(x||0).toLocaleString(interfaceLocale());
 
 function normalizeRoomPin(value){
   return value.replace(/[٠-٩]/g,digit=>String(digit.charCodeAt(0)-0x660))
@@ -1066,7 +1066,7 @@ export default function App(){
     try {
       await FileSystem.writeAsStringAsync(accountLanguageFile, code);
       setInterfaceLanguage(code);setLocale(code);
-      if (pageRef.current === 'accountLanguage') go('accountSettings');
+      if (pageRef.current === 'accountLanguage') go(auth().currentUser?'accountSettings':'login');
     } catch {
       Alert.alert(menu.changeLanguage, appText('تعذّر حفظ اللغة / Could not save language'));
     } finally {
@@ -1596,14 +1596,14 @@ export default function App(){
     playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
   };
-  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
+  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{appText(equipped.frame)}</Text><Text style={S.white}>{appText(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
 
   function renderPage(){
   if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('wallet')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>{appText("Clipi · تحميل الحساب...")}</Text></View>;
   if(page==='login'||page==='verify')return <View style={{flex:1,backgroundColor:theme.canvas}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
-    <LoginCover image={require('./assets/clipi-icon.png')}/><View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>
+    <LoginCover image={require('./assets/clipi-icon.png')}/><Btn title={menu.changeLanguage} onPress={()=>go('accountLanguage')}/><View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>
     {page==='verify'?<><Text style={S.label}>{appText("رمز التحقق SMS")}</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder={appText("ستة أرقام")}/><Btn title={busy?appText('جارٍ التحقق...'):appText('تأكيد الرمز')} disabled={busy} onPress={verifySms}/><Btn title={appText("تغيير رقم الهاتف")} color={theme.sea} onPress={()=>go('login')}/></>:
     <>
       <Btn title={loginMethod==='email'?appText('استخدام رقم الهاتف'):appText('استخدام البريد الإلكتروني')} color={theme.sea} disabled={busy}
@@ -1616,7 +1616,7 @@ export default function App(){
         {emailMode!=='reset'&&<TextInput style={S.input} value={password} onChangeText={setPassword}
           placeholder={appText("كلمة المرور")} secureTextEntry autoCapitalize="none" autoCorrect={false}
           autoComplete={emailMode==='signup'?'new-password':'current-password'} editable={!busy}/>}
-      </>:<><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder={appText("اسم المستخدم")}/><Text style={S.label}>{appText("الدولة")}</Text><Btn title={COUNTRIES[country].join(' ')} color={theme.sea} onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={c.join(' ')} color={theme.sea} onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>{appText("الهاتف")}</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder={appText("رقم الهاتف")} keyboardType="phone-pad"/></>}
+      </>:<><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder={appText("اسم المستخدم")}/><Text style={S.label}>{appText("الدولة")}</Text><Btn title={appText(COUNTRIES[country][0])+' '+COUNTRIES[country][1]} color={theme.sea} onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={appText(c[0])+' '+c[1]} color={theme.sea} onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>{appText("الهاتف")}</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder={appText("رقم الهاتف")} keyboardType="phone-pad"/></>}
       <Btn title={accepted?appText('☑ أوافق على الشروط'):appText('☐ أوافق على الشروط')} color={theme.sea} onPress={()=>setAccepted(v=>!v)}/><View style={S.row}><Small title={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Small title={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
       {loginMethod==='email'?<>
         <Btn title={busy?appText('جارٍ العمل...'):emailMode==='signup'?appText('إنشاء الحساب'):emailMode==='reset'?appText('إرسال رابط الاستعادة'):appText('تسجيل الدخول بالبريد')} disabled={busy} onPress={emailLogin}/>
@@ -1706,7 +1706,7 @@ export default function App(){
     <Text style={S.label}>{appText("الدولة / البلد")}</Text>
     <View style={S.choiceWrap}>
       {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.choice,payoutCountry===c[0]&&S.choiceActive]}>
-        <Text style={S.white}>{c[1]}</Text>
+        <Text style={S.white}>{appText(c[1])}</Text>
       </TouchableOpacity>)}
     </View>
     {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder={appText("اسم الدولة")} value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
@@ -1719,7 +1719,7 @@ export default function App(){
     {payoutMethod==='wallet'?<>
       <Text style={S.label}>{appText("المحفظة")}</Text>
       <View style={S.choiceWrap}>{payoutOptions.map(option=><TouchableOpacity key={option} onPress={()=>setPayoutProvider(option)} style={[S.choice,payoutProvider===option&&S.choiceActive]}>
-        <Text style={S.white}>{option}</Text>
+        <Text style={S.white}>{appText(option)}</Text>
       </TouchableOpacity>)}</View>
       {(payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -'))&&<TextInput style={S.input} placeholder={appText("اسم المحفظة الأخرى")} value={payoutOtherProvider} onChangeText={setPayoutOtherProvider}/>}
       <Text style={S.label}>{appText("رقم الهاتف المرتبط بالمحفظة (مع رمز الدولة)")}</Text>
@@ -1773,14 +1773,14 @@ export default function App(){
       ]}/>} />
   </HubScreen>;
   if(page==='hostCenter')return <HubScreen title={menu.host} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
-    <AccountHub onPhoto={pickAccountPhoto} photoLabel={appText("اختيار صورة من الاستوديو")} name={name||user?.displayName||"مستخدم"} avatar={avatar} number={visibleNumber?.number}
-      balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:"غرفي المفتوحة",photo:"الصورة الشخصية"}} unit="♫"
+    <AccountHub onPhoto={pickAccountPhoto} photoLabel={appText("اختيار صورة من الاستوديو")} name={name||user?.displayName||appText('مستخدم')} avatar={avatar} number={visibleNumber?.number}
+      balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:appText('غرفي المفتوحة'),photo:appText('الصورة الشخصية')}} unit="♫"
       shortcuts={[{icon:'＋',label:appText("إنشاء غرفة"),onPress:()=>go('create')},{icon:'◇',label:appText("المحفظة"),onPress:()=>go('wallet')}]}
       settings={[{label:appText("استعراض الغرف"),onPress:()=>go('rooms')},{label:appText("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
     newId={Crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
-  if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:()=>go('accountSettings')}} dock={nav()}>
+  if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:()=>go(user?'accountSettings':'login')}} dock={user?nav():null}>
     <HubRows items={Object.entries(accountLabels).map(([code,labels])=>({
       label:(code===locale?'✓ ':'')+labels.languageName,onPress:()=>selectLanguage(code)
     }))}/>
@@ -1822,7 +1822,7 @@ export default function App(){
       </View>
       <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+appText(gameResult.item[1])+' · '+fmt(gameResult.prize)+appText(' 💎 تجريبي'):appText('اختر مقدار الماسة، ثم اضغط على الطعام')}</Text></View>
       <View style={S.starBetTray}>{[10000,1000,500,100,10].map(n=><TouchableOpacity key={n} onPress={()=>setBetAmount(n)} style={[S.starBetChip,betAmount===n&&S.starBetActive]}><Text style={S.starBetText}>{n} 💎</Text></TouchableOpacity>)}</View>
-      <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>{appText("الماس المتبقي")}</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert(appText('السجل'),history.length?history.map(h=>h.item[0]+' '+h.item[1]+' — '+h.prize+' 💎').join('\n'):appText('لا توجد جولات بعد'))}><Text style={S.starInfoText}>{appText("سجلاتي")}</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>{appText("مجموع الجولة")}</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
+      <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>{appText("الماس المتبقي")}</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert(appText('السجل'),history.length?history.map(h=>h.item[0]+' '+appText(h.item[1])+' — '+h.prize+' 💎').join('\n'):appText('لا توجد جولات بعد'))}><Text style={S.starInfoText}>{appText("سجلاتي")}</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>{appText("مجموع الجولة")}</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
       <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
       <Btn title={phase==='betting'?appText('ابدأ الجولة التجريبية'):phase==='result'?appText('جولة جديدة'):appText('العجلة تدور...')} color={theme.mint} disabled={phase==='spinning'} onPress={phase==='result'?resetGame:spin}/>
       <Text style={S.starDisclaimer}>{appText("نسخة تصميمية مستوحاة من الصورة المرجعية · محاكاة تطويرية فقط، بلا رهانات أو جوائز نقدية.")}</Text>

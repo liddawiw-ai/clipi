@@ -20,7 +20,7 @@ export default function EntranceRibbon({name,role,area,timeline}) {
     </View>
     <View style={styles.legend}>
       <Text style={[styles.name,{fontSize:Math.min(23,width*.051)}]} numberOfLines={1} accessibilityLiveRegion="polite">{appText('دخل ')+name}</Text>
-      {role&&<><View style={styles.divider}/><Text numberOfLines={1} style={[styles.role,{fontSize:Math.min(17,width*.038)}]}>{role}</Text></>}
+      {role&&<><View style={styles.divider}/><Text numberOfLines={1} style={[styles.role,{fontSize:Math.min(17,width*.038)}]}>{appText(role)}</Text></>}
     </View>
   </Animated.View>;
 }

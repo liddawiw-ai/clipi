@@ -1,11 +1,11 @@
-import {ui as appText} from './interface-language.mjs';
+import {ui as appText,uiError,interfaceLocale} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useState,useRef} from 'react';
 import {View,Text,TouchableOpacity,StyleSheet,Linking,Share,Platform} from 'react-native';
 import * as Crypto from 'expo-crypto';
 import {storeBilling} from './storeBilling';
 const units=[1,2,5,10,20,50,100];
-const fmt=n=>n.toLocaleString('en-US');
+const fmt=n=>n.toLocaleString(interfaceLocale());
 export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurrentUser}){
  const [method,methodTo]=useState(externalAllowed?'pi':'card'),[count,select]=useState(1),[offer,setOffer]=useState(null);
  const [storeMessage,setStoreMessage]=useState('');
@@ -44,18 +44,18 @@ export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurr
     if(!checkout.url?.startsWith('https://checkout.stripe.com/'))throw Error(appText('رابط الدفع غير متاح'));
     await Linking.openURL(checkout.url);attempt.current=null;
    }
-  }catch(e){if(e.status===409)reset();setError(e.userCancelled?appText('أُلغي الدفع.'):e.message)}
+  }catch(e){if(e.status===409)reset();setError(e.userCancelled?appText('أُلغي الدفع.'):uiError(e))}
   finally{lock.current=false;setBusy(false)}
  }
  const selected=pi?1200:1000;
  return <View style={s.body}>
-  <View style={s.segment}>{(externalAllowed?[['pi','عملة PI']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{label}</Text></TouchableOpacity>)}</View>
+  <View style={s.segment}>{(externalAllowed?[['pi','عملة PI']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{appText(label)}</Text></TouchableOpacity>)}</View>
   <View style={s.summary}><Text style={s.eyebrow}>{pi?appText('الدفع من PI Browser'):storeName}</Text><Text style={s.amount}>💎 {fmt(count*selected)}</Text><Text style={s.desc}>{pi?appText('بقيمة ')+count+appText(' USD حسب سعر PI عند الطلب'):nativeStore?appText('السعر حسب بلد حسابك في ')+storeName:count+appText(' USD عبر Visa أو Google Pay عند توفره')}</Text></View>
   <Text style={s.title}>{appText("اختر الباقة")}</Text>
   <View style={s.grid}>{units.map(n=><TouchableOpacity key={n} disabled={busy} onPress={()=>{select(n);reset()}} accessibilityRole="button" accessibilityState={{selected:count===n}} style={[s.pack,count===n&&s.chosen]}><Text style={s.number}>{fmt(n*selected)} 💎</Text>{pi&&<Text style={s.price}>{n} USD</Text>}</TouchableOpacity>)}</View>
-  {offer&&pi&&<Text accessibilityLiveRegion="polite" style={s.desc}>{offer.amount}{appText(" PI · السعر صالح حتى ")}{new Date(offer.expires).toLocaleTimeString('ar')}</Text>}
+  {offer&&pi&&<Text accessibilityLiveRegion="polite" style={s.desc}>{offer.amount}{appText(" PI · السعر صالح حتى ")}{new Date(offer.expires).toLocaleTimeString(interfaceLocale())}</Text>}
   {nativeStore&&offer&&<Text style={s.desc}>{storeName} · {offer.localPrice}</Text>}
-  {!!storeMessage&&<Text style={s.desc}>{storeMessage}</Text>}
+  {!!storeMessage&&<Text style={s.desc}>{appText(storeMessage)}</Text>}
   <TouchableOpacity accessibilityRole="button" disabled={busy||(pi&&!externalAllowed)} onPress={next} style={[s.cta,(busy||(pi&&!externalAllowed))&&{opacity:.55}]}><Text style={s.dark}>{busy?appText('جارٍ الاتصال…'):pi?(offer?appText('متابعة في PI Browser'):appText('عرض سعر PI الآن')):nativeStore?(offer?appText('الشراء عبر ')+storeName:appText('عرض سعر ')+storeName):appText('متابعة إلى الدفع')}</Text></TouchableOpacity>
   {pi&&!externalAllowed&&<Text style={s.desc}>{appText("الدفع بعملة PI متاح في نسخة أندرويد المباشرة.")}</Text>}
   {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>}

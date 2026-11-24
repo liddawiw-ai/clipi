@@ -1,4 +1,4 @@
-import {uiError,ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useState,useEffect,useRef} from 'react';
 import {View,Text,TextInput,ScrollView,TouchableOpacity,StyleSheet,Alert,Linking} from 'react-native';
@@ -17,6 +17,9 @@ export default function PayoutPicker({data,call,reload}){
   if(country)call('getPayoutMethods')({country:country[0]}).then(r=>{if(current)setOptions(r.data.methods)}).catch(()=>{if(current)setError(appText('تعذّر تحميل طرق السحب المتاحة في هذه الدولة.'))});
   return()=>{current=false};
  },[country,retry,call]);
+ const locale=interfaceLocale();
+ const regions=React.useMemo(()=>typeof Intl.DisplayNames==='function'?new Intl.DisplayNames([locale],{type:'region'}):null,[locale]);
+ const countryName=([code,fallback])=>regions?.of(code)||appText(fallback);
  const points=Math.round(Number(digits(amount))*100);
  const can=Boolean(data?.canRequest&&method&&/^\d+(\.\d{1,2})?$/.test(digits(amount))&&points>=data.minimumPoints&&points<=data.availablePoints&&method.bands.some(b=>points>=Math.round(b.min*100)&&points<=Math.round(b.max*100)));
  async function submit(receipt=false){
@@ -35,19 +38,19 @@ export default function PayoutPicker({data,call,reload}){
  const action=(text,onPress,disabled=false)=><TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[S.button,disabled&&{opacity:.5}]}><Text style={S.cta}>{text}</Text></TouchableOpacity>;
  return <View style={S.panel}><Text style={S.heading}>{appText("سحب الأرباح")}</Text>
  <Text style={S.label}>{appText("الرصيد المتاح للسحب ")}{data?'$'+(data.availableUsdMinor/100).toFixed(2):'…'}</Text>
- <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} style={S.selection}><Text style={S.value}>{country?.[1]||appText('اختر الدولة')}　{open?'▴':'▾'}</Text></TouchableOpacity>
+ <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} style={S.selection}><Text style={S.value}>{country?countryName(country):appText('اختر الدولة')}　{open?'▴':'▾'}</Text></TouchableOpacity>
  {open&&<View><TextInput accessibilityLabel={appText("البحث عن دولة")} placeholder={appText("ابحث باسم الدولة أو رمزها")} placeholderTextColor={theme.secondary} value={search} onChangeText={filter} style={S.input}/>
- <ScrollView nestedScrollEnabled style={{maxHeight:215}} keyboardShouldPersistTaps="handled">{countries.filter(([code,name])=>normalize(name).includes(normalize(search))||code.includes(search.trim().toUpperCase())).map(c=><TouchableOpacity accessibilityRole="button" key={c[0]} onPress={()=>{choose(c);setOpen(false);filter('')}} style={S.row}><Text style={S.value}>{c[1]}</Text></TouchableOpacity>)}</ScrollView></View>}
+ <ScrollView nestedScrollEnabled style={{maxHeight:215}} keyboardShouldPersistTaps="handled">{countries.filter(([code,name])=>(normalize(name).includes(normalize(search))||normalize(countryName([code,name])).includes(normalize(search)))||code.includes(search.trim().toUpperCase())).map(c=><TouchableOpacity accessibilityRole="button" key={c[0]} onPress={()=>{choose(c);setOpen(false);filter('')}} style={S.row}><Text style={S.value}>{countryName(c)}</Text></TouchableOpacity>)}</ScrollView></View>}
  {country&&!options&&!error&&<Text style={S.label}>{appText("جارٍ جلب طرق السحب…")}</Text>}
  {options?.length===0&&<Text style={S.label}>{appText("لا تتوفر وسيلة سحب بالدولار لهذه الدولة حاليًا.")}</Text>}
  {['bank','wallet'].map(t=>options?.some(m=>m.type===t)&&<View key={t}><Text style={S.label}>{t==='bank'?appText('التحويل البنكي'):appText('المحافظ الإلكترونية')}</Text>
  {options.filter(m=>m.type===t).map(m=><TouchableOpacity key={m.id} accessibilityRole="radio" accessibilityState={{selected:method?.id===m.id}} onPress={()=>setMethod(m)} style={S.row}><Text style={S.value}>{method?.id===m.id?'●':'○'}　{m.name}</Text></TouchableOpacity>)}</View>)}
  {method&&<TextInput accessibilityLabel={appText("مبلغ السحب بالدولار")} keyboardType="decimal-pad" placeholder={appText("المبلغ بالدولار")} value={amount} onChangeText={setAmount} placeholderTextColor={theme.secondary} style={S.input}/>}
  {(method||data?.activeWithdrawal||data?.lastWithdrawal)&&<TextInput keyboardType="number-pad" secureTextEntry maxLength={6} placeholder={appText("الرقم السري للمحفظة")} placeholderTextColor={theme.secondary} value={pin} onChangeText={setPin} style={S.input}/>}
- {method&&!data?.activeWithdrawal&&action(appText('طلب سحب'),()=>Alert.alert(appText('تأكيد السحب'),amount+' USD · '+country[1]+' · '+method.name,[{text:appText('إلغاء'),style:'cancel'},{text:appText('تأكيد'),onPress:()=>submit()}]),busy||!can||!/^\d{6}$/.test(digits(pin)))}
+ {method&&!data?.activeWithdrawal&&action(appText('طلب سحب'),()=>Alert.alert(appText('تأكيد السحب'),amount+' USD · '+countryName(country)+' · '+method.name,[{text:appText('إلغاء'),style:'cancel'},{text:appText('تأكيد'),onPress:()=>submit()}]),busy||!can||!/^\d{6}$/.test(digits(pin)))}
  {data?.activeWithdrawal&&action(appText('متابعة الطلب الحالي'),()=>submit(),busy||digits(pin).length!==6)}
  {data?.lastWithdrawal&&!data.activeWithdrawal&&action(appText('فتح آخر إيصال'),()=>submit(true),busy||digits(pin).length!==6)}
- {!!result&&<Text style={S.label}>{result}</Text>}
+ {!!result&&<Text style={S.label}>{appText(result)}</Text>}
  {!!error&&<Text accessibilityLiveRegion="polite" style={S.error}>{appText(error)}</Text>}
  {error&&country&&!options&&action(appText('إعادة تحميل الطرق'),()=>refresh(n=>n+1))}
  </View>;

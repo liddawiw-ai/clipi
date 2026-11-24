@@ -38,15 +38,37 @@ jobs:
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify --print-certs "$apk" > signing.txt
           grep -Fi 'certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' signing.txt
-          cp "$apk" Clipi-Android-41.apk
+          cp "$apk" Clipi-Android-42.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-41
-          path: Clipi-Android-41.apk
+          name: Clipi-Android-42
+          path: Clipi-Android-42.apk
           if-no-files-found: error
           retention-days: 14
+  installed-apk:
+    needs: android-apk
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clipi-Android-42
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Test the signed APK on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r Clipi-Android-42.apk
+            python3 scripts/check-installed-language.py
       - name: Publish signed Android download
         if: github.ref == 'refs/heads/release/android-profile-videos-40'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build41 Clipi-Android-41.apk --target "$GITHUB_SHA" --title "Clipi Android 41" --notes "Short-video settings over playback, room-scoped moderation, microphone and invitation controls, and localized interface messages." --prerelease
+        run: gh release create android-build42 Clipi-Android-42.apk --target "$GITHUB_SHA" --title "Clipi Android 42" --notes "Short-video settings over playback, room-scoped moderation, microphone and invitation controls, and localized interface messages." --prerelease

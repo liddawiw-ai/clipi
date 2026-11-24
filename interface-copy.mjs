@@ -1255,7 +1255,14 @@ export const english = {
   "ماد باي": "Mad Pay",
   "أورنج كاش": "Orange Cash",
   "فودافون كاش": "Vodafone Cash",
-  "وي باي": "WE Pay"
+  "وي باي": "WE Pay",
+  "ورقة": "Card",
+  "آخر ورقة": "Last card",
+  "جارٍ رمي النرد": "Rolling dice",
+  "السباتي": "Clubs",
+  "الديناري": "Diamonds",
+  "الكبة": "Hearts",
+  "البستوني": "Spades"
 };
 export const additionalCopy = [
   "Account ID",
