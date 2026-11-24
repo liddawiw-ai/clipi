@@ -14,6 +14,6 @@ export const theme = {
   gold: '#815521',
   brass: '#CBA76C',
   danger: '#8B383D',
-  scrim: 'rgba(27,57,49,0.23)',
+  scrim: 'rgba(255,255,255,0.10)',
   glass: 'rgba(255,254,250,0.97)',
 };

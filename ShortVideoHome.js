@@ -18,9 +18,9 @@ const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'}
 const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
 
-function Button({label,onPress,children,disabled=false,selected}){
-  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,selected}} disabled={disabled} onPress={onPress} style={s.button}>
-    {children||<Text style={s.label}>{label}</Text>}
+function Button({label,onPress,children,disabled=false,selected,onPaper=false}){
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,selected}} disabled={disabled} onPress={onPress} style={[s.button,disabled&&{opacity:.45}]}>
+    {children||<Text style={onPaper?s.paperLabel:s.label}>{label}</Text>}
   </Pressable>;
 }
 function SoundControl({playerRef,muted,setMuted}){
@@ -50,8 +50,13 @@ function VideoSettings({actions,onClose,closeLabel}){
   </Modal>;
 }
 function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
-  return <Modal transparent animationType="slide" onRequestClose={onClose}>
-    <View style={s.scrim}><View style={s.panel}><Button label={closeLabel} disabled={busy} onPress={onClose}/>{children}</View></View>
+  return <Modal transparent animationType="slide" onRequestClose={()=>{if(!busy)onClose();}}>
+    <View style={s.scrim}>
+      <Pressable accessible={false} style={StyleSheet.absoluteFill} disabled={busy} onPress={onClose}/>
+      <ScrollView style={s.panel} accessibilityViewIsModal keyboardShouldPersistTaps="handled" contentContainerStyle={s.panelContent}>
+        <Button onPaper label={closeLabel} disabled={busy} onPress={onClose}/>{children}
+      </ScrollView>
+    </View>
   </Modal>;
 }
 function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
@@ -161,7 +166,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable&&dialog!=='gift'&&dialog!=='delete'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
     <SoundControl {...{playerRef,muted,setMuted}}/>
@@ -193,12 +198,12 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
-      <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
+      <Text style={s.paperLabel}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
   </View>;
 }
 
-export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=interfaceLocale()==='en'?'go live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
@@ -277,12 +282,12 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
   const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
   return <View style={s.screen}><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,suppressAudio,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
@@ -292,15 +297,15 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     </View>
     )}
     {liveMenu&&<Panel onClose={()=>setLiveMenu(false)} closeLabel={translate('إغلاق')}>
-      <Button label={roomLabels?.voiceRooms??translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
-      <Button label={roomLabels?.liveBroadcast??translate('بث مباشر')} onPress={()=>chooseRooms('video')}/>
+      <Button onPaper label={roomLabels?.voiceRooms??translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
+      <Button onPaper label={roomLabels?.liveBroadcast??translate('بث مباشر')} onPress={()=>chooseRooms('video')}/>
     </Panel>}
-    {!viewMode&&!!notice&&<View pointerEvents="none" style={s.notice}><Text accessibilityLiveRegion="polite" style={s.label}>{appText(notice)}</Text></View>}
+    {!viewMode&&!!notice&&<View pointerEvents="none" style={s.notice}><Text accessibilityLiveRegion="polite" style={s.paperLabel}>{appText(notice)}</Text></View>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{appText(error)}{appText(" · إعادة المحاولة")}</Text></Pressable>}
   </View><View style={viewMode&&{opacity:0}} pointerEvents={viewMode?'none':'auto'}>{dock}</View></View>;
 }
 
-export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
+export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,viewer}){
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [muted,setMuted]=useState(false);
   const playerRef=useRef(null);
@@ -309,7 +314,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
   useEffect(()=>()=>{if(draft)releaseDraft(draft);},[draft]);
   async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setAccepted(false);setDraft(file);setNotice('');}}
+    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setAccepted(false);setDraft(file);onPreview();setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
@@ -323,26 +328,27 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     }catch(e){if(alive.current)setNotice(uiError(e,'تعذّر نشر الفيديو'));}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
-  return <View style={s.screen}><View style={[s.screen,s.preview]}>{draft&&<><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></>}</View>
-    <View style={s.panel}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
-    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
-    {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
-      <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.label}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
-      <Button label={busy?appText('جارٍ النشر…'):appText('نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
-    {!!notice&&<Text accessibilityLiveRegion="polite" style={s.label}>{appText(notice)}</Text>}
-    <Button label={appText("رجوع")} disabled={busy} onPress={onClose}/></View><PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/></View>;
+  return <Panel onClose={onClose} closeLabel={appText('إغلاق')} busy={busy}>
+    <Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
+    {draft&&<View style={s.preview}><Player source={draft.uri} fit="contain" muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></View>}
+    <Button onPaper label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
+    {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#52645f" placeholder={appText("عنوان الفيديو")}/>
+      <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button onPaper label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button onPaper label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.paperLabel}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
+      <Button onPaper label={busy?appText('جارٍ النشر…'):appText('نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
+    {!!notice&&<Text accessibilityLiveRegion="polite" style={s.paperLabel}>{appText(notice)}</Text>}
+    {policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</Panel>;
 }
 
 const s=StyleSheet.create({
   back:{position:'absolute',top:12,left:8,width:48,height:48,alignItems:'center',justifyContent:'center'},
   backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
-  screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{minHeight:80},
+  screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{height:160,overflow:'hidden',backgroundColor:'#f3f6f5',borderRadius:12},
   header:{position:'absolute',top:12,alignSelf:'center',alignItems:'center'},
   goLive:{backgroundColor:'rgba(0,0,0,.22)',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:24,minWidth:94,minHeight:46,paddingHorizontal:17,alignItems:'center',justifyContent:'center'},
   pressed:{opacity:.72},
-  notice:{position:'absolute',bottom:12,alignSelf:'center',backgroundColor:'#232527',borderRadius:14,paddingHorizontal:14,paddingVertical:8},
+  notice:{position:'absolute',bottom:12,alignSelf:'center',backgroundColor:'#fff',borderRadius:14,paddingHorizontal:14,paddingVertical:8},
   liveLabel:{color:'white',fontSize:19,fontWeight:'800',textShadowColor:'#171717',textShadowOffset:{width:0,height:1},textShadowRadius:4},
   commentIcon:{width:24,height:24},soundIcon:{width:24,height:24},
   audio:{position:'absolute',right:9,top:12},
@@ -355,7 +361,7 @@ const s=StyleSheet.create({
   settingsContent:{paddingHorizontal:16,paddingVertical:8},
   settingsRow:{minHeight:44,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderColor:'#dce4e0'},
   settingsLabel:{color:'#172925',fontSize:16,fontWeight:'600'},destructiveLabel:{color:'#a12932'},
-  retry:{position:'absolute',left:12,bottom:4},panel:{backgroundColor:'#202428',maxHeight:'78%',padding:16,gap:6},lightTitle:{fontSize:20,fontWeight:'700',color:'white'},
-  scrim:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,.55)'},
-  input:{borderColor:'#71767a',borderWidth:1,borderRadius:8,padding:10,color:'white'}
+  retry:{position:'absolute',left:12,bottom:4},panel:{flexGrow:0,backgroundColor:'#fff',maxHeight:'66%',borderTopLeftRadius:24,borderTopRightRadius:24,elevation:6},panelContent:{padding:16,gap:6},lightTitle:{fontSize:20,fontWeight:'700',color:'#172925',textAlign:'center'},paperLabel:{fontSize:16,fontWeight:'600',color:'#172925',textAlign:'center'},
+  scrim:{flex:1,justifyContent:'flex-end',backgroundColor:'transparent'},
+  input:{borderColor:'#c8d7d1',borderWidth:1,borderRadius:8,padding:10,color:'#172925'}
 });

@@ -22,8 +22,8 @@ export default function DeleteVideoDialog({translate,busy,error,onCancel,onConfi
   </View>;
 }
 const s=StyleSheet.create({
-  overlay:{...StyleSheet.absoluteFillObject,zIndex:10,elevation:10,backgroundColor:'rgba(12,22,20,.48)',justifyContent:'center',alignItems:'center',padding:12},
-  card:{width:'100%',maxWidth:320,padding:18,gap:9,borderRadius:16,backgroundColor:'#fffcf9'},
+  overlay:{...StyleSheet.absoluteFillObject,zIndex:10,elevation:10,backgroundColor:'transparent',justifyContent:'center',alignItems:'center',padding:12},
+  card:{width:'100%',maxWidth:320,padding:18,gap:9,borderRadius:16,backgroundColor:'#fff',borderWidth:1,borderColor:'#dae4df'},
   title:{fontSize:20,fontWeight:'700',color:'#192625',textAlign:'right'},note:{fontSize:15,color:'#46514e',textAlign:'right'},
   error:{color:'#8a2726',textAlign:'right'},actions:{flexDirection:'row-reverse',gap:8},
   button:{flex:1,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:'#e5ede7'},

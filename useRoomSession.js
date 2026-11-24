@@ -31,11 +31,12 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     }
     if(['giftRecipient','hostCard','roomAdmins','setRoomAdmin','inviteChoices','inviteFriends','inviteAtStart'].includes(op))return data;
     if(op==='paidGift')return data.receipt;
-    if(!alive.current||!data.people||index<lastApplied.current)return;
+    if(!alive.current||!data.people||index<lastApplied.current)return data;
     lastApplied.current=index;
     const {known:next,arrivals}=incomingEntries(known.current,data.people,auth().currentUser?.uid);
     known.current=next;setState(data);setError('');setPinRequired(false);
     if(arrivals.length)current.current.onEntry(arrivals);
+    return data;
   }
   const [joining,setJoining]=useState(false);
   const joinLock=useRef(false);

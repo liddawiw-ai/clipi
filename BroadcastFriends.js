@@ -59,9 +59,34 @@ export function CircleChoice({label,checked,onPress,disabled}){
     <Text style={s.text}>{label}</Text>
   </TouchableOpacity>;
 }
-export function MicFreedom({label,value,onChange,disabled}){
-  return <View style={s.row}><Text style={s.text}>{label}</Text><Switch accessibilityLabel={label}
-    disabled={disabled} value={value} onValueChange={onChange}/></View>;
+const micModes={
+  ar:['مفعّلة','تتطلّب موافقة','غير متاح'],en:['Open','Approval required','Unavailable'],
+  fr:['Libre','Autorisation requise','Indisponible'],es:['Abierto','Requiere aprobación','No disponible'],
+  de:['Offen','Freigabe erforderlich','Nicht verfügbar'],pt:['Aberto','Requer aprovação','Indisponível'],
+  it:['Aperto','Richiede approvazione','Non disponibile'],tr:['Açık','Onay gerekli','Kullanılamıyor'],
+  ru:['Открыто','Требуется одобрение','Недоступно'],uk:['Відкрито','Потрібне схвалення','Недоступно'],
+  pl:['Otwarty','Wymaga zgody','Niedostępny'],nl:['Open','Toestemming vereist','Niet beschikbaar'],
+  fa:['آزاد','نیازمند تأیید','در دسترس نیست'],ur:['کھلا','منظوری درکار','دستیاب نہیں'],
+  he:['פתוח','נדרש אישור','לא זמין'],hi:['खुला','अनुमति आवश्यक','अनुपलब्ध'],
+  bn:['খোলা','অনুমোদন প্রয়োজন','অনুপলব্ধ'],ta:['திறந்துள்ளது','அனுமதி தேவை','கிடைக்கவில்லை'],
+  id:['Terbuka','Perlu persetujuan','Tidak tersedia'],ms:['Terbuka','Perlu kelulusan','Tidak tersedia'],
+  fil:['Bukas','Kailangan ng pahintulot','Hindi available'],vi:['Mở','Cần phê duyệt','Không khả dụng'],
+  th:['เปิด','ต้องได้รับอนุมัติ','ไม่พร้อมใช้งาน'],ja:['自由参加','承認が必要','利用不可'],
+  ko:['자유 참여','승인 필요','사용 불가'],sw:['Wazi','Idhini inahitajika','Haipatikani'],
+  el:['Ανοιχτό','Απαιτείται έγκριση','Μη διαθέσιμο'],ro:['Deschis','Necesită aprobare','Indisponibil']
+};
+export function MicFreedom({label,locale,value,known,onChange,disabled}){
+  const modes=micModes[locale]||micModes.en;
+  const status=known?modes[value?0:1]:modes[2];
+  return <TouchableOpacity accessibilityRole="switch" accessibilityLabel={label}
+    accessibilityValue={{text:status}} accessibilityState={{checked:value,disabled}}
+    disabled={disabled} onPress={()=>onChange(!value)} style={s.micRow}>
+    <View style={{flex:1}}><Text style={s.text}>{label}</Text>
+      <Text accessibilityLiveRegion="polite" style={s.micStatus}>{status}</Text></View>
+    <View pointerEvents="none" importantForAccessibility="no-hide-descendants">
+      <Switch accessible={false} disabled={disabled} value={value} trackColor={{false:theme.line,true:theme.accent}}/>
+    </View>
+  </TouchableOpacity>;
 }
 function Action({label,onPress,disabled}){
   return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={s.action}>
@@ -161,6 +186,8 @@ export function InviteInbox({request,onJoin,locale,blocked,roomId}){
     <Action label={menu.back} disabled={busy} onPress={()=>respond(false)}/></View></View>;
 }
 const s=StyleSheet.create({
+  micRow:{minHeight:58,flexDirection:'row',alignItems:'center',gap:12},
+  micStatus:{color:theme.secondary,fontSize:13,marginTop:2},
   row:{minHeight:44,flexDirection:'row',gap:8,alignItems:'center'},text:{color:theme.ink,fontSize:14,fontWeight:'600',flexShrink:1},
   circle:{width:19,height:19,borderRadius:10,borderWidth:1.5,borderColor:theme.secondary,justifyContent:'center',alignItems:'center'},
   selected:{borderColor:theme.accent},mark:{color:theme.accent,fontSize:13,fontWeight:'800'},

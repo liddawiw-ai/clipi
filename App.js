@@ -572,7 +572,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const videoCanPublish=isHost?(self?.seat??0)>=0:isGuest;
   const audioCanPublish=onStage&&!self?.muted;
   useStartInvites(!!(inviteFriends&&isHost&&(mediaControls?.micOn||mediaControls?.cameraOn)),membership.act);
-  const micFree=membership.state?.micFree!==false;
+  const micFree=membership.state?.micFree===true;
+  const micModeKnown=typeof membership.state?.micFree==='boolean';
   const canApprove=isHost||membership.state?.roomAdmin||membership.state?.appStaff;
   const canModerate=uid=>uid===room.ownerUid?!!membership.state?.appStaff:canApprove;
   const broadcast=broadcastWords(locale);
@@ -593,7 +594,10 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     roomActionLock.current=true;
     setRoomActionPending(true);
     try{
-      await membership.act('settings',settings);
+      const confirmed=await membership.act('settings',settings);
+      if(typeof settings.micFree==='boolean'&&confirmed?.micFree!==settings.micFree){
+        throw Error(appText('تعذّر إتمام العملية. حاول مجددًا.'));
+      }
       if(close){setPin('');closeRoomMenu()}
     }catch(error){Alert.alert(appText("الغرفة"),uiError(error))}
     finally{roomActionLock.current=false;setRoomActionPending(false)}
@@ -865,7 +869,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
             {canApprove&&<>
               <RoomOption title={appText('تعيين أدمن')} onPress={()=>setRoomMenu('admins')}/>
               <RoomOption title={broadcast.invite} onPress={()=>setRoomMenu('friends')}/>
-              {audio&&<MicFreedom label={broadcast.free} value={micFree} disabled={roomActionPending} onChange={value=>updateRoomSettings({micFree:value})}/>}
+              {audio&&<MicFreedom label={broadcast.free} locale={locale} value={micFree} known={micModeKnown} disabled={roomActionPending||!micModeKnown} onChange={value=>updateRoomSettings({micFree:value})}/>}
               <RoomOption title={appText('الكلمات المحظورة')} onPress={()=>{setFilterDraft((membership.state.words||[]).join('\n'));setRoomMenu('filter')}}/>
               <RoomOption title={appText('مهلة الدردشة')+' · '+(membership.state?.slow||0)+' '+appText('ثانية')}
                 disabled={roomActionPending} onPress={()=>{const times=[0,5,15,30];const i=times.indexOf(membership.state?.slow||0);void updateRoomSettings({slow:times[(i+1)%times.length]})}}/>
@@ -1046,9 +1050,51 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   </KeyboardAvoidingView>;
 }
 
+const languages = Object.entries(accountLabels);
+const languageRowHeight = 48;
+
+function LoginLanguageSheet({locale, menu, onSelect, onClose}){
+  const wheel = useRef(null);
+  const initial = languages.findIndex(([code])=>code===locale);
+  const [index,setIndex] = useState(Math.max(0,initial));
+  const rowHeight = Math.ceil(languageRowHeight * Math.max(1,useWindowDimensions().fontScale));
+  const align = () => wheel.current?.scrollTo({y:Math.max(0,initial)*rowHeight,animated:false});
+  const track = event => setIndex(Math.max(0,Math.min(languages.length-1,
+    Math.round(event.nativeEvent.contentOffset.y/rowHeight))));
+  return <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <View style={S.languageBackdrop}>
+      <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
+      <View style={S.languageSheet} accessibilityViewIsModal>
+        <View style={S.languageHandle}/>
+        <View style={S.languageHeading}>
+          <Text accessibilityRole="header" style={S.title}>{menu.changeLanguage}</Text>
+          <WindowControl label={menu.back} icon="×" onPress={onClose}/>
+        </View>
+        <View style={{height:rowHeight*3}}>
+          <View pointerEvents="none" style={[S.languageHighlight,{top:rowHeight,height:rowHeight}]}/>
+          <ScrollView ref={wheel} testID="login-language-wheel" snapToInterval={rowHeight}
+            onContentSizeChange={align} decelerationRate="fast" showsVerticalScrollIndicator={false}
+            scrollEventThrottle={16} onScroll={track} contentContainerStyle={{paddingVertical:rowHeight}}>
+            {languages.map(([code,labels],i)=>
+              <TouchableOpacity key={code} accessibilityRole="button" accessibilityLabel={labels.languageName}
+                accessibilityState={{selected:code===locale}} onPress={()=>onSelect(code)}
+                style={{height:rowHeight,alignItems:'center',justifyContent:'center'}}>
+                <Text style={[S.languageName,i===index&&S.languageFocus]}>{labels.languageName}</Text>
+              </TouchableOpacity>)}
+          </ScrollView>
+        </View>
+        <Btn title={appText('حفظ')} onPress={()=>onSelect(languages[index][0])}/>
+      </View>
+    </View>
+  </Modal>;
+}
+
 const accountLanguageFile = FileSystem.documentDirectory + 'clipi-language.txt';
 export default function App(){
   const [locale,setLocale] = useState('ar');
+  const [loginLanguages,setLoginLanguages]=useState(false);
+  const [uploadOpen,setUploadOpen]=useState(false),[previewingDraft,setPreviewingDraft]=useState(false);
+  function closeUpload(){setUploadOpen(false);setPreviewingDraft(false)}
   useSyncExternalStore(subscribeInterface,interfaceRevision,interfaceRevision);
   const hasSelectedLanguage = useRef(false);
   useEffect(() => {
@@ -1065,7 +1111,7 @@ export default function App(){
     savingLanguage.current = true;
     try {
       await FileSystem.writeAsStringAsync(accountLanguageFile, code);
-      setInterfaceLanguage(code);setLocale(code);
+      setInterfaceLanguage(code);setLocale(code);setLoginLanguages(false);
       if (pageRef.current === 'accountLanguage') go(auth().currentUser?'accountSettings':'login');
     } catch {
       Alert.alert(menu.changeLanguage, appText('تعذّر حفظ اللغة / Could not save language'));
@@ -1241,6 +1287,7 @@ export default function App(){
       // Local demo data must never leak between Firebase accounts on the same device.
       if(currentSessionUidRef.current!==u?.uid){
         currentSessionUidRef.current=u?.uid;
+        closeUpload();setLoginLanguages(false);
         selectedEmoji.current=null;setAvatar('👤');
         setBalance({welcome:WELCOME,purchased:0,owner:0});
         setOwnerDemo(false);setOwnerGranted(false);
@@ -1583,7 +1630,8 @@ export default function App(){
     const current=page==='profileEdit'||page==='accountSettings'||page==='accountLanguage'||page==='earningsWallet'?'profile':page;
     return <ClipiDock items={items} page={current} onNavigate={destination=>{
       if(destination==='home'||destination==='rooms'){setDiscoveryFilter('all');setRoomSearch('')}
-      go(destination==='create'?'uploadShort':destination);
+      if(destination==='create'){Keyboard.dismiss();setUploadOpen(true);return}
+      go(destination);
     }}/>;
   }
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="dark-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
@@ -1593,17 +1641,21 @@ export default function App(){
   const shortPlayerProps={translate:appText,
     followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
-    playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
+    playable:!activeRoom,suppressAudio:uploadOpen&&previewingDraft,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
   };
   const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{appText(equipped.frame)}</Text><Text style={S.white}>{appText(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
 
+  const languageButton=<TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.changeLanguage} accessibilityState={{expanded:loginLanguages}}
+    onPress={()=>{Keyboard.dismiss();setLoginLanguages(true)}} style={S.languageButton}>
+    <Text style={S.languageFocus}>{menu.changeLanguage} · {menu.languageName}  ⌃</Text>
+  </TouchableOpacity>;
   function renderPage(){
   if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('wallet')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>{appText("Clipi · تحميل الحساب...")}</Text></View>;
   if(page==='login'||page==='verify')return <View style={{flex:1,backgroundColor:theme.canvas}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
-    <LoginCover image={require('./assets/clipi-icon.png')}/><Btn title={menu.changeLanguage} onPress={()=>go('accountLanguage')}/><View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>
+    <LoginCover image={require('./assets/clipi-icon.png')}/>{page==='verify'&&languageButton}<View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>
     {page==='verify'?<><Text style={S.label}>{appText("رمز التحقق SMS")}</Text><TextInput style={S.input} value={smsCode} onChangeText={setSmsCode} keyboardType="number-pad" maxLength={6} placeholder={appText("ستة أرقام")}/><Btn title={busy?appText('جارٍ التحقق...'):appText('تأكيد الرمز')} disabled={busy} onPress={verifySms}/><Btn title={appText("تغيير رقم الهاتف")} color={theme.sea} onPress={()=>go('login')}/></>:
     <>
       <Btn title={loginMethod==='email'?appText('استخدام رقم الهاتف'):appText('استخدام البريد الإلكتروني')} color={theme.sea} disabled={busy}
@@ -1617,6 +1669,7 @@ export default function App(){
           placeholder={appText("كلمة المرور")} secureTextEntry autoCapitalize="none" autoCorrect={false}
           autoComplete={emailMode==='signup'?'new-password':'current-password'} editable={!busy}/>}
       </>:<><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName} placeholder={appText("اسم المستخدم")}/><Text style={S.label}>{appText("الدولة")}</Text><Btn title={appText(COUNTRIES[country][0])+' '+COUNTRIES[country][1]} color={theme.sea} onPress={()=>setCountriesOpen(v=>!v)}/>{countriesOpen&&COUNTRIES.map((c,i)=><Btn key={i} title={appText(c[0])+' '+c[1]} color={theme.sea} onPress={()=>{setCountry(i);setCountriesOpen(false)}}/>)}<Text style={S.label}>{appText("الهاتف")}</Text><TextInput style={S.input} value={phone} onChangeText={setPhone} placeholder={appText("رقم الهاتف")} keyboardType="phone-pad"/></>}
+      {languageButton}
       <Btn title={accepted?appText('☑ أوافق على الشروط'):appText('☐ أوافق على الشروط')} color={theme.sea} onPress={()=>setAccepted(v=>!v)}/><View style={S.row}><Small title={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Small title={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
       {loginMethod==='email'?<>
         <Btn title={busy?appText('جارٍ العمل...'):emailMode==='signup'?appText('إنشاء الحساب'):emailMode==='reset'?appText('إرسال رابط الاستعادة'):appText('تسجيل الدخول بالبريد')} disabled={busy} onPress={emailLogin}/>
@@ -1636,8 +1689,6 @@ export default function App(){
   }} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
-  if(page==='uploadShort')return <ShortUpload viewer={{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar}} key={user?.uid} endpoint={MEDIA_ENDPOINT} request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
-    onClose={()=>go('home')} onDone={id=>{setInitialShort(id);go('home');}}/>;
   const hostField=<View><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
     <CircleChoice label={broadcastWords(locale).friends} checked={inviteAll} disabled={busy} onPress={()=>setInviteAll(value=>!value)}/></View>;
   if(page==='previousRooms')return <HubScreen title={menu.previousRooms} action={{label:menu.back,onPress:()=>go('rooms')}} dock={nav()}>
@@ -1831,6 +1882,11 @@ export default function App(){
   return <View style={S.page}><Btn title={appText("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}><StatusBar barStyle="dark-content" backgroundColor={theme.canvas}/>{renderPage()}
+    {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu}
+      onClose={()=>setLoginLanguages(false)} onSelect={selectLanguage}/>}
+    {uploadOpen&&user?.uid&&<ShortUpload key={user.uid} viewer={shortPlayerProps.viewer} endpoint={MEDIA_ENDPOINT}
+      request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()} onPreview={()=>setPreviewingDraft(true)}
+      onClose={closeUpload} onDone={id=>{closeUpload();setInitialShort(id);go('home')}}/>}
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
     {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label={appText("الغرفة")} onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
@@ -1846,13 +1902,20 @@ export default function App(){
 }
 
 const S=StyleSheet.create({
+  languageButton:{minHeight:48,marginTop:12,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.line,borderRadius:14,backgroundColor:'#fff'},
+  languageBackdrop:{flex:1,justifyContent:'flex-end'},
+  languageSheet:{backgroundColor:'#fff',borderTopLeftRadius:26,borderTopRightRadius:26,paddingHorizontal:20,paddingBottom:20,paddingTop:8,borderWidth:1,borderColor:'#e1eae7',elevation:8},
+  languageHandle:{width:36,height:4,borderRadius:2,alignSelf:'center',backgroundColor:'#ccdad6'},
+  languageHeading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  languageHighlight:{position:'absolute',left:4,right:4,backgroundColor:'#eff7f4',borderRadius:12,borderWidth:1,borderColor:'#d6e9e2'},
+  languageName:{color:theme.secondary,fontSize:16},languageFocus:{color:theme.ink,fontSize:17,fontWeight:'700'},
   roomGameLayer:{position:'absolute',left:0,right:0,bottom:0,zIndex:30,elevation:10,overflow:'hidden'},
-  roomGamesPicker:{position:'absolute',left:0,right:0,bottom:0,zIndex:30,elevation:10,paddingTop:6,backgroundColor:'#FFAB65',borderColor:'#FFAB65'},
+  roomGamesPicker:{position:'absolute',left:0,right:0,bottom:0,zIndex:30,elevation:10,paddingTop:6,backgroundColor:'#fff',borderColor:theme.line},
   gameThumbnail:{width:40,height:40,borderRadius:20},
   gameChoice:{alignSelf:'flex-start',alignItems:'center',gap:6,padding:4,marginVertical:8},
   gameCover:{width:100,height:100,borderRadius:14},gameCaption:{fontSize:15,fontWeight:'700',color:'#402510',textAlign:'center'},
   gameOverlay:{flex:1,justifyContent:'flex-end',backgroundColor:theme.scrim},
-  gameSheet:{backgroundColor:theme.paper,borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:theme.line,paddingHorizontal:12,paddingBottom:Platform.OS==='ios'?22:8},
+  gameSheet:{backgroundColor:'#fff',borderTopLeftRadius:26,borderTopRightRadius:26,borderWidth:1,borderColor:theme.line,paddingHorizontal:12,paddingBottom:Platform.OS==='ios'?22:8},
   sheetHandle:{alignSelf:'center',width:34,height:4,borderRadius:3,backgroundColor:theme.paper,marginVertical:5},
   gameBar:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8},
   gameHeading:{flex:1,alignItems:'center'},gameTitle:{color:theme.ink,fontSize:17,fontWeight:'900'},
@@ -1879,10 +1942,10 @@ const S=StyleSheet.create({
   roomControlGlyph:{fontSize:23,color:theme.ink,fontWeight:'800',},
   roomMenuDots:{color:theme.ink,fontSize:30,fontWeight:'700'},
   roomMenuOverlay:{flex:1,alignItems:'flex-end',paddingHorizontal:10,paddingTop:12,backgroundColor:theme.scrim},
-  roomMenuPanel:{width:'92%',maxWidth:360,maxHeight:'88%',backgroundColor:theme.glass,padding:18,borderRadius:22,borderWidth:1,borderColor:theme.line},
+  roomMenuPanel:{width:'92%',maxWidth:360,maxHeight:'88%',backgroundColor:'#fff',padding:18,borderRadius:22,borderWidth:1,borderColor:theme.line},
   roomMenuItems:{flexDirection:'column',flexWrap:'nowrap',justifyContent:'flex-start',gap:0,paddingBottom:8,alignItems:'stretch'},
   roomBottom:{backgroundColor:theme.glass,paddingHorizontal:7,paddingTop:6,paddingBottom:Platform.OS==='ios'?16:9,borderTopLeftRadius:16,borderTopRightRadius:16},
-  micPopover:{position:'absolute',width:156,padding:6,borderWidth:1,borderColor:theme.line,borderRadius:16,backgroundColor:theme.glass,elevation:3},
+  micPopover:{position:'absolute',width:156,padding:6,borderWidth:1,borderColor:theme.line,borderRadius:16,backgroundColor:'#fff',elevation:3},
   micPopoverTitle:{color:theme.accent,textAlign:'center',fontSize:13,padding:6,fontWeight:'800'},
   micPopoverAction:{minHeight:40,justifyContent:'center',alignItems:'center',borderTopWidth:StyleSheet.hairlineWidth,borderTopColor:theme.line,backgroundColor:'transparent'},
   joinButton:{minWidth:40,height:38,justifyContent:'center',alignItems:'center',borderWidth:1,borderColor:theme.line,borderRadius:18,marginLeft:4,backgroundColor:theme.paper},

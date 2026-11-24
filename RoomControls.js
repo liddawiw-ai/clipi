@@ -136,7 +136,7 @@ const s=StyleSheet.create({
   option:{width:'100%',minHeight:44,padding:8,borderRadius:0,backgroundColor:'transparent',justifyContent:"center",borderBottomWidth:1,borderBottomColor:theme.line,alignItems:'stretch',paddingHorizontal:4,paddingVertical:8},
   optionText:{color:theme.ink,fontSize:15,fontWeight:'600',textAlign:'auto'},
   overlay:{flex:1,justifyContent:'flex-end',backgroundColor:theme.scrim},
-  sheet:{backgroundColor:theme.paper,borderTopLeftRadius:26,borderTopRightRadius:26,padding:14,maxHeight:'72%',borderWidth:1,borderColor:theme.line},
+  sheet:{backgroundColor:'#fff',borderTopLeftRadius:26,borderTopRightRadius:26,padding:14,maxHeight:'72%',borderWidth:1,borderColor:theme.line},
   sheetHeading:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8},
   title:{fontSize:20,fontWeight:'800',color:theme.ink},
   sub:{fontSize:12,color:theme.secondary},

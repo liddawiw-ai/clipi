@@ -20,24 +20,42 @@ def find_label(label, timeout=45):
     while time.monotonic() < deadline:
         adb('shell', 'uiautomator', 'dump', '/sdcard/clipi-ui.xml')
         xml = adb('shell', 'cat', '/sdcard/clipi-ui.xml')
-        for node in ET.fromstring(xml).iter('node'):
+        tree = ET.fromstring(xml)
+        for node in tree.iter('node'):
             for key in ('text', 'content-desc'):
                 value = node.get(key, '').strip()
                 if value == label or value.startswith(label + ',') or value.startswith(label + ' '):
-                    return node
+                    if bounds(node)[3] > bounds(node)[1]:
+                        return node
+        if label in ('تغيير اللغة', 'Change language'):
+            screen = next((n for n in tree.iter('node') if n.get('scrollable') == 'true'), None)
+            if screen is not None:
+                left, top, right, bottom = bounds(screen)
+                x, height = str((left + right) // 2), bottom - top
+                adb('shell', 'input', 'swipe', x, str(top + height * 3 // 4),
+                    x, str(top + height // 3), '380')
         time.sleep(0.6)
     raise RuntimeError(f'Expected control {label!r} on {PACKAGE}')
 
 
+def bounds(node):
+    return tuple(map(int, re.findall(r'-?\d+', node.attrib['bounds'])))
+
+
 def tap(label):
     node = find_label(label)
-    left, top, right, bottom = map(int, re.findall(r'\d+', node.attrib['bounds']))
+    left, top, right, bottom = bounds(node)
     adb('shell', 'input', 'tap', str((left + right) // 2), str((top + bottom) // 2))
 
 
 launch()
 tap('تغيير اللغة')
-tap('English')
+# Move the centred Arabic row up by one full row, then save the highlighted English option.
+left, top, right, bottom = bounds(find_label('العربية'))
+x, y = str((left + right) // 2), (bottom + top) // 2
+adb('shell', 'input', 'swipe', x, str(y), x, str(y - (bottom - top)), '650')
+time.sleep(1)
+tap('حفظ')
 find_label('Change language')
 adb('shell', 'am', 'force-stop', PACKAGE)
 launch()

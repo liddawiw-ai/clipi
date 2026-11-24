@@ -51,7 +51,7 @@ export function PolicyModal({page,endpoint,onClose}){
 
 const s=StyleSheet.create({
   backdrop:{flex:1,backgroundColor:theme.scrim,alignItems:'center',justifyContent:'center',padding:16},
-  sheet:{width:'100%',maxWidth:480,maxHeight:'88%',paddingHorizontal:18,paddingBottom:16,borderRadius:20,borderWidth:1,borderColor:theme.line,backgroundColor:theme.paper},
+  sheet:{width:'100%',maxWidth:480,maxHeight:'88%',paddingHorizontal:18,paddingBottom:16,borderRadius:20,borderWidth:1,borderColor:theme.line,backgroundColor:'#fff'},
   heading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginTop:4},
   brand:{fontSize:18,fontWeight:'800',color:theme.accent},
   close:{width:44,height:44,justifyContent:'center',alignItems:'center'},cross:{color:theme.ink,fontWeight:'600',fontSize:28},

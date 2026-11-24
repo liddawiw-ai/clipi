@@ -77,9 +77,9 @@ export default function AgencyScreen({request}){
       {data.canDelete&&<Action title={appText("حذف الوكالة")} danger disabled={busy} onPress={()=>{setIssue('');setConfirming(true);}}/>}
       {confirming&&data.canDelete&&<Modal visible transparent animationType="fade" onRequestClose={()=>{if(!gate.current)setConfirming(false);}}>
         <View style={s.overlay}><View accessibilityViewIsModal style={s.dialog}>
-          <Text accessibilityRole="header" style={s.heading}>{appText('حذف وكالة «')+agency.name+'»؟'}</Text>
-          <Text style={s.label}>{appText("ستُحذف الوكالة من القائمة ويُفصل أعضاؤها عنها. تُحفظ سجلات الدعم السابقة.")}</Text>
-          {!!issue&&<Text accessibilityRole="alert" style={s.error}>{appText(issue)}</Text>}
+          <Text accessibilityRole="header" style={[s.heading,s.dialogInk]}>{appText('حذف وكالة «')+agency.name+'»؟'}</Text>
+          <Text style={[s.label,s.dialogInk]}>{appText("ستُحذف الوكالة من القائمة ويُفصل أعضاؤها عنها. تُحفظ سجلات الدعم السابقة.")}</Text>
+          {!!issue&&<Text accessibilityRole="alert" style={[s.error,{color:'#832e36'}]}>{appText(issue)}</Text>}
           <View style={s.row}><Action title={appText("إلغاء")} disabled={busy} onPress={()=>{if(!gate.current){setConfirming(false);setIssue('');}}}/>
             <Action title={busy?appText('جارٍ الحذف…'):appText('تأكيد الحذف')} danger disabled={busy} onPress={()=>mutate('agencyDelete',{confirmedName:agency.name})}/></View>
         </View></View>
@@ -110,6 +110,6 @@ const s=StyleSheet.create({panel:{gap:12,padding:16,backgroundColor:'#17233B',bo
   button:{alignSelf:'flex-end',paddingHorizontal:14,paddingVertical:10,borderRadius:8,backgroundColor:'#2A3953'},
   action:{color:'#FFE1A1',fontSize:15,fontWeight:'600'},field:{gap:6},input:{backgroundColor:'#22314A',color:'white',padding:10,textAlign:'right',borderRadius:6},
   danger:{backgroundColor:'#853738'},dangerText:{color:'white'},
-  overlay:{flex:1,padding:18,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(10,15,23,.55)'},
-  dialog:{width:'100%',maxWidth:360,gap:14,padding:18,borderRadius:14,backgroundColor:'#17233B'},
+  overlay:{flex:1,padding:18,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(255,255,255,.12)'},
+  dialog:{width:'100%',maxWidth:360,gap:14,padding:18,borderRadius:14,backgroundColor:'#fff',borderWidth:1,borderColor:'#d9e5df'},dialogInk:{color:'#173e38'},
   error:{color:'#FFC4B5',textAlign:'right'},row:{flexDirection:'row-reverse',alignItems:'center',gap:8,flexWrap:'wrap'}});
