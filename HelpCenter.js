@@ -2,8 +2,9 @@ import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
-export const caseLabels={room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
+export const caseLabels={video:'بلاغ عن مقطع أو تعليق',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
 const phrases={
+  'بلاغ عن مقطع أو تعليق':'Report a clip or comment',
   'بلاغ عن البث':'Report broadcast','بلاغ عن مشارك':'Report participant','بلاغ عن رسالة':'Report message',
   'مشكلة في عملية شراء':'Purchase issue','طلب حذف الحساب':'Request account deletion','دعم كليبي':'Clipi support',
   'طلباتي':'My requests','طلبات بانتظار المراجعة':'Requests awaiting review','تحديث':'Refresh','رجوع':'Back',
@@ -13,9 +14,9 @@ const phrases={
   'سيُرسل طلب حذف حسابك وبياناته المرتبطة إلى فريق كليبي للمراجعة.':'This sends a request to Clipi to delete your account and its associated data.',
   'لا توجد طلبات':'No requests','معرّف الحساب':'Account ID','لا ترسل كلمة مرور أو معلومات البطاقة.':'Do not include passwords or card details.'
 };
-export function HelpCenter({request,newId,lang='ar',initialKind=null,onBack}){
+export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubject='',onBack}){
  const t=k=>lang==='ar'?k:(phrases[k]||k);
- const [kind,choose]=useState(initialKind),[subject,setSubject]=useState(''),[detail,setDetail]=useState('');
+ const [kind,choose]=useState(initialKind),[subject,setSubject]=useState(initialSubject),[detail,setDetail]=useState('');
  const [data,setData]=useState(null),[queue,setQueue]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const pending=useRef(false),alive=useRef(true),attempt=useRef(null),revision=useRef(0);
  async function refresh(staff=false){

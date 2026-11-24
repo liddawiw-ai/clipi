@@ -1,3 +1,4 @@
+import {equippedEntrance,incomingEntries} from './entranceStyles.mjs';
 import {useState,useRef,useEffect} from 'react';
 import auth from '@react-native-firebase/auth';
 import {randomUUID} from 'expo-crypto';
@@ -31,10 +32,9 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     if(op==='paidGift')return data.receipt;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
-    const newKeys=new Set(data.people.map(p=>p.uid+'/'+p.joined));
-    const entries=known.current?data.people.filter(p=>!known.current.has(p.uid+'/'+p.joined)):data.people.filter(p=>p.uid===auth().currentUser?.uid);
-    known.current=newKeys;setState(data);setError('');setPinRequired(false);
-    if(entries.length)current.current.onEntry(entries);
+    const {known:next,arrivals}=incomingEntries(known.current,data.people,auth().currentUser?.uid);
+    known.current=next;setState(data);setError('');setPinRequired(false);
+    if(arrivals.length)current.current.onEntry(arrivals);
   }
   const [joining,setJoining]=useState(false);
   const joinLock=useRef(false);
@@ -43,7 +43,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     joinLock.current=true;
     setJoining(true);
     try{
-      await act('join',{pin,avatar:current.current.avatar,name:current.current.username,frame:!!current.current.equipped.frame,ride:!!current.current.equipped.ride});
+      await act('join',{pin,avatar:current.current.avatar,name:current.current.username,frame:!!current.current.equipped.frame,ride:equippedEntrance(current.current.equipped)});
     }catch(error){if(alive.current)setError(error.message)}
     finally{joinLock.current=false;if(alive.current)setJoining(false)}
   }

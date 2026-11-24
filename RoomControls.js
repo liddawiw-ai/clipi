@@ -17,25 +17,26 @@ export function RoomOption({title, onPress, disabled}) {
   </TouchableOpacity>;
 }
 
-export function RoomGiftSheet({visible, gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
+export function RoomGiftSheet({visible, recipientKey, gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.overlay}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
-      {visible&&<GiftPanel gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
-        recipient={recipient} recipientAvatar={recipientAvatar} onWallet={onWallet} onShop={onShop} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
+      {visible&&<GiftPanel key={recipientKey} gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
+        recipient={recipient} recipientReady={recipientReady} recipientAvatar={recipientAvatar} onWallet={onWallet} onShop={onShop} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
     </View>
   </Modal>;
 }
 
-function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
+function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   const [category,setCategory]=useState(allLabel);
   const [selected,setSelected]=useState(null);
   const [pending,setPending]=useState(false);
   const sending=useRef(false);
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
   const insufficient=selected&&Number.isSafeInteger(balance)&&balance<selected[2];
+  const canSend=Boolean(selected && recipientReady && !pending);
   async function send(){
-    if(!selected||sending.current)return;
+    if(!canSend||sending.current)return;
     sending.current=true;
     setPending(true);
     try{await onSend(selected)}finally{sending.current=false;setPending(false)}
@@ -83,10 +84,10 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientAvatar
           <Text style={s.shopText}>{copy.shop}</Text>
         </TouchableOpacity>}
       </View>
-      <TouchableOpacity accessibilityRole="button" disabled={!selected||pending}
-        accessibilityState={{disabled:!selected||pending,busy:pending}}
+      <TouchableOpacity accessibilityRole="button" disabled={!canSend}
+        accessibilityState={{disabled:!canSend,busy:pending}}
         style={s.edgeAction} onPress={send}>
-        <Text style={[s.sendText,(!selected||pending)&&s.inactive]}>{copy.send}</Text>
+        <Text style={[s.sendText,!canSend&&s.inactive]}>{copy.send}</Text>
       </TouchableOpacity>
     </View>
   </View>;

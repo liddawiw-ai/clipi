@@ -17,3 +17,11 @@ export async function choosePhoto(max){
   if(!image.base64||image.base64.length>610000)throw Error('تعذّرت معالجة الصورة. اختر صورة أخرى.');
   return 'data:image/jpeg;base64,'+image.base64;
 }
+
+export async function shortProfile(viewer){
+  const {name,avatar}=viewer||{};
+  if(!avatar?.startsWith('data:image/')||avatar.length<=36000)return {name,avatar};
+  try{const photo=await manipulateAsync(avatar,[{resize:{width:72}}],{format:SaveFormat.JPEG,compress:.65,base64:true});
+    return {name,avatar:'data:image/jpeg;base64,'+photo.base64};
+  }catch{return {name,avatar:''};}
+}

@@ -5,14 +5,24 @@
       "Clipi uses your sign-in identifier, including your PI account identifier when you sign in with PI. Firebase processes profile information, room activity and chat messages. LiveKit carries the audio and video you choose to share with participants.",
       "For confirmed diamond purchases, Clipi records the payment identifier. For room gifts, Clipi records the room, gift and diamonds sent and received. Keep your wallet passphrase private.",
       "Cloudflare services process account and room identifiers, messages, gift records and receipts for rooms and wallets. The support center stores the requester ID, report reason, reference and status. The authorized operator can review requests.",
-      "Request deletion of your Clipi account and associated data in Settings → Request account deletion, or at /delete-account on the Clipi website. Keep the reference for follow-up. The operator reviews the request. Some payment or dispute records may need to be retained. For help or if you cannot sign in, contact Liddawiw@gmail.com."
+      "Request deletion of your Clipi account and associated data in Settings → Request account deletion, or at /delete-account on the Clipi website. Keep the reference for follow-up. The operator reviews the request. Some payment or dispute records may need to be retained. For help or if you cannot sign in, contact Liddawiw@gmail.com.",
+      "When you select Publish video, Clipi sends the selected clip and its title and associates them with your account. Clipi stores video files in Cloudflare R2 when uploads are enabled. People browsing Explore can view a published clip, share its link and download a copy. Copies others have saved may remain after the clip is removed from Clipi.",
+      "Clipi associates likes and comments with an account and a clip. Viewers see the like count and posted comments. When a viewer sends a gift, Clipi records the sender, clip, gift, diamond cost and transaction reference to verify the debit.",
+      "The agency directory shows each agency’s name, area and member count. Its page displays the audio-room and live broadcast details its managers supply. Members can see their own statements. The assigned agent and app owner can see the agency’s roster of public account numbers and its statement. Room participants see the entrant’s name, selected effect and room-owner label where applicable.",
+      "To request removal of a clip or comment, include the clip link and a description in a report or email Liddawiw@gmail.com.",
+      "Public game listings display the host name, table code and number of seated players. Clipi stores seats, turns and moves so players can resume a round. Each online Jackaroo player sees their own hand."
     ],
     "ar": [
       "سياسة الخصوصية",
       "يستخدم كليبي معرّف تسجيل الدخول، بما فيه معرّف حساب PI عند الدخول باستخدام PI. يعالج Firebase معلومات الملف الشخصي ونشاط الغرف ورسائل الدردشة. ينقل LiveKit الصوت والفيديو اللذين تختار مشاركتهما مع المشاركين.",
       "يسجّل كليبي معرّف الدفع عند تأكيد شراء الماس. وعند إرسال هدية، يسجّل الغرفة والهدية وعدد الماسات المُرسلة والمُستلمة. احتفظ بعبارة مرور محفظتك لنفسك.",
       "تعالج خدمات الغرف والمحفظة لدى Cloudflare معرّفات الحساب والغرفة والرسائل والهدايا والإيصالات. يحفظ مركز الدعم معرّف صاحب الطلب، وسبب البلاغ، ومرجعه وحالته للمراجعة. يستطيع حساب الإدارة المخوّل الاطلاع على الطلبات.",
-      "لطلب حذف حساب Clipi والبيانات المرتبطة به، افتح الإعدادات ← طلب حذف الحساب، أو استخدم صفحة /delete-account على موقع كليبي. احفظ رقم الطلب للمتابعة. يراجع المشغّل الطلب؛ وقد تتطلب بعض سجلات الدفع أو تسوية النزاعات الاحتفاظ بها. للاستفسارات أو تعذّر الدخول تواصل مع Liddawiw@gmail.com."
+      "لطلب حذف حساب Clipi والبيانات المرتبطة به، افتح الإعدادات ← طلب حذف الحساب، أو استخدم صفحة /delete-account على موقع كليبي. احفظ رقم الطلب للمتابعة. يراجع المشغّل الطلب؛ وقد تتطلب بعض سجلات الدفع أو تسوية النزاعات الاحتفاظ بها. للاستفسارات أو تعذّر الدخول تواصل مع Liddawiw@gmail.com.",
+      "عند الضغط على «نشر الفيديو»، يرسل التطبيق المقطع الذي اخترته وعنوانه، ويربطهما بحسابك. يحفظ كليبي ملفات المقاطع في Cloudflare R2 عند تفعيل الرفع. يستطيع مستخدمو «استكشف» مشاهدة المقطع ومشاركة رابطه وتنزيل نسخة منه. وقد تبقى نسخ نزّلها آخرون بعد إزالة المقطع من كليبي.",
+      "يربط كليبي الإعجابات والتعليقات بمعرّف الحساب والمقطع، ويعرض عدد الإعجابات والتعليقات للمشاهدين. وعند إرسال هدية، يسجّل معرّف المرسل والمقطع والهدية وكلفتها ومرجع العملية للتحقق من الخصم.",
+      "يعرض دليل الوكالات اسم الوكالة ومنطقتها وعدد أعضائها. تعرض صفحة الوكالة بيانات الغرف الصوتية والبث التي تُدخلها إدارتها. يرى العضو كشفه الشخصي، ويستطيع الوكيل المعيّن ومالك التطبيق الاطلاع على قائمة أرقام أعضاء الوكالة وكشفها. وفي الغرف، يرى المشاركون اسم الداخل ومؤثره المختار، وصفة صاحب الغرفة عند انطباقها.",
+      "لطلب إزالة مقطع أو تعليق، أرفق رابط المقطع ووصف المحتوى في البلاغ أو راسل Liddawiw@gmail.com.",
+      "عند إنشاء طاولة ألعاب عامة يظهر اسم المضيف ورمز الطاولة وعدد اللاعبين في قائمة الانتظار. يحفظ كليبي مقاعد المشاركين ودورهم وحركاتهم لاستعادة الجولة عند العودة. في طاولة الجاكارو عبر الإنترنت يرى كل لاعب أوراقه الخاصة."
     ]
   },
   "terms": {
@@ -22,7 +32,11 @@
       "In PI Browser, 1,000 diamonds cost 1 PI. The external app shows its available packs and payment options before checkout.",
       "Every 10,000 purchased diamonds received in room gifts records a 5 PI reward in the recipient’s Clipi account. Remaining diamonds carry forward.",
       "Community rules prohibit threats, harassment, scams, impersonation, exposing private information, and child sexual abuse or exploitation. Report a violation in room settings, the participant menu or the message actions. Block the user and follow up in Support and requests.",
-      "The gift price is displayed in diamonds before sending. Confirmed gifts have a reference in wallet history. For an unexpected charge, open Purchase issue and include the reference. The store or payment provider shows the final checkout price."
+      "The gift price is displayed in diamonds before sending. Confirmed gifts have a reference in wallet history. For an unexpected charge, open Purchase issue and include the reference. The store or payment provider shows the final checkout price.",
+      "Community rules apply to short videos and comments as well as rooms. Only publish content you have rights to share, including its music and images, and obtain the necessary permission from people who appear in it. By publishing a clip, you allow Clipi to store and display it and make it available for sharing and download within the service. Respect the creator’s rights when reusing a clip.",
+      "The gift panel displays the cost before you send. Video gifts spend purchased diamonds to support the clip. They do not generate earnings points or a withdrawable balance for the creator or their agency. Room gift rewards apply only to room gifts. Trial balances and simulated top-ups are for testing.",
+      "The monthly agency statement shows eligible room-gift diamonds and the host, agent and platform shares at the rates in effect when each gift was sent. Rate changes apply to future gifts. Dollar amounts are estimates of points. Actual withdrawal depends on the eligible balance and available payout methods.",
+      "Ludo, Jackaroo and pool in your profile are free to play. Play on a shared device or use your Clipi account to join an online table. Returning to the games menu preserves an active turn. Confirming departure from a running shared match ends the table for all players."
     ],
     "ar": [
       "شروط الخدمة",
@@ -30,7 +44,11 @@
       "في PI Browser، سعر 1,000 ماسة هو 1 PI. يعرض التطبيق الخارجي الباقات وخيارات الدفع المتاحة قبل الشراء.",
       "لكل 10,000 ماسة مشتراة يتلقاها المستخدم عبر هدايا الغرف، تُسجّل مكافأة قدرها 5 PI في حسابه داخل كليبي. ويُرحّل الماس المتبقي للدورة التالية.",
       "قواعد المجتمع: يُحظر التهديد والتحرش والاحتيال وانتحال الهوية ونشر معلومات الآخرين الخاصة، ويُحظر استغلال الأطفال أو الاعتداء عليهم جنسيًا. أبلغ عن المخالفة من إعدادات البث أو قائمة المشارك أو الرسالة. يمكن حظر المستخدم ومتابعة البلاغ في «الدعم وطلباتي».",
-      "تظهر تكلفة الهدية بالماس قبل إرسالها. يعرض سجل المحفظة مرجع الهدية بعد تأكيدها. إذا وجدت خصمًا غير متوقع، استخدم «مشكلة في عملية شراء» وأرفق المرجع فقط. يعرض المتجر أو مزوّد الدفع السعر النهائي عند الشراء."
+      "تظهر تكلفة الهدية بالماس قبل إرسالها. يعرض سجل المحفظة مرجع الهدية بعد تأكيدها. إذا وجدت خصمًا غير متوقع، استخدم «مشكلة في عملية شراء» وأرفق المرجع فقط. يعرض المتجر أو مزوّد الدفع السعر النهائي عند الشراء.",
+      "تنطبق قواعد المجتمع على المقاطع القصيرة والتعليقات كما تنطبق على الغرف. انشر فقط ما تملك حق نشره، بما فيه الموسيقى والصور، واحصل على الإذن اللازم ممن يظهر في المقطع. عند نشره، تسمح لكليبي بتخزينه وعرضه وإتاحة مشاركته وتنزيله ضمن الخدمة. احترم حقوق أصحاب المقاطع عند إعادة استخدامها.",
+      "يعرض صندوق الهدية كلفتها قبل الإرسال. هدايا الفيديو تُخصم من الماس المشترى لدعم المقطع فقط؛ ولا تُنشئ نقاط أرباح أو رصيدًا قابلًا للسحب لصاحب الفيديو أو وكالته. قواعد مكافآت هدايا الغرف تخص الغرف وحدها. الرصيد التجريبي وعمليات الشحن المحاكاة مخصّصان للتجربة.",
+      "يبيّن كشف الوكالة الشهري الألماس المؤهل من هدايا الغرف وحصص المضيف والوكيل والبرنامج وفق النسب السارية وقت الهدية. يسري تغيير النسب على الهدايا اللاحقة. المبلغ المعروض بالدولار تقدير للنقاط؛ والسحب الفعلي يخضع للرصيد المؤهل وطرق السحب المفعّلة.",
+      "لودو وجاكارو والبلياردو في الملف الشخصي ألعاب مجانية. يمكن اللعب على جهاز واحد أو الانضمام بحساب كليبي إلى طاولة عبر الإنترنت. تحتفظ الطاولة النشطة بالدور عند الرجوع إلى قائمة الألعاب. تأكيد مغادرة جولة مشتركة ينهيها لجميع المشاركين."
     ]
   }
 }

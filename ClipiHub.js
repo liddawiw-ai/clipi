@@ -9,14 +9,14 @@ const accent = theme.accent;
 const covers = ['#d0eadf', '#dce6f9', '#f6e2d0', '#e9e1f2'];
 
 export function ClipiDock({items, page, onNavigate}) {
-  return <View style={s.dock}>
+  return <View style={[s.dock,page==='home'&&{backgroundColor:'#050505',borderTopColor:'#151515',direction:'ltr',flexDirection:'row-reverse'}]}>
     {items.map(({id, icon, label}) => {
       const active = id === page;
       const create = id === 'create';
       return <TouchableOpacity key={id} accessibilityRole="tab" accessibilityState={{selected:active}}
         style={s.dockItem} onPress={()=>onNavigate(id)}>
-        <Text style={[s.dockIcon,active&&s.active,create&&s.createIcon]}>{icon}</Text>
-        <Text numberOfLines={1} style={[s.dockLabel,active&&s.active]}>{label}</Text>
+        <Text style={[s.dockIcon,active&&s.active,create&&s.createIcon,page==='home'&&{color:active||create?'#fff':'#bbb',backgroundColor:'transparent'},create&&page==='home'&&{borderWidth:2,borderColor:'#fff',borderRadius:18}]}>{icon}</Text>
+        <Text numberOfLines={1} style={[s.dockLabel,active&&s.active,page==='home'&&{color:active?'#fff':'#bbb'}]}>{label}</Text>
       </TouchableOpacity>;
     })}
   </View>;
@@ -88,7 +88,7 @@ export function AccountPhoto({avatar,label,onPress}){
   </TouchableOpacity>;
 }
 
-export function AccountHub({onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
+export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
   return <>
     <View style={s.account}><GoldFrame tone="apricot"/>
       <View style={s.identity}>
@@ -103,6 +103,7 @@ export function AccountHub({onPhoto,photoLabel,name, avatar, number, balance, co
         <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View>
     </View>
+    {children}
     <View style={s.shortcuts}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
       style={s.shortcut} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>

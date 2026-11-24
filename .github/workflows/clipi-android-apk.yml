@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/clipi-gift-effects-32
+      - release/android-profile-videos-40
     paths:
       - .github/workflows/clipi-android-apk.yml
 permissions:
@@ -36,16 +36,17 @@ jobs:
           set -euo pipefail
           apk=android/app/build/outputs/apk/release/app-release.apk
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
-          "$apksigner" verify "$apk"
-          cp "$apk" Clipi-Android-build32.apk
+          "$apksigner" verify --print-certs "$apk" > signing.txt
+          grep -Fi 'certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' signing.txt
+          cp "$apk" Clipi-Android-40.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-build32
-          path: Clipi-Android-build32.apk
+          name: Clipi-Android-40
+          path: Clipi-Android-40.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
-        if: github.ref == 'refs/heads/feature/clipi-gift-effects-32'
+        if: github.ref == 'refs/heads/release/android-profile-videos-40'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build32 Clipi-Android-build32.apk --target "$GITHUB_SHA" --title "Clipi Android 32" --notes "Individual gift motion and sound in audio and video rooms. Quiet room entry." --prerelease
+        run: gh release create android-build40 Clipi-Android-40.apk --target "$GITHUB_SHA" --title "Clipi Android 40" --notes "Profile video galleries and author-only deletion." --prerelease
