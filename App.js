@@ -1044,6 +1044,7 @@ export default function App(){
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
   const [shortAuthor,setShortAuthor]=useState(null);
+  const [followRevision,setFollowRevision]=useState(0);
   const [initialShort,setInitialShort]=useState(null);
   const returnToWallet=useRef(false),checkoutOrder=useRef(null);
   useEffect(()=>{
@@ -1537,7 +1538,10 @@ export default function App(){
   }
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="dark-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
   const visibleNumber=identity?.uid===user?.uid?identity:null;
+  const onFollowChange=()=>setFollowRevision(n=>n+1);
+  const socialProfile=owner=>({request:mediaRequest,owner,viewer:user?.uid,followRevision,onFollowChange});
   const shortPlayerProps={
+    followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
     playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
@@ -1575,10 +1579,10 @@ export default function App(){
       {authError?<Text style={{color:theme.danger}}>{authError}</Text>:null}
     </>}
   </View></ScrollView></View>;
-  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own)=>{
+  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
     if(own || uid===user.uid){go('profile');return;}
-    setShortAuthor({uid,name:authorName});go('shortAuthor');
+    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
   }} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
@@ -1687,14 +1691,14 @@ export default function App(){
   </HubScreen>;
   if(page==='gifts')return layout('الهدايا',<><Text style={S.muted}>الهدايا تُرسل من داخل غرفة صوت أو فيديو</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title="استعراض الغرف" onPress={()=>go('rooms')}/></>);
   if(page==='shortAuthor' && shortAuthor)return <HubScreen scrollable={false} title={shortAuthor.name} action={{label:'رجوع',onPress:()=>go('home')}} dock={nav()}>
-    <ProfileShorts playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
+    <ProfileShorts header={<AccountHub socialProfile={socialProfile(shortAuthor.uid)} name={shortAuthor.name} avatar={shortAuthor.avatar} copy={menu} photoLabel={shortAuthor.name}/>} playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
   </HubScreen>;
   if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
   if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
   if(page==='profile')return <HubScreen scrollable={false} title={menu.account}
     action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} header={<AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
-      balance={funded?.diamonds} copy={{balance:menu.balance,photo:'الصورة الشخصية'}}
+      socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
       shortcuts={[
         {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},

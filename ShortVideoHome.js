@@ -41,7 +41,7 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     <View style={s.scrim}><View style={s.panel}><Button label={closeLabel} disabled={busy} onPress={onClose}/>{children}</View></View>
   </Modal>;
 }
-function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
@@ -97,7 +97,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
       if(v.commentCount>0)firstComments();
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
-  },[item.id]);
+  },[item.id,followRevision]);
   const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
@@ -114,7 +114,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   async function follow(){
     if(lock.current||!stats?.social)return;
     lock.current=true;
-    try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));}
+    try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
     catch(e){if(alive.current)setMessage(e.message||'تعذّرت المتابعة');}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
@@ -154,8 +154,8 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
     <SoundControl {...{playerRef,muted,setMuted}}/>
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
-        disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
-        {stats?.social&&stats.owner!==viewer?.uid&&<Pressable accessibilityRole="button" accessibilityLabel={stats.following?'إلغاء المتابعة':'متابعة'} onPress={follow} style={s.follow}><Text style={s.followText}>{stats.following?'متابَع':'متابعة'}</Text></Pressable>}</View>
+        disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
+        {stats?.social&&stats.owner!==viewer?.uid&&<Pressable accessibilityRole="button" accessibilityLabel={stats.following?(followLabels?.followed??'متابَع'):(followLabels?.follow??'متابعة')} accessibilityState={{selected:!!stats.following}} onPress={follow} style={s.follow}><Text style={s.followText}>{stats.following?(followLabels?.followed??'متابَع'):(followLabels?.follow??'متابعة')}</Text></Pressable>}</View>
       <Button label={liked?'إلغاء الإعجاب':'إعجاب'} selected={liked} onPress={()=>like()}>
         {liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{likes!=null&&<Text style={s.count}>{likes}</Text>}
       </Button>
@@ -180,7 +180,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   </View>;
 }
 
-export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -263,7 +263,7 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
@@ -321,7 +321,7 @@ const s=StyleSheet.create({
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
   screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{minHeight:80},
   header:{position:'absolute',top:12,alignSelf:'center',alignItems:'center'},
-  goLive:{backgroundColor:'transparent',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:24,minWidth:94,minHeight:46,paddingHorizontal:17,alignItems:'center',justifyContent:'center'},
+  goLive:{backgroundColor:'rgba(0,0,0,.22)',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:24,minWidth:94,minHeight:46,paddingHorizontal:17,alignItems:'center',justifyContent:'center'},
   pressed:{opacity:.72},
   notice:{position:'absolute',bottom:12,alignSelf:'center',backgroundColor:'#232527',borderRadius:14,paddingHorizontal:14,paddingVertical:8},
   liveLabel:{color:'white',fontSize:19,fontWeight:'800',textShadowColor:'#171717',textShadowOffset:{width:0,height:1},textShadowRadius:4},
