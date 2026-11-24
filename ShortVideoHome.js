@@ -1,11 +1,12 @@
+import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {FlatList,Image,Modal,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
-import {Player,starters,shareShort,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
+import {Player,starters,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
 const redHeart=require('./assets/actions/like-on.png');
@@ -47,7 +48,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
   const [balance,setBalance]=useState(null);
-  const alive=useRef(true),lock=useRef(false),revision=useRef(0),pending=useRef(null);
+  const alive=useRef(true),lock=useRef(false),pending=useRef(null);
   const deleting=useRef(false);
   const [busyDelete,setBusyDelete]=useState(false);
   const ownerUid=item.owner || stats?.owner;
@@ -74,21 +75,36 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   }
   const source=asVideo(item,endpoint);
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
+  const {liked,likes,like,initialize}=useClipLike(
+    wanted=>api('shortLike',{liked:wanted,likeOnly:true}),
+    ()=>setMessage(translate('تعذّر حفظ الإعجاب. حاول مرة ثانية'))
+  );
+  const firstPage=useRef(null);
+  function firstComments(){
+    if(firstPage.current && Date.now()-firstPage.current.time<15000)return firstPage.current.result;
+    const entry={time:Date.now(),result:api('shortComments',{parent:null,before:null})};
+    firstPage.current=entry;
+    entry.result.catch(()=>{if(firstPage.current===entry)firstPage.current=null;});
+    return entry.result;
+  }
   useEffect(()=>{
+    let current=true;
     alive.current=true;
-    const version=revision.current;
-    api('shortState').then(v=>{if(alive.current&&version===revision.current){setStats(v);if(v.commentCount!=null)setCommentCount(v.commentCount);}}).catch(()=>{});
-    return ()=>{alive.current=false;};
+    api('shortState').then(v=>{
+      if(!current)return;
+      initialize(v);setStats(v);
+      if(v.commentCount!=null)setCommentCount(previous=>previous??v.commentCount);
+      if(v.commentCount>0)firstComments();
+    }).catch(()=>{});
+    return ()=>{current=false;alive.current=false;};
   },[item.id]);
-  async function like(wanted,onConfirmed){
-    if(lock.current)return;
-    if(stats?.liked===wanted){onConfirmed?.();return;}
-    lock.current=true;revision.current++;setMessage('');
-    try{
-      const next=await api('shortLike',{liked:wanted});
-      if(alive.current){setStats(next);if(next.liked===wanted)onConfirmed?.();}
-    }catch{if(alive.current)setMessage('تعذّر حفظ الإعجاب. حاول مرة ثانية');}
-    finally{lock.current=false;}
+  const videoLink=shortVideoUrl(endpoint,item.id);
+  function copyLink(){
+    setDialog('');
+    run(async()=>{
+      await copyShortLink(videoLink);
+      if(alive.current)setMessage(translate('تم نسخ رابط الفيديو'));
+    });
   }
   async function run(fn){
     try{await fn();}catch(e){if(alive.current&&e.name!=='AbortError')setMessage(e.message||'تعذّرت العملية');}
@@ -135,27 +151,26 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
     <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable&&dialog!=='gift'&&dialog!=='delete'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
-    {canDelete && !dialog && <Pressable accessibilityRole="button" accessibilityLabel={translate('حذف الفيديو')} onPress={openDelete} style={s.deleteChip}><Text style={s.deleteLabel}>{translate('حذف الفيديو')}</Text></Pressable>}
     <SoundControl {...{playerRef,muted,setMuted}}/>
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
         disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
         {stats?.social&&stats.owner!==viewer?.uid&&<Pressable accessibilityRole="button" accessibilityLabel={stats.following?'إلغاء المتابعة':'متابعة'} onPress={follow} style={s.follow}><Text style={s.followText}>{stats.following?'متابَع':'متابعة'}</Text></Pressable>}</View>
-      <Button label={stats?.liked?'إلغاء الإعجاب':'إعجاب'} selected={!!stats?.liked} onPress={()=>like(!stats?.liked)}>
-        {stats?.liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{stats!=null&&<Text style={s.count}>{stats.likes}</Text>}
+      <Button label={liked?'إلغاء الإعجاب':'إعجاب'} selected={liked} onPress={()=>like()}>
+        {liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{likes!=null&&<Text style={s.count}>{likes}</Text>}
       </Button>
       <Button label="التعليقات" onPress={openComments}><Image source={commentIcon} style={s.commentIcon}/>{commentCount!=null&&<Text style={s.count}>{commentCount}</Text>}</Button>
-      <Button label="مشاركة الفيديو" onPress={()=>run(()=>shareShort(endpoint+'/#short='+item.id))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>مشاركة</Text></Button>
+      <Button label="مشاركة الفيديو" onPress={()=>run(()=>shareShort(videoLink))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>مشاركة</Text></Button>
       <Button label="تنزيل الفيديو" onPress={()=>run(()=>saveShort(item.id,source))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
       <Button label="المزيد" onPress={()=>setDialog('more')}><Text style={s.label}>•••</Text></Button>
     </View>
     <View pointerEvents="box-none" style={s.caption}><Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{item.title}</Text>}
       
       {!!message&&!dialog&&<Text accessibilityLiveRegion="polite" style={s.label}>{message}</Text>}</View>
-    {dialog==='more'&&<Panel onClose={()=>setDialog('')}><Button label="إهداء الفيديو" onPress={openGifts}/>{canDelete&&<Button label={translate('حذف الفيديو')} onPress={openDelete}/>}{onReport&&<Button label="الإبلاغ عن المقطع أو تعليق" onPress={()=>{setDialog('');onReport(item.id);}}/>}</Panel>}
+    {dialog==='more'&&<Panel onClose={()=>setDialog('')}><Button label={translate('نسخ رابط الفيديو')} onPress={copyLink}/><Button label="إهداء الفيديو" onPress={openGifts}/>{canDelete&&<Button label={translate('حذف الفيديو')} onPress={openDelete}/>}{onReport&&<Button label="الإبلاغ عن المقطع أو تعليق" onPress={()=>{setDialog('');onReport(item.id);}}/>}</Panel>}
     </>}
     {dialog==='delete'&&<DeleteVideoDialog translate={translate} busy={busyDelete} error={message} onCancel={cancelDelete} onConfirm={confirmDelete}/>}
-    {showing&&<ShortCommentsSheet clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
+    {showing&&<ShortCommentsSheet firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={identity} copy={copy}
       recipient={item.title||'الفيديو'} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
@@ -165,9 +180,16 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   </View>;
 }
 
-export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer}){
-  const [items,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
+export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+  const fromProfile=!!profileFeed;
+  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
+  const profileClips=profileFeed?.clips;
+  const items=useMemo(()=>{
+    if(!profileClips)return homeItems;
+    const selected=profileClips.find(clip=>clip.id===initialId);
+    return selected?[selected,...profileClips.filter(clip=>clip.id!==initialId)]:profileClips;
+  },[profileClips,initialId,homeItems]);
   const removed=useRef(new Set()),list=useRef(null);
   useEffect(()=>{
     if(!notice)return;
@@ -190,6 +212,7 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
   }
   const page=useRef(null),loading=useRef(false),mounted=useRef(true);
   useEffect(()=>{
+    if(fromProfile)return;
     let current=true;mounted.current=true;
     (async()=>{
       try{
@@ -209,8 +232,9 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
       }catch{if(current)setError('تعذّر تحميل المقاطع الجديدة');}
     })();
     return ()=>{current=false;mounted.current=false;};
-  },[retry,initialId]);
+  },[retry,initialId,fromProfile]);
   async function more(){
+    if(fromProfile){profileFeed.onMore();return;}
     if(!page.current||loading.current)return;
     loading.current=true;
     try{
@@ -222,6 +246,7 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
     finally{loading.current=false;}
   }
   function onDeleted(id){
+    if(fromProfile){profileFeed.onDeleted(id);return;}
     removed.current.add(id);
     if(!mounted.current)return;
     const next=items.filter(c=>c.id!==id);
@@ -238,12 +263,15 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
-    <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+    {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
+      onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
+      <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
       <Pressable accessibilityRole="button" accessibilityLabel="go live" accessibilityState={{expanded:liveMenu}} onPress={()=>setLiveMenu(true)} style={({pressed})=>[s.goLive,pressed&&s.pressed]}>
         <Text style={s.liveLabel}>go live</Text>
       </Pressable>
     </View>
+    )}
     {liveMenu&&<Panel onClose={()=>setLiveMenu(false)} closeLabel={translate('إغلاق')}>
       <Button label={translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
       <Button label={translate('بث فيديو')} onPress={()=>chooseRooms('video')}/>
@@ -288,13 +316,13 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
 }
 
 const s=StyleSheet.create({
+  back:{position:'absolute',top:12,left:8,width:48,height:48,alignItems:'center',justifyContent:'center'},
+  backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
   screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{minHeight:80},
   header:{position:'absolute',top:12,alignSelf:'center',alignItems:'center'},
   goLive:{backgroundColor:'transparent',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:24,minWidth:94,minHeight:46,paddingHorizontal:17,alignItems:'center',justifyContent:'center'},
   pressed:{opacity:.72},
-  deleteChip:{position:'absolute',left:10,top:12,zIndex:2,minHeight:44,paddingHorizontal:12,alignItems:'center',justifyContent:'center',backgroundColor:'#982e33',borderRadius:18,borderWidth:1,borderColor:'#ffd6d5'},
-  deleteLabel:{color:'white',fontSize:14,fontWeight:'700'},
   notice:{position:'absolute',bottom:12,alignSelf:'center',backgroundColor:'#232527',borderRadius:14,paddingHorizontal:14,paddingVertical:8},
   liveLabel:{color:'white',fontSize:19,fontWeight:'800',textShadowColor:'#171717',textShadowOffset:{width:0,height:1},textShadowRadius:4},
   commentIcon:{width:24,height:24},soundIcon:{width:24,height:24},

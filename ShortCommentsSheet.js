@@ -41,7 +41,7 @@ function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
       <Text style={s.author}>{author}{row.uid&&row.uid===owner?' · المنشئ':''}</Text>
       {!!row.body&&<Text style={s.body}>{row.body}</Text>}
       <Media value={row.media}/>
-      <View style={s.meta}>{!!row.created&&<Text style={s.metaText}>{relativeTime(row.created)}</Text>}
+      <View style={s.meta}>{row.pending&&<Text accessibilityLiveRegion="polite" style={s.metaText}>جارٍ الإرسال…</Text>}{!!row.created&&<Text style={s.metaText}>{relativeTime(row.created)}</Text>}
         {social&&<Action label={'رد على '+author} onPress={onReply} style={s.inline}><Text style={s.metaText}>رد</Text></Action>}
       </View>
       {!!row.creatorLiked&&<Text style={s.creator}>أعجب المنشئ</Text>}
@@ -56,7 +56,8 @@ function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
   </View>;
 }
 const emptyPage={rows:[],next:null};
-export default function ShortCommentsSheet({clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
+export default function ShortCommentsSheet({firstComments,invalidateComments,clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
+  const [outgoing,setOutgoing]=useState(null);
   const [main,setMain]=useState(emptyPage),[threads,setThreads]=useState({}),[open,setOpen]=useState({});
   const [draft,setDraft]=useState(''),[attachment,setAttachment]=useState(''),[reply,setReply]=useState(null);
   const [tools,setTools]=useState(''),[sending,setSending]=useState(false),[loading,setLoading]=useState(true),[social,setSocial]=useState(false),[error,setError]=useState('');
@@ -102,7 +103,7 @@ export default function ShortCommentsSheet({clip,owner,viewer,request,count,onCo
     if(busy.current.has(key))return;
     busy.current.add(key);
     try{
-      const result=await api('shortComments',{parent,before});
+      const result=parent==null&&before==null ? await firstComments() : await api('shortComments',{parent,before});
       if(alive.current&&version===sequence.current)accept(result,parent,before);
     }catch(e){if(alive.current)setError(e.message||'تعذّر تحميل التعليقات');}
     finally{busy.current.delete(key);if(alive.current)setLoading(false);}
@@ -117,8 +118,9 @@ export default function ShortCommentsSheet({clip,owner,viewer,request,count,onCo
   async function like(row){
     const key='heart:'+row.id;if(busy.current.has(key))return;
     busy.current.add(key);setError('');
-    try{const v=await api('shortCommentLike',{commentId:row.id,liked:!row.liked});if(alive.current)replaceRow(row.id,v);}
-    catch(e){if(alive.current)setError(e.message||'تعذّر حفظ الإعجاب');}finally{busy.current.delete(key);}
+    replaceRow(row.id,{liked:!row.liked,likes:Math.max(0,(row.likes||0)+(row.liked?-1:1))});
+    try{const v=await api('shortCommentLike',{commentId:row.id,liked:!row.liked});invalidateComments();if(alive.current)replaceRow(row.id,v);}
+    catch(e){if(alive.current){replaceRow(row.id,{liked:row.liked,likes:row.likes});setError(e.message||'تعذّر حفظ الإعجاب');}}finally{busy.current.delete(key);}
   }
   async function send() {
     const body=draft.trim(),parent=reply?.id??null;
@@ -126,15 +128,19 @@ export default function ShortCommentsSheet({clip,owner,viewer,request,count,onCo
     busy.current.add('send');setSending(true);setError('');
     const signature=JSON.stringify([clip,parent,body,attachment]);
     if(pending.current?.signature!==signature)pending.current={signature,id:nonce()};
+    setOutgoing({parent,body,media:attachment,name:viewer?.name,uid:viewer?.uid,avatar:viewer?.avatar,pending:true});
+    if(parent==null)list.current?.scrollTo({y:0,animated:false});
+    else setOpen(old=>({...old,[parent]:true}));
     try{
       const result=await api('shortComment',{body,parent,media:attachment,nonce:pending.current.id,profile:await shortProfile(viewer)});
+      invalidateComments();
       if(!alive.current)return;
       pending.current=null;sequence.current++;accept(result,parent,null);
       if(parent!=null){setOpen(old=>({...old,[parent]:true}));setMain(old=>({...old,rows:old.rows.map(r=>r.id===parent?{...r,replyCount:(r.replyCount||0)+1}:r)}));}
       else list.current?.scrollTo({y:0,animated:false});
       changeDraft('');caret.current={start:0,end:0};setInputHeight(40);setReply(null);setAttachment('');hideKeyboard();
     }catch(e){if(alive.current)setError(e.message||'تعذّر إرسال التعليق');}
-    finally{busy.current.delete('send');if(alive.current)setSending(false);}
+    finally{busy.current.delete('send');if(alive.current){setOutgoing(null);setSending(false);}}
   }
   function insert(value){edit(value);}
   async function pickImage(){
@@ -167,11 +173,13 @@ export default function ShortCommentsSheet({clip,owner,viewer,request,count,onCo
             <Action label={expanded?'تصغير التعليقات':'توسيع التعليقات'} onPress={onExpand}><Image source={iconExpand} style={s.smallIcon}/></Action></View>
         </View>
         <ScrollView ref={list} testID="short-comment-list" style={s.list} keyboardShouldPersistTaps="handled" contentContainerStyle={s.listInner}>
+          {outgoing&&outgoing.parent==null&&<CommentRow row={outgoing} owner={owner}/>}
           {main.rows.map(row=><View key={row.id}>{rowView(row)}
+            {open[row.id]&&outgoing?.parent===row.id&&<CommentRow row={outgoing} nested owner={owner}/>}
             {open[row.id]&&(threads[row.id]?.rows||[]).map(child=><View key={child.id}>{rowView(child,row)}</View>)}
             {open[row.id]&&threads[row.id]?.next&&<Action label="المزيد من الردود" onPress={()=>load(row.id,threads[row.id].next)}><Text>المزيد من الردود</Text></Action>}
           </View>)}
-          {!main.rows.length&&!error&&<Text style={s.empty}>{loading?'جارٍ تحميل التعليقات…':'كن أول من يعلّق'}</Text>}
+          {!main.rows.length&&!outgoing&&!error&&<Text style={s.empty}>{loading?'جارٍ تحميل التعليقات…':'كن أول من يعلّق'}</Text>}
           {!!main.next&&<Action label="المزيد من التعليقات" onPress={()=>load(null,main.next)}><Text>المزيد من التعليقات</Text></Action>}
         </ScrollView>
         {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{error}</Text>}

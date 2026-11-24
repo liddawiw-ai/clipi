@@ -1,8 +1,7 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {FlatList,Image,Modal,Pressable,StyleSheet,Text,useWindowDimensions,View} from 'react-native';
-import {Player} from './ShortMedia';
 import {shortThumbnail} from './ShortThumbnail';
-import DeleteVideoDialog from './DeleteVideoDialog';
+import {ShortVideoHome} from './ShortVideoHome';
 
 const unchanged=text=>text;
 const TILE_WIDTH = 76;
@@ -31,43 +30,7 @@ function Control({label,children,onPress}){
   </Pressable>;
 }
 
-function ProfileVideo({clip,source,canDelete,translate,onClose,onDelete}){
-  const [panel,setPanel]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
-  const [playing,setPlaying]=useState(true),[muted,setMuted]=useState(true);
-  const submitting=useRef(false);
-  function dismiss(){
-    if(submitting.current)return;
-    if(panel)setPanel('');else onClose();
-  }
-  async function remove(){
-    if(!canDelete||panel!=='delete'||submitting.current)return;
-    submitting.current=true;setBusy(true);setError('');
-    try{await onDelete(clip.id);}
-    catch(e){setError(e.message||translate('تعذّر حذف الفيديو'));setBusy(false);}
-    finally{submitting.current=false;}
-  }
-  return <Modal visible animationType="fade" onRequestClose={dismiss}>
-    <View style={s.stage}>
-      <Player source={source} fit="contain" active={playing&&!panel} muted={muted}/>
-      <View importantForAccessibility={panel?'no-hide-descendants':'auto'} style={s.close}>
-        <Control label={translate('إغلاق')} onPress={dismiss}>×</Control>
-      </View>
-      <View importantForAccessibility={panel?'no-hide-descendants':'auto'} style={s.controls}>
-        <Control label={translate(playing?'إيقاف مؤقت':'تشغيل')} onPress={()=>setPlaying(!playing)}/>
-        <Control label={translate(muted?'تشغيل الصوت':'كتم الصوت')} onPress={()=>setMuted(!muted)}/>
-        {canDelete&&<Control label={translate('المزيد')} onPress={()=>setPanel('more')}>•••</Control>}
-      </View>
-      {panel==='more'&&canDelete&&<View style={s.menuOverlay} accessibilityViewIsModal>
-        <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={dismiss}/>
-        <View style={s.menu}><Pressable accessibilityRole="button" style={s.menuButton} onPress={()=>{setError('');setPanel('delete');}}>
-          <Text style={s.menuText}>{translate('حذف الفيديو')}</Text></Pressable></View>
-      </View>}
-      {panel==='delete'&&canDelete&&<DeleteVideoDialog translate={translate} busy={busy} error={error} onCancel={dismiss} onConfirm={remove}/>}
-    </View>
-  </Modal>;
-}
-
-export default function ProfileShorts({request,endpoint,authorUid,header,translate=unchanged}){
+export default function ProfileShorts({playerProps,request,endpoint,authorUid,header,translate=unchanged}){
   const [clips,setClips]=useState([]),[cursor,setCursor]=useState(null),[canDelete,setCanDelete]=useState(false);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(null);
   const life=useRef(0),loadingPage=useRef(null);
@@ -89,11 +52,9 @@ export default function ProfileShorts({request,endpoint,authorUid,header,transla
     life.current++;setClips([]);setCursor(null);setSelected(null);setCanDelete(false);load(null);
     return ()=>{life.current++;};
   },[load]);
-  async function remove(id){
-    if(!canDelete||selected?.id!==id)return;
-    const generation=life.current;
-    await request('/account-number',{op:'shortDelete',clip:id});
-    if(life.current===generation){setClips(current=>current.filter(clip=>clip.id!==id));setSelected(null);}
+  function removed(id) {
+    setClips(current => current.filter(clip => clip.id !== id));
+    setSelected(null);
   }
   return <>
     <FlatList key={columns} data={clips} numColumns={columns} keyExtractor={clip=>clip.id} style={s.list} contentContainerStyle={s.content}
@@ -107,8 +68,12 @@ export default function ProfileShorts({request,endpoint,authorUid,header,transla
         {!loading&&!error&&!clips.length&&<Text style={s.note}>{translate('لا توجد فيديوهات منشورة بعد')}</Text>}
         {!loading&&!error&&cursor!=null&&<Control label={translate('عرض المزيد')} onPress={()=>load(cursor)}/>}
       </>}/>
-    {selected&&<ProfileVideo key={selected.id} clip={selected} source={endpoint+'/shorts/media/'+selected.id}
-      canDelete={canDelete} translate={translate} onClose={()=>setSelected(null)} onDelete={remove}/>}
+    {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>
+      <ShortVideoHome {...playerProps} request={request} endpoint={endpoint} translate={translate}
+        initialId={selected.id} onAuthor={()=>setSelected(null)}
+        profileFeed={{clips,canDelete,onClose:()=>setSelected(null),onDeleted:removed,
+          onMore:()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}}/>
+    </Modal>}
   </>;
 }
 const s=StyleSheet.create({
@@ -117,8 +82,6 @@ const s=StyleSheet.create({
   afterShortcuts:{marginTop:0},
   row:{flexDirection:'row-reverse',gap:GRID_GAP},tile:{width:TILE_WIDTH,maxWidth:'100%',aspectRatio:2/3,backgroundColor:'#263334',borderRadius:6,overflow:'hidden',marginBottom:GRID_GAP,justifyContent:'center'},
   tileLabel:{fontSize:11,textAlign:'center',color:'white'},note:{textAlign:'right',color:'#53625b',padding:8},
-  stage:{flex:1,backgroundColor:'#101518'},close:{position:'absolute',top:12,right:12},controls:{position:'absolute',bottom:16,left:12,right:12,flexDirection:'row-reverse',justifyContent:'space-between',gap:6},
   control:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:'#172322',paddingHorizontal:12},
-  controlText:{color:'white',fontWeight:'600'},menuOverlay:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.25)',justifyContent:'flex-end',alignItems:'flex-start',paddingLeft:12,paddingBottom:68},
-  menu:{borderRadius:12,backgroundColor:'#fffefa'},menuButton:{minHeight:44,paddingHorizontal:16,justifyContent:'center'},menuText:{color:'#872c30',fontWeight:'700'}
+  controlText:{color:'white',fontWeight:'600'}
 });

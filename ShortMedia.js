@@ -1,5 +1,5 @@
 import React, {useEffect, useImperativeHandle} from 'react';
-import {AppState, Share, StyleSheet} from 'react-native';
+import {AppState, Clipboard, Share, StyleSheet} from 'react-native';
 import {VideoView, useVideoPlayer} from 'expo-video';
 import {launchImageLibraryAsync} from 'expo-image-picker';
 import * as FS from 'expo-file-system';
@@ -36,6 +36,12 @@ export async function uploadFile(url,file,token) {
   if(res.status<200||res.status>=300){let msg;try{msg=JSON.parse(res.body).error}catch{}throw Error(msg||'تعذّر رفع الفيديو');}
 }
 export const releaseDraft=()=>{};
+export function shortVideoUrl(endpoint,id) {
+  const path=Object.prototype.hasOwnProperty.call(starters,id)
+    ? '/shorts/starter/'+encodeURIComponent(id)+'.mp4' : '/shorts/media/'+encodeURIComponent(id);
+  return endpoint.replace(/\/+$/,'')+path;
+}
+export const copyShortLink=url=>Clipboard.setString(url);
 export const shareShort=url=>Share.share({message:url});
 export async function saveShort(id,source) {
   const access=await FS.StorageAccessFramework.requestDirectoryPermissionsAsync();
