@@ -1,0 +1,195 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { build } from 'esbuild';
+
+export async function checkNavigation(browser) {
+  const out = await build({
+    entryPoints: [new URL('../../main.jsx', import.meta.url).pathname],
+    bundle: true,
+    minify: true,
+    write: false,
+    outfile: 'clipi-app.js',
+    loader: {
+      '.js': 'jsx',
+      '.mp3': 'dataurl',
+      '.jpg': 'dataurl',
+      '.gif': 'dataurl',
+      '.png': 'dataurl'
+    },
+    alias: { 'react-native': 'react-native-web' },
+    define: {
+      global: 'globalThis',
+      __DEV__: 'false',
+      'process.env.NODE_ENV': '"production"'
+    },
+    plugins: [
+      {
+        name: 'test-session',
+        setup(b) {
+          b.onResolve({ filter: /^\.\/services$/ }, () => ({
+            path: new URL('session-fixture.js', import.meta.url).pathname
+          }));
+        }
+      }
+    ]
+  });
+  const bundle = new Map(
+    out.outputFiles.map((f) => ['/' + path.basename(f.path), f.contents])
+  );
+  for (const [width, height, lang] of [
+    [390, 844, 'ar'],
+    [360, 640, 'en'],
+    [844, 390, 'ar']
+  ]) {
+    const p = await browser.newPage({
+      viewport: { width, height },
+      isMobile: true,
+      hasTouch: true
+    });
+    p.setDefaultTimeout(12000);
+    await p.addInitScript(
+      (l) => localStorage.setItem('clipi.language.v2', l),
+      lang
+    );
+    const errors = [];
+    p.on('pageerror', (e) => {
+      errors.push(e.message);
+    });
+    await p.route('**/*', async (route) => {
+      const url = new URL(route.request().url()),
+        name = url.pathname;
+      const send = (contentType, body) => route.fulfill({ contentType, body });
+      if (url.hostname !== 'clipi.local') return route.abort();
+      if (name === '/room')
+        return send(
+          'text/html',
+          readFileSync(new URL('../../index.html', import.meta.url))
+        );
+      if (bundle.has(name))
+        return send(
+          name.endsWith('.js') ? 'application/javascript' : 'text/css',
+          Buffer.from(bundle.get(name))
+        );
+      if (name.startsWith('/shorts/starter/'))
+        return send(
+          name.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg',
+          readFileSync(
+            new URL(
+              '../../assets/shorts/' + path.basename(name),
+              import.meta.url
+            )
+          )
+        );
+      const op = route.request().postDataJSON()?.op;
+      const fixtures = {
+        shortList: { clips: [] },
+        shortState: { social: true, likes: 0, commentCount: 0 },
+        shortProfileList: { clips: [], nextCursor: null },
+        roomInviteInbox: { invites: [] },
+        read: { number: '1234567' },
+        wallet: { diamonds: 0, history: [] },
+        shortSocialStats: {},
+        shortIdentity: {}
+      };
+      return route.fulfill({
+        json: name === '/active-rooms' ? { rooms: [] } : (fixtures[op] ?? {})
+      });
+    });
+    await p.goto('https://clipi.local/room');
+    const root = p.locator('[data-clipi-page]'),
+      dock = p.locator('.clipi-dock'),
+      home = () => dock.getByRole('tab').nth(0).click();
+    const pageFull = async (name) => {
+      await p.locator('[data-clipi-page="' + name + '"]').waitFor();
+      for (const element of [root, root.locator(':scope > :first-child')]) {
+        const box = await element.boundingBox();
+        assert.ok(
+          box &&
+            box.x === 0 &&
+            box.y === 0 &&
+            Math.abs(box.width - width) < 1 &&
+            Math.abs(box.height - height) < 1,
+          JSON.stringify({ name, box, width, height })
+        );
+      }
+      if (name !== 'home') {
+        assert.equal(
+          await p.locator('.clipi-feed-shell,.clipi-video-settings').count(),
+          0
+        );
+      }
+    };
+    await pageFull('home');
+    await p.locator('.action-more').click();
+    await p.waitForFunction(() => {
+      const v = document.querySelector('video');
+      return v && !v.paused && v.currentTime > 0.12;
+    });
+    const sheet = p.locator('.clipi-video-settings .clipi-feed-sheet'),
+      b = await sheet.boundingBox();
+    assert.ok(
+      b.y >= height * 0.52 - 1 &&
+        b.height <= height * 0.48 + 1 &&
+        b.y + b.height >= height - 1
+    );
+    const v = await p.locator('video').first().elementHandle(),
+      frames = await v.evaluate(
+        (e) => e.getVideoPlaybackQuality().totalVideoFrames
+      );
+    await p.waitForFunction(
+      ({ v, frames }) =>
+        v === document.querySelector('video') &&
+        !v.paused &&
+        v.getVideoPlaybackQuality().totalVideoFrames > frames,
+      { v, frames }
+    );
+    await sheet.locator('header button').click();
+    for (const [i, name] of [
+      [4, 'profile'],
+      [3, 'store'],
+      [1, 'rooms'],
+      [2, 'uploadShort']
+    ]) {
+      await dock.getByRole('tab').nth(i).click();
+      await pageFull(name);
+      if (name === 'uploadShort') {
+        assert.equal(await p.locator('video').count(), 0);
+        await p
+          .getByRole('button', {
+            name: lang === 'ar' ? 'رجوع' : 'Back',
+            exact: true
+          })
+          .click();
+      } else await home();
+    }
+    for (const i of [0, 1]) {
+      await p.locator('.clipi-feed-live').click();
+      await pageFull('liveOptions');
+      const options = root.getByRole('button');
+      assert.equal(await options.count(), 3);
+      await options.nth(i + 1).click();
+      await pageFull('rooms');
+      const roomTabs = root.getByRole('tablist').first().getByRole('tab');
+      assert.equal(
+        await roomTabs.nth(i + 1).getAttribute('aria-selected'),
+        'true'
+      );
+      await home();
+    }
+    await p.locator('.clipi-feed-live').click();
+    await root.getByRole('button').first().click();
+    await pageFull('home');
+    assert.deepEqual(errors, []);
+    console.log(
+      'PASS',
+      width,
+      height,
+      lang,
+      'settings',
+      b.height,
+      'advancing frames, all tabs, live audio + video and back'
+    );
+    await p.close();
+  }
+}

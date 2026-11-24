@@ -1621,7 +1621,18 @@ export default function App(){
     if(own || uid===user.uid){go('profile');return;}
     setRoomProfileUid(null);setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
   }} {...shortPlayerProps} translate={ui} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
-    onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
+    onOpenLive={id=>{if(id)setInitialShort(id);go('liveOptions');}}/>;
+  if(page==='liveOptions'){
+    function openRooms(kind){
+      setDiscoveryFilter(kind);setRoomSearch('');go('rooms');
+    }
+    return <HubScreen title={menu.startBroadcast} action={{label:menu.back,onPress:()=>go('home')}} dock={nav()}>
+      <HubRows items={[
+        {label:menu.voiceRooms,onPress:()=>openRooms('audio')},
+        {label:menu.liveBroadcast,onPress:()=>openRooms('video')}
+      ]}/>
+    </HubScreen>;
+  }
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={()=>crypto.randomUUID()} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
   if(page==='uploadShort')return <ShortUpload viewer={{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar}} key={user?.uid} endpoint={MEDIA_ENDPOINT} request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
     onClose={()=>go('home')} onDone={id=>{setInitialShort(id);go('home');}}/>;
@@ -1802,7 +1813,10 @@ export default function App(){
   </View>;
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
-  return <View style={{flex:1}}>{renderPage()}
+  return <View style={{flex:1}}>
+    <div data-clipi-page={page} style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden',backgroundColor:theme.canvas}}>
+      {renderPage()}
+    </div>
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}

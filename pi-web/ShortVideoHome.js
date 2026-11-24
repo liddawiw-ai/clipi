@@ -174,7 +174,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       {!!message&&!dialog&&<p role="status">{appText(message)}</p>}
     </div>
     <div className="clipi-progress" aria-hidden="true"><span ref={progress}/></div>
-    {dialog==='more'&&<FeedSheet videoSettings title={translate('المزيد')} closeLabel={translate('إغلاق')} onClose={()=>setDialog('')}
+    {dialog==='more'&&<FeedSheet title={translate('المزيد')} closeLabel={translate('إغلاق')} onClose={()=>setDialog('')}
       choices={[
         {icon:'share',label:translate('نسخ رابط الفيديو'),onClick:copyLink},
         {icon:'gift',label:appText('إهداء الفيديو'),onClick:openGifts},
@@ -192,7 +192,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   </View>;
 }
 
-export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=interfaceLocale()==='en'?'go live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
@@ -210,7 +210,6 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     return ()=>clearTimeout(timer);
   },[notice]);
   const [muted,setMuted]=useState(false);
-  const [liveMenu,setLiveMenu]=useState(false);
   const windowHeight=useWindowDimensions().height;
   const [viewMode,setViewModeState]=useState('');
   const locked=useRef(''),openedHeight=useRef(0);
@@ -219,10 +218,6 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     locked.current=mode;setViewModeState(mode);
   }
   const topHeight=Math.round(openedHeight.current*(viewMode==='expanded'?.30:.5));
-  function chooseRooms(kind){
-    setLiveMenu(false);
-    onRooms(kind);
-  }
   const page=useRef(null),loading=useRef(false),mounted=useRef(true);
   useEffect(()=>{
     if(fromProfile)return;
@@ -280,24 +275,20 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
-      <button type="button" aria-expanded={liveMenu} aria-haspopup="dialog" onClick={()=>setLiveMenu(true)} className="clipi-feed-live">
+      <button type="button" onClick={()=>onOpenLive(items[active]?.id)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{goLiveLabel}
       </button>
     </div>
     )}
-    {liveMenu&&<FeedSheet title={goLiveLabel} closeLabel={translate('إغلاق')} onClose={()=>setLiveMenu(false)} choices={[
-      {icon:'mic',label:roomLabels?.voiceRooms??translate('غرف صوتية'),onClick:()=>chooseRooms('audio')},
-      {icon:'camera',label:roomLabels?.liveBroadcast??translate('بث مباشر'),onClick:()=>chooseRooms('video')}
-    ]}/>}
     {!!notice&&<div className="clipi-feed-notice" role="status">{appText(notice)}</div>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{appText(error)}{appText(" · إعادة المحاولة")}</Text></Pressable>}
   </View><div style={viewMode?{visibility:'hidden'}:undefined}>{dock}</div></div></div>;
@@ -326,8 +317,8 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     }catch(e){if(alive.current)setNotice(uiError(e,'تعذّر نشر الفيديو'));}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
-  return <View style={s.screen}><View style={[s.screen,s.preview]}>{draft&&<><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></>}</View>
-    <View style={s.panel}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
+  return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
+    <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
       <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
@@ -341,7 +332,7 @@ const s=StyleSheet.create({
   back:{position:'absolute',top:12,left:8,width:48,height:48,alignItems:'center',justifyContent:'center'},
   backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
-  screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{minHeight:80},
+  screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{minHeight:80},emptyUpload:{flex:1,maxHeight:'100%'},
   button:{alignItems:'center',justifyContent:'center',minWidth:48,minHeight:46,paddingHorizontal:5},
   label:{fontSize:16,color:'white',fontWeight:'700',textShadowColor:'#202020',textShadowRadius:4},
   count:{fontSize:13,color:'white',textShadowColor:'#111',textShadowRadius:4},

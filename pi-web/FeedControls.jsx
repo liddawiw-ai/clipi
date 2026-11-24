@@ -43,9 +43,9 @@ export function FeedAction({icon, label, onClick, selected, count}) {
   </button>;
 }
 
-export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false, videoSettings=false}) {
+export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false}) {
   return <Modal transparent animationType="fade" onRequestClose={onClose}>
-    <div className={'clipi-sheet-overlay'+(videoSettings?' clipi-video-settings':'')} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="clipi-sheet-overlay clipi-video-settings" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <section className="clipi-feed-sheet" aria-label={title}>
         <header><h2>{title}</h2><button type="button" disabled={busy} onClick={onClose} aria-label={closeLabel}><FeedIcon name="close" size={19}/></button></header>
         {note&&<p className="clipi-sheet-note" role="status">{note}</p>}

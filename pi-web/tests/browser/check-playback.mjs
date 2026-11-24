@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {createRequire} from 'node:module';
 import {build} from 'esbuild';
+import {checkNavigation} from './check-navigation.mjs';
 
 const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
@@ -56,4 +57,5 @@ try{
     assert.ok(await page.getByText('حفظ',{exact:true}).count()>=1);
     assert.deepEqual(errors,[]);await page.close();console.log('PASS',locale,role,'partial white sheet, decoded video frames and unchanged user text');
   }
+  await checkNavigation(browser);
 }finally{await browser.close();server.close();}
