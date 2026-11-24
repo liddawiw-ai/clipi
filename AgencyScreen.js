@@ -1,5 +1,5 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react';
-import {Clipboard,Platform,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
+import {Clipboard,Modal,Platform,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
 const labels={name:'اسم الوكالة',area:'الحي أو المنطقة',audio:'بيانات الغرف الصوتية',live:'بيانات البث المباشر'};
 const thisMonth=()=>new Date().toISOString().slice(0,7);
@@ -7,9 +7,9 @@ function stepMonth(month,offset){
   const [year,m]=month.split('-').map(Number);
   return new Date(Date.UTC(year,m-1+offset)).toISOString().slice(0,7);
 }
-function Action({title,onPress,disabled}){
+function Action({title,onPress,disabled,danger=false}){
   return <TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress}
-    style={[s.button,disabled&&{opacity:.45}]}><Text style={s.action}>{title}</Text></TouchableOpacity>;
+    style={[s.button,danger&&s.danger,disabled&&{opacity:.45}]}><Text style={[s.action,danger&&s.dangerText]}>{title}</Text></TouchableOpacity>;
 }
 function Field({label,value,onChangeText,numeric}){
   return <View style={s.field}><Text style={s.label}>{label}</Text><TextInput accessibilityLabel={label}
@@ -20,6 +20,7 @@ export default function AgencyScreen({request}){
   const [data,setData]=useState(null),[issue,setIssue]=useState(''),[notice,setNotice]=useState('');
   const [creating,setCreating]=useState(false),[editing,setEditing]=useState(false),[busy,setBusy]=useState(false);
   const [form,setForm]=useState({}),[number,setNumber]=useState('');
+  const [confirming,setConfirming]=useState(false);
   const gate=useRef(false),version=useRef(0);
   const api=useCallback((op,more)=>request('/account-number',{op,...more}),[request]);
   const refresh=useCallback(async()=>{
@@ -32,7 +33,7 @@ export default function AgencyScreen({request}){
   },[api,id,month]);
   useEffect(()=>{void refresh();return ()=>{version.current++;};},[refresh]);
   function go(next){
-    setData(null);setId(next);setMonth(thisMonth());setNumber('');setForm({});setEditing(false);setCreating(false);
+    setData(null);setId(next);setMonth(thisMonth());setNumber('');setForm({});setEditing(false);setCreating(false);setConfirming(false);
   }
   async function mutate(op,params){
     if(gate.current)return;
@@ -42,6 +43,7 @@ export default function AgencyScreen({request}){
       const result=await api(op,{...params,id});
       if(ticket!==version.current)return;
       if(op==='agencyCreate'){go(result.id);return;}
+      if(op==='agencyDelete'){go(null);return;}
       setEditing(false);setNumber('');await refresh();
     }catch(error){if(ticket===version.current)setIssue(error.message||'تعذّر حفظ التغيير');}
     finally{gate.current=false;setBusy(false);}
@@ -71,6 +73,16 @@ export default function AgencyScreen({request}){
       <Action title={'نسخ رقم الوكالة · '+id} onPress={copy}/>{!!notice&&<Text style={s.label}>{notice}</Text>}
       {Object.keys(labels).filter(k=>k!=='name').map(k=><Text key={k} style={s.label}>{labels[k]+' · '+(agency[k]||'غير محدد')}</Text>)}
       {data.canManage&&<Action title={editing?'إلغاء التعديل':'إعدادات الوكالة'} onPress={()=>{setEditing(!editing);setForm({...agency});}}/>}
+      {data.canDelete&&<Action title="حذف الوكالة" danger disabled={busy} onPress={()=>{setIssue('');setConfirming(true);}}/>}
+      {confirming&&data.canDelete&&<Modal visible transparent animationType="fade" onRequestClose={()=>{if(!gate.current)setConfirming(false);}}>
+        <View style={s.overlay}><View accessibilityViewIsModal style={s.dialog}>
+          <Text accessibilityRole="header" style={s.heading}>{'حذف وكالة «'+agency.name+'»؟'}</Text>
+          <Text style={s.label}>ستُحذف الوكالة من القائمة ويُفصل أعضاؤها عنها. تُحفظ سجلات الدعم السابقة.</Text>
+          {!!issue&&<Text accessibilityRole="alert" style={s.error}>{issue}</Text>}
+          <View style={s.row}><Action title="إلغاء" disabled={busy} onPress={()=>{if(!gate.current){setConfirming(false);setIssue('');}}}/>
+            <Action title={busy?'جارٍ الحذف…':'تأكيد الحذف'} danger disabled={busy} onPress={()=>mutate('agencyDelete',{confirmedName:agency.name})}/></View>
+        </View></View>
+      </Modal>}
       {editing&&<>{Object.entries(labels).map(([k,label])=><Field key={k} label={label} value={form[k]||''} onChangeText={v=>update(k,v)}/>)}
         {data.canSetRates&&[['host_pct','نسبة المضيف ٪'],['agent_pct','نسبة الوكيل ٪']].map(([k,label])=><Field key={k} numeric label={label} value={String(form[k]??'')} onChangeText={v=>update(k,v)}/>)}
         <Action title="حفظ الإعدادات" disabled={busy} onPress={()=>mutate('agencyEdit',{...form,host_pct:Number(form.host_pct),agent_pct:Number(form.agent_pct)})}/>
@@ -96,4 +108,7 @@ const s=StyleSheet.create({panel:{gap:12,padding:16,backgroundColor:'#17233B',bo
   heading:{fontSize:19,fontWeight:'700',color:'#FFF',textAlign:'right'},label:{color:'#E2E6EE',fontSize:15,textAlign:'right'},
   button:{alignSelf:'flex-end',paddingHorizontal:14,paddingVertical:10,borderRadius:8,backgroundColor:'#2A3953'},
   action:{color:'#FFE1A1',fontSize:15,fontWeight:'600'},field:{gap:6},input:{backgroundColor:'#22314A',color:'white',padding:10,textAlign:'right',borderRadius:6},
+  danger:{backgroundColor:'#853738'},dangerText:{color:'white'},
+  overlay:{flex:1,padding:18,alignItems:'center',justifyContent:'center',backgroundColor:'rgba(10,15,23,.55)'},
+  dialog:{width:'100%',maxWidth:360,gap:14,padding:18,borderRadius:14,backgroundColor:'#17233B'},
   error:{color:'#FFC4B5',textAlign:'right'},row:{flexDirection:'row-reverse',alignItems:'center',gap:8,flexWrap:'wrap'}});
