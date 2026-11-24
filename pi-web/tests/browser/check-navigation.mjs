@@ -44,12 +44,17 @@ export async function checkNavigation(browser) {
   ]) {
     const p = await browser.newPage({
       viewport: { width, height },
+      locale: 'ar-JO',
       isMobile: true,
       hasTouch: true
     });
     p.setDefaultTimeout(12000);
     await p.addInitScript(
-      (l) => { if (!localStorage.getItem('clipi.language.v2')) localStorage.setItem('clipi.language.v2', l); },
+      (l) => {
+        if (!new URLSearchParams(location.search).has('firstVisit') && !localStorage.getItem('clipi.language.v2')) {
+          localStorage.setItem('clipi.language.v2', l);
+        }
+      },
       lang
     );
     const errors = [];
@@ -93,9 +98,13 @@ export async function checkNavigation(browser) {
         shortIdentity: {}
       };
       return route.fulfill({
-        json: name === '/active-rooms' ? { rooms: [] } : (fixtures[op] ?? {})
+        json: name === '/active-rooms' ? { rooms: [], supportRoom: {id:'clipi-admin-help'} } : (fixtures[op] ?? {})
       });
     });
+    await p.goto('https://clipi.local/room?signedOut=1&firstVisit=1');
+    await p.getByRole('button', {name: /Change language.*English/}).waitFor();
+    await p.getByRole('button', {name: 'Sign in with PI', exact: true}).waitFor();
+    console.log('PASS English before login on first visit with Arabic browser locale');
     await p.goto('https://clipi.local/room');
     const root = p.locator('[data-clipi-page]'),
       dock = p.locator('.clipi-dock'),
@@ -175,6 +184,14 @@ export async function checkNavigation(browser) {
         await roomTabs.nth(i + 1).getAttribute('aria-selected'),
         'true'
       );
+      if(lang==='ar'){
+        const help=root.getByRole('button',{name:/أدمن كليبي/});
+        if(i===0){
+          await help.waitFor();
+          assert.ok((await help.innerText()).includes('٢٤ ساعة'));
+          assert.equal(await help.locator('img').count(),1);
+        }else assert.equal(await help.count(),0);
+      }
       await home();
     }
     await p.locator('.clipi-feed-live').click();

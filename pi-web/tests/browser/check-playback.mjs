@@ -30,7 +30,7 @@ const server=createServer((req,res)=>{
   res.end('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/feed.css"><style>html,body,#app{margin:0;height:100%;display:flex;flex-direction:column}</style><div id="app"></div><script src="/feed.js"></script>');
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({channel:'chrome',headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
   for(const locale of ['ar','en'])for(const role of ['host','admin','user']){
     const page=await browser.newPage({viewport:{width:390,height:844}});
@@ -40,6 +40,28 @@ try{
     await page.goto(`http://127.0.0.1:${server.address().port}/?lang=${locale}&role=${role}`);
     await page.waitForFunction(()=>document.querySelector('video')?.currentTime>0.1);
     const original=await page.locator('video').first().elementHandle();
+    if(locale==='ar' && role==='user'){
+      const point={position:{x:110,y:190}};
+      const surface=button('إيقاف الفيديو مؤقتًا').first();
+      const sound=page.locator('.clipi-audio').first();
+      assert.equal(await original.evaluate(v=>v.muted),true);
+      await surface.click(point);
+      await page.waitForFunction(v=>v.paused,original);
+      const frame=await original.evaluate(v=>v.currentTime);
+      for(const muted of [false,true]){
+        await sound.click();
+        assert.equal(await original.evaluate(v=>v.muted),muted);
+        await page.waitForTimeout(350);
+        assert.deepEqual(await original.evaluate(v=>[v.paused,v.currentTime]),[true,frame]);
+      }
+      await button('استئناف الفيديو').first().click(point);
+      await page.waitForFunction(({v,t})=>!v.paused&&v.currentTime>t,{v:original,t:frame});
+      await surface.dblclick(point);
+      await page.getByRole('button',{name:'إلغاء الإعجاب',exact:true}).first().waitFor();
+      await page.waitForTimeout(350);
+      assert.equal(await original.evaluate(v=>v.paused),false);
+      console.log('PASS muted autoplay, single tap pause/resume, stationary frame through both mute changes, double-tap like');
+    }
     await button(en?'More':'المزيد').click();
     const sheet=page.locator('.clipi-video-settings .clipi-feed-sheet');
     await sheet.waitFor();
