@@ -10,6 +10,7 @@ import {readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
 import {roomStore,roomControls} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
+import {linkStore,linkedPi,linkedEmail} from './pi-account-link.mjs';
 import { piGifts } from './pi-gifts.mjs';
 
 async function approvalKey(secret) {
@@ -17,6 +18,7 @@ async function approvalKey(secret) {
   return 'w:' + Array.from(new Uint8Array(digest).slice(0,16), n => n.toString(16).padStart(2,'0')).join('');
 }
 const encoder = new TextEncoder();
+const firebaseWebApiKey='AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI';
 
 function base64url(bytes) {
   return btoa(String.fromCharCode(...bytes)).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
@@ -68,7 +70,7 @@ export default {
     if((path==='/account-number'&&request.method==='POST')||(shortFile&&request.method==='PUT')){
       const token=(request.headers.get('Authorization')||'').match(/^Bearer ([^ ]{1,8192})$/)?.[1];
       if(!token)return json({error:'سجل الدخول'},401);
-      const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
+      const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+firebaseWebApiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
       if(!check.ok)return json({error:'تعذّر التحقق من الحساب'},check.status===400?401:502);
       const uid=(await check.json()).users?.[0]?.localId;
       if(!uid)return json({error:'سجل الدخول'},401);
@@ -83,16 +85,27 @@ export default {
       if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       }
-      if(input?.op==='wallet')return json(await readWallet(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID));
+      if(input?.op==='wallet'){
+        const wallet=await readWallet(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID);
+        const linkedPiUid=uid.startsWith('pi:')?null:await linkedPi(await linkStore(env),uid);
+        return json({...wallet,linkedPiUid});
+      }
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
-      return account(await roomStore(env.PI_GIFTS_DB),uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
+      const q=await roomStore(env.PI_GIFTS_DB);
+      const result=await account(q,uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
+      if(input.op!=='read'||!result.ok||env.PI_GIFTS_NETWORK!=='mainnet')return result;
+      const owner=await q('SELECT 1 FROM clipi_app_owner WHERE uid=?',uid).first();
+      if(!owner)return result;
+      const db=await linkStore(env);
+      const destination=uid.startsWith('pi:')?await linkedEmail(db,uid):await linkedPi(db,uid);
+      return json({...await result.json(),piLoginLink:destination?'linked':'available'});
     }
     if (env.CLIPI_APP && request.method === 'GET') {
       if (['/', '/room', '/room/', '/delete-account'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
       if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
       if (['/clipi-app.js','/clipi-app.css','/clipi-policy-links.js'].includes(path))return env.CLIPI_APP.fetch(request);
     }
-    if (path === '/auth/pi') return piLogin(request,env,json);
+    if (['/auth/pi','/auth/pi/original','/auth/pi/link-preview','/auth/pi/link-confirm'].includes(path)) return piLogin(request,env,json,firebaseWebApiKey);
     if (path.startsWith('/pi-gifts/')) return piGifts(request, env, json);
     if (path === '/validation-key.txt' && ['GET', 'HEAD'].includes(request.method)) {
       const key = env.PI_DOMAIN_VALIDATION_KEY?.trim();

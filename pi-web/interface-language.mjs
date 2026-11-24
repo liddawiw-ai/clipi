@@ -1,6 +1,8 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "تم ربط الحسابين": "Accounts linked",
+  "ربط حساب Pi بحساب البريد": "Link Pi to an email account",
   "فيديوهاتي": "My videos",
   "الفيديوهات": "Videos",
   "فيديو": "Video",

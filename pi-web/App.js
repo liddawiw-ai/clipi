@@ -27,6 +27,7 @@ import {useRoomSession} from './useRoomSession';
 import {copyRoomInvitation,roomInvitationId,roomInvitationUrl,shareRoomInvitation} from './room-invitations.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,useWindowDimensions,Easing,Share,Modal} from 'react-native';
+import LinkPiAccount from './LinkPiAccount';
 import {auth,firestore,piLogin,Alert} from './services';
 import EarningsWalletScreen from './EarningsWalletScreen';
 import * as runtime from './media';
@@ -1437,7 +1438,7 @@ export default function App(){
         console.warn('Room invitation could not be loaded:',error.code||error.message);
       }
     }
-    if(isCurrent())go('home');
+    if(isCurrent())go(['linkPiAccount','profile'].includes(pageRef.current)?'profile':'home');
   }
   function enterRoom(room){
     if(room.status==='closed')return Alert.alert(ui("غرفة مغلقة"),ui("هذه الغرفة مغلقة الآن"));
@@ -1688,10 +1689,14 @@ export default function App(){
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
     newId={crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
+  if(page==='linkPiAccount')return <HubScreen title={ui('ربط حساب Pi بحساب البريد')} action={{label:ui('رجوع'),onPress:()=>go('accountSettings')}} dock={nav()}>
+    <LinkPiAccount key={user.uid} uid={user.uid} linked={visibleNumber?.piLoginLink==='linked'} onDone={confirmed=>{go('profile');if(confirmed)Alert.alert(ui('تم ربط الحسابين'));}}/>
+  </HubScreen>;
   if(page==='accountSettings'){
     return <HubScreen title={ui('الإعدادات')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}>
       <LanguageDropdown selected={locale} onPick={pickLocale} label={ui('تغيير اللغة')}/>
       <HubRows items={[
+        ...(window.Pi&&visibleNumber?.piLoginLink?[{label:ui('ربط حساب Pi بحساب البريد'),onPress:()=>go('linkPiAccount')}]:[]),
         {label:ui('الدعم وطلباتي'),onPress:()=>go('help')},
         {label:ui('طلب حذف الحساب'),destructive:true,onPress:deleteAccount},
         {label:ui('الملف الشخصي والحسابات المحظورة'),onPress:()=>go('profileEdit')},

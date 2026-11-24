@@ -18,11 +18,46 @@ export function piSdk(){
  if(!initialized){window.Pi.init({version:'2.0',sandbox:false});initialized=true}
  return window.Pi;
 }
-export async function piLogin(){
- const session=await piSdk().authenticate(['username'],()=>{});
- const res=await fetch('/auth/pi',{method:'POST',headers:{Authorization:'Bearer '+session.accessToken}});
- const data=await res.json();
- if(!res.ok)throw Error(data.error||ui("تعذر تأكيد حساب PI"));
+async function piRequest(path,session,body){
+ const response=await fetch(path,{method:'POST',
+   headers:{Authorization:'Bearer '+session.accessToken,...(body?{'Content-Type':'application/json'}:{})},
+   ...(body?{body:JSON.stringify(body)}:{})});
+ const data=await response.json();
+ if(!response.ok)throw Error(data.error||ui("تعذر تأكيد حساب PI"));
+ return data;
+}
+async function enterPiSession(data){
  const {user}=await auth().signInWithCustomToken(data.token);
  if(data.username&&user.displayName!==data.username)await user.updateProfile({displayName:data.username});
+}
+export async function piLogin(original=false,expectedPiUid=null){
+ const session=await piSdk().authenticate(['username'],()=>{});
+ if(expectedPiUid&&'pi:'+session.user.uid!==expectedPiUid)throw Error(ui('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
+ const data=await piRequest(original?'/auth/pi/original':'/auth/pi',session);
+ await enterPiSession(data);
+ return data;
+}
+export async function verifyEmailForPi(email,password,expectedPiUid){
+ const session=await piSdk().authenticate(['username'],()=>{});
+ if(auth().currentUser?.uid!==expectedPiUid||'pi:'+session.user.uid!==expectedPiUid)throw Error(ui('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
+ // Use an isolated, in-memory Firebase session so verifying the password cannot replace the current Pi session.
+ const secondary=firebase.initializeApp(firebase.app().options,'verify-email-'+crypto.randomUUID());
+ let emailToken;
+ try{
+   const verifier=secondary.auth();
+   await verifier.setPersistence(firebase.auth.Auth.Persistence.NONE);
+   try{
+     const credential=await verifier.signInWithEmailAndPassword(email.trim(),password);
+     emailToken=await credential.user.getIdToken();
+   }catch{throw Error(ui('تعذّر تسجيل الدخول بحساب البريد. تحقّق من البيانات وحاول مجددًا.'));}
+ }finally{await secondary.delete();}
+ function requestLink(path,extra){
+   if(auth().currentUser?.uid!==expectedPiUid)throw Error(ui('تغيّر الحساب المفتوح. أعد التحقق.'));
+   return piRequest(path,session,{emailToken,piUid:expectedPiUid,...extra});
+ }
+ const details=await requestLink('/auth/pi/link-preview',{});
+ return {details,async confirm(){
+   const data=await requestLink('/auth/pi/link-confirm',{confirmNumber:details.emailNumber});
+   await enterPiSession(data);
+ }};
 }

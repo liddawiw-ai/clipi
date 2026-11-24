@@ -1,3 +1,4 @@
+import {linkStore,linkedEmail} from './pi-account-link.mjs';
 import {validPack} from './diamond-wallet.mjs';
 import {roomStore} from './room-controls.mjs';
 import { gifts } from './gift-catalog.mjs';
@@ -88,15 +89,22 @@ export async function piGifts(request, env, json) {
     const product = mainnet && Object.hasOwn(gifts, metadata?.gift) ? gifts[metadata.gift] : null;
     if (!identity.uid || payment.user_uid !== identity.uid || payment.identifier !== paymentId ||
         payment.direction !== 'user_to_app' || payment.network !== (mainnet ? 'Pi Network' : 'Pi Testnet') ||
-        (packRequest ? metadata?.kind!=='diamond_pack'||metadata.uid!=='pi:'+identity.uid||!validPack(metadata,payment.amount,action!=='approve'||payment.status?.developer_approved) :
+        (packRequest ? metadata?.kind!=='diamond_pack'||!validPack(metadata,payment.amount,action!=='approve'||payment.status?.developer_approved) :
         metadata?.roomId!==roomId||(mainnet ? !product||payment.amount!==product.amount : payment.amount!==roseAmount||metadata?.gift!=='rose')) ||
         payment.status?.cancelled || payment.status?.user_cancelled) {
       return json({ error: 'Payment does not match the gift' }, 403);
     }
+    if (packRequest) {
+      // The recipient in the Pi-verified payment remains fixed, including when restoring older receipts.
+      const piUid='pi:'+identity.uid;
+      if(typeof metadata.uid!=='string'||(metadata.uid!==piUid && metadata.uid!==await linkedEmail(await linkStore(env),piUid))){
+        return json({error:'Account does not match the payment'},403);
+      }
+    }
     if (action === 'approve') {
       if(packRequest){
         const q=await roomStore(env.PI_GIFTS_DB);
-        await q('INSERT OR IGNORE INTO diamond_checkout(payment,uid) VALUES(?,?)',paymentId,'pi:'+identity.uid).run();
+        await q('INSERT OR IGNORE INTO diamond_checkout(payment,uid) VALUES(?,?)',paymentId,metadata.uid).run();
       }
       if (!payment.status?.developer_approved) await pi(paymentPath + '/approve', { post: true });
       return json({ approved: true });
@@ -118,7 +126,7 @@ export async function piGifts(request, env, json) {
         completed.transaction?.txid !== txid) return json({ error: 'Transaction not confirmed' }, 409);
     if(packRequest){
       const q=await roomStore(env.PI_GIFTS_DB);
-      await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,'pi:'+identity.uid,metadata.diamonds,txid).run();
+      await q('INSERT INTO diamond_purchase(payment,uid,diamonds,txid) VALUES(?,?,?,?) ON CONFLICT(payment) DO NOTHING',paymentId,metadata.uid,metadata.diamonds,txid).run();
       return json({completed:true,diamonds:metadata.diamonds});
     }
     if (mainnet) {

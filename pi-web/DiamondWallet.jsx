@@ -18,6 +18,7 @@ export function DiamondWallet({uid,onHelp}){
   const [receipt,setReceipt]=useState('');
   const lock=useRef(false);
   const revision=useRef(0);
+  const paymentPiUid=uid.startsWith('pi:')?uid:(window.Pi&&data?.linkedPiUid);
   async function refresh(){
     const ticket=++revision.current;
     const snapshot=await walletRead();
@@ -41,7 +42,7 @@ export function DiamondWallet({uid,onHelp}){
       const ids=new Set((data?.pending||[]).map(p=>p.payment));
       if(receipt.trim())ids.add(receipt.trim());
       const session=await piSdk().authenticate(['username','payments'],p=>{if(p.metadata?.kind==='diamond_pack')ids.add(p.identifier)});
-      if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
+      if('pi:'+session.user.uid!==paymentPiUid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
       let restored=0;
       for(const paymentId of ids){
         try{await payment('restore',{paymentId,kind:'diamond_pack',accessToken:session.accessToken});restored++}catch{}
@@ -57,7 +58,7 @@ export function DiamondWallet({uid,onHelp}){
     try{
       const sdk=piSdk(),pending=[];
       const session=await sdk.authenticate(['username','payments'],p=>{if(p.transaction?.txid)pending.push(p)});
-      if('pi:'+session.user.uid!==uid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
+      if('pi:'+session.user.uid!==paymentPiUid)throw Error(label('ادخل بحساب PI نفسه','Sign in with the same PI account'));
       const accessToken=session.accessToken;
       for(const old of pending){
         if(old.metadata?.kind==='native_diamonds'){
@@ -87,12 +88,12 @@ export function DiamondWallet({uid,onHelp}){
     </section>}
     {!!data?.earningsUnits&&<p>{label('رصيد سابق محفوظ','Previous recorded balance')} · {data.earningsUnits/20} PI</p>}
     <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{label('تحديث الرصيد','Refresh balance')}</button>
-    {uid.startsWith('pi:')&&<div><input aria-label={label('معرّف دفعة PI','PI payment ID')} placeholder={label('معرّف دفعة PI (اختياري)','PI payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
+    {paymentPiUid&&<div><input aria-label={label('معرّف دفعة PI','PI payment ID')} placeholder={label('معرّف دفعة PI (اختياري)','PI payment ID (optional)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{label('استعادة شراء سابق','Restore purchase')}</button></div>}
     <h3>{label('سجل شحن الماس','Diamond credit history')}</h3>
     {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}{p.reversed?' · '+label('ماس مسترد','Diamonds refunded')+' '+p.reversed:''}</p>)}
     <button onClick={onHelp}>{label('مشكلة في عملية شراء','Purchase issue')}</button>
     <h3 id="clipi-packs">{label('شراء الماس','Buy diamonds')}</h3>
-    {uid.startsWith('pi:')?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} PI</button>):<p>{label('ادخل بحساب PI لشراء الماس','Sign in with PI to buy diamonds')}</p>}
+    {paymentPiUid?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString('en-US')} 💎 · {packPrice(n)} PI</button>):<p>{label('ادخل بحساب PI لشراء الماس','Sign in with PI to buy diamonds')}</p>}
     <p role="status">{message}</p><h3>{label('آخر الهدايا المدفوعة','Recent purchased-diamond gifts')}</h3>
     {data?.history.map((g,i)=><p key={g.receipt?g.sender+g.receipt:i}>{uid===g.host?label('واردة','Received'):label('مرسلة','Sent')} · {g.gift} · {g.cost} 💎 · {g.units?label('رصيد سابق','Previous credit')+' '+g.units/20+' PI':label('ماسات للمكافأة','Reward diamonds')+' '+rewardDiamonds(g.cost)} · {label('غرفة','Room')} {g.room} · {g.receipt}</p>)}
   </section>
