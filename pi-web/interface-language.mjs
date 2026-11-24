@@ -1,6 +1,20 @@
 import {readLocale} from './languages.mjs';
 
 const english = {
+  "فيديوهاتي": "My videos",
+  "الفيديوهات": "Videos",
+  "فيديو": "Video",
+  "لا توجد فيديوهات منشورة بعد": "No videos published yet",
+  "عرض المزيد": "Show more",
+  "جارٍ تحميل الفيديوهات…": "Loading videos\u2026",
+  "إيقاف مؤقت": "Pause",
+  "تشغيل": "Play",
+  "تشغيل الفيديو": "Play video",
+  "عرض الملف الشخصي": "View profile",
+  "تعذّر تحميل الفيديوهات": "Could not load videos",
+  "تعذّر حذف الفيديو": "Could not delete video",
+  "تأكيد الحذف": "Confirm deletion",
+
   "حذف الفيديو": "Delete video",
   "حذف الفيديو؟": "Delete this video?",
   "سيُحذف المقطع وتعليقاته نهائيًا.": "This video and its comments will be permanently deleted.",

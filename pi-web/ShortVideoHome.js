@@ -34,7 +34,7 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?'تشغيل الصوت':'كتم الصوت'}
   </button>;
 }
-function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
@@ -44,7 +44,8 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
   const alive=useRef(true),lock=useRef(false),revision=useRef(0),pending=useRef(null);
   const deleting=useRef(false);
   const [busyDelete,setBusyDelete]=useState(false);
-  const canDelete=!!viewer?.uid && !starters[item.id] && (item.owner || stats?.owner)===viewer.uid;
+  const ownerUid=item.owner || stats?.owner;
+  const canDelete=!starters[item.id] && (stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid));
   function openDelete(){
     if(!canDelete)return;
     setMessage('');setDialog('delete');setViewMode('delete');
@@ -131,8 +132,11 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
     {!showing&&<>
     <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
+    {canDelete && !dialog && <button type="button" className="clipi-delete-video" onClick={openDelete}><FeedIcon name="trash" size={17}/>{translate('حذف الفيديو')}</button>}
     <div className="clipi-action-stack">
-      <div className="clipi-author-badge"><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/>
+      <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
+        style={{border:0,padding:0,background:'transparent',borderRadius:'50%',color:'inherit',display:'inline-flex'}}
+        onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></button>
         {stats?.social&&stats.owner!==viewer?.uid&&<button type="button" className="clipi-follow" aria-pressed={!!stats.following} onClick={follow}>{stats.following?'متابَع':'متابعة'}</button>}</div>
       <FeedAction icon="like" label={stats?.liked?'إلغاء الإعجاب':'إعجاب'} selected={!!stats?.liked} count={stats?.likes} onClick={()=>like(!stats?.liked)}/>
       <FeedAction icon="comment" label="التعليقات" count={commentCount} onClick={openComments}/>
@@ -146,7 +150,7 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
       <div className="clipi-caption-meta">
 
         <SoundControl {...{playerRef,muted,setMuted}}/>
-        {canDelete&&<button type="button" className="clipi-delete-video" onClick={openDelete}><FeedIcon name="trash" size={17}/>{translate('حذف الفيديو')}</button>}
+        
       </div>
       {!!message&&!dialog&&<p role="status">{message}</p>}
     </div>
@@ -173,7 +177,7 @@ function Clip({item,endpoint,request,gifts,onWallet,onShop,playable,onReport,tra
   </View>;
 }
 
-export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer}){
+export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer}){
   const [items,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const removed=useRef(new Set()),list=useRef(null);
@@ -255,7 +259,7 @@ export function ShortVideoHome({playable=true,dock,onRooms,translate=identity,en
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
       <button type="button" aria-expanded={liveMenu} aria-haspopup="dialog" onClick={()=>setLiveMenu(true)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{translate('بث مباشر')}

@@ -84,7 +84,7 @@ export function AccountPhoto({avatar,label,onPress}){
   </TouchableOpacity>;
 }
 
-export function AccountHub({onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
+export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
   return <>
     <View style={s.account}><GoldFrame tone="apricot"/>
       <View style={s.identity}>
@@ -99,6 +99,7 @@ export function AccountHub({onPhoto,photoLabel,name, avatar, number, balance, co
         <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View>
     </View>
+    {children}
     <View style={s.shortcuts}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
       style={s.shortcut} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>

@@ -7,6 +7,7 @@ const starterIds = ['palace','aurora','dunes'];
 const publishedId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_clip(id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, object_key TEXT)',
+  'CREATE INDEX IF NOT EXISTS published_shorts_by_owner ON short_clip(owner) WHERE object_key IS NOT NULL',
   'CREATE TABLE IF NOT EXISTS short_like(clip TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(clip,uid))',
   'CREATE TABLE IF NOT EXISTS short_comment(clip TEXT NOT NULL, uid TEXT NOT NULL, nonce TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(uid,nonce))',
   'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)',
@@ -20,14 +21,26 @@ export const shortSchema = [
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
+  if (op === 'shortProfileList') {
+    const owner = input.owner ?? uid;
+    const before = input.before ?? Number.MAX_SAFE_INTEGER;
+    if (typeof owner !== 'string' || !owner || owner.length > 128 ||
+        !Number.isSafeInteger(before) || before < 1) return json({error:'طلب غير صالح'},400);
+    const {results} = await q(
+      'SELECT rowid AS cursor,id,title FROM short_clip WHERE owner=? AND object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 31',
+      owner,before
+    ).all();
+    const clips = results.slice(0,30);
+    return json({clips,canDelete:uid === owner,nextCursor:results.length > 30 ? clips.at(-1).cursor : null});
+  }
   if (op === 'shortList') {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
     const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
-    return json({clips: rows.results});
+    return json({clips: rows.results.map(row => ({...row,canDelete:row.owner === uid}))});
   }
   if (op === 'shortLookup') {
     const row = publishedId.test(clip) && await q('SELECT id,title,owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first();
-    return json({clip: row || null});
+    return json({clip: row ? {...row,canDelete:row.owner === uid} : null});
   }
   if (op === 'shortPrepare') {
     if (!hasStorage) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
@@ -46,7 +59,7 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
       else await q('DELETE FROM short_like WHERE clip=? AND uid=?',clip,uid).run();
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
-    return json({...state,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
+    return json({...state,canDelete:owner===uid && !starterIds.includes(clip),liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
   if (op === 'shortGift') {

@@ -3,6 +3,7 @@ import TrialWallet from './TrialWallet';
 import AgencyScreen from './AgencyScreen';
 import {RoomEntrance,useRoomEntrances} from './RoomEntrance';
 import {ShortVideoHome,ShortUpload} from './ShortVideoHome';
+import ProfileShorts from './ProfileShorts';
 import GiftMark from './GiftMark';
 import {theme} from './ClipiTheme';
 import MicFace from './MicFace';
@@ -1025,6 +1026,7 @@ export default function App(){
   const previousPage=useRef('home');
   const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
+  const [shortAuthor,setShortAuthor]=useState(null);
   const [initialShort,setInitialShort]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('short'));
   const [user,setUser]=useState(null);
   const [identity,setIdentity]=useState(null),[numberError,setNumberError]=useState('');
@@ -1555,7 +1557,11 @@ export default function App(){
     <Btn title={words.create} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
     <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
-  if(page==='home')return <ShortVideoHome viewer={{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar}} translate={ui} onReport={id=>{setInitialShort(id);go('reportShort');}} key={user?.uid} playable={!activeRoom} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
+  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own)=>{
+    setInitialShort(clip);
+    if(own || uid===user.uid){go('profile');return;}
+    setShortAuthor({uid,name:authorName});go('shortAuthor');
+  }} viewer={{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar}} translate={ui} onReport={id=>{setInitialShort(id);go('reportShort');}} key={user?.uid} playable={!activeRoom} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     gifts={GIFTS} onWallet={()=>go('wallet')} onShop={()=>go('wallet')}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={()=>crypto.randomUUID()} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
@@ -1649,6 +1655,9 @@ export default function App(){
       onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
+  if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:()=>go('home')}} dock={nav()}>
+    <ProfileShorts key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid} translate={ui}/>
+  </HubScreen>;
   if(page==='profileGames')return <HubScreen title={'ألعاب'} action={{label:'رجوع إلى حسابي',onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
   if(page==='agencies')return <HubScreen title={'الوكالات'} action={{label:'رجوع',onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
   if(page==='profile')return <HubScreen title={ui('حسابي')}
@@ -1667,7 +1676,9 @@ export default function App(){
         {label:'ألعاب',onPress:()=>go('profileGames')},
         {label:ui('تعديل الملف الشخصي'),onPress:()=>go('profileEdit')},
         {label:ui('الإعدادات'),onPress:()=>go('accountSettings')},
-      ]}/>
+      ]}>
+      <ProfileShorts key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} translate={ui}/>
+    </AccountHub>
   </HubScreen>;
   if(page==='hostCenter')return <HubScreen title={ui("مركز المضيف")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui("مستخدم")} avatar={avatar} number={visibleNumber?.number}
