@@ -1,3 +1,4 @@
+import {invitationInbox} from './broadcast-access.mjs';
 import {reserveBroadcast,rootFor} from './room-history.mjs';
 export {ClipiVideo} from './video-storage.mjs';
 import {starterVideo} from './video-storage.mjs';
@@ -77,6 +78,8 @@ export default {
       if(!uid)return json({error:'سجل الدخول'},401);
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
+      if(['roomInviteInbox','dismissRoomInvite'].includes(input?.op))
+        return invitationInbox(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(input?.op==='hostLevels'){
         const owner=input.owner??uid;
         if(typeof owner!=='string'||!owner||owner.length>128)return json({error:'الحساب غير صالح'},400);
@@ -199,9 +202,9 @@ export default {
       const enhanced = env.PI_GIFTS_NETWORK==='mainnet' && Boolean(input.session);
       const liveRoom = enhanced ? 'clipi:web:'+roomId : 'clipi-'+roomId;
       const now = Math.floor(Date.now()/1000);
-      async function mediaToken(publisher){
+      async function mediaToken(publisher,micAllowed=true){
         const video={roomJoin:true,room:liveRoom,canSubscribe:true,canPublish:publisher,canPublishData:false};
-        if(publisher)video.canPublishSources=type==='audio'?['microphone']:['microphone','camera'];
+        if(publisher)video.canPublishSources=type==='audio'?['microphone']:(micAllowed?['microphone','camera']:['camera']);
         const token=await signToken(env,{iss:env.LIVEKIT_API_KEY,sub:claims.sub,nbf:now-5,exp:now+120,video});
         return {serverUrl:env.LIVEKIT_URL,token,canPublish:publisher};
       }
@@ -213,12 +216,16 @@ export default {
           const result=await fetch(origin+'/twirp/livekit.RoomService/RemoveParticipant',{method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'application/json'},body:JSON.stringify({room:liveRoom,identity}),signal:AbortSignal.timeout(8000)});
           if(!result.ok&&result.status!==404)throw Error('Removal failed');
         };
-        admission=await roomControls({env,input,room:roomId,user:claims.sub,host,ownerUid:fields.ownerUid?.stringValue,type,path,json,disconnect,mediaToken});
+        admission=await roomControls({env,input,room:roomId,user:claims.sub,host,ownerUid:fields.ownerUid?.stringValue,type,path,json,disconnect,mediaToken,roomTitle:fields.name?.stringValue||''});
         if(admission instanceof Response)return admission;
       }
       if (path !== '/token') {
         if (!host) return json({ error: 'Forbidden' }, 403);
         const closing = path === '/close-room';
+        if(closing&&env.PI_GIFTS_NETWORK==='mainnet'){
+          const q=await roomStore(env.PI_GIFTS_DB);
+          await q('UPDATE broadcast_invite SET dismissed=1 WHERE room=? AND dismissed=0',roomId).run();
+        }
         if (!closing && (typeof uid !== 'string' || !uid || uid.length > 128 || uid === claims.sub || Object.hasOwn(guests, uid))) {
           return json({ error: 'Invalid guest' }, 400);
         }
@@ -242,7 +249,7 @@ export default {
         ? typeof visit === 'string' && /^[a-f0-9-]{36}$/.test(visit) && grant === await approvalKey(visit)
         : typeof grant === 'string' && !grant.startsWith('w:');
       const publisher = admission?.publisher ?? (host || approved);
-      return json(await mediaToken(publisher));
+      return json(await mediaToken(publisher,admission?.micAllowed!==false));
     } catch {
       return json({ error: 'Media service temporarily unavailable' }, 502);
     }

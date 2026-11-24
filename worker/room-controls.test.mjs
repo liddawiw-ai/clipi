@@ -1,3 +1,4 @@
+import {invitationInbox} from './broadcast-access.mjs';
 import {reserveBroadcast} from './room-history.mjs';
 import {supportCase} from './support-case.mjs';
 import {piGifts} from './pi-gifts.mjs';
@@ -165,6 +166,73 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       assert.equal((await act(sender,'giftRecipient',{recipient:listener})).status,409);
       assert.equal((await act(sender,'paidGift',{...gift,recipient:sender})).status,400);
       assert.equal((await readWallet(q,sender)).diamonds,80);
+    });
+  }
+  await t.test('microphone permission follows the chosen seat and only app staff moderates the host',async t=>{
+    const q=await roomStore(db),room='mic-permission',owner='mic-owner';
+    sql.exec('SAVEPOINT micAccess');t.after(()=>sql.exec('ROLLBACK TO micAccess; RELEASE micAccess'));
+    const act=(uid,op,extra={})=>call(uid,op,extra,'/room-control',room,owner);
+    await q('INSERT INTO room_admin VALUES(?,?)',room,'mod').run();
+    await q('INSERT INTO clipi_app_admin VALUES(?)','staff').run();
+    for(const uid of [owner,'mod','staff','guest','host'])await act(uid,'join');
+    assert.equal((await act('guest','poll')).micFree,true);
+    assert.equal((await act('mod','poll')).roomAdmin,true);
+    assert.equal((await act('mod','poll')).appStaff,false);
+    assert.equal((await act('staff','poll')).appStaff,true);
+    assert.equal((await act('guest','settings',{micFree:false})).status,403);
+    assert.equal((await act(owner,'settings',{micFree:false})).micFree,false);
+    assert.equal((await act('guest','move',{slot:2})).status,409);
+    assert.equal((await call('unjoined','token',{session:null},'/token',room,owner)).status,403);
+    assert.equal((await act('guest','request',{slot:2})).people.find(p=>p.uid==='guest').seat,0);
+    assert.equal((await act('guest','settings',{roomAdmin:true,micFree:true})).status,403);
+    let data=await act('guest','request',{slot:2,permissionOnly:true});
+    assert.equal(data.people.find(p=>p.uid==='guest').seat,0);
+    assert.equal((await act('guest','approve',{uid:'guest'})).status,403);
+    data=await act('mod','approve',{uid:'guest'});
+    assert.equal(data.people.find(p=>p.uid==='guest').seat,2);
+    await act('guest','stepDown');
+    await act('guest','request',{slot:6,permissionOnly:true});await act('mod','reject',{uid:'guest'});
+    assert.equal((await act('mod','approve',{uid:'guest'})).status,409);
+    await act(owner,'move',{slot:4});
+    for(const op of ['eject','kick','demote','mute'])assert.equal((await act('mod',op,{uid:owner})).status,403);
+    assert.equal((await act('staff','mute',{uid:owner})).people.find(p=>p.uid===owner).muted,1);
+    await act('host','unmute',{uid:owner});
+    assert.equal((await act('host','demote',{uid:owner})).people.find(p=>p.uid===owner).seat,-1);
+    await act(owner,'settings',{micFree:true});
+    assert.equal((await act('guest','move',{slot:3})).people.find(p=>p.uid==='guest').seat,3);
+    assert.equal((await act('staff','eject',{uid:owner})).status,200);
+    assert.equal((await act(owner,'poll')).status,403);
+  });
+  for(const type of ['audio','video']){
+    await t.test(type+' invitations use mutual friends, opt-in and a private recipient inbox',async t=>{
+      const q=await roomStore(db),owner='invitations-host',room=type+'-invitations';
+      sql.exec('SAVEPOINT invitations');t.after(()=>sql.exec('ROLLBACK TO invitations; RELEASE invitations'));
+      const follow=(a,b)=>q('INSERT OR IGNORE INTO short_follow VALUES(?,?)',a,b).run();
+      function friend(uid){follow(uid,owner);follow(owner,uid)}
+      friend('a-friend');friend('b-friend');follow('follower',owner);
+      const act=(uid,op,extra={},id=room)=>call(uid,op,extra,'/room-control',id,owner,type);
+      const inbox=async uid=>(await invitationInbox(q,uid,{op:'roomInviteInbox'},x=>x)).invitations;
+      await act(owner,'join');await act('follower','join',{inviteFriends:true});
+      assert.equal((await inbox('a-friend')).length,0);
+      assert.equal((await act('follower','inviteFriends',{all:true})).status,403);
+      assert.equal((await act('follower','inviteAtStart')).status,403);
+      assert.deepEqual((await act(owner,'inviteChoices')).friends.map(p=>p.uid),['a-friend','b-friend']);
+      assert.deepEqual((await act(owner,'inviteFriends',{uids:['a-friend','follower']})).invited,['a-friend']);
+      assert.equal((await inbox('b-friend')).length,0);
+      assert.equal((await inbox('follower')).length,0);
+      assert.equal((await inbox('a-friend'))[0].room,room);
+      await invitationInbox(q,'a-friend',{op:'dismissRoomInvite',room},x=>x);
+      assert.equal((await inbox('a-friend')).length,0);
+      await act(owner,'join',{},room+'-new');
+      assert.equal((await inbox('b-friend')).length,0);
+      await act(owner,'inviteAtStart',{},room+'-new');
+      assert.equal((await inbox('a-friend'))[0].room,room+'-new');
+      assert.equal((await inbox('b-friend'))[0].room,room+'-new');
+      friend('new-friend');await act(owner,'inviteAtStart',{},room+'-new');
+      assert.equal((await inbox('new-friend')).length,0);
+      assert.equal((await inbox('follower')).length,0);
+      await act(owner,'leave',{},room+'-new');
+      assert.equal((await inbox('b-friend')).length,0);
     });
   }
   await t.test('moves preserve occupancy, microphone permissions and gifts including the main mic',async()=>{

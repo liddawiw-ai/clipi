@@ -28,7 +28,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
       lastBalanceResponse.current=index;
       setSupportBalance(diamonds);
     }
-    if(op==='giftRecipient'||op==='hostCard')return data;
+    if(['giftRecipient','hostCard','inviteChoices','inviteFriends','inviteAtStart'].includes(op))return data;
     if(op==='paidGift')return data.receipt;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;
