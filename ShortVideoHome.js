@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
@@ -80,7 +80,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       await api('shortDelete');
       onDeleted(item.id);
     }catch(error){
-      if(alive.current)setMessage(error.message||translate('تعذّر حذف الفيديو. حاول مجددًا'));
+      if(alive.current)setMessage(uiError(error,'تعذّر حذف الفيديو. حاول مجددًا'));
     }finally{
       deleting.current=false;
       if(alive.current)setBusyDelete(false);
@@ -120,7 +120,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     });
   }
   async function run(fn){
-    try{await fn();}catch(e){if(alive.current&&e.name!=='AbortError')setMessage(e.message||appText('تعذّرت العملية'));}
+    try{await fn();}catch(e){if(alive.current&&e.name!=='AbortError')setMessage(uiError(e,'تعذّرت العملية'));}
   }
   function openComments(){setMessage('');setDialog('comments');setViewMode('half');}
   function closeComments(){setVisibleVideoHeight(null);setDialog('');setViewMode('');}
@@ -128,7 +128,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     if(lock.current||!stats?.social)return;
     lock.current=true;
     try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
-    catch(e){if(alive.current)setMessage(e.message||appText('تعذّرت المتابعة'));}finally{lock.current=false;}
+    catch(e){if(alive.current)setMessage(uiError(e,'تعذّرت المتابعة'));}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
   const official=!!starters[item.id],authorName=stats?.authorName||(official?'Clipi':appText('صاحب المقطع'));
@@ -141,7 +141,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       const result=await api(kind,{nonce:key,...(kind==='shortGift'?{gift:value}:{body:value})});
       pending.current=null;
       if(alive.current)callback(result);
-    }catch(e){if(alive.current)setMessage(e.message||appText('تعذّر الإرسال'));}
+    }catch(e){if(alive.current)setMessage(uiError(e,'تعذّر الإرسال'));}
     finally{lock.current=false;}
   }
   function openGifts(){
@@ -191,7 +191,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     {showing&&<ShortCommentsSheet firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
-      recipient={item.title||'الفيديو'} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
+      recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
       <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
@@ -199,6 +199,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
 }
 
 export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+  const goLiveLabel=interfaceLocale()==='en'?'go live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -285,8 +286,8 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
-      <Pressable accessibilityRole="button" accessibilityLabel="go live" accessibilityState={{expanded:liveMenu}} onPress={()=>setLiveMenu(true)} style={({pressed})=>[s.goLive,pressed&&s.pressed]}>
-        <Text style={s.liveLabel}>go live</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel={goLiveLabel} accessibilityState={{expanded:liveMenu}} onPress={()=>setLiveMenu(true)} style={({pressed})=>[s.goLive,pressed&&s.pressed]}>
+        <Text style={s.liveLabel}>{goLiveLabel}</Text>
       </Pressable>
     </View>
     )}
@@ -309,7 +310,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   useEffect(()=>()=>{if(draft)releaseDraft(draft);},[draft]);
   async function choose(){
     try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setAccepted(false);setDraft(file);setNotice('');}}
-    catch(e){if(alive.current)setNotice(e.message);}
+    catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
     if(lock.current||!draft||!accepted)return;
@@ -319,7 +320,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
       if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,profile:await shortProfile(viewer)})).id;
       await uploadFile(endpoint+'/shorts/media/'+job.current,draft,token);
       if(alive.current)onDone(job.current);
-    }catch(e){if(alive.current)setNotice(e.message||appText('تعذّر نشر الفيديو'));}
+    }catch(e){if(alive.current)setNotice(uiError(e,'تعذّر نشر الفيديو'));}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
   return <View style={s.screen}><View style={[s.screen,s.preview]}>{draft&&<><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></>}</View>

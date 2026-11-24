@@ -35,10 +35,10 @@ function relativeTime(value) {
 function Media({value}) {
   if(!value)return null;
   const source=stickers[value]||{uri:value};
-  return <Image accessibilityLabel={stickerNames[value]||appText('صورة التعليق')} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
+  return <Image accessibilityLabel={appText(stickerNames[value]||'صورة التعليق')} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
 }
 function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
-  const author=row.name||'مستخدم كليبي';
+  const author=row.name||appText('مستخدم كليبي');
   return <View style={[s.row,nested&&s.nested]}>
     <ShortAvatar name={author} avatar={row.avatar} size={nested?29:36}/>
     <View style={s.copy}>
@@ -151,7 +151,7 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
     try{const image=await choosePhoto(240);if(image&&alive.current){if(image.length>85000)throw Error(appText('اختر صورة أصغر'));setAttachment(image);setTools('');}}
     catch(e){if(alive.current)setError(e.message||appText('تعذّر فتح الصورة'));}
   }
-  function startReply(row,root){setReply({id:root.id,name:row.name||'مستخدم كليبي'});setTools('');showKeyboard();}
+  function startReply(row,root){setReply({id:root.id,name:row.name||appText('مستخدم كليبي')});setTools('');showKeyboard();}
   function rowView(row,root){
     return <CommentRow row={row} owner={owner} social={social} nested={!!root} open={!!open[row.id]} onToggle={()=>toggle(row)} onReply={()=>startReply(row,root||row)} onLike={()=>like(row)}/>;
   }
@@ -189,7 +189,7 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
         {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>}
         <View testID="short-comment-composer" style={s.composeArea} onLayout={e=>setComposerHeight(e.nativeEvent.layout.height)}>
           {!!reply&&<Action label={appText("إلغاء الرد")} style={s.context} onPress={()=>setReply(null)}><Text>{appText("رد على ")}{reply.name}　×</Text></Action>}
-          {!!attachment&&<Action label={appText("إزالة المرفق")} style={s.context} onPress={()=>setAttachment('')}>{focused?<Text style={s.author}>{stickerNames[attachment]||appText('صورة مرفقة')}</Text>:<Media value={attachment}/>}<Text>×</Text></Action>}
+          {!!attachment&&<Action label={appText("إزالة المرفق")} style={s.context} onPress={()=>setAttachment('')}>{focused?<Text style={s.author}>{appText(stickerNames[attachment]||'صورة مرفقة')}</Text>:<Media value={attachment}/>}<Text>×</Text></Action>}
           {tools==='gif'&&<View style={s.picker}>{Object.keys(stickers).map(key=><Action key={key} label={appText(stickerNames[key])} onPress={()=>{setAttachment(key);setTools('');}}><Media value={key}/></Action>)}</View>}
           {tools==='mention'&&<ScrollView horizontal keyboardShouldPersistTaps="always">{names.map(n=><Action key={n} label={n} onPress={()=>insert('@'+n+' ')}><Text style={s.author}>{'@'+n}</Text></Action>)}<Action label={appText("اكتب اسم المستخدم")} onPress={()=>insert('@')}><Text>{appText("اكتب اسم المستخدم")}</Text></Action></ScrollView>}
           <View style={s.composer}>

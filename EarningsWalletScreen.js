@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
@@ -27,7 +27,7 @@ export default function EarningsWalletScreen({onBack}){
   setBusy(true);
   const epoch=requestEpochRef.current;
   try{const r=await call('getEarningsWallet')({});if(epoch===requestEpochRef.current&&!lockRef.current)setData(r.data)}
-  catch(e){Alert.alert(appText('تعذر تحميل المحفظة'),e.message)}
+  catch(e){Alert.alert(appText('تعذر تحميل المحفظة'),uiError(e))}
   finally{setBusy(false)}
  }
  useEffect(()=>{
@@ -73,7 +73,7 @@ export default function EarningsWalletScreen({onBack}){
   if(!/^\d{6}$/.test(pin))return Alert.alert(appText('الرقم السري'),appText('أدخل 6 أرقام'));
   setBusy(true);
   try{await call('setEarningsWalletPin')({pin,currentPin:oldPin});setPin('');setOldPin('');Alert.alert(appText('تم'),appText('تم حفظ الرقم السري'));await load()}
-  catch(e){Alert.alert(appText('خطأ'),e.message)}finally{setBusy(false)}
+  catch(e){Alert.alert(appText('خطأ'),uiError(e))}finally{setBusy(false)}
  }
  async function preview(method){
   const current=oldPin||pin;
@@ -82,7 +82,7 @@ export default function EarningsWalletScreen({onBack}){
   try{const r=await call('previewEarningsWithdrawal')({pin:current,method}),v=r.data;
    Alert.alert(appText('معاينة فقط'),v.eligible?(method==='cash'?money(v.usdMinor):v.diamonds.toLocaleString('en-US')+appText(' ماسة'))+appText(' — التحويل غير مفعل'):appText('لم تستوفِ الشروط. المتبقي ')+v.remainingPoints+appText(' نقطة أو فترة الانتظار'));
    setPin('');setOldPin('');
-  }catch(e){Alert.alert(appText('تعذر المعاينة'),e.message)}finally{setBusy(false)}
+  }catch(e){Alert.alert(appText('تعذر المعاينة'),uiError(e))}finally{setBusy(false)}
  }
  const btn=(title,fn)=><TouchableOpacity disabled={busy} onPress={fn} style={S.button}><Text style={S.buttonText}>{title}</Text></TouchableOpacity>;
  return <ScrollView style={S.page} contentContainerStyle={S.body}>

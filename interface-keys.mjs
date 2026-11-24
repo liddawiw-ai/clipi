@@ -1,7 +1,7 @@
 import {english,additionalCopy,videoActions} from './interface-copy.mjs';
 
 export const languageNames = {
-  ar:'arabic',en:'english',es:'spanish',fr:'french',de:'german',pt:'portuguese',it:'italian',
+  ar:'arabic',en:'english','zh-Hans':'chinese','zh-Hant':'chinese',es:'spanish',fr:'french',de:'german',pt:'portuguese',it:'italian',
   tr:'turkish',ru:'russian',uk:'ukrainian',pl:'polish',nl:'dutch',fa:'persian',ur:'urdu',
   he:'hebrew',hi:'hindi',bn:'bengali',ta:'tamil',id:'indonesian',ms:'malay',fil:'tagalog',
   vi:'vietnamese',th:'thai',ja:'japanese',ko:'korean',sw:'swahili',el:'greek',ro:'romanian'

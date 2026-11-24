@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useState,useEffect,useRef} from 'react';
 import {View,Text,TextInput,ScrollView,TouchableOpacity,StyleSheet,Alert,Linking} from 'react-native';
@@ -29,7 +29,7 @@ export default function PayoutPicker({data,call,reload}){
    setResult(r.state==='issued'?'صدر رابط استلام المبلغ.':r.state==='canceled'?'أُلغي الطلب وأُعيد المبلغ إلى رصيدك.':'طلبك قيد المعالجة.');
    setPin('');await reload();
    if(alive.current&&r.url)await Linking.openURL(r.url);
-  }catch(e){if(alive.current)setError(e.message)}
+  }catch(e){if(alive.current)setError(uiError(e))}
   finally{lock.current=false;if(alive.current)setBusy(false)}
  }
  const action=(text,onPress,disabled=false)=><TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[S.button,disabled&&{opacity:.5}]}><Text style={S.cta}>{text}</Text></TouchableOpacity>;

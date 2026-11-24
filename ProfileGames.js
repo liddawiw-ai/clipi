@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Pressable,Text,TextInput,View} from 'react-native';
 import {games,seatsFor,match,move,choices} from './TableRules.mjs';
@@ -103,7 +103,7 @@ function Table({kind,uid,name,request,onBack}){
     if(!local){void command('tableMove',{action});return;}
     if(solo&&local.turn!==0)return;
     try{const next=move(local,action);if(!solo&&next.turn!==local.turn)setPrivateTurn(true);localSave(next);setIssue('');}
-    catch(e){setIssue(e.message);}
+    catch(e){setIssue(uiError(e));}
   }
   function startLocal(withBot){
     setIssue('');setSolo(withBot);practice.set(soloKey,withBot);setPrivateTurn(!withBot);localSave(match(kind,count,Math.random,{partnerExchange:kind==='jackaroo'}));

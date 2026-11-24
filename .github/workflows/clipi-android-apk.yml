@@ -38,15 +38,15 @@ jobs:
           apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
           "$apksigner" verify --print-certs "$apk" > signing.txt
           grep -Fi 'certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c' signing.txt
-          cp "$apk" Clipi-Android-40.apk
+          cp "$apk" Clipi-Android-41.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Clipi-Android-40
-          path: Clipi-Android-40.apk
+          name: Clipi-Android-41
+          path: Clipi-Android-41.apk
           if-no-files-found: error
           retention-days: 14
       - name: Publish signed Android download
         if: github.ref == 'refs/heads/release/android-profile-videos-40'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create android-build40 Clipi-Android-40.apk --target "$GITHUB_SHA" --title "Clipi Android 40" --notes "Profile video galleries and author-only deletion." --prerelease
+        run: gh release create android-build41 Clipi-Android-41.apk --target "$GITHUB_SHA" --title "Clipi Android 41" --notes "Short-video settings over playback, room-scoped moderation, microphone and invitation controls, and localized interface messages." --prerelease

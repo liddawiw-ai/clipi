@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {Pressable,Text,View} from 'react-native';
 
@@ -15,7 +15,7 @@ export default function TrialWallet({request,nonce,gifts,Game}){
   async function refresh(){
     try{const data=await request('/account-number',{op:'trialRead'});
       if(alive.current){setWallet(data);setIssue('');return data;}}
-    catch(e){if(alive.current)setIssue(e.message);}
+    catch(e){if(alive.current)setIssue(uiError(e));}
   }
   useEffect(()=>{alive.current=true;void refresh().then(w=>{if(alive.current&&w?.owner!=null)setBucket('owner');});return ()=>{alive.current=false;};},[]);
   async function apply(op,params,message){
@@ -28,7 +28,7 @@ export default function TrialWallet({request,nonce,gifts,Game}){
       pending.current=null;
       if(alive.current){setWallet(data);setIssue('');setReceipt(message);}
       return true;
-    }catch(e){if(alive.current)setIssue(e.message);return false;}finally{busy.current=false;}
+    }catch(e){if(alive.current)setIssue(uiError(e));return false;}finally{busy.current=false;}
   }
   const info=t=><Text style={{textAlign:'right',color:'#E0E6ED',fontSize:15}}>{appText(t)}</Text>;
   return <View style={{marginTop:12,gap:6,borderRadius:14,backgroundColor:'#17233B',padding:16}}>

@@ -1,4 +1,4 @@
-import {setInterfaceLanguage} from './interface-language.mjs';
+import {uiError,setInterfaceLanguage} from './interface-language.mjs';
 import {ui as appText,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
 import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
 import RoomHostCard,{useRoomHost} from './RoomHostCard';
@@ -546,7 +546,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const fx=effects[0];
   function finishGift(){setEffects(queue=>queue.slice(1))}
   const entrance=useRoomEntrances(minimized,blocked);
-  const membership=useRoomSession(room.id,isHost?(room.ownerName||username):username,equipped,entrance.add,reason=>{if(closingByHostRef.current){exitRoomOnce();return;}if(exitHandledRef.current)return;Alert.alert(appText('الغرفة'),reason);exitRoomOnce()},avatar);
+  const membership=useRoomSession(room.id,isHost?(room.ownerName||username):username,equipped,entrance.add,reason=>{if(closingByHostRef.current){exitRoomOnce();return;}if(exitHandledRef.current)return;Alert.alert(appText('الغرفة'),uiError(reason));exitRoomOnce()},avatar);
   useEffect(()=>{
     const events=membership.state?.giftEvents;
     if(!Array.isArray(events))return;
@@ -578,7 +578,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const broadcast=broadcastWords(locale);
   const requests=people.filter(p=>p.waiting&&!blocked.includes(p.uid));
   const requested=self?.waiting;
-  const act=(op,extra)=>membership.act(op,extra).catch(e=>Alert.alert(appText('الغرفة'),e.message));
+  const act=(op,extra)=>membership.act(op,extra).catch(e=>Alert.alert(appText('الغرفة'),uiError(e)));
   const [seatMenu,setSeatMenu]=useState(null);
   const roomSurface=useRef(null);
   const menuRequest=useRef(0);
@@ -595,7 +595,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     try{
       await membership.act('settings',settings);
       if(close){setPin('');closeRoomMenu()}
-    }catch(error){Alert.alert(appText("الغرفة"),error.message)}
+    }catch(error){Alert.alert(appText("الغرفة"),uiError(error))}
     finally{roomActionLock.current=false;setRoomActionPending(false)}
   }
   function openGifts(uid){
@@ -674,7 +674,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     }else if(!uid&&!menuLocked&&!onStage&&!isHost){
       options.push({text:requested?appText('إلغاء الطلب'):broadcast.ask,onPress:()=>act(requested?'cancel':'request',{slot,permissionOnly:true})});
     }
-    if(uid===userId&&(uid!==room.ownerUid||membership.state.appStaff)){
+    if(uid===userId){
       options.push({text:seatMenu.micOn?appText('كتم'):appText('تشغيل المايك'),disabled:!!self?.muted,onPress:seatMenu.toggleMic},
         {text:appText('إنزال'),onPress:()=>act('stepDown')});
     }else if(uid&&uid!==userId&&canModerate(uid)){
@@ -738,14 +738,14 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     try{
       const result=await supportRequest('caseCreate',{...report,detail:reason});
       setReport(null);Alert.alert(appText('تم إرسال البلاغ'),appText('رقم الطلب')+' · '+result.id);
-    }catch(error){Alert.alert(appText('تعذر الإبلاغ'),error.message)}
+    }catch(error){Alert.alert(appText('تعذر الإبلاغ'),uiError(error))}
     finally{submittingReport.current=false}
   }
   async function blockUser(uid){
     try{
       await firestore().collection('users').doc(userId).collection('blocked').doc(uid).set({createdAt:firestore.FieldValue.serverTimestamp()});
       Alert.alert(appText('تم الحظر'));
-    }catch(error){Alert.alert(appText('تعذر الحظر'),error.message)}
+    }catch(error){Alert.alert(appText('تعذر الحظر'),uiError(error))}
   }
   function moderateMessage(m){
     if(!m?.id||!userId)return;
@@ -758,7 +758,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     if(own||isHost||(!m.legacy&&canModerate(m.userUid)))options.push({text:appText('حذف الرسالة'),onPress:()=>Alert.alert(appText('حذف الرسالة'),appText('هل تريد حذف هذه الرسالة للجميع؟'),[
       {text:appText('إلغاء'),style:'cancel'},{text:appText('حذف'),style:'destructive',onPress:async()=>{
         try{if(m.legacy)await roomRef.collection('messages').doc(m.id).delete();else await membership.act('deleteMessage',{id:m.id})}
-        catch(e){Alert.alert(appText('تعذر حذف الرسالة'),e.message)}
+        catch(e){Alert.alert(appText('تعذر حذف الرسالة'),uiError(e))}
       }}])});
     if(m.userUid&&!own){
       options.push({text:appText('إبلاغ'),onPress:()=>startReport('message',JSON.stringify([room.id,m.userUid,String(m.id)]))});
@@ -783,7 +783,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
       // Do not erase edits typed while the network request was in flight.
       setMessage(current=>current.trim()===text?'':current);
       setTimeout(()=>chatRef.current?.scrollToEnd?.({animated:true}),40);
-    }catch(e){Alert.alert(appText('تعذر إرسال الرسالة'),e.message)}
+    }catch(e){Alert.alert(appText('تعذر إرسال الرسالة'),uiError(e))}
     finally{sendingRef.current=false;setSending(false)}
   }
   async function closeHostedRoom(){
@@ -795,7 +795,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
           if(MEDIA_CONFIGURED)void mediaRequest('/close-room',{roomId:room.id,session:membership.session}).catch(()=>Alert.alert(appText('تعذر إنهاء بث الغرفة على الخادم')));
       setRoomMenu(null);
       exitRoomOnce();
-    }catch(e){closingByHostRef.current=false;Alert.alert(appText('تعذر إغلاق الغرفة'),e.message)}
+    }catch(e){closingByHostRef.current=false;Alert.alert(appText('تعذر إغلاق الغرفة'),uiError(e))}
     finally{setClosingRoom(false)}
   }
   function confirmCloseHostedRoom(){
@@ -812,7 +812,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   }
   function goBackFromRoomMenu(){
     if(roomMenu==='terms'||roomMenu==='privacy')setRoomMenu(policyOrigin);
-    else if(roomMenu==='themes'||roomMenu==='filter'||roomMenu==='people'||roomMenu==='friends')setRoomMenu('settings');
+    else if(roomMenu==='themes'||roomMenu==='filter'||roomMenu==='people'||roomMenu==='friends'||roomMenu==='admins')setRoomMenu('settings');
     else closeRoomMenu();
   }
   const roomSettings=<Modal visible={roomMenu!==null&&!minimized} transparent animationType="fade" onRequestClose={goBackFromRoomMenu}>
@@ -822,8 +822,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={closeRoomMenu}/>
       <KeyboardAvoidingView style={S.roomMenuPanel} behavior={Platform.OS==='ios'?'padding':undefined}>
         <View style={S.hostSettingsHeading}>
-          <Text style={S.title}>{roomMenu==='friends'?broadcast.invite:roomMenu==='filter'?appText('الكلمات المحظورة'):roomMenu==='people'?appText('المشاركون'):roomMenu==='themes'?appText('ثيمات الغرفة'):appText('إعدادات الغرفة')}</Text>
-          <WindowControl icon={['themes','filter','people','friends'].includes(roomMenu)?'‹':'×'} label={['themes','filter','people','friends'].includes(roomMenu)?appText("رجوع"):appText("إغلاق")} onPress={goBackFromRoomMenu}/>
+          <Text style={S.title}>{roomMenu==='admins'?appText('أدمن الغرفة'):roomMenu==='friends'?broadcast.invite:roomMenu==='filter'?appText('الكلمات المحظورة'):roomMenu==='people'?appText('المشاركون'):roomMenu==='themes'?appText('ثيمات الغرفة'):appText('إعدادات الغرفة')}</Text>
+          <WindowControl icon={['themes','filter','people','friends','admins'].includes(roomMenu)?'‹':'×'} label={['themes','filter','people','friends','admins'].includes(roomMenu)?appText("رجوع"):appText("إغلاق")} onPress={goBackFromRoomMenu}/>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
           {roomMenu==='admins'&&canApprove?<RoomAdmins act={membership.act}/>:roomMenu==='friends'&&canApprove?<FriendPicker act={membership.act} locale={locale}/>:roomMenu==='filter'&&canApprove?<>
@@ -844,7 +844,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
               <RoomOption key={theme} title={(membership.state?.theme===theme?'✓ ':'')+label} onPress={()=>act('settings',{theme})}/>)}
             <RoomOption title={appText("اختيار خلفية من الاستوديو")} onPress={async()=>{
               try{const image=await choosePhoto(1000);if(image)await membership.act('settings',{theme:'upload',image})}
-              catch(e){Alert.alert(appText('ثيم الغرفة'),e.message)}
+              catch(e){Alert.alert(appText('ثيم الغرفة'),uiError(e))}
             }}/>
           </>:<>
             <RoomOption title={appText("مشاركة الغرفة")} onPress={()=>{
@@ -992,7 +992,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText("إرسال التعليق")}
             style={[S.sendButton,(sending||!message.trim())&&{opacity:.5}]}
             disabled={sending||!message.trim()} onPress={sendMessage}><Text style={S.white}>➤</Text></TouchableOpacity>
-          {audio&&!isHost&&!onStage&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={requested?appText('إلغاء طلب المايك'):appText('طلب مايك')} accessibilityState={{selected:!!requested}} style={S.joinButton} onPress={()=>act(requested?'cancel':'request')}><Text style={[S.white,requested&&{color:GOLD}]}>Join</Text></TouchableOpacity>}
+          {audio&&!isHost&&!onStage&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={requested?appText('إلغاء طلب المايك'):appText('طلب مايك')} accessibilityState={{selected:!!requested}} style={S.joinButton} onPress={()=>act(requested?'cancel':'request')}><Text style={[S.white,requested&&{color:GOLD}]}>{requested?appText('إلغاء الطلب'):appText('طلب مايك')}</Text></TouchableOpacity>}
 
         </View>
         {!keyboardOn&&<>
@@ -1126,8 +1126,8 @@ export default function App(){
     if(!res.ok)throw Error(appText(data.error)||appText('تعذر فتح متجر الأرقام'));
     if(auth().currentUser?.uid===who.uid){setIdentity({...data,uid:who.uid});setNumberError('')}
   }
-  useEffect(()=>{if(user?.uid)numbers().catch(e=>setNumberError(e.message));else setIdentity(null)},[user?.uid,page]);
-  const numberAction=(op,n)=>numbers(op,n).catch(e=>Alert.alert(appText('أرقام كليبي'),e.message));
+  useEffect(()=>{if(user?.uid)numbers().catch(e=>setNumberError(uiError(e)));else setIdentity(null)},[user?.uid,page]);
+  const numberAction=(op,n)=>numbers(op,n).catch(e=>Alert.alert(appText('أرقام كليبي'),uiError(e)));
 
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
   const [loginMethod,setLoginMethod]=useState('email');
@@ -1155,7 +1155,7 @@ export default function App(){
       });
       if(auth().currentUser?.uid===account.uid){selectedEmoji.current=null;setAvatar(photo)}
     }catch(error){
-      if(auth().currentUser?.uid===account.uid)Alert.alert(appText("الصورة"),error.message);
+      if(auth().currentUser?.uid===account.uid)Alert.alert(appText("الصورة"),uiError(error));
     }finally{pickingPhoto.current=false}
   }
   const profileSetupRef=useRef(false);
@@ -1293,7 +1293,7 @@ export default function App(){
         if(!response.ok)throw Error(appText('تعذر التحقق من الغرف المفتوحة'));
         const data=await response.json();
         if(mounted){live=new Set(data.rooms);display();setRoomError('')}
-      }catch(e){if(mounted){live.clear();display();setRoomError(e.message)}}
+      }catch(e){if(mounted){live.clear();display();setRoomError(uiError(e))}}
       finally{pending=false}
     }
     void refresh();
@@ -1316,7 +1316,7 @@ export default function App(){
     try{
       await firestore().collection('users').doc(user.uid).collection('blocked').doc(uid).delete();
       Alert.alert(appText('تم'),appText('أزلنا هذا الحساب من قائمة الحظر لديك'));
-    }catch(error){Alert.alert(appText('تعذر إلغاء الحظر'),error.message)}
+    }catch(error){Alert.alert(appText('تعذر إلغاء الحظر'),uiError(error))}
   }
   function deleteAccount(){go('deleteAccount')}
   async function saveProfile(u,label,editing=false){
@@ -1376,7 +1376,7 @@ export default function App(){
       };
       const message=messages[error?.code]||(resetting?'تعذر إرسال رابط الاستعادة. حاول مجددًا.':creating?'تعذر إنشاء الحساب. تحقق من البيانات وحاول مجددًا.':'تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');
       setAuthError(message);
-      Alert.alert(appText('الدخول بالبريد'),message);
+      Alert.alert(appText('الدخول بالبريد'),uiError(message));
     }finally{
       profileSetupRef.current=false;
       setPassword('');
@@ -1406,7 +1406,7 @@ export default function App(){
     Keyboard.dismiss();
     setBusy(true);setAuthError('');
     try{const c=await auth().signInWithPhoneNumber(COUNTRIES[country][1]+local);setConfirmation(c);setSmsCode('');go('verify')}
-    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('تعذر إرسال SMS'),message)}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('تعذر إرسال SMS'),uiError(message))}
     finally{setBusy(false)}
   }
   async function verifySms(){
@@ -1421,7 +1421,7 @@ export default function App(){
       catch(e){console.warn('Profile save failed:',e.message);Alert.alert(appText('تعذر حفظ الملف الشخصي'),appText('تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.'));}
       setUser(credential.user);setConfirmation(null);go('home');
     }
-    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('فشل التحقق'),message)}
+    catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('فشل التحقق'),uiError(message))}
     finally{profileSetupRef.current=false;setBusy(false)}
   }
   async function googleLogin(){
@@ -1441,7 +1441,7 @@ export default function App(){
       catch(profileError){console.warn('Google profile sync:',profileError.message)}
       setUser(signed.user);go('home');
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
-      const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(detail);Alert.alert(appText('فشل تسجيل Google'),detail)
+      const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Google'),uiError(detail))
     }}finally{setBusy(false)}
   }
   async function facebookLogin(){
@@ -1472,13 +1472,13 @@ export default function App(){
       catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
       setUser(signed.user);go('home');
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
-      const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(detail);Alert.alert(appText('فشل تسجيل Facebook'),detail)
+      const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Facebook'),uiError(detail))
     }}
     finally{setBusy(false)}
   }
   async function logout(){
     try{await auth().signOut();try{await GoogleSignin.signOut()}catch(_e){}if(FACEBOOK_CONFIGURED){try{require('react-native-fbsdk-next').LoginManager.logOut()}catch(_e){}}setOwnerDemo(false);setOwnerGranted(false);setBalance({welcome:WELCOME,purchased:0,owner:0});setPayoutDrafts([]);setSupportLog([]);setReceived(0);setSpent(0);go('login')}
-    catch(e){Alert.alert(appText('تعذر الخروج'),e.message)}
+    catch(e){Alert.alert(appText('تعذر الخروج'),uiError(e))}
   }
   function toggleOwnerDemo(){
     if(!__DEV__){Alert.alert(appText('غير متاح'),appText('معاينة المالك متاحة في وضع التطوير فقط'));return;}
@@ -1515,7 +1515,7 @@ export default function App(){
       const data={name:label,type:kind,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
       const doc=await firestore().collection('rooms').add(data);
       setInviteRoomId(inviteAll?doc.id:null);setInviteAll(false);setBroadcastName('');enterRoom({id:doc.id,...data,host,owner:user.uid});
-    }catch(e){Alert.alert(appText('تعذر إنشاء الغرفة'),e.message)}finally{creatingRoom.current=false;setBusy(false)}
+    }catch(e){Alert.alert(appText('تعذر إنشاء الغرفة'),uiError(e))}finally{creatingRoom.current=false;setBusy(false)}
   }
   function openHostProfile(uid,hostName,photo){
     setRoomProfileUid(uid);setMini(true);
@@ -1535,7 +1535,7 @@ export default function App(){
       {text:appText('إغلاق'),style:'destructive',onPress:async()=>{
         try{await firestore().collection('rooms').doc(room.id).update({status:'closed'});
           if(MEDIA_CONFIGURED)void mediaRequest('/close-room',{roomId:room.id}).catch(()=>Alert.alert(appText('تعذر إنهاء بث الغرفة على الخادم')));if(activeRoom?.id===room.id){setActiveRoom(null);go('rooms')}}
-        catch(e){Alert.alert(appText('تعذر الإغلاق'),e.message)}
+        catch(e){Alert.alert(appText('تعذر الإغلاق'),uiError(e))}
       }}]);
   }
   function buyGood(g){if(inventory.includes(g[1]))return Alert.alert(appText('مملوكة'));if(!spend(g[2]))return Alert.alert(appText('رصيد غير كافٍ'));setInventory(v=>[...v,g[1]])}
@@ -1596,7 +1596,7 @@ export default function App(){
     playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
   };
-  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>ID: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
+  const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{equipped.frame}</Text><Text style={S.white}>{equipped.ride}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
 
   function renderPage(){
   if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
@@ -1626,7 +1626,7 @@ export default function App(){
           onPress={()=>{setEmailMode('reset');setPassword('');setAuthError('');}}/>}
       </>:<Btn title={busy?appText('جارٍ العمل...'):appText('📱 تسجيل بالهاتف (SMS)')} disabled={busy} onPress={phoneLogin}/>}
       <Btn title={GOOGLE_WEB_CLIENT_ID?appText("🌐 متابعة باستخدام Google"):appText("🌐 Google · يحتاج إعدادًا")} color={ORANGE} disabled={busy||!GOOGLE_WEB_CLIENT_ID} onPress={googleLogin}/><Btn title={FACEBOOK_CONFIGURED?appText("📘 متابعة باستخدام Facebook"):appText("📘 Facebook · يحتاج إعدادًا")} color={ORANGE} disabled={busy||!FACEBOOK_CONFIGURED} onPress={facebookLogin}/>
-      {authError?<Text style={{color:theme.danger}}>{appText(authError)}</Text>:null}
+      {authError?<Text style={{color:theme.danger}}>{uiError(authError)}</Text>:null}
     </>}
   </View></ScrollView></View>;
   if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
@@ -1710,7 +1710,7 @@ export default function App(){
       </TouchableOpacity>)}
     </View>
     {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder={appText("اسم الدولة")} value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
-    <Text style={S.muted}>{appText("البلد المختار: ")}{payoutCountryInfo[1]}{appText(" · العملة المرجعية: ")}{payoutCountryInfo[2]}{appText(" (دون احتساب صرف فعلي)")}</Text>
+    <Text style={S.muted}>{appText("البلد المختار: ")}{appText(payoutCountryInfo[1])}{appText(" · العملة المرجعية: ")}{payoutCountryInfo[2]}{appText(" (دون احتساب صرف فعلي)")}</Text>
     <Text style={S.label}>{appText("طريقة الاستلام")}</Text>
     <View style={S.row}>
       <Btn title={appText("📱 محفظة هاتف")} color={payoutMethod==='wallet'?PINK:theme.sea} onPress={()=>setPayoutMethod('wallet')}/>
@@ -1805,7 +1805,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
+  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),uiError(e))}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
   if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>

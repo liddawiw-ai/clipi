@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,StyleSheet,Switch,Text,TouchableOpacity,View} from 'react-native';
 import {theme} from './ClipiTheme';
@@ -104,7 +104,7 @@ export function FriendPicker({act,locale}){
     try{
       const data=await request.current('inviteChoices',{after:cursor||''});
       if(mounted.current){setRows(prev=>cursor?[...prev,...data.friends]:data.friends);setNext(data.next);setLoaded(true)}
-    }catch(e){if(mounted.current)setError(e.message)}
+    }catch(e){if(mounted.current)setError(uiError(e))}
     finally{lock.current=false;if(mounted.current)setBusy(false)}
   }
   useEffect(()=>{mounted.current=true;load(null);return ()=>{mounted.current=false}},[]);
@@ -117,7 +117,7 @@ export function FriendPicker({act,locale}){
         const sent=new Set(result.invited);
         setRows(list=>list.map(p=>sent.has(p.uid)?{...p,invited:true}:p));setSelected([]);
       }
-    }catch(e){if(mounted.current)setError(e.message)}
+    }catch(e){if(mounted.current)setError(uiError(e))}
     finally{lock.current=false;if(mounted.current)setBusy(false)}
   }
   return <View>{loaded&&!rows.length&&<Text style={s.text}>{copy.empty}</Text>}
@@ -151,7 +151,7 @@ export function InviteInbox({request,onJoin,locale,blocked,roomId}){
       await request('/account-number',{op:'dismissRoomInvite',room:current.room});
       handled.current.add(current.room);
       if(mounted.current)setItems(list=>list.filter(i=>i.room!==current.room));
-    }catch(e){if(mounted.current)setError(e.message)}
+    }catch(e){if(mounted.current)setError(uiError(e))}
     finally{lock.current=false;if(mounted.current)setBusy(false)}
   }
   if(!current)return null;
