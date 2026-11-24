@@ -1,7 +1,8 @@
+import {isAppOwner} from './app-owners.mjs';
 const kinds=['video','room','participant','message','purchase','deletion'];
 const uuid=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 export async function supportCase(q,uid,owner,input,json){
-  const staff=Boolean(owner&&uid===owner);
+  const staff=await isAppOwner(q,uid,owner);
   if(input.op==='caseQueue'||input.op==='caseReviewed'){
     if(!staff)return json({error:'غير مصرح'},403);
     if(input.op==='caseReviewed'){

@@ -1,3 +1,4 @@
+import {isAppOwner} from './app-owners.mjs';
 export const diamondsPerPi=1000;
 export const packs=[1000,2000,4000,8000,16000,32000,64000,100000];
 export const packPrice=n=>n/diamondsPerPi;
@@ -23,7 +24,8 @@ export async function readWallet(q,uid,ownerUid){
   const history=await q(`SELECT nonce AS receipt,gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
   const purchases=await q('SELECT p.payment,p.diamonds,COALESCE(r.diamonds,0) AS reversed FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE p.uid=? ORDER BY p.rowid DESC LIMIT 30',uid).all();
   const pending=await q('SELECT c.payment FROM diamond_checkout c LEFT JOIN diamond_purchase p ON p.payment=c.payment WHERE c.uid=? AND p.payment IS NULL ORDER BY c.rowid DESC LIMIT 30',uid).all();
-  const ownerBox=ownerUid&&uid===ownerUid?await q(`SELECT
+  const owner=await isAppOwner(q,uid,ownerUid);
+  const ownerBox=owner?await q(`SELECT
     (SELECT COALESCE(SUM(diamonds),0) FROM diamond_purchase) AS sold,
     (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift) AS gifted`).first():null;
   return {...totals,...(ownerBox?{ownerBox}:{}),rewardPi:5*Math.floor(totals.collected/10000),progress:totals.collected%10000,history:history.results,purchases:purchases.results,pending:pending.results};

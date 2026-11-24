@@ -1,3 +1,4 @@
+import {isAppOwner} from './app-owners.mjs';
 export const agencySchema = [
   `CREATE TABLE IF NOT EXISTS clipi_agency(
      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, area TEXT NOT NULL DEFAULT '',
@@ -25,7 +26,7 @@ const fields=['name','area','audio','live'];
 const currentMonth=()=>new Date().toISOString().slice(0,7);
 const numberFor='COALESCE((SELECT number FROM selected_number WHERE uid=m.uid),(SELECT number FROM public_numbers WHERE uid=m.uid AND cost=0))';
 export async function agencyAccount(q,uid,ownerUid,input,json){
-  const owner=Boolean(ownerUid&&uid===ownerUid);
+  const owner=await isAppOwner(q,uid,ownerUid);
   const fail=(reason,status=400)=>json({error:reason},status);
   const {op}=input;
   if(op==='agencyList'){
