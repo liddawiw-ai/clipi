@@ -2,6 +2,9 @@
 const fbId = process.env.EXPO_PUBLIC_FACEBOOK_APP_ID;
 const fbToken = process.env.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN;
 const androidPackage = 'com.walid.clipi';
+const easProjectId = '8b7b92e2-ebd2-48a4-a617-16b83bc83449';
+const androidUpdateChannel = process.env.CLIPI_DISTRIBUTION === 'internal' ||
+  ['preview', 'development'].includes(process.env.EAS_BUILD_PROFILE) ? 'preview' : 'production';
 const firebase = require('./google-services.json');
 const googleWebClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID?.trim() ||
   firebase.client.find(client => client.client_info.android_client_info.package_name === androidPackage)
@@ -36,6 +39,10 @@ if (fbId && fbToken) {
 module.exports = {
   expo: {
     name: 'Clipi', slug: 'clipi2', version: '1.1.0',
+    updates: {
+      url: `https://u.expo.dev/${easProjectId}`,
+      requestHeaders: {'expo-channel-name': androidUpdateChannel}
+    },
     orientation: 'portrait', scheme: 'clipi', icon: './assets/clipi-icon.png',
     userInterfaceStyle: 'light', newArchEnabled: true,
     ios: {
@@ -48,10 +55,11 @@ module.exports = {
     android: {
       package: androidPackage,
       versionCode: 40,
+      runtimeVersion: {policy: 'nativeVersion'},
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
     },
-    extra: {internalIosCheckout: ['development','preview'].includes(process.env.EAS_BUILD_PROFILE) || process.env.CLIPI_DISTRIBUTION === 'internal', directCheckout: process.env.EAS_BUILD_PROFILE !== 'production' && process.env.CLIPI_DISTRIBUTION !== 'store', googleWebClientId, eas: {projectId:'8b7b92e2-ebd2-48a4-a617-16b83bc83449'}},
+    extra: {internalIosCheckout: ['development','preview'].includes(process.env.EAS_BUILD_PROFILE) || process.env.CLIPI_DISTRIBUTION === 'internal', directCheckout: process.env.EAS_BUILD_PROFILE !== 'production' && process.env.CLIPI_DISTRIBUTION !== 'store', googleWebClientId, eas: {projectId:easProjectId}},
     plugins
   }
 };
