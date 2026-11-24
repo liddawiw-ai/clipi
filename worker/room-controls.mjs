@@ -1,3 +1,4 @@
+import {roomHistorySchema,rootFor,roomDiamonds,roomSupporters} from './room-history.mjs';
 import {appOwnerSchema} from './app-owners.mjs';
 import {tableSchema} from './profile-tables.mjs';
 import {trialSchema} from './trial-diamonds.mjs';
@@ -46,6 +47,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_host(room TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_lock(room TEXT,slot INTEGER,PRIMARY KEY(room,slot))',
   ...walletSchema,
+  ...roomHistorySchema,
   ...agencySchema,
   ...trialSchema,
   ...shortSchema,
@@ -107,7 +109,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
       const bucket=Math.floor(now/600);
       const attempt=await q('INSERT INTO room_attempt VALUES(?,?,?,1) ON CONFLICT(room,uid) DO UPDATE SET hits=CASE WHEN bucket=excluded.bucket THEN hits+1 ELSE 1 END,bucket=excluded.bucket RETURNING hits',room,user,bucket).first();
       if(attempt.hits>5)return json({error:'محاولات كثيرة. حاول بعد عشر دقائق',pinRequired:true},429);
-      if(await pinHash(env.LIVEKIT_API_SECRET,room,input.pin)!==policy.pin)return json({error:'رمز الغرفة غير صحيح',pinRequired:true},403);
+      if(await pinHash(env.LIVEKIT_API_SECRET,await rootFor(q,room),input.pin)!==policy.pin)return json({error:'رمز الغرفة غير صحيح',pinRequired:true},403);
       await q('UPDATE room_attempt SET hits=hits-1 WHERE room=? AND uid=? AND bucket=? AND hits>0',room,user,bucket).run();
     }
     const ride=input.ride===true?1:Number.isInteger(input.ride)&&[0,1,2,3,4,6].includes(input.ride)?input.ride:0;
@@ -130,7 +132,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     await q('INSERT OR REPLACE INTO gift_avatar VALUES(?,?)',user,input.avatar).run();
   }
   if(op==='hostCard'){
-    if(type!=='audio'||!ownerUid)return json({error:'بطاقة المضيف متاحة في الغرفة الصوتية'},400);
+    if(!ownerUid)return json({error:'بطاقة المضيف متاحة في الغرفة الصوتية'},400);
     const result={};
     if(input.includeAvatar===true){
       const photo=await q(`SELECT COALESCE(
@@ -138,11 +140,17 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
         (SELECT avatar FROM short_profile WHERE uid=?),'') AS avatar`,ownerUid,ownerUid).first();
       result.avatar=photo.avatar;
     }
-    if(input.details===true){
-      result.totals=await q(`SELECT
-        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE room=?) AS room,
+    if(input.profileName===true)result.profileName=(await q('SELECT name FROM short_profile WHERE uid=?',ownerUid).first())?.name||null;
+    if(input.roomTotal===true || input.details===true){
+      const total=await roomDiamonds(q,await rootFor(q,room));
+      if(input.roomTotal===true)result.roomTotal=total;
+      if(input.details===true)result.totals={room:total,...await q(`SELECT
         (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE recipient=?) AS received,
-        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE sender=?) AS sent`,room,ownerUid,ownerUid).first();
+        (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE sender=?) AS sent`,ownerUid,ownerUid).first()};
+    }
+    if(input.supporters===true){
+      if(input.after!==undefined&&(typeof input.after!=='string'||input.after.length>128))return json({error:'طلب غير صالح'},400);
+      result.supporters=await roomSupporters(q,await rootFor(q,room),input.after);
     }
     return json(result);
   }
@@ -216,7 +224,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     }
     if(input.pin!==undefined){
       if(input.pin!==''&&!/^\d{4}$/.test(input.pin))return json({error:'أدخل أربعة أرقام'},400);
-      await q('INSERT INTO room_policy(room,pin) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET pin=excluded.pin',room,input.pin?await pinHash(env.LIVEKIT_API_SECRET,room,input.pin):'').run();
+      await q('INSERT INTO room_policy(room,pin) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET pin=excluded.pin',room,input.pin?await pinHash(env.LIVEKIT_API_SECRET,await rootFor(q,room),input.pin):'').run();
     }
     if(typeof input.locked==='boolean'){
       const save=q('INSERT INTO room_policy(room,locked) VALUES(?,?) ON CONFLICT(room) DO UPDATE SET locked=excluded.locked',room,Number(input.locked));

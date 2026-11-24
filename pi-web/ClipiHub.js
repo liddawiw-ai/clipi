@@ -1,3 +1,4 @@
+import {HostLevels} from './RoomHostCard';
 import {theme} from './ClipiTheme';
 import {FeedIcon} from './FeedControls';
 import GoldFrame from './GoldFrame';
@@ -32,7 +33,7 @@ export function HubScreen({title, action, children, dock}) {
   </View>;
 }
 
-export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+export function RoomDiscovery({hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
     <View accessibilityRole="tablist" style={s.filters}>
@@ -41,6 +42,7 @@ export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, sea
         <Text style={[s.filterLabel,filter===id&&s.active]}>{title}</Text>
       </TouchableOpacity>)}
     </View>
+    {hostField}
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={copy.create} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
       <Image accessible={false} resizeMode="cover" style={s.heroImage} source={require('./assets/live-studio.jpg')}/>
       <View style={s.heroBody}>
@@ -131,6 +133,7 @@ function SocialAccountCard({socialProfile,labels,...identity}){
       accessibilityLabel={labels[key]+' '+(state?.[key]??'…')} style={s.socialCount}>
       <Text style={s.socialValue}>{state?.[key]??'…'}</Text><Text style={s.socialLabel}>{labels[key]}</Text>
     </View>)}</View>
+    <HostLevels key={owner} owner={owner} request={request} locale={socialProfile.locale} initialOpen={socialProfile.fromRoom}/>
     {!!error&&<View><Text accessibilityRole="alert" style={s.socialLabel}>{error}</Text>
       <TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(n=>n+1)} style={s.followAction}><Text style={s.followText}>{labels.retry}</Text></TouchableOpacity>
     </View>}

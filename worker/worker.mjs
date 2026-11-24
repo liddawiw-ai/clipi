@@ -1,3 +1,4 @@
+import {reserveBroadcast,rootFor} from './room-history.mjs';
 export {ClipiVideo} from './video-storage.mjs';
 import {starterVideo} from './video-storage.mjs';
 import {profileTables} from './profile-tables.mjs';
@@ -76,6 +77,18 @@ export default {
       if(!uid)return json({error:'سجل الدخول'},401);
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
+      if(input?.op==='hostLevels'){
+        const owner=input.owner??uid;
+        if(typeof owner!=='string'||!owner||owner.length>128)return json({error:'الحساب غير صالح'},400);
+        const q=await roomStore(env.PI_GIFTS_DB);
+        return json(await q(`SELECT
+          (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE recipient=?) AS received,
+          (SELECT COALESCE(SUM(cost),0) FROM room_level_gifts WHERE sender=?) AS sent`,owner,owner).first());
+      }
+      if(input?.op==='myRoomContinuations'){
+        const q=await roomStore(env.PI_GIFTS_DB);
+        return json({links:(await q('SELECT previous,session FROM room_continuation WHERE owner=?',uid).all()).results});
+      }
       if(typeof input?.op==='string'&&input.op.startsWith('table'))return profileTables(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('trial'))return trialAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
@@ -165,6 +178,18 @@ export default {
       const { fields } = await roomResponse.json();
       const type = fields?.type?.stringValue;
       const status = fields?.status?.stringValue;
+      if(path==='/room-control'&&env.PI_GIFTS_NETWORK==='mainnet'&&['resumeBroadcast','currentBroadcast'].includes(input.op)){
+        if(!['audio','video'].includes(type)||status!=='closed')return json({error:'الغرفة ليست مغلقة'},409);
+        const q=await roomStore(env.PI_GIFTS_DB);
+        const owner=fields.ownerUid?.stringValue;
+        if(input.op==='resumeBroadcast'){
+          if(!owner||owner!==claims.sub)return json({error:'لصاحب الغرفة فقط'},403);
+          return json({session:await reserveBroadcast(q,roomId,owner)});
+        }
+        const root=await rootFor(q,roomId);
+        const next=await q('SELECT c.session FROM room_continuation c JOIN room_host h ON h.room=c.session AND h.uid=c.owner WHERE c.owner=? AND c.root=? ORDER BY c.rowid DESC LIMIT 1',owner,root).first();
+        return json({session:next?.session||null});
+      }
       if (!['audio', 'video'].includes(type) || status !== (path === '/close-room' ? 'closed' : 'open')) {
         return json({ error: 'Room unavailable' }, 404);
       }
