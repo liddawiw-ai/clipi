@@ -113,17 +113,17 @@ function SupporterList({act,lastGiftId,menu,onClose}){
   </Modal>;
 }
 
-export default function RoomHostCard({hostName,portrait,total,locale,act,lastGiftId,onProfile}){
+export default function RoomHostCard({hostName,portrait,total,locale,act,lastGiftId,onProfile,textStyle}){
   const menu=accountLabels[locale]||accountLabels.en;
   const [open,setOpen]=useState(false);
   const count=Number.isSafeInteger(total)?total.toLocaleString(locale):'…';
   return <View style={s.roomHost}>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.hostCard.title+' · '+(hostName||'')} onPress={onProfile} style={s.portrait}>
       {portrait?.startsWith('data:image/')?<Image style={s.photo} source={{uri:portrait}}/>:
-        <Text style={s.initial}>{portrait||Array.from(hostName||'👤')[0]}</Text>}
+        <Text style={[s.initial,textStyle]}>{portrait||Array.from(hostName||'👤')[0]}</Text>}
     </TouchableOpacity>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.roomSupporters+' · '+count} onPress={()=>setOpen(true)} style={s.counter}>
-      <Text style={s.count}>{count} 💎</Text>
+      <Text style={[s.count,textStyle]}>{count} 💎</Text>
     </TouchableOpacity>
     {open&&<SupporterList act={act} lastGiftId={lastGiftId} menu={menu} onClose={()=>setOpen(false)}/>}
   </View>;

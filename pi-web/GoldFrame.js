@@ -3,6 +3,7 @@ import {StyleSheet, View} from 'react-native';
 import {theme} from './ClipiTheme';
 
 const palettes = {
+  audioRoom: ['#B4D3C1', '#85AD98', '#729C86', '#C6DECE'],
   mint: [theme.mint, '#ADDACA', '#83C4B2', '#DFF3DC'],
   apricot: [theme.peach, '#F4CDAD', '#E9BA9B', '#F8DBB6'],
   lilac: [theme.lilac, '#D5CFE9', '#BCB6D8', '#E5DDF0'],
