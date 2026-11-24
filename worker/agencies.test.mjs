@@ -43,5 +43,29 @@ test('agency directory, tenant permissions, monthly split snapshots and non-cash
   await call('agent','agencyMemberRemove',{id,number:'9000001'});await gift('third','room','host');
   assert.equal((await call(owner,'agencyDetail',{id})).totals.diamonds,4000);
   assert.equal((await call('host','agencyDetail',{id})).totals.host,115);
+  // Existing agencies can be removed by the configured or registered app owners.
+  await call('agent','agencyMemberAdd',{id,number:'9000001'});
+  await q('INSERT INTO clipi_app_owner(uid) VALUES(?)','second-owner').run();
+  const deletion={id,confirmedName:'A'};
+  assert.equal((await call('second-owner','agencyDetail',{id})).canDelete,true);
+  for(const uid of ['public','host','agent']){
+    assert.equal((await call(uid,'agencyDetail',{id})).canDelete,false);
+    assert.equal((await call(uid,'agencyDelete',deletion)).status,403);
+  }
+  assert.equal((await call(owner,'agencyDelete',{id})).status,400);
+  assert.equal((await call(owner,'agencyDelete',{id,confirmedName:'old name'})).status,409);
+  assert.equal((await call(owner,'agencyList')).agencies.length,2);
+  for(let i=0;i<2;i++)assert.equal((await call('second-owner','agencyDelete',deletion)).deleted,true);
+  assert.equal((await call(owner,'agencyDetail',{id})).status,404);
+  assert.deepEqual((await call(owner,'agencyList')).agencies.map(a=>a.id),[other.id]);
+  assert.equal((await q('SELECT COUNT(*) AS n FROM clipi_agency_member WHERE agency=?',id).first()).n,0);
+  await gift('after-deletion','room','host');
+  const history=await q('SELECT SUM(diamonds) AS diamonds FROM clipi_agency_statement WHERE agency=?',id).first();
+  assert.equal(history.diamonds,4000);
+  assert.equal((await call(owner,'agencyMemberAdd',{id:other.id,number:'9000001'})).status,200);
+  const replacement=await call(owner,'agencyCreate',{name:'A'});
+  assert.notEqual(replacement.id,id);
+  await call(owner,'agencyDelete',deletion);
+  assert.equal((await call(owner,'agencyDetail',{id:replacement.id})).status,200);
   sql.close();
 });

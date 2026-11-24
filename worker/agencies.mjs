@@ -12,6 +12,12 @@ export const agencySchema = [
     month TEXT NOT NULL, diamonds INTEGER NOT NULL, host_points2 INTEGER NOT NULL,
     agent_points2 INTEGER NOT NULL, platform_points2 INTEGER NOT NULL, PRIMARY KEY(sender,nonce))`,
   'CREATE INDEX IF NOT EXISTS agency_month ON clipi_agency_statement(agency,month,host)',
+  'CREATE TABLE IF NOT EXISTS clipi_agency_archive(id INTEGER PRIMARY KEY,name TEXT NOT NULL,agent TEXT NOT NULL)',
+  // Keep the agency identity for historical statements while releasing its roster in the same transaction.
+  `CREATE TRIGGER IF NOT EXISTS archive_deleted_agency AFTER DELETE ON clipi_agency BEGIN
+     INSERT INTO clipi_agency_archive(id,name,agent) VALUES(OLD.id,OLD.name,OLD.agent);
+     DELETE FROM clipi_agency_member WHERE agency=OLD.id;
+   END`,
   // Match the existing gift estimate in functions/index.js; nothing here credits a cash wallet.
   `CREATE TRIGGER IF NOT EXISTS snapshot_agency_support AFTER INSERT ON paid_room_gift
    WHEN NEW.host<>'' AND NEW.room NOT LIKE 'short/%' BEGIN
@@ -45,6 +51,16 @@ export async function agencyAccount(q,uid,ownerUid,input,json){
     if(!result)return fail('اسم الوكالة مستخدم',409);
     return json(result);
   }
+  if(op==='agencyDelete'){
+    if(!owner)return fail('حذف الوكالة متاح لمالك التطبيق فقط',403);
+    if(!Number.isSafeInteger(input.id)||input.id<1||typeof input.confirmedName!=='string'||!input.confirmedName.trim())return fail('أكّد اسم الوكالة قبل الحذف');
+    const changed=await q(`DELETE FROM clipi_agency WHERE id=? AND name=?
+      AND (?=? OR EXISTS(SELECT 1 FROM clipi_app_owner WHERE uid=?))`,input.id,input.confirmedName,uid,ownerUid??null,uid).run();
+    if(changed.meta.changes)return json({deleted:true});
+    const previous=await q('SELECT name FROM clipi_agency_archive WHERE id=?',input.id).first();
+    if(previous?.name===input.confirmedName)return json({deleted:true});
+    return fail('تغيّرت بيانات الوكالة. افتح قائمة الوكالات وراجع الاسم.',409);
+  }
   const agency=await q('SELECT * FROM clipi_agency WHERE id=?',Number(input.id)||0).first();
   if(!agency)return fail('الوكالة غير موجودة',404);
   const manage=owner||agency.agent===uid;
@@ -61,7 +77,7 @@ export async function agencyAccount(q,uid,ownerUid,input,json){
     const num=n=>Number(n)||0;
     const totals=hasReport?{diamonds:num(monthTotals.diamonds),host:num(monthTotals.host)/2,
       ...(manage?{agent:num(monthTotals.agent)/2,platform:num(monthTotals.platform)/2}:{})}:null;
-    return json({agency:info,canManage:manage,canSetRates:owner,roster:roster?.results,month,totals});
+    return json({agency:info,canManage:manage,canDelete:owner,canSetRates:owner,roster:roster?.results,month,totals});
   }
   if(!manage)return fail('إدارة هذه الوكالة تحتاج صلاحية',403);
   if(op==='agencyEdit'){
@@ -76,9 +92,10 @@ export async function agencyAccount(q,uid,ownerUid,input,json){
   const user=await findUser(input.number);
   if(!user)return fail('رقم حساب كليبي غير موجود',404);
   if(op==='agencyMemberAdd'){
-    await q('INSERT INTO clipi_agency_member(uid,agency) VALUES(?,?) ON CONFLICT(uid) DO NOTHING',user,agency.id).run();
+    await q('INSERT INTO clipi_agency_member(uid,agency) SELECT ?,id FROM clipi_agency WHERE id=? ON CONFLICT(uid) DO NOTHING',user,agency.id).run();
     const existing=await q('SELECT agency FROM clipi_agency_member WHERE uid=?',user).first();
-    if(existing?.agency!==agency.id)return fail('العضو مسجل في وكالة أخرى',409);
+    if(!existing)return fail('الوكالة أو العضوية لم تعد متاحة',404);
+    if(existing.agency!==agency.id)return fail('العضو مسجل في وكالة أخرى',409);
     return json({saved:true});
   }
   if(op==='agencyMemberRemove'){
