@@ -1030,6 +1030,7 @@ export default function App(){
   const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
   const [shortAuthor,setShortAuthor]=useState(null);
+  const [followRevision,setFollowRevision]=useState(0);
   const [initialShort,setInitialShort]=useState(()=>new URLSearchParams(location.hash.slice(1)).get('short'));
   const [user,setUser]=useState(null);
   const [identity,setIdentity]=useState(null),[numberError,setNumberError]=useState('');
@@ -1522,7 +1523,10 @@ export default function App(){
   }
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="dark-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
   const visibleNumber=identity?.uid===user?.uid?identity:null;
+  const onFollowChange=()=>setFollowRevision(n=>n+1);
+  const socialProfile=owner=>({request:mediaRequest,owner,viewer:user?.uid,followRevision,onFollowChange});
   const shortPlayerProps={
+    followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
     playable:!activeRoom,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('wallet'),
     onReport:id=>{setInitialShort(id);go('reportShort');}
@@ -1565,10 +1569,10 @@ export default function App(){
     <Btn title={words.create} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
     <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
-  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own)=>{
+  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
     if(own || uid===user.uid){go('profile');return;}
-    setShortAuthor({uid,name:authorName});go('shortAuthor');
+    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
   }} {...shortPlayerProps} translate={ui} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={()=>crypto.randomUUID()} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
@@ -1663,6 +1667,7 @@ export default function App(){
   </HubScreen>;
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
   if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:()=>go('home')}} dock={nav()}>
+    <AccountHub socialProfile={socialProfile(shortAuthor.uid)} name={shortAuthor.name} avatar={shortAuthor.avatar} copy={menu} photoLabel={shortAuthor.name}/>
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid} translate={ui}/>
   </HubScreen>;
   if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
@@ -1670,7 +1675,7 @@ export default function App(){
   if(page==='profile')return <HubScreen title={menu.account}
     action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
-      balance={visibleNumber?.purchasedDiamonds} copy={{balance:menu.balance,photo:ui('الصورة الشخصية')}}
+      socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
       shortcuts={[
         {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},

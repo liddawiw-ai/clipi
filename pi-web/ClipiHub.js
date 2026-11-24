@@ -1,7 +1,7 @@
 import {theme} from './ClipiTheme';
 import {FeedIcon} from './FeedControls';
 import GoldFrame from './GoldFrame';
-import React from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View} from 'react-native';
 
 const ink = theme.ink;
@@ -77,32 +77,79 @@ export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, sea
 }
 
 export function AccountPhoto({avatar,label,onPress}){
+  const image=avatar?.startsWith('data:image/')?<Image source={{uri:avatar}} style={s.avatar}/>
+    :<View style={s.avatar}><Text style={s.avatarIcon}>{avatar||'👤'}</Text></View>;
+  if(!onPress)return <View accessible accessibilityLabel={label} style={s.photoButton}>{image}</View>;
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.photoButton}>
-    {avatar?.startsWith('data:image/')?<Image source={{uri:avatar}} style={s.avatar}/>
-      :<View style={s.avatar}><Text style={s.avatarIcon}>{avatar||'👤'}</Text></View>}
-    <View pointerEvents="none" style={s.editBadge}><Text style={s.editGlyph}>✎</Text></View>
+    {image}<View pointerEvents="none" style={s.editBadge}><Text style={s.editGlyph}>✎</Text></View>
   </TouchableOpacity>;
 }
 
-export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, compactShortcuts = false, unit="💎"}) {
-  return <>
-    <View style={s.account}><GoldFrame tone="apricot"/>
-      <View style={s.identity}>
-        <AccountPhoto avatar={avatar} onPress={onPhoto} label={photoLabel||copy.photo}/>
-        <View style={{flex:1}}>
-          <Text style={s.profileName} numberOfLines={2}>{name}</Text>
-          <Text style={s.profileId}>ID · {number??'…'}</Text>
-        </View>
-      </View>
-      <View style={s.balance}>
-        <Text style={s.secondary}>{copy.balance}</Text>
-        <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
+function IdentityCard({name,avatar,number,onPhoto,photoLabel,followAction,children}){
+  return <View style={s.account}><GoldFrame tone="apricot"/>
+    <View style={s.identity}>
+      <View style={s.photoColumn}><AccountPhoto avatar={avatar} onPress={onPhoto} label={photoLabel}/>{followAction}</View>
+      <View style={{flex:1}}>
+        <Text style={s.profileName} numberOfLines={2}>{name}</Text>
+        {(number!=null||onPhoto)&&<Text style={s.profileId}>ID · {number??'…'}</Text>}
       </View>
     </View>
-    <View style={[s.shortcuts, compactShortcuts && s.compactShortcuts]}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
+    {children}
+  </View>;
+}
+
+function SocialAccountCard({socialProfile,labels,...identity}){
+  const {request,owner,viewer,followRevision,onFollowChange}=socialProfile;
+  const [state,setState]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
+  const [attempt,setAttempt]=useState(0);
+  const generation=useRef(0),mounted=useRef(false),writing=useRef(false);
+  useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
+  useEffect(()=>{
+    const version=++generation.current;
+    request('/account-number',{op:'shortProfileSocial',owner}).then(result=>{
+      if(mounted.current&&generation.current===version){setState(result);setError('');}
+    }).catch(e=>{if(mounted.current&&generation.current===version)setError(e.message||labels.retry);});
+    return ()=>{generation.current++;};
+  },[request,owner,viewer,followRevision,attempt,labels.retry]);
+
+  async function toggle(){
+    if(!state||owner===viewer||writing.current)return;
+    writing.current=true;generation.current++;setSaving(true);setError('');
+    try{
+      const result=await request('/account-number',{op:'shortProfileFollow',owner,following:!state.following});
+      if(mounted.current){generation.current++;setState(result);}
+      onFollowChange();
+    }catch(e){if(mounted.current)setError(e.message||labels.retry);}
+    finally{writing.current=false;if(mounted.current)setSaving(false);}
+  }
+  const followAction=owner!==viewer&&<TouchableOpacity accessibilityRole="button"
+    accessibilityState={{selected:!!state?.following,disabled:!state||saving}} disabled={!state||saving} onPress={toggle} style={s.followAction}>
+    <Text style={s.followText}>{state?.following?labels.followed:labels.follow}</Text>
+  </TouchableOpacity>;
+  return <IdentityCard {...identity} number={identity.number??state?.number} followAction={followAction}>
+    <View style={s.socialCounts}>{['friends','followers','followingCount'].map(key=><View key={key} accessible
+      accessibilityLabel={labels[key]+' '+(state?.[key]??'…')} style={s.socialCount}>
+      <Text style={s.socialValue}>{state?.[key]??'…'}</Text><Text style={s.socialLabel}>{labels[key]}</Text>
+    </View>)}</View>
+    {!!error&&<View><Text accessibilityRole="alert" style={s.socialLabel}>{error}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(n=>n+1)} style={s.followAction}><Text style={s.followText}>{labels.retry}</Text></TouchableOpacity>
+    </View>}
+  </IdentityCard>;
+}
+
+export function AccountHub({children,onPhoto,photoLabel,name,avatar,number,balance,copy,shortcuts,settings,socialProfile,compactShortcuts=false,unit="💎"}) {
+  const identity={name,avatar,number,onPhoto,photoLabel:photoLabel||copy.photo};
+  return <>
+    {socialProfile?<SocialAccountCard key={JSON.stringify([socialProfile.viewer,socialProfile.owner])}
+      {...identity} labels={copy} socialProfile={socialProfile}/>:
+      <IdentityCard {...identity}><View style={s.balance}>
+        <Text style={s.secondary}>{copy.balance}</Text>
+        <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
+      </View></IdentityCard>}
+    {!!shortcuts?.length&&<View style={[s.shortcuts, compactShortcuts && s.compactShortcuts]}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
       style={[s.shortcut, compactShortcuts && s.compactShortcut]} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>
-    </TouchableOpacity>)}</View>
+    </TouchableOpacity>)}</View>}
     {settings?.length > 0 && <HubRows items={settings}/>}
     {children}
   </>;
@@ -118,6 +165,13 @@ export function HubRows({items}) {
 }
 
 const s = StyleSheet.create({
+  photoColumn:{alignItems:'center'},
+  socialCounts:{flexDirection:'row',alignItems:'flex-start',marginTop:14},
+  socialCount:{flex:1,minWidth:0,alignItems:'center',paddingHorizontal:2},
+  socialValue:{color:ink,fontSize:20,fontWeight:'800',textAlign:'center'},
+  socialLabel:{color:ink,fontSize:14,textAlign:'center'},
+  followAction:{minHeight:44,minWidth:52,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},
+  followText:{fontWeight:'700',color:accent,textAlign:'center'},
   photoButton:{alignSelf:'center',position:'relative'},
   editBadge:{position:'absolute',bottom:-2,right:-2,width:23,height:23,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:theme.mint,borderWidth:2,borderColor:theme.paper},
   editGlyph:{color:theme.ink,fontWeight:'900',fontSize:13},

@@ -36,7 +36,7 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?'تشغيل الصوت':'كتم الصوت'}
   </button>;
 }
-function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
@@ -93,7 +93,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
       if(v.commentCount>0)firstComments();
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
-  },[item.id]);
+  },[item.id,followRevision]);
   const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
@@ -110,7 +110,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   async function follow(){
     if(lock.current||!stats?.social)return;
     lock.current=true;
-    try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));}
+    try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
     catch(e){if(alive.current)setMessage(e.message||'تعذّرت المتابعة');}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
@@ -155,8 +155,8 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
     <div className="clipi-action-stack">
       <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
         style={{border:0,padding:0,background:'transparent',borderRadius:'50%',color:'inherit',display:'inline-flex'}}
-        onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></button>
-        {stats?.social&&stats.owner!==viewer?.uid&&<button type="button" className="clipi-follow" aria-pressed={!!stats.following} onClick={follow}>{stats.following?'متابَع':'متابعة'}</button>}</div>
+        onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></button>
+        {stats?.social&&stats.owner!==viewer?.uid&&<button type="button" className="clipi-follow" aria-pressed={!!stats.following} onClick={follow}>{stats.following?(followLabels?.followed??'متابَع'):(followLabels?.follow??'متابعة')}</button>}</div>
       <FeedAction icon="like" label={liked?'إلغاء الإعجاب':'إعجاب'} selected={liked} count={likes} onClick={()=>like()}/>
       <FeedAction icon="comment" label="التعليقات" count={commentCount} onClick={openComments}/>
 
@@ -192,7 +192,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   </View>;
 }
 
-export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -284,16 +284,16 @@ export function ShortVideoHome({onAuthor,playable=true,dock,onRooms,translate=id
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable:playable&&!liveMenu,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
       <button type="button" aria-expanded={liveMenu} aria-haspopup="dialog" onClick={()=>setLiveMenu(true)} className="clipi-feed-live">
-        <FeedIcon name="live" size={21}/>{translate('بث مباشر')}
+        <FeedIcon name="live" size={21}/>go live
       </button>
     </div>
     )}
-    {liveMenu&&<FeedSheet title={translate('بث مباشر')} closeLabel={translate('إغلاق')} onClose={()=>setLiveMenu(false)} choices={[
+    {liveMenu&&<FeedSheet title="go live" closeLabel={translate('إغلاق')} onClose={()=>setLiveMenu(false)} choices={[
       {icon:'mic',label:translate('غرف صوتية'),onClick:()=>chooseRooms('audio')},
       {icon:'camera',label:translate('بث فيديو'),onClick:()=>chooseRooms('video')}
     ]}/>}

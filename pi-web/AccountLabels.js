@@ -1,5 +1,11 @@
 export const accountLabels = {
   "ar": {
+    "friends": "أصدقاء",
+    "followers": "تابع",
+    "followingCount": "يتابع",
+    "follow": "متابعة",
+    "followed": "متابَع",
+    "retry": "إعادة المحاولة",
     "languageName": "العربية",
     "agencies": "الوكالات",
     "games": "ألعاب",
@@ -17,6 +23,12 @@ export const accountLabels = {
     "balance": "الماس المشترى"
   },
   "en": {
+    "friends": "Friends",
+    "followers": "Followers",
+    "followingCount": "Following",
+    "follow": "Follow",
+    "followed": "Following",
+    "retry": "Retry",
     "languageName": "English",
     "agencies": "Agencies",
     "games": "Games",
@@ -34,6 +46,12 @@ export const accountLabels = {
     "balance": "Purchased diamonds"
   },
   "es": {
+    "friends": "Amigos",
+    "followers": "Seguidores",
+    "followingCount": "Siguiendo",
+    "follow": "Seguir",
+    "followed": "Siguiendo",
+    "retry": "Reintentar",
     "languageName": "Español",
     "agencies": "Agencias",
     "games": "Juegos",
@@ -51,6 +69,12 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "fr": {
+    "friends": "Amis",
+    "followers": "Abonnés",
+    "followingCount": "Abonnements",
+    "follow": "Suivre",
+    "followed": "Abonné",
+    "retry": "Réessayer",
     "languageName": "Français",
     "agencies": "Agences",
     "games": "Jeux",
@@ -68,6 +92,12 @@ export const accountLabels = {
     "balance": "Diamants achetés"
   },
   "de": {
+    "friends": "Freunde",
+    "followers": "Follower",
+    "followingCount": "Gefolgt",
+    "follow": "Folgen",
+    "followed": "Gefolgt",
+    "retry": "Erneut versuchen",
     "languageName": "Deutsch",
     "agencies": "Agenturen",
     "games": "Spiele",
@@ -85,6 +115,12 @@ export const accountLabels = {
     "balance": "Gekaufte Diamanten"
   },
   "pt": {
+    "friends": "Amigos",
+    "followers": "Seguidores",
+    "followingCount": "Seguindo",
+    "follow": "Seguir",
+    "followed": "Seguindo",
+    "retry": "Tentar novamente",
     "languageName": "Português",
     "agencies": "Agências",
     "games": "Jogos",
@@ -102,6 +138,12 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "it": {
+    "friends": "Amici",
+    "followers": "Follower",
+    "followingCount": "Seguiti",
+    "follow": "Segui",
+    "followed": "Seguito",
+    "retry": "Riprova",
     "languageName": "Italiano",
     "agencies": "Agenzie",
     "games": "Giochi",
@@ -119,6 +161,12 @@ export const accountLabels = {
     "balance": "Diamanti acquistati"
   },
   "tr": {
+    "friends": "Arkadaşlar",
+    "followers": "Takipçiler",
+    "followingCount": "Takip edilen",
+    "follow": "Takip et",
+    "followed": "Takip ediliyor",
+    "retry": "Tekrar dene",
     "languageName": "Türkçe",
     "agencies": "Ajanslar",
     "games": "Oyunlar",
@@ -136,6 +184,12 @@ export const accountLabels = {
     "balance": "Satın alınan elmaslar"
   },
   "ru": {
+    "friends": "Друзья",
+    "followers": "Подписчики",
+    "followingCount": "Подписки",
+    "follow": "Подписаться",
+    "followed": "Вы подписаны",
+    "retry": "Повторить",
     "languageName": "Русский",
     "agencies": "Агентства",
     "games": "Игры",
@@ -153,6 +207,12 @@ export const accountLabels = {
     "balance": "Купленные алмазы"
   },
   "uk": {
+    "friends": "Друзі",
+    "followers": "Підписники",
+    "followingCount": "Підписки",
+    "follow": "Підписатися",
+    "followed": "Ви підписані",
+    "retry": "Спробувати ще",
     "languageName": "Українська",
     "agencies": "Агенції",
     "games": "Ігри",
@@ -170,6 +230,12 @@ export const accountLabels = {
     "balance": "Придбані діаманти"
   },
   "pl": {
+    "friends": "Znajomi",
+    "followers": "Obserwujący",
+    "followingCount": "Obserwowani",
+    "follow": "Obserwuj",
+    "followed": "Obserwujesz",
+    "retry": "Spróbuj ponownie",
     "languageName": "Polski",
     "agencies": "Agencje",
     "games": "Gry",
@@ -187,6 +253,12 @@ export const accountLabels = {
     "balance": "Kupione diamenty"
   },
   "nl": {
+    "friends": "Vrienden",
+    "followers": "Volgers",
+    "followingCount": "Volgend",
+    "follow": "Volgen",
+    "followed": "Volgend",
+    "retry": "Opnieuw proberen",
     "languageName": "Nederlands",
     "agencies": "Bureaus",
     "games": "Spellen",
@@ -204,6 +276,12 @@ export const accountLabels = {
     "balance": "Gekochte diamanten"
   },
   "fa": {
+    "friends": "دوستان",
+    "followers": "دنبال‌کنندگان",
+    "followingCount": "دنبال‌شوندگان",
+    "follow": "دنبال کردن",
+    "followed": "دنبال می‌کنید",
+    "retry": "تلاش دوباره",
     "languageName": "فارسی",
     "agencies": "آژانس‌ها",
     "games": "بازی‌ها",
@@ -221,6 +299,12 @@ export const accountLabels = {
     "balance": "الماس‌های خریداری‌شده"
   },
   "ur": {
+    "friends": "دوست",
+    "followers": "فالوورز",
+    "followingCount": "فالوونگ",
+    "follow": "فالو کریں",
+    "followed": "فالو کر رہے ہیں",
+    "retry": "دوبارہ کوشش کریں",
     "languageName": "اردو",
     "agencies": "ایجنسیاں",
     "games": "کھیل",
@@ -238,6 +322,12 @@ export const accountLabels = {
     "balance": "خریدے گئے ہیرے"
   },
   "he": {
+    "friends": "חברים",
+    "followers": "עוקבים",
+    "followingCount": "במעקב",
+    "follow": "מעקב",
+    "followed": "במעקב",
+    "retry": "ניסיון חוזר",
     "languageName": "עברית",
     "agencies": "סוכנויות",
     "games": "משחקים",
@@ -255,6 +345,12 @@ export const accountLabels = {
     "balance": "יהלומים שנרכשו"
   },
   "hi": {
+    "friends": "दोस्त",
+    "followers": "फ़ॉलोअर",
+    "followingCount": "फ़ॉलोइंग",
+    "follow": "फ़ॉलो करें",
+    "followed": "फ़ॉलो कर रहे हैं",
+    "retry": "फिर कोशिश करें",
     "languageName": "हिन्दी",
     "agencies": "एजेंसियाँ",
     "games": "खेल",
@@ -272,6 +368,12 @@ export const accountLabels = {
     "balance": "खरीदे गए हीरे"
   },
   "bn": {
+    "friends": "বন্ধু",
+    "followers": "অনুসারী",
+    "followingCount": "অনুসরণ করছেন",
+    "follow": "অনুসরণ করুন",
+    "followed": "অনুসরণ করছেন",
+    "retry": "আবার চেষ্টা করুন",
     "languageName": "বাংলা",
     "agencies": "এজেন্সি",
     "games": "গেম",
@@ -289,6 +391,12 @@ export const accountLabels = {
     "balance": "কেনা হীরা"
   },
   "ta": {
+    "friends": "நண்பர்கள்",
+    "followers": "பின்தொடர்பவர்கள்",
+    "followingCount": "பின்தொடர்பவை",
+    "follow": "பின்தொடர்",
+    "followed": "பின்தொடர்கிறீர்கள்",
+    "retry": "மீண்டும் முயல்க",
     "languageName": "தமிழ்",
     "agencies": "முகமைகள்",
     "games": "விளையாட்டுகள்",
@@ -306,6 +414,12 @@ export const accountLabels = {
     "balance": "வாங்கிய வைரங்கள்"
   },
   "id": {
+    "friends": "Teman",
+    "followers": "Pengikut",
+    "followingCount": "Mengikuti",
+    "follow": "Ikuti",
+    "followed": "Mengikuti",
+    "retry": "Coba lagi",
     "languageName": "Bahasa Indonesia",
     "agencies": "Agensi",
     "games": "Permainan",
@@ -323,6 +437,12 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "ms": {
+    "friends": "Rakan",
+    "followers": "Pengikut",
+    "followingCount": "Mengikuti",
+    "follow": "Ikuti",
+    "followed": "Mengikuti",
+    "retry": "Cuba lagi",
     "languageName": "Bahasa Melayu",
     "agencies": "Agensi",
     "games": "Permainan",
@@ -340,6 +460,12 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "fil": {
+    "friends": "Mga kaibigan",
+    "followers": "Mga tagasubaybay",
+    "followingCount": "Sinusundan",
+    "follow": "Sundan",
+    "followed": "Sinusundan",
+    "retry": "Subukang muli",
     "languageName": "Filipino",
     "agencies": "Mga ahensya",
     "games": "Mga laro",
@@ -357,6 +483,12 @@ export const accountLabels = {
     "balance": "Mga biniling diyamante"
   },
   "vi": {
+    "friends": "Bạn bè",
+    "followers": "Người theo dõi",
+    "followingCount": "Đang theo dõi",
+    "follow": "Theo dõi",
+    "followed": "Đang theo dõi",
+    "retry": "Thử lại",
     "languageName": "Tiếng Việt",
     "agencies": "Đại lý",
     "games": "Trò chơi",
@@ -374,6 +506,12 @@ export const accountLabels = {
     "balance": "Kim cương đã mua"
   },
   "th": {
+    "friends": "เพื่อน",
+    "followers": "ผู้ติดตาม",
+    "followingCount": "กำลังติดตาม",
+    "follow": "ติดตาม",
+    "followed": "กำลังติดตาม",
+    "retry": "ลองอีกครั้ง",
     "languageName": "ไทย",
     "agencies": "เอเจนซี",
     "games": "เกม",
@@ -391,6 +529,12 @@ export const accountLabels = {
     "balance": "เพชรที่ซื้อ"
   },
   "zh-Hans": {
+    "friends": "好友",
+    "followers": "粉丝",
+    "followingCount": "关注",
+    "follow": "关注",
+    "followed": "已关注",
+    "retry": "重试",
     "languageName": "简体中文",
     "agencies": "公会",
     "games": "游戏",
@@ -408,6 +552,12 @@ export const accountLabels = {
     "balance": "已购钻石"
   },
   "zh-Hant": {
+    "friends": "好友",
+    "followers": "粉絲",
+    "followingCount": "追蹤中",
+    "follow": "追蹤",
+    "followed": "已追蹤",
+    "retry": "重試",
     "languageName": "繁體中文",
     "agencies": "公會",
     "games": "遊戲",
@@ -425,6 +575,12 @@ export const accountLabels = {
     "balance": "已購鑽石"
   },
   "ja": {
+    "friends": "友達",
+    "followers": "フォロワー",
+    "followingCount": "フォロー中",
+    "follow": "フォロー",
+    "followed": "フォロー中",
+    "retry": "再試行",
     "languageName": "日本語",
     "agencies": "事務所",
     "games": "ゲーム",
@@ -442,6 +598,12 @@ export const accountLabels = {
     "balance": "購入済みのダイヤ"
   },
   "ko": {
+    "friends": "친구",
+    "followers": "팔로워",
+    "followingCount": "팔로잉",
+    "follow": "팔로우",
+    "followed": "팔로잉",
+    "retry": "다시 시도",
     "languageName": "한국어",
     "agencies": "에이전시",
     "games": "게임",
@@ -459,6 +621,12 @@ export const accountLabels = {
     "balance": "구매한 다이아몬드"
   },
   "sw": {
+    "friends": "Marafiki",
+    "followers": "Wafuasi",
+    "followingCount": "Anaowafuata",
+    "follow": "Fuata",
+    "followed": "Unafuata",
+    "retry": "Jaribu tena",
     "languageName": "Kiswahili",
     "agencies": "Mashirika",
     "games": "Michezo",
@@ -476,6 +644,12 @@ export const accountLabels = {
     "balance": "Almasi zilizonunuliwa"
   },
   "el": {
+    "friends": "Φίλοι",
+    "followers": "Ακόλουθοι",
+    "followingCount": "Ακολουθεί",
+    "follow": "Ακολούθησε",
+    "followed": "Ακολουθείς",
+    "retry": "Δοκίμασε ξανά",
     "languageName": "Ελληνικά",
     "agencies": "Πρακτορεία",
     "games": "Παιχνίδια",
@@ -493,6 +667,12 @@ export const accountLabels = {
     "balance": "Αγορασμένα διαμάντια"
   },
   "ro": {
+    "friends": "Prieteni",
+    "followers": "Urmăritori",
+    "followingCount": "Urmărește",
+    "follow": "Urmărește",
+    "followed": "Urmărești",
+    "retry": "Încearcă din nou",
     "languageName": "Română",
     "agencies": "Agenții",
     "games": "Jocuri",

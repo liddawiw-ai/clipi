@@ -1,5 +1,5 @@
 import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
-import {authorState,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
+import {authorState,profileSocial,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
 import {paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
@@ -21,6 +21,7 @@ export const shortSchema = [
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
+  if(op==='shortProfileSocial'||op==='shortProfileFollow')return profileSocial(q,uid,input,json);
   if (op === 'shortProfileList') {
     const owner = input.owner ?? uid;
     const before = input.before ?? Number.MAX_SAFE_INTEGER;

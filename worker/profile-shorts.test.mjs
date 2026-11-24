@@ -39,3 +39,39 @@ test('author galleries include all published clips, paginate past 30, and keep d
     assert.equal((await gallery('author',{before:-1})).status,400);
   } finally { db.close(); }
 });
+
+test('profile totals and the video follow button share account relationships', async ()=>{
+  const db=new DatabaseSync(':memory:');
+  try {
+    for(const sql of shortSchema)db.exec(sql);
+    db.exec('CREATE TABLE public_numbers(number TEXT PRIMARY KEY,uid TEXT,cost INTEGER); CREATE TABLE selected_number(uid TEXT PRIMARY KEY,number TEXT)');
+    const q=(sql,...args)=>{
+      const stmt=db.prepare(sql);
+      return {first:()=>stmt.get(...args),run:()=>stmt.run(...args)};
+    };
+    const api=(viewer,op,fields={})=>shortAccount(q,viewer,{op,...fields},(body,status=200)=>({body,status}),true);
+    const id=crypto.randomUUID();
+    q('INSERT INTO short_clip(id,owner,title,object_key) VALUES(?,?,?,?)',id,'walid','Test','videos/'+id).run();
+    q('INSERT INTO public_numbers VALUES(?,?,0)','1000001','walid').run();
+    q('INSERT INTO public_numbers VALUES(?,?,0)','1000002','rania').run();
+    q('INSERT INTO selected_number VALUES(?,?)','walid','99999').run();
+    const snapshot=async(viewer,owner)=>{
+      const {body}=await api(viewer,'shortProfileSocial',{owner});
+      return [body.friends,body.followers,body.followingCount,body.following,body.number];
+    };
+    assert.deepEqual(await snapshot('rania','walid'),[0,0,0,false,'99999']);
+    await api('rania','shortFollow',{clip:id,following:true});
+    assert.deepEqual(await snapshot('rania','walid'),[0,1,0,true,'99999']);
+    for(let i=0;i<2;i++)await api('walid','shortProfileFollow',{owner:'rania',following:true});
+    assert.deepEqual(await snapshot('walid','rania'),[1,1,1,true,'1000002']);
+    assert.deepEqual(await snapshot('rania','walid'),[1,1,1,true,'99999']);
+    assert.deepEqual(await snapshot('outsider','walid'),[1,1,1,false,'99999']);
+    await api('rania','shortProfileFollow',{owner:'walid',following:false});
+    assert.equal((await api('rania','shortState',{clip:id})).body.following,false);
+    assert.deepEqual(await snapshot('rania','walid'),[0,0,1,false,'99999']);
+    assert.deepEqual(await snapshot('rania','rania'),[0,1,0,false,'1000002']);
+    assert.equal((await api('walid','shortProfileFollow',{owner:'walid',following:true})).status,400);
+    assert.equal((await api('walid','shortProfileFollow',{owner:'unknown',following:true})).status,404);
+    assert.equal((await api('walid','shortProfileFollow',{owner:'rania',following:'true'})).status,400);
+  } finally {db.close();}
+});

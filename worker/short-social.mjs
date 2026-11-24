@@ -3,6 +3,7 @@ const isJpeg = (s,limit) => typeof s==='string' && s.length<=limit && /^data:ima
 export const socialSchema = [
   'CREATE TABLE IF NOT EXISTS short_profile(uid TEXT PRIMARY KEY, name TEXT NOT NULL, avatar TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS short_follow(viewer TEXT, owner TEXT, PRIMARY KEY(viewer,owner))',
+  'CREATE INDEX IF NOT EXISTS short_follow_by_owner ON short_follow(owner,viewer)',
   'CREATE TABLE IF NOT EXISTS short_comment_meta(uid TEXT,nonce TEXT,clip TEXT,parent INTEGER,created INTEGER,media TEXT,PRIMARY KEY(uid,nonce))',
   'CREATE INDEX IF NOT EXISTS short_comment_parent ON short_comment_meta(clip,parent)',
   'CREATE TABLE IF NOT EXISTS short_comment_heart(comment_id INTEGER,uid TEXT,PRIMARY KEY(comment_id,uid))'
@@ -21,12 +22,39 @@ export async function authorState(q,uid,clip,owner) {
     FROM (SELECT 1) LEFT JOIN short_profile p ON p.uid=?`,uid,owner,clip,owner).first();
   return {owner,authorName:state.name||(owner==='clipi:official'?'Clipi':'صاحب المقطع'),authorAvatar:state.avatar||'',following:!!state.following,commentCount:state.commentCount,social:true};
 }
+async function setFollowing(q,viewer,owner,following) {
+  if(following)await q('INSERT OR IGNORE INTO short_follow(viewer,owner) VALUES(?,?)',viewer,owner).run();
+  else await q('DELETE FROM short_follow WHERE viewer=? AND owner=?',viewer,owner).run();
+}
+
+export async function profileSocial(q,viewer,input,json) {
+  const owner=input.owner??viewer;
+  if(typeof owner!=='string'||!owner||owner.length>128)return json({error:'طلب غير صالح'},400);
+  if(input.op==='shortProfileFollow'){
+    if(owner===viewer||typeof input.following!=='boolean')return json({error:'اختيار متابعة غير صالح'},400);
+    if(input.following){
+      const target=await q(`SELECT 1 WHERE EXISTS(SELECT 1 FROM public_numbers WHERE uid=? AND cost=0)
+        OR EXISTS(SELECT 1 FROM short_profile WHERE uid=?)
+        OR EXISTS(SELECT 1 FROM short_clip WHERE owner=? AND object_key IS NOT NULL)`,owner,owner,owner).first();
+      if(!target)return json({error:'الحساب غير موجود'},404);
+    }
+    await setFollowing(q,viewer,owner,input.following);
+  }
+  const state=await q(`SELECT
+    (SELECT COUNT(*) FROM short_follow WHERE owner=?) AS followers,
+    (SELECT COUNT(*) FROM short_follow WHERE viewer=?) AS followingCount,
+    (SELECT COUNT(*) FROM short_follow a JOIN short_follow b ON b.viewer=a.owner AND b.owner=a.viewer
+      WHERE a.viewer=?) AS friends,
+    EXISTS(SELECT 1 FROM short_follow WHERE viewer=? AND owner=?) AS following,
+    COALESCE((SELECT number FROM selected_number WHERE uid=?),
+      (SELECT number FROM public_numbers WHERE uid=? AND cost=0)) AS number`,owner,owner,owner,viewer,owner,owner,owner).first();
+  return json({...state,following:!!state.following});
+}
 export async function socialComments(q,uid,input,json,owner) {
   const {op,clip}=input;
   if(op==='shortFollow'){
     if(uid===owner || typeof input.following!=='boolean')return json({error:'اختيار متابعة غير صالح'},400);
-    if(input.following)await q('INSERT OR IGNORE INTO short_follow(viewer,owner) VALUES(?,?)',uid,owner).run();
-    else await q('DELETE FROM short_follow WHERE viewer=? AND owner=?',uid,owner).run();
+    await setFollowing(q,uid,owner,input.following);
     return json({following:input.following});
   }
   if(op==='shortCommentLike'){
