@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React from 'react';
 import {Animated, Image, StyleSheet, Text, View} from 'react-native';
 
@@ -18,7 +19,7 @@ export default function EntranceRibbon({name,role,area,timeline}) {
       </Animated.View>
     </View>
     <View style={styles.legend}>
-      <Text style={[styles.name,{fontSize:Math.min(23,width*.051)}]} numberOfLines={1} accessibilityLiveRegion="polite">{'دخل '+name}</Text>
+      <Text style={[styles.name,{fontSize:Math.min(23,width*.051)}]} numberOfLines={1} accessibilityLiveRegion="polite">{appText('دخل ')+name}</Text>
       {role&&<><View style={styles.divider}/><Text numberOfLines={1} style={[styles.role,{fontSize:Math.min(17,width*.038)}]}>{role}</Text></>}
     </View>
   </Animated.View>;

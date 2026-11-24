@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {HostLevels} from './RoomHostCard';
 import {theme} from './ClipiTheme';
 import GoldFrame from './GoldFrame';
@@ -27,7 +28,7 @@ export function HubScreen({title, action, children, dock, scrollable=true}) {
   return <View style={s.screen}>
     <StatusBar barStyle="dark-content" backgroundColor="#f5f7f2"/>
     <View style={s.header}>
-      <Text accessibilityRole="header" style={s.heading}>{title==="Clipi"?"Live Clipi":title}</Text>
+      <Text accessibilityRole="header" style={s.heading}>{title==="Clipi"?appText("Live Clipi"):title}</Text>
       {action&&<TouchableOpacity accessibilityRole="button" style={s.headerAction} onPress={action.onPress}>
         <Text style={s.actionText}>{action.label}</Text>
       </TouchableOpacity>}
@@ -47,18 +48,18 @@ export function RoomDiscovery({hostField,copy, userId, rooms, error, filter, onF
       </TouchableOpacity>)}
     </View>
     {hostField}
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={copy.create} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText(copy.create)} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
       <Image accessible={false} resizeMode="cover" style={s.heroImage} source={require('./assets/live-studio.jpg')}/>
       <View style={s.heroBody}>
-        <Text style={s.heroTitle}>{copy.create}</Text>
-        {!!copy.createNote&&<Text style={s.heroNote}>{copy.createNote}</Text>}
+        <Text style={s.heroTitle}>{appText(copy.create)}</Text>
+        {!!copy.createNote&&<Text style={s.heroNote}>{appText(copy.createNote)}</Text>}
         <Text accessibilityElementsHidden style={s.heroPlus}>+</Text>
       </View>
     </TouchableOpacity>
-    <TextInput accessibilityLabel={copy.search} style={s.search} placeholder={copy.search} placeholderTextColor={muted}
+    <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
       autoCorrect={false} value={search} onChangeText={onSearch}/>
-    {error?<Text accessibilityLiveRegion="polite" style={s.error}>{error}</Text>
-      :rooms.length===0?<View style={s.empty}><Text style={s.emptyTitle}>{copy.empty}</Text></View>
+    {error?<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>
+      :rooms.length===0?<View style={s.empty}><Text style={s.emptyTitle}>{appText(copy.empty)}</Text></View>
       :<View style={s.grid}>{rooms.map((room,index)=>{
         const video=room.type==='video';
         return <View key={room.id} style={s.roomCard}>
@@ -74,11 +75,11 @@ export function RoomDiscovery({hostField,copy, userId, rooms, error, filter, onF
             </View>
           </TouchableOpacity>
           {room.ownerUid===userId&&<TouchableOpacity accessibilityRole="button" style={s.manage} onPress={()=>onClose(room)}>
-            <Text style={s.manageText}>{copy.close}</Text>
+            <Text style={s.manageText}>{appText(copy.close)}</Text>
           </TouchableOpacity>}
         </View>;
       })}</View>}
-    {showWelcome&&<View style={s.welcome}><Text style={s.emptyTitle}>{copy.welcome}</Text><Text style={s.secondary}>{copy.welcomeNote}</Text></View>}
+    {showWelcome&&<View style={s.welcome}><Text style={s.emptyTitle}>{appText(copy.welcome)}</Text><Text style={s.secondary}>{appText(copy.welcomeNote)}</Text></View>}
   </>;
 }
 
@@ -138,8 +139,8 @@ function SocialAccountCard({socialProfile,labels,...identity}){
       <Text style={s.socialValue}>{state?.[key]??'…'}</Text><Text style={s.socialLabel}>{labels[key]}</Text>
     </View>)}</View>
     <HostLevels key={owner} owner={owner} request={request} locale={socialProfile.locale} initialOpen={socialProfile.fromRoom}/>
-    {!!error&&<View><Text accessibilityRole="alert" style={s.socialLabel}>{error}</Text>
-      <TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(n=>n+1)} style={s.followAction}><Text style={s.followText}>{labels.retry}</Text></TouchableOpacity>
+    {!!error&&<View><Text accessibilityRole="alert" style={s.socialLabel}>{appText(error)}</Text>
+      <TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(n=>n+1)} style={s.followAction}><Text style={s.followText}>{appText(labels.retry)}</Text></TouchableOpacity>
     </View>}
   </IdentityCard>;
 }
@@ -150,7 +151,7 @@ export function AccountHub({children,onPhoto,photoLabel,name,avatar,number,balan
     {socialProfile?<SocialAccountCard key={JSON.stringify([socialProfile.viewer,socialProfile.owner])}
       {...identity} labels={copy} socialProfile={socialProfile}/>:
       <IdentityCard {...identity}><View style={s.balance}>
-        <Text style={s.secondary}>{copy.balance}</Text>
+        <Text style={s.secondary}>{appText(copy.balance)}</Text>
         <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View></IdentityCard>}
     {children}

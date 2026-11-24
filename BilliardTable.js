@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React, {memo, useCallback, useEffect, useRef, useState} from 'react';
 import {Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {ballRadius, pockets, replayShot, tableHeight, tableWidth} from './PoolRules.mjs';
@@ -138,8 +139,8 @@ function Power({value,setValue,disabled}) {
     if (Number.isFinite(x)) setValue(clamp(Math.round(x/width*100),1,100));
   };
   return <View style={styles.powerRow}>
-    <Text style={styles.powerCaption}>قوة الضربة</Text>
-    <View accessible accessibilityRole="adjustable" accessibilityLabel="قوة الضربة"
+    <Text style={styles.powerCaption}>{appText("قوة الضربة")}</Text>
+    <View accessible accessibilityRole="adjustable" accessibilityLabel={appText("قوة الضربة")}
       accessibilityValue={{min:1,max:100,now:value,text:value+'٪'}} accessibilityState={{disabled}}
       accessibilityActions={[{name:'increment'},{name:'decrement'}]} onAccessibilityAction={e=>{
         if (!disabled) setValue(clamp(value+(e.nativeEvent.actionName==='increment'?5:-5),1,100));
@@ -160,9 +161,9 @@ function Power({value,setValue,disabled}) {
 function Remaining({balls,group}) {
   const count=group==='striped'?9:1,remaining=new Set(balls.map(b=>b.n));
   const numbers=Array.from({length:7},(_,i)=>i+count);
-  return <View accessible accessibilityLabel={(group==='striped'?'المخططة':'السادة')+' المتبقية '+numbers.filter(n=>remaining.has(n)).length}
+  return <View accessible accessibilityLabel={(group==='striped'?appText('المخططة'):appText('السادة'))+appText(' المتبقية ')+numbers.filter(n=>remaining.has(n)).length}
     style={styles.remaining}>
-    <Text style={styles.group}>{group==='striped'?'المخططة':'السادة'}</Text>
+    <Text style={styles.group}>{group==='striped'?appText('المخططة'):appText('السادة')}</Text>
     <View style={styles.rack}>{numbers.map(n=><View key={n} style={[styles.rackBall,{opacity:remaining.has(n)?1:.17,backgroundColor:group==='striped'?'#f6eddb':palette[n]}]}>
       {group==='striped'&&<View style={{height:5,width:12,backgroundColor:palette[n-8]}}/>}
     </View>)}</View>
@@ -231,19 +232,19 @@ export default function BilliardTable({game, me, locked, send}) {
       </View>
     </View>
     <View style={styles.deck}>
-      {!!group&&<Text style={styles.instruction}>{group==='striped'?'كراتك المخططة':'كراتك السادة'}</Text>}
+      {!!group&&<Text style={styles.instruction}>{group==='striped'?appText('كراتك المخططة'):appText('كراتك السادة')}</Text>}
       {myTurn&&<>
-        <Text style={styles.instruction}>{placing?'المس مكانًا خاليًا لوضع الكرة البيضاء':'المس القماش أو اسحب عليه لتوجيه العصا'}</Text>
+        <Text style={styles.instruction}>{placing?appText('المس مكانًا خاليًا لوضع الكرة البيضاء'):appText('المس القماش أو اسحب عليه لتوجيه العصا')}</Text>
         <Power value={power} setValue={setPower} disabled={!canAim||placing}/>
         <View style={styles.actions}>
-          <Control active wide label="اضرب" disabled={!canAim||placing||!cue} onPress={()=>send({type:'shot',angle,power})}/>
-          <Control label="تدوير العصا يمينًا درجة واحدة" disabled={!canAim||placing} onPress={()=>setAngle(a=>a+Math.PI/180)}>↷ ١°</Control>
-          <Control label="تدوير العصا يسارًا درجة واحدة" disabled={!canAim||placing} onPress={()=>setAngle(a=>a-Math.PI/180)}>١° ↶</Control>
+          <Control active wide label={appText("اضرب")} disabled={!canAim||placing||!cue} onPress={()=>send({type:'shot',angle,power})}/>
+          <Control label={appText("تدوير العصا يمينًا درجة واحدة")} disabled={!canAim||placing} onPress={()=>setAngle(a=>a+Math.PI/180)}>↷ ١°</Control>
+          <Control label={appText("تدوير العصا يسارًا درجة واحدة")} disabled={!canAim||placing} onPress={()=>setAngle(a=>a-Math.PI/180)}>١° ↶</Control>
         </View>
-        {game.inHand&&<Control label={placing?'إلغاء تحريك الكرة البيضاء':'تحريك الكرة البيضاء'} disabled={!canAim} onPress={()=>setPlacing(v=>!v)}/>}
+        {game.inHand&&<Control label={placing?appText('إلغاء تحريك الكرة البيضاء'):appText('تحريك الكرة البيضاء')} disabled={!canAim} onPress={()=>setPlacing(v=>!v)}/>}
       </>}
-      {!!shot&&<Control label="إعادة مشاهدة الضربة" disabled={!!frame||placing} onPress={()=>replay(shot)}/>}
-      <Pressable accessibilityRole="button" accessibilityLabel="ترخيص محرك البلياردو Matter.js" accessibilityState={{expanded:showLicense}}
+      {!!shot&&<Control label={appText("إعادة مشاهدة الضربة")} disabled={!!frame||placing} onPress={()=>replay(shot)}/>}
+      <Pressable accessibilityRole="button" accessibilityLabel={appText("ترخيص محرك البلياردو Matter.js")} accessibilityState={{expanded:showLicense}}
         onPress={()=>setShowLicense(v=>!v)} style={{alignSelf:'center',paddingHorizontal:10,paddingVertical:7}}>
         <Text style={{color:'#b6d3c5',fontSize:12}}>Matter.js · MIT</Text>
       </Pressable>

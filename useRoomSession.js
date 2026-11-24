@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {equippedEntrance,incomingEntries} from './entranceStyles.mjs';
 import {useState,useRef,useEffect} from 'react';
 import auth from '@react-native-firebase/auth';
@@ -19,16 +20,16 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     if(!response.ok){
       if(alive.current){
         if(data.pinRequired)setPinRequired(true);
-        if(op==='poll'&&[403,404].includes(response.status)){current.current.onExit(data.error);return}
+        if(op==='poll'&&[403,404].includes(response.status)){current.current.onExit(appText(data.error));return}
       }
-      throw Error(data.error||'تعذّر الاتصال بالغرفة');
+      throw Error(appText(data.error)||appText('تعذّر الاتصال بالغرفة'));
     }
     const diamonds=data.senderDiamonds??data.supportBalance;
     if(alive.current&&index>lastBalanceResponse.current&&Number.isSafeInteger(diamonds)){
       lastBalanceResponse.current=index;
       setSupportBalance(diamonds);
     }
-    if(['giftRecipient','hostCard','inviteChoices','inviteFriends','inviteAtStart'].includes(op))return data;
+    if(['giftRecipient','hostCard','roomAdmins','setRoomAdmin','inviteChoices','inviteFriends','inviteAtStart'].includes(op))return data;
     if(op==='paidGift')return data.receipt;
     if(!alive.current||!data.people||index<lastApplied.current)return;
     lastApplied.current=index;

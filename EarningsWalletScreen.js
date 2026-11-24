@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
@@ -26,7 +27,7 @@ export default function EarningsWalletScreen({onBack}){
   setBusy(true);
   const epoch=requestEpochRef.current;
   try{const r=await call('getEarningsWallet')({});if(epoch===requestEpochRef.current&&!lockRef.current)setData(r.data)}
-  catch(e){Alert.alert('تعذر تحميل المحفظة',e.message)}
+  catch(e){Alert.alert(appText('تعذر تحميل المحفظة'),e.message)}
   finally{setBusy(false)}
  }
  useEffect(()=>{
@@ -61,49 +62,49 @@ export default function EarningsWalletScreen({onBack}){
  }
  if(!unlocked)return <View style={[S.page,S.lockScreen]}>
   <Text style={S.lockIcon}>🔐</Text>
-  <Text style={S.heading}>محفظة Clipi محمية</Text>
-  <Text style={S.label}>افتح المحفظة ببصمة الوجه أو الإصبع أو رمز قفل الجهاز عند إتاحته من نظام التشغيل.</Text>
-  <TouchableOpacity disabled={unlocking} onPress={unlockWallet} style={S.button}><Text style={S.buttonText}>{unlocking?'جارٍ التحقق...':'فتح المحفظة بأمان'}</Text></TouchableOpacity>
+  <Text style={S.heading}>{appText("محفظة Clipi محمية")}</Text>
+  <Text style={S.label}>{appText("افتح المحفظة ببصمة الوجه أو الإصبع أو رمز قفل الجهاز عند إتاحته من نظام التشغيل.")}</Text>
+  <TouchableOpacity disabled={unlocking} onPress={unlockWallet} style={S.button}><Text style={S.buttonText}>{unlocking?appText('جارٍ التحقق...'):appText('فتح المحفظة بأمان')}</Text></TouchableOpacity>
   {!!lockError&&<Text style={S.error}>{lockError}</Text>}
-  <TouchableOpacity onPress={onBack} style={S.button}><Text style={S.buttonText}>رجوع</Text></TouchableOpacity>
+  <TouchableOpacity onPress={onBack} style={S.button}><Text style={S.buttonText}>{appText("رجوع")}</Text></TouchableOpacity>
  </View>;
 
  async function savePin(){
-  if(!/^\d{6}$/.test(pin))return Alert.alert('الرقم السري','أدخل 6 أرقام');
+  if(!/^\d{6}$/.test(pin))return Alert.alert(appText('الرقم السري'),appText('أدخل 6 أرقام'));
   setBusy(true);
-  try{await call('setEarningsWalletPin')({pin,currentPin:oldPin});setPin('');setOldPin('');Alert.alert('تم','تم حفظ الرقم السري');await load()}
-  catch(e){Alert.alert('خطأ',e.message)}finally{setBusy(false)}
+  try{await call('setEarningsWalletPin')({pin,currentPin:oldPin});setPin('');setOldPin('');Alert.alert(appText('تم'),appText('تم حفظ الرقم السري'));await load()}
+  catch(e){Alert.alert(appText('خطأ'),e.message)}finally{setBusy(false)}
  }
  async function preview(method){
   const current=oldPin||pin;
-  if(!/^\d{6}$/.test(current))return Alert.alert('الرقم السري','أدخل الرقم السري الحالي');
+  if(!/^\d{6}$/.test(current))return Alert.alert(appText('الرقم السري'),appText('أدخل الرقم السري الحالي'));
   setBusy(true);
   try{const r=await call('previewEarningsWithdrawal')({pin:current,method}),v=r.data;
-   Alert.alert('معاينة فقط',v.eligible?(method==='cash'?money(v.usdMinor):v.diamonds.toLocaleString('en-US')+' ماسة')+' — التحويل غير مفعل':'لم تستوفِ الشروط. المتبقي '+v.remainingPoints+' نقطة أو فترة الانتظار');
+   Alert.alert(appText('معاينة فقط'),v.eligible?(method==='cash'?money(v.usdMinor):v.diamonds.toLocaleString('en-US')+appText(' ماسة'))+appText(' — التحويل غير مفعل'):appText('لم تستوفِ الشروط. المتبقي ')+v.remainingPoints+appText(' نقطة أو فترة الانتظار'));
    setPin('');setOldPin('');
-  }catch(e){Alert.alert('تعذر المعاينة',e.message)}finally{setBusy(false)}
+  }catch(e){Alert.alert(appText('تعذر المعاينة'),e.message)}finally{setBusy(false)}
  }
  const btn=(title,fn)=><TouchableOpacity disabled={busy} onPress={fn} style={S.button}><Text style={S.buttonText}>{title}</Text></TouchableOpacity>;
  return <ScrollView style={S.page} contentContainerStyle={S.body}>
   {btn('❮ رجوع',onBack)}
-  <Text style={S.heading}>💼 محفظة {data?.role==='owner'?'المالك':data?.role==='agent'?'الوكيل':'المضيف'}</Text>
+  <Text style={S.heading}>{appText("💼 محفظة ")}{data?.role==='owner'?appText('المالك'):data?.role==='agent'?appText('الوكيل'):appText('المضيف')}</Text>
   <View style={S.panel}>
-   <Text style={S.number}>🪙 {(data?.availablePoints||0).toLocaleString('en-US')} نقطة</Text>
-   <Text style={S.value}>القيمة بالدولار: {money(data?.availableUsdMinor)}</Text>
-   <Text style={S.label}>نقاط معلقة: {data?.pendingPoints||0} · {money(data?.pendingUsdMinor)}</Text>
-   <Text style={S.label}>المتبقي للوصول إلى 2,000 نقطة: {data?.remainingPoints??2000}</Text>
-   <Text style={S.label}>طلب سحب واحد كل 15 يومًا. وصول المال مستهدف خلال 5 أيام عمل بعد الموافقة، وليس مضمونًا.</Text>
-   {data?.nextEligibleAt&&<Text style={S.label}>أقرب موعد طلب: {new Date(data.nextEligibleAt).toLocaleDateString('ar')}</Text>}
+   <Text style={S.number}>🪙 {(data?.availablePoints||0).toLocaleString('en-US')}{appText(" نقطة")}</Text>
+   <Text style={S.value}>{appText("القيمة بالدولار: ")}{money(data?.availableUsdMinor)}</Text>
+   <Text style={S.label}>{appText("نقاط معلقة: ")}{data?.pendingPoints||0} · {money(data?.pendingUsdMinor)}</Text>
+   <Text style={S.label}>{appText("المتبقي للوصول إلى 2,000 نقطة: ")}{data?.remainingPoints??2000}</Text>
+   <Text style={S.label}>{appText("طلب سحب واحد كل 15 يومًا. وصول المال مستهدف خلال 5 أيام عمل بعد الموافقة، وليس مضمونًا.")}</Text>
+   {data?.nextEligibleAt&&<Text style={S.label}>{appText("أقرب موعد طلب: ")}{new Date(data.nextEligibleAt).toLocaleDateString('ar')}</Text>}
    {btn('تحديث المحفظة',load)}
   </View>
   <PayoutPicker call={call} data={data} reload={load}/>
   <View style={S.panel}>
-   <Text style={S.heading}>🔐 الرقم السري للمحفظة</Text>
-   {data?.pinConfigured&&<TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={oldPin} onChangeText={setOldPin} placeholder="الرقم الحالي"/>}
-   <TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin} placeholder="الرقم الجديد - 6 أرقام"/>
+   <Text style={S.heading}>{appText("🔐 الرقم السري للمحفظة")}</Text>
+   {data?.pinConfigured&&<TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={oldPin} onChangeText={setOldPin} placeholder={appText("الرقم الحالي")}/>}
+   <TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin} placeholder={appText("الرقم الجديد - 6 أرقام")}/>
    {btn(data?.pinConfigured?'تغيير الرقم السري':'إنشاء الرقم السري',savePin)}
    {btn('معاينة التحويل إلى ماسات',()=>preview('diamonds'))}
-   <Text style={S.label}>يستخدم السحب النقاط المتاحة في محفظة الأرباح.</Text>
+   <Text style={S.label}>{appText("يستخدم السحب النقاط المتاحة في محفظة الأرباح.")}</Text>
   </View>
  </ScrollView>
 }

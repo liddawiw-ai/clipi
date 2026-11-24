@@ -1,3 +1,4 @@
+import {ui,isRTL} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {Animated,Platform,StyleSheet,Text,View} from 'react-native';
@@ -17,11 +18,10 @@ export function RoomTermsNotice({onRead,obscured}){
   const translateY=progress.interpolate({inputRange:[0,4],outputRange:[0,-30]});
   return <Animated.View testID="room-guidelines" style={[s.notice,{opacity,transform:[{translateY}]}]}>
     <View style={s.links}>
-      <Text accessibilityRole="link" style={[s.ink,s.link]} onPress={()=>onRead('privacy')}>Privacy · الخصوصية</Text>
-      <Text accessibilityRole="link" style={[s.ink,s.link]} onPress={()=>onRead('terms')}>Terms · شروط الخدمة</Text>
+      <Text accessibilityRole="link" style={[s.ink,s.link]} onPress={()=>onRead('privacy')}>{ui('سياسة الخصوصية')}</Text>
+      <Text accessibilityRole="link" style={[s.ink,s.link]} onPress={()=>onRead('terms')}>{ui('شروط الخدمة')}</Text>
     </View>
-    <Text style={[s.ink,s.ar]}>احترم المشاركين وخصوصيتهم. شارك فقط ما تملك إذنًا ببثّه. تُرسل الهدايا من الماس المشترى.</Text>
-    <Text style={[s.ink,s.en]}>Respect other participants and their privacy. Share only what you have permission to broadcast. Gifts use purchased diamonds.</Text>
+    <Text style={[s.ink,isRTL()?s.ar:s.en]}>{ui("احترم المشاركين وخصوصيتهم. شارك فقط ما تملك إذنًا ببثّه. تُرسل الهدايا من الماس المشترى.")}</Text>
   </Animated.View>;
 }
 const s=StyleSheet.create({

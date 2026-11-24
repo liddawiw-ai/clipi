@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React, {useEffect, useMemo, useState} from 'react';
 import {Image, Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {choices, trackPos} from './TableRules.mjs';
@@ -130,7 +131,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
           available={legal.length>0} selected={!!selected}/>;
         if(!legal.length)return <View key={group.key} accessible accessibilityLabel={label(top)} pointerEvents="none" style={[s.spot,pos]}>{glyph}</View>;
         return <Pressable key={group.key} accessibilityRole="button" accessibilityState={{selected:!!selected,expanded:legal.length>1?open===group.key:undefined}}
-          accessibilityLabel={legal.length>1?'اختيار حجر من '+legal.length+' أحجار في الخانة':label(legal[0])}
+          accessibilityLabel={legal.length>1?appText('اختيار حجر من ')+legal.length+appText(' أحجار في الخانة'):label(legal[0])}
           onPress={()=>legal.length===1?select(legal[0]):setOpen(old=>old===group.key?null:group.key)}
           style={[s.spot,pos,{zIndex:2}]}>{glyph}</Pressable>;
       })}
@@ -143,7 +144,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
       {stack.pieces.filter(permitted).map(p=><Pressable key={p.piece} accessibilityRole="button" accessibilityLabel={label(p)}
         accessibilityState={{selected:selectedPiece===p.piece}} onPress={()=>select(p)} style={s.stackButton}>
         <Piece tone={owner} diameter={22} piece={p.piece} available selected={selectedPiece===p.piece}/>
-        <Text style={s.stackText}>{'حجر '+arabic[p.piece]}</Text>
+        <Text style={s.stackText}>{appText('حجر ')+arabic[p.piece]}</Text>
       </Pressable>)}
     </View>}
   </View>;

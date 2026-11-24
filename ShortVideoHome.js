@@ -1,8 +1,9 @@
+import {ui as appText} from './interface-language.mjs';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {FlatList,Image,Modal,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
+import {FlatList,Image,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
@@ -15,7 +16,6 @@ const soundOn=require('./assets/actions/sound-on.png');
 const soundOff=require('./assets/actions/sound-off.png');
 const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
 const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
-const identity=x=>x;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
 
 function Button({label,onPress,children,disabled=false,selected}){
@@ -34,7 +34,20 @@ function SoundControl({playerRef,muted,setMuted}){
       if(playerRef.current===player&&!player.muted)setMuted(true);
     });
   }
-  return <View style={s.audio}><Button label={muted?'تشغيل الصوت':'كتم الصوت'} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
+  return <View style={s.audio}><Button label={muted?appText('تشغيل الصوت'):appText('كتم الصوت')} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
+}
+function VideoSettings({actions,onClose,closeLabel}){
+  return <Modal transparent animationType="fade" onRequestClose={onClose}>
+    <View style={s.settingsOverlay}>
+      <Pressable accessible={false} style={StyleSheet.absoluteFill} onPress={onClose}/>
+      <ScrollView style={s.settingsSheet} contentContainerStyle={s.settingsContent} accessibilityViewIsModal>
+        {[{label:closeLabel,onPress:onClose},...actions].map(action=>
+          <Pressable accessibilityRole="button" key={action.label} onPress={action.onPress} style={s.settingsRow}>
+            <Text style={[s.settingsLabel,action.destructive&&s.destructiveLabel]}>{action.label}</Text>
+          </Pressable>)}
+      </ScrollView>
+    </View>
+  </Modal>;
 }
 function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
   return <Modal transparent animationType="slide" onRequestClose={onClose}>
@@ -107,7 +120,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     });
   }
   async function run(fn){
-    try{await fn();}catch(e){if(alive.current&&e.name!=='AbortError')setMessage(e.message||'تعذّرت العملية');}
+    try{await fn();}catch(e){if(alive.current&&e.name!=='AbortError')setMessage(e.message||appText('تعذّرت العملية'));}
   }
   function openComments(){setMessage('');setDialog('comments');setViewMode('half');}
   function closeComments(){setVisibleVideoHeight(null);setDialog('');setViewMode('');}
@@ -115,10 +128,10 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     if(lock.current||!stats?.social)return;
     lock.current=true;
     try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
-    catch(e){if(alive.current)setMessage(e.message||'تعذّرت المتابعة');}finally{lock.current=false;}
+    catch(e){if(alive.current)setMessage(e.message||appText('تعذّرت المتابعة'));}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
-  const official=!!starters[item.id],authorName=stats?.authorName||(official?'Clipi':'صاحب المقطع');
+  const official=!!starters[item.id],authorName=stats?.authorName||(official?'Clipi':appText('صاحب المقطع'));
   async function submit(kind,value,callback){
     if(lock.current || (kind==='shortGift' && confirmedClip!==item.id))return;
     lock.current=true;setMessage('');
@@ -128,7 +141,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       const result=await api(kind,{nonce:key,...(kind==='shortGift'?{gift:value}:{body:value})});
       pending.current=null;
       if(alive.current)callback(result);
-    }catch(e){if(alive.current)setMessage(e.message||'تعذّر الإرسال');}
+    }catch(e){if(alive.current)setMessage(e.message||appText('تعذّر الإرسال'));}
     finally{lock.current=false;}
   }
   function openGifts(){
@@ -141,7 +154,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     setConfirmedClip(null);
     api('shortState').then(()=>{
       if(current)setConfirmedClip(item.id);
-    }).catch(()=>{if(current)setMessage('تعذّر التحقق من المقطع');});
+    }).catch(()=>{if(current)setMessage(appText('تعذّر التحقق من المقطع'));});
     request('/account-number',{op:'wallet'}).then(v=>{
       if(current)setBalance(v.diamonds);
     }).catch(()=>{if(current)setBalance(null);});
@@ -155,32 +168,37 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
         disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
-        {stats?.social&&stats.owner!==viewer?.uid&&<Pressable accessibilityRole="button" accessibilityLabel={stats.following?(followLabels?.followed??'متابَع'):(followLabels?.follow??'متابعة')} accessibilityState={{selected:!!stats.following}} onPress={follow} style={s.follow}><Text style={s.followText}>{stats.following?(followLabels?.followed??'متابَع'):(followLabels?.follow??'متابعة')}</Text></Pressable>}</View>
-      <Button label={liked?'إلغاء الإعجاب':'إعجاب'} selected={liked} onPress={()=>like()}>
+        {stats?.social&&stats.owner!==viewer?.uid&&<Pressable accessibilityRole="button" accessibilityLabel={stats.following?(followLabels?.followed??appText('متابَع')):(followLabels?.follow??appText('متابعة'))} accessibilityState={{selected:!!stats.following}} onPress={follow} style={s.follow}><Text style={s.followText}>{stats.following?(followLabels?.followed??appText('متابَع')):(followLabels?.follow??appText('متابعة'))}</Text></Pressable>}</View>
+      <Button label={liked?appText('إلغاء الإعجاب'):appText('إعجاب')} selected={liked} onPress={()=>like()}>
         {liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{likes!=null&&<Text style={s.count}>{likes}</Text>}
       </Button>
-      <Button label="التعليقات" onPress={openComments}><Image source={commentIcon} style={s.commentIcon}/>{commentCount!=null&&<Text style={s.count}>{commentCount}</Text>}</Button>
-      <Button label="مشاركة الفيديو" onPress={()=>run(()=>shareShort(videoLink))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>مشاركة</Text></Button>
-      <Button label="تنزيل الفيديو" onPress={()=>run(()=>saveShort(item.id,source))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
-      <Button label="المزيد" onPress={()=>setDialog('more')}><Text style={s.label}>•••</Text></Button>
+      <Button label={appText("التعليقات")} onPress={openComments}><Image source={commentIcon} style={s.commentIcon}/>{commentCount!=null&&<Text style={s.count}>{commentCount}</Text>}</Button>
+      <Button label={appText("مشاركة الفيديو")} onPress={()=>run(()=>shareShort(videoLink))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>{appText("مشاركة")}</Text></Button>
+      <Button label={appText("تنزيل الفيديو")} onPress={()=>run(()=>saveShort(item.id,source))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
+      <Button label={appText("المزيد")} onPress={()=>setDialog('more')}><Text style={s.label}>•••</Text></Button>
     </View>
-    <View pointerEvents="box-none" style={s.caption}><Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{item.title}</Text>}
+    <View pointerEvents="box-none" style={s.caption}><Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{official?appText(item.title):item.title}</Text>}
       
-      {!!message&&!dialog&&<Text accessibilityLiveRegion="polite" style={s.label}>{message}</Text>}</View>
-    {dialog==='more'&&<Panel onClose={()=>setDialog('')}><Button label={translate('نسخ رابط الفيديو')} onPress={copyLink}/><Button label="إهداء الفيديو" onPress={openGifts}/>{canDelete&&<Button label={translate('حذف الفيديو')} onPress={openDelete}/>}{onReport&&<Button label="الإبلاغ عن المقطع أو تعليق" onPress={()=>{setDialog('');onReport(item.id);}}/>}</Panel>}
+      {!!message&&!dialog&&<Text accessibilityLiveRegion="polite" style={s.label}>{appText(message)}</Text>}</View>
+    {dialog==='more'&&<VideoSettings closeLabel={translate('إغلاق')} onClose={()=>setDialog('')} actions={[
+      {label:translate('نسخ رابط الفيديو'),onPress:copyLink},
+      {label:translate('إهداء الفيديو'),onPress:openGifts},
+      ...(canDelete?[{label:translate('حذف الفيديو'),onPress:openDelete,destructive:true}]:[]),
+      ...(onReport?[{label:translate('الإبلاغ عن المقطع أو تعليق'),onPress:()=>{setDialog('');onReport(item.id);}}]:[])
+    ]}/>}
     </>}
     {dialog==='delete'&&<DeleteVideoDialog translate={translate} busy={busyDelete} error={message} onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     {showing&&<ShortCommentsSheet firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
-    {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={identity} copy={copy}
+    {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={item.title||'الفيديو'} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
-      onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage('تم إرسال الهدية');})}>
-      <Text style={s.label}>{message||'دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.'}</Text>
+      onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
+      <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
   </View>;
 }
 
-export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -229,7 +247,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
         }
         else if(selected)all.unshift(...all.splice(all.indexOf(selected),1));
         setActive(0);setItems(all.filter(c=>!removed.current.has(c.id)));setError('');
-      }catch{if(current)setError('تعذّر تحميل المقاطع الجديدة');}
+      }catch{if(current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     })();
     return ()=>{current=false;mounted.current=false;};
   },[retry,initialId,fromProfile]);
@@ -242,7 +260,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
       if(!mounted.current)return;
       page.current=clips.length===30?clips.at(-1).cursor:null;
       setItems(old=>old.concat(clips.filter(c=>!removed.current.has(c.id)&&!old.some(x=>x.id===c.id))));
-    }catch{if(mounted.current)setError('تعذّر تحميل المقاطع الجديدة');}
+    }catch{if(mounted.current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     finally{loading.current=false;}
   }
   function onDeleted(id){
@@ -276,8 +294,8 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
       <Button label={roomLabels?.voiceRooms??translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
       <Button label={roomLabels?.liveBroadcast??translate('بث مباشر')} onPress={()=>chooseRooms('video')}/>
     </Panel>}
-    {!viewMode&&!!notice&&<View pointerEvents="none" style={s.notice}><Text accessibilityLiveRegion="polite" style={s.label}>{notice}</Text></View>}
-    {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{error} · إعادة المحاولة</Text></Pressable>}
+    {!viewMode&&!!notice&&<View pointerEvents="none" style={s.notice}><Text accessibilityLiveRegion="polite" style={s.label}>{appText(notice)}</Text></View>}
+    {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{appText(error)}{appText(" · إعادة المحاولة")}</Text></Pressable>}
   </View><View style={viewMode&&{opacity:0}} pointerEvents={viewMode?'none':'auto'}>{dock}</View></View>;
 }
 
@@ -301,18 +319,18 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
       if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,profile:await shortProfile(viewer)})).id;
       await uploadFile(endpoint+'/shorts/media/'+job.current,draft,token);
       if(alive.current)onDone(job.current);
-    }catch(e){if(alive.current)setNotice(e.message||'تعذّر نشر الفيديو');}
+    }catch(e){if(alive.current)setNotice(e.message||appText('تعذّر نشر الفيديو'));}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
   return <View style={s.screen}><View style={[s.screen,s.preview]}>{draft&&<><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></>}</View>
-    <View style={s.panel}><Text style={s.lightTitle}>رفع فيديو قصير</Text>
-    <Button label={draft?'اختيار فيديو آخر':'اختيار فيديو من الجهاز'} disabled={busy} onPress={choose}/>
-    {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder="عنوان الفيديو"/>
-      <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label="شروط الخدمة" onPress={()=>setPolicy('terms')}/><Button label="سياسة الخصوصية" onPress={()=>setPolicy('privacy')}/></View>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.label}>{accepted?'☑':'☐'} أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله</Text></Pressable>
-      <Button label={busy?'جارٍ النشر…':'نشر الفيديو'} disabled={busy||!accepted} onPress={publish}/></>}
-    {!!notice&&<Text accessibilityLiveRegion="polite" style={s.label}>{notice}</Text>}
-    <Button label="رجوع" disabled={busy} onPress={onClose}/></View><PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/></View>;
+    <View style={s.panel}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
+    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
+    {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
+      <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.label}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
+      <Button label={busy?appText('جارٍ النشر…'):appText('نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
+    {!!notice&&<Text accessibilityLiveRegion="polite" style={s.label}>{appText(notice)}</Text>}
+    <Button label={appText("رجوع")} disabled={busy} onPress={onClose}/></View><PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/></View>;
 }
 
 const s=StyleSheet.create({
@@ -331,6 +349,11 @@ const s=StyleSheet.create({
   rail:{position:'absolute',left:5,bottom:10,alignItems:'center'},button:{alignItems:'center',justifyContent:'center',minWidth:48,minHeight:46,paddingHorizontal:5},
   label:{fontSize:16,color:'white',fontWeight:'700',textShadowColor:'#202020',textShadowRadius:4},icon:{fontSize:31,color:'white',textShadowColor:'#222',textShadowRadius:4},
   count:{fontSize:13,color:'white',textShadowColor:'#111',textShadowRadius:4},heart:{width:29,height:29},caption:{position:'absolute',right:15,left:70,bottom:22,alignItems:'flex-end'},
+  settingsOverlay:{flex:1,justifyContent:'flex-end'},
+  settingsSheet:{flexGrow:0,maxHeight:'48%',backgroundColor:'#fff',borderTopLeftRadius:18,borderTopRightRadius:18},
+  settingsContent:{paddingHorizontal:16,paddingVertical:8},
+  settingsRow:{minHeight:44,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderColor:'#dce4e0'},
+  settingsLabel:{color:'#172925',fontSize:16,fontWeight:'600'},destructiveLabel:{color:'#a12932'},
   retry:{position:'absolute',left:12,bottom:4},panel:{backgroundColor:'#202428',maxHeight:'78%',padding:16,gap:6},lightTitle:{fontSize:20,fontWeight:'700',color:'white'},
   scrim:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,.55)'},
   input:{borderColor:'#71767a',borderWidth:1,borderRadius:8,padding:10,color:'white'}

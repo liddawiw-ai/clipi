@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import {entranceNames,entranceOverrides,equippedEntrance} from './entranceStyles.mjs';
 import {theme} from './ClipiTheme';
 import React,{useState} from 'react';
@@ -13,7 +14,7 @@ export default function ClipiCollection({copy,goods,identity,inventory,equipped,
       return {key:g[1],icon:g[0],name:copy.translate(g[3]==='ride'?g[1]+' · '+entranceNames[equippedEntrance({ride:g[1]})]:g[1]),detail:g[2]+' 💎',action:owned?(active?copy.remove:copy.equip):copy.buy,press:()=>owned?onEquip(g):onBuy(g)};
     });
   if(numbers||tab==='owned')for(const n of identity?.owned||[])items.push({key:'id-'+n,icon:'#',name:n,detail:copy.numbers,action:identity.number===n?'✓':copy.equip,press:()=>onNumber('equip',n)});
-  return <View><View style={s.strip}><Text style={s.title}>{copy.store}</Text><Text style={s.light}>{identity?.balance??'…'} 💎</Text></View>
+  return <View><View style={s.strip}><Text style={s.title}>{appText(copy.store)}</Text><Text style={s.light}>{identity?.balance??'…'} 💎</Text></View>
     <View style={s.tabs}>{tabs.map(k=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{selected:k===tab}} onPress={()=>select(k)} style={[s.tab,k===tab&&s.selected]}><Text style={[s.label,k===tab&&s.light]}>{copy[k]}</Text></TouchableOpacity>)}</View>
     {tab==='ride'&&!!equipped.ride&&<View><Text style={s.label}>{copy.translate('شكل دخولك')}</Text><View style={s.tabs}>
       {entranceOverrides.map(id=>{
@@ -23,7 +24,7 @@ export default function ClipiCollection({copy,goods,identity,inventory,equipped,
           <Text style={s.label}>{copy.translate(label)}</Text></TouchableOpacity>;
       })}
     </View></View>}
-    {!!error&&numbers&&<TouchableOpacity onPress={()=>onNumber('read')}><Text>{copy.retry}</Text></TouchableOpacity>}
+    {!!error&&numbers&&<TouchableOpacity onPress={()=>onNumber('read')}><Text>{appText(copy.retry)}</Text></TouchableOpacity>}
     <View style={s.grid}>{items.map(item=><View style={s.card} key={item.key}><View style={s.art}><Text style={s.icon}>{item.icon}</Text></View><Text style={s.label}>{item.name}</Text><Text style={s.detail}>{item.detail}</Text><TouchableOpacity style={s.button} accessibilityRole="button" onPress={item.press}><Text style={s.light}>{item.action}</Text></TouchableOpacity></View>)}</View></View>;
 }
 const s=StyleSheet.create({

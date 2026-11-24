@@ -1,9 +1,9 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {FlatList,Image,Modal,Pressable,StyleSheet,Text,useWindowDimensions,View} from 'react-native';
 import {shortThumbnail} from './ShortThumbnail';
 import {ShortVideoHome} from './ShortVideoHome';
 
-const unchanged=text=>text;
 const TILE_WIDTH = 76;
 const GRID_GAP = 6;
 const LIST_PADDING = 14;
@@ -30,7 +30,7 @@ function Control({label,children,onPress}){
   </Pressable>;
 }
 
-export default function ProfileShorts({playerProps,request,endpoint,authorUid,header,translate=unchanged}){
+export default function ProfileShorts({playerProps,request,endpoint,authorUid,header,translate=appText}){
   const [clips,setClips]=useState([]),[cursor,setCursor]=useState(null),[canDelete,setCanDelete]=useState(false);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(null);
   const life=useRef(0),loadingPage=useRef(null);
@@ -64,7 +64,7 @@ export default function ProfileShorts({playerProps,request,endpoint,authorUid,he
       renderItem={({item,index})=><Tile clip={item} index={index} endpoint={endpoint} translate={translate} onOpen={setSelected}/>}
       ListFooterComponent={<>
         {loading&&<Text style={s.note}>{translate('جارٍ تحميل الفيديوهات…')}</Text>}
-        {!loading&&!!error&&<><Text accessibilityRole="alert" style={s.note}>{error}</Text><Control label={translate('إعادة المحاولة')} onPress={()=>load(cursor)}/></>}
+        {!loading&&!!error&&<><Text accessibilityRole="alert" style={s.note}>{appText(error)}</Text><Control label={translate('إعادة المحاولة')} onPress={()=>load(cursor)}/></>}
         {!loading&&!error&&!clips.length&&<Text style={s.note}>{translate('لا توجد فيديوهات منشورة بعد')}</Text>}
         {!loading&&!error&&cursor!=null&&<Control label={translate('عرض المزيد')} onPress={()=>load(cursor)}/>}
       </>}/>

@@ -1,3 +1,4 @@
+import {ui as appText} from './interface-language.mjs';
 import React,{useEffect} from 'react';
 import {BackHandler,Pressable,StyleSheet,Text,View} from 'react-native';
 
@@ -10,7 +11,7 @@ export default function DeleteVideoDialog({translate,busy,error,onCancel,onConfi
     <View style={s.card}>
       <Text accessibilityRole="header" style={s.title}>{translate('حذف الفيديو؟')}</Text>
       <Text style={s.note}>{translate('سيُحذف المقطع وتعليقاته نهائيًا.')}</Text>
-      {!!error&&<Text accessibilityRole="alert" style={s.error}>{error}</Text>}
+      {!!error&&<Text accessibilityRole="alert" style={s.error}>{appText(error)}</Text>}
       <View style={s.actions}>
         <Pressable accessibilityRole="button" disabled={busy} onPress={onCancel} style={s.button}><Text style={s.label}>{translate('إلغاء')}</Text></Pressable>
         <Pressable accessibilityRole="button" disabled={busy} onPress={onConfirm} style={[s.button,s.danger]}>

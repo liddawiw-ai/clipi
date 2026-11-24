@@ -1,3 +1,4 @@
+import {ui as appText,interfaceLocale} from './interface-language.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Keyboard,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import {choosePhoto,shortProfile} from './photo';
@@ -22,34 +23,37 @@ function Action({label,onPress,children,style,disabled=false,selected}) {
 }
 function relativeTime(value) {
   if(!value)return '';
-  const elapsed=Math.max(0,Date.now()-Number(value));
-  if(elapsed<60000)return 'الآن فقط';
-  if(elapsed<3600000)return 'قبل '+Math.floor(elapsed/60000)+' د';
-  if(elapsed<86400000)return 'قبل '+Math.floor(elapsed/3600000)+' س';
-  const date=new Date(Number(value));return date.getDate()+'-'+(date.getMonth()+1);
+  const seconds=Math.floor(Math.max(0,Date.now()-Number(value))/1000);
+  if(seconds<60)return appText('الآن فقط');
+  const code=interfaceLocale();
+  if(seconds<86400&&typeof Intl.RelativeTimeFormat==='function'){
+    const minutes=seconds<3600;
+    return new Intl.RelativeTimeFormat(code,{numeric:'always',style:'short'}).format(-Math.floor(seconds/(minutes?60:3600)),minutes?'minute':'hour');
+  }
+  return new Date(Number(value)).toLocaleDateString(code,{month:'short',day:'numeric'});
 }
 function Media({value}) {
   if(!value)return null;
   const source=stickers[value]||{uri:value};
-  return <Image accessibilityLabel={stickerNames[value]||'صورة التعليق'} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
+  return <Image accessibilityLabel={stickerNames[value]||appText('صورة التعليق')} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
 }
 function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
   const author=row.name||'مستخدم كليبي';
   return <View style={[s.row,nested&&s.nested]}>
     <ShortAvatar name={author} avatar={row.avatar} size={nested?29:36}/>
     <View style={s.copy}>
-      <Text style={s.author}>{author}{row.uid&&row.uid===owner?' · المنشئ':''}</Text>
+      <Text style={s.author}>{author}{row.uid&&row.uid===owner?appText(' · المنشئ'):''}</Text>
       {!!row.body&&<Text style={s.body}>{row.body}</Text>}
       <Media value={row.media}/>
-      <View style={s.meta}>{row.pending&&<Text accessibilityLiveRegion="polite" style={s.metaText}>جارٍ الإرسال…</Text>}{!!row.created&&<Text style={s.metaText}>{relativeTime(row.created)}</Text>}
-        {social&&<Action label={'رد على '+author} onPress={onReply} style={s.inline}><Text style={s.metaText}>رد</Text></Action>}
+      <View style={s.meta}>{row.pending&&<Text accessibilityLiveRegion="polite" style={s.metaText}>{appText("جارٍ الإرسال…")}</Text>}{!!row.created&&<Text style={s.metaText}>{relativeTime(row.created)}</Text>}
+        {social&&<Action label={appText('رد على ')+author} onPress={onReply} style={s.inline}><Text style={s.metaText}>{appText("رد")}</Text></Action>}
       </View>
-      {!!row.creatorLiked&&<Text style={s.creator}>أعجب المنشئ</Text>}
-      {!nested&&row.replyCount>0&&<Action label={open?'إخفاء الردود':'عرض الردود'} onPress={onToggle} style={s.thread}>
-        <Text style={s.threadLabel}>{open?'إخفاء الردود':'عرض '+row.replyCount+' من الردود'} {open?'⌃':'⌄'}</Text>
+      {!!row.creatorLiked&&<Text style={s.creator}>{appText("أعجب المنشئ")}</Text>}
+      {!nested&&row.replyCount>0&&<Action label={open?appText('إخفاء الردود'):appText('عرض الردود')} onPress={onToggle} style={s.thread}>
+        <Text style={s.threadLabel}>{open?appText('إخفاء الردود'):appText('عرض ')+row.replyCount+appText(' من الردود')} {open?'⌃':'⌄'}</Text>
       </Action>}
     </View>
-    {social&&<Action selected={!!row.liked} label={row.liked?'إلغاء إعجاب التعليق':'إعجاب بالتعليق'} onPress={onLike} style={s.like}>
+    {social&&<Action selected={!!row.liked} label={row.liked?appText('إلغاء إعجاب التعليق'):appText('إعجاب بالتعليق')} onPress={onLike} style={s.like}>
       <Text style={[s.heart,!!row.liked&&s.liked]}>{row.liked?'♥':'♡'}</Text>
       {row.likes>0&&<Text style={s.metaText}>{row.likes}</Text>}
     </Action>}
@@ -105,7 +109,7 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
     try{
       const result=parent==null&&before==null ? await firstComments() : await api('shortComments',{parent,before});
       if(alive.current&&version===sequence.current)accept(result,parent,before);
-    }catch(e){if(alive.current)setError(e.message||'تعذّر تحميل التعليقات');}
+    }catch(e){if(alive.current)setError(e.message||appText('تعذّر تحميل التعليقات'));}
     finally{busy.current.delete(key);if(alive.current)setLoading(false);}
   }
   function toggle(row){
@@ -120,7 +124,7 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
     busy.current.add(key);setError('');
     replaceRow(row.id,{liked:!row.liked,likes:Math.max(0,(row.likes||0)+(row.liked?-1:1))});
     try{const v=await api('shortCommentLike',{commentId:row.id,liked:!row.liked});invalidateComments();if(alive.current)replaceRow(row.id,v);}
-    catch(e){if(alive.current){replaceRow(row.id,{liked:row.liked,likes:row.likes});setError(e.message||'تعذّر حفظ الإعجاب');}}finally{busy.current.delete(key);}
+    catch(e){if(alive.current){replaceRow(row.id,{liked:row.liked,likes:row.likes});setError(e.message||appText('تعذّر حفظ الإعجاب'));}}finally{busy.current.delete(key);}
   }
   async function send() {
     const body=draft.trim(),parent=reply?.id??null;
@@ -139,13 +143,13 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
       if(parent!=null){setOpen(old=>({...old,[parent]:true}));setMain(old=>({...old,rows:old.rows.map(r=>r.id===parent?{...r,replyCount:(r.replyCount||0)+1}:r)}));}
       else list.current?.scrollTo({y:0,animated:false});
       changeDraft('');caret.current={start:0,end:0};setInputHeight(40);setReply(null);setAttachment('');hideKeyboard();
-    }catch(e){if(alive.current)setError(e.message||'تعذّر إرسال التعليق');}
+    }catch(e){if(alive.current)setError(e.message||appText('تعذّر إرسال التعليق'));}
     finally{busy.current.delete('send');if(alive.current){setOutgoing(null);setSending(false);}}
   }
   function insert(value){edit(value);}
   async function pickImage(){
-    try{const image=await choosePhoto(240);if(image&&alive.current){if(image.length>85000)throw Error('اختر صورة أصغر');setAttachment(image);setTools('');}}
-    catch(e){if(alive.current)setError(e.message||'تعذّر فتح الصورة');}
+    try{const image=await choosePhoto(240);if(image&&alive.current){if(image.length>85000)throw Error(appText('اختر صورة أصغر'));setAttachment(image);setTools('');}}
+    catch(e){if(alive.current)setError(e.message||appText('تعذّر فتح الصورة'));}
   }
   function startReply(row,root){setReply({id:root.id,name:row.name||'مستخدم كليبي'});setTools('');showKeyboard();}
   function rowView(row,root){
@@ -168,43 +172,43 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
     <View style={s.overlay} onLayout={e=>setAvailable(e.nativeEvent.layout.height)}>
       <Pressable accessible={false} onPress={onClose} style={{height:top}}/>
       <View style={[s.sheet,{marginBottom:inset}]} accessibilityViewIsModal testID="short-comments-sheet">
-        <View style={s.head}><Text accessibilityRole="header" style={s.title}>{count==null?'التعليقات':count+' من التعليقات'}</Text>
-          <View style={s.headActions}><Action label="إغلاق التعليقات" onPress={onClose}><Text style={s.close}>×</Text></Action>
-            <Action label={expanded?'تصغير التعليقات':'توسيع التعليقات'} onPress={onExpand}><Image source={iconExpand} style={s.smallIcon}/></Action></View>
+        <View style={s.head}><Text accessibilityRole="header" style={s.title}>{count==null?appText('التعليقات'):count+appText(' من التعليقات')}</Text>
+          <View style={s.headActions}><Action label={appText("إغلاق التعليقات")} onPress={onClose}><Text style={s.close}>×</Text></Action>
+            <Action label={expanded?appText('تصغير التعليقات'):appText('توسيع التعليقات')} onPress={onExpand}><Image source={iconExpand} style={s.smallIcon}/></Action></View>
         </View>
         <ScrollView ref={list} testID="short-comment-list" style={s.list} keyboardShouldPersistTaps="handled" contentContainerStyle={s.listInner}>
           {outgoing&&outgoing.parent==null&&<CommentRow row={outgoing} owner={owner}/>}
           {main.rows.map(row=><View key={row.id}>{rowView(row)}
             {open[row.id]&&outgoing?.parent===row.id&&<CommentRow row={outgoing} nested owner={owner}/>}
             {open[row.id]&&(threads[row.id]?.rows||[]).map(child=><View key={child.id}>{rowView(child,row)}</View>)}
-            {open[row.id]&&threads[row.id]?.next&&<Action label="المزيد من الردود" onPress={()=>load(row.id,threads[row.id].next)}><Text>المزيد من الردود</Text></Action>}
+            {open[row.id]&&threads[row.id]?.next&&<Action label={appText("المزيد من الردود")} onPress={()=>load(row.id,threads[row.id].next)}><Text>{appText("المزيد من الردود")}</Text></Action>}
           </View>)}
-          {!main.rows.length&&!outgoing&&!error&&<Text style={s.empty}>{loading?'جارٍ تحميل التعليقات…':'كن أول من يعلّق'}</Text>}
-          {!!main.next&&<Action label="المزيد من التعليقات" onPress={()=>load(null,main.next)}><Text>المزيد من التعليقات</Text></Action>}
+          {!main.rows.length&&!outgoing&&!error&&<Text style={s.empty}>{loading?appText('جارٍ تحميل التعليقات…'):appText('كن أول من يعلّق')}</Text>}
+          {!!main.next&&<Action label={appText("المزيد من التعليقات")} onPress={()=>load(null,main.next)}><Text>{appText("المزيد من التعليقات")}</Text></Action>}
         </ScrollView>
-        {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{error}</Text>}
+        {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>}
         <View testID="short-comment-composer" style={s.composeArea} onLayout={e=>setComposerHeight(e.nativeEvent.layout.height)}>
-          {!!reply&&<Action label="إلغاء الرد" style={s.context} onPress={()=>setReply(null)}><Text>رد على {reply.name}　×</Text></Action>}
-          {!!attachment&&<Action label="إزالة المرفق" style={s.context} onPress={()=>setAttachment('')}>{focused?<Text style={s.author}>{stickerNames[attachment]||'صورة مرفقة'}</Text>:<Media value={attachment}/>}<Text>×</Text></Action>}
-          {tools==='gif'&&<View style={s.picker}>{Object.keys(stickers).map(key=><Action key={key} label={stickerNames[key]} onPress={()=>{setAttachment(key);setTools('');}}><Media value={key}/></Action>)}</View>}
-          {tools==='mention'&&<ScrollView horizontal keyboardShouldPersistTaps="always">{names.map(n=><Action key={n} label={n} onPress={()=>insert('@'+n+' ')}><Text style={s.author}>{'@'+n}</Text></Action>)}<Action label="اكتب اسم المستخدم" onPress={()=>insert('@')}><Text>اكتب اسم المستخدم</Text></Action></ScrollView>}
+          {!!reply&&<Action label={appText("إلغاء الرد")} style={s.context} onPress={()=>setReply(null)}><Text>{appText("رد على ")}{reply.name}　×</Text></Action>}
+          {!!attachment&&<Action label={appText("إزالة المرفق")} style={s.context} onPress={()=>setAttachment('')}>{focused?<Text style={s.author}>{stickerNames[attachment]||appText('صورة مرفقة')}</Text>:<Media value={attachment}/>}<Text>×</Text></Action>}
+          {tools==='gif'&&<View style={s.picker}>{Object.keys(stickers).map(key=><Action key={key} label={appText(stickerNames[key])} onPress={()=>{setAttachment(key);setTools('');}}><Media value={key}/></Action>)}</View>}
+          {tools==='mention'&&<ScrollView horizontal keyboardShouldPersistTaps="always">{names.map(n=><Action key={n} label={n} onPress={()=>insert('@'+n+' ')}><Text style={s.author}>{'@'+n}</Text></Action>)}<Action label={appText("اكتب اسم المستخدم")} onPress={()=>insert('@')}><Text>{appText("اكتب اسم المستخدم")}</Text></Action></ScrollView>}
           <View style={s.composer}>
             <ShortAvatar avatar={viewer?.avatar} name={viewer?.name} size={34}/>
             <View style={s.inputBox}>
-              <TextInput ref={input} accessibilityLabel="اكتب تعليقك" value={draft} onChangeText={changeDraft} maxLength={450} inputMode="none" showSoftInputOnFocus={false} selection={selection}
+              <TextInput ref={input} accessibilityLabel={appText("اكتب تعليقك")} value={draft} onChangeText={changeDraft} maxLength={450} inputMode="none" showSoftInputOnFocus={false} selection={selection}
                 onSelectionChange={e=>{caret.current=e.nativeEvent.selection;}} editable={!sending}
                 multiline returnKeyType="send" enterKeyHint="send" submitBehavior="submit" blurOnSubmit={false}
                 onSubmitEditing={send} onFocus={()=>setFocused(true)}
                 onKeyPress={Platform.OS==='web'?e=>{if(e.nativeEvent.key==='Escape'){e.preventDefault();hideKeyboard();return;}if(e.nativeEvent.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}:undefined}
                 onContentSizeChange={e=>setInputHeight(Math.min(94,Math.max(40,e.nativeEvent.contentSize.height)))}
-                placeholder="اكتب تعليقك…" placeholderTextColor="#777" style={[s.input,{height:compact?Math.min(56,inputHeight):inputHeight}]}/>
-              {social&&(!compact||!focused)&&<View style={s.tools}><Action label="إرفاق صورة" onPress={pickImage}><Image source={iconImage} style={s.smallIcon}/></Action>
-                <Action label="اختيار GIF" onPress={()=>setTools(v=>v==='gif'?'':'gif')}><Text style={s.gif}>GIF</Text></Action>
-                <Action label="ذكر مستخدم" onPress={()=>setTools(v=>v==='mention'?'':'mention')}><Text style={s.at}>@</Text></Action></View>}
+                placeholder={appText("اكتب تعليقك…")} placeholderTextColor="#777" style={[s.input,{height:compact?Math.min(56,inputHeight):inputHeight}]}/>
+              {social&&(!compact||!focused)&&<View style={s.tools}><Action label={appText("إرفاق صورة")} onPress={pickImage}><Image source={iconImage} style={s.smallIcon}/></Action>
+                <Action label={appText("اختيار GIF")} onPress={()=>setTools(v=>v==='gif'?'':'gif')}><Text style={s.gif}>GIF</Text></Action>
+                <Action label={appText("ذكر مستخدم")} onPress={()=>setTools(v=>v==='mention'?'':'mention')}><Text style={s.at}>@</Text></Action></View>}
             </View>
-            {(canSend||focused||sending)&&<Action label="إرسال التعليق" disabled={!canSend} onPress={send} style={[s.send,!canSend&&s.disabled]}><Image source={iconSend} style={s.sendIcon}/></Action>}
+            {(canSend||focused||sending)&&<Action label={appText("إرسال التعليق")} disabled={!canSend} onPress={send} style={[s.send,!canSend&&s.disabled]}><Image source={iconSend} style={s.sendIcon}/></Action>}
           </View>
-          {(!compact||!focused)&&<View style={s.emojiRow}>{emojis.map(e=><Action key={e} label={'إدراج '+e} style={s.emojiButton} onPress={()=>insert(e)}><Text style={s.emoji}>{e}</Text></Action>)}</View>}
+          {(!compact||!focused)&&<View style={s.emojiRow}>{emojis.map(e=><Action key={e} label={appText('إدراج ')+e} style={s.emojiButton} onPress={()=>insert(e)}><Text style={s.emoji}>{e}</Text></Action>)}</View>}
         </View>
         {focused&&<CommentKeyboard onEdit={edit} onSend={send} onHide={hideKeyboard} canSend={canSend} disabled={sending} short={compact} rowHeight={keyHeight}/>}
       </View>
