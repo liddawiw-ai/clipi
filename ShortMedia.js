@@ -20,7 +20,10 @@ export function Player({source, active = true, muted = true, playerRef, fit = 'c
     function sync(state) { if (active && state==='active') player.play(); else player.pause(); }
     sync(AppState.currentState || 'active');
     const subscription=AppState.addEventListener('change',sync);
-    return () => subscription.remove();
+      const ready=player.addListener('statusChange',({status})=>{
+        if(status==='readyToPlay')sync(AppState.currentState||'active');
+      });
+    return () => {subscription.remove();ready.remove();player.pause();};
   },[active,player]);
   return <VideoView style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
 }

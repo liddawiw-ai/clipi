@@ -30,9 +30,6 @@ function SoundControl({playerRef,muted,setMuted}){
     const player=playerRef.current;
     if(!player)return;
     player.muted=next;
-    if(!next)Promise.resolve(player.play()).catch(()=>{
-      if(playerRef.current===player&&!player.muted)setMuted(true);
-    });
   }
   return <View style={s.audio}><Button label={muted?appText('تشغيل الصوت'):appText('كتم الصوت')} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
 }
@@ -62,6 +59,7 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
 function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
+    const [paused,setPaused]=useState(false);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
@@ -166,9 +164,14 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {!showing&&dialog!=='delete'&&<>
-    <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
+    <VideoTapSurface clipId={item.id} onSingleTap={()=>setPaused(p=>!p)}
+        playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')} onDoubleTap={confirm=>like(true,confirm)}/>
+      {paused&&<Pressable accessibilityRole="button" accessibilityLabel={translate('استئناف الفيديو')}
+        onPress={()=>{setPaused(false);const p=playerRef.current;if(p)Promise.resolve(p.play()).catch(()=>{});}}
+        style={{position:'absolute',left:'50%',top:'50%',marginLeft:-24,marginTop:-24,width:48,height:48,borderRadius:24,backgroundColor:'rgba(0,0,0,.6)',alignItems:'center',justifyContent:'center'}}>
+        <Text style={{color:'#fff',fontSize:23}}>▶</Text></Pressable>}
     <SoundControl {...{playerRef,muted,setMuted}}/>
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
