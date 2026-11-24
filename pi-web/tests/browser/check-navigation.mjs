@@ -180,7 +180,7 @@ export async function checkNavigation(browser) {
     await p.locator('.clipi-feed-live').click();
     await root.getByRole('button').first().click();
     await pageFull('home');
-    if (width === 390) await checkLoginLanguages(p);
+    await checkLoginLanguages(p, lang);
     assert.deepEqual(errors, []);
     console.log(
       'PASS',
@@ -195,16 +195,29 @@ export async function checkNavigation(browser) {
   }
 }
 
-async function checkLoginLanguages(page) {
+async function checkLoginLanguages(page, initialLanguage) {
   await page.goto('https://clipi.local/room?signedOut=1');
-  const trigger = page.getByRole('button', { name: /تغيير اللغة/ });
-  await trigger.click();
+  const trigger = page.locator('.clipi-language-trigger');
   const sheet = page.getByRole('dialog'), wheel = sheet.locator('.clipi-language-wheel');
+  if (initialLanguage !== 'ar') {
+    await trigger.click();
+    await sheet.getByRole('button', {name:'العربية', exact:true}).click();
+  }
+  await trigger.scrollIntoViewIfNeeded();
+  const before = await trigger.boundingBox();
+  await trigger.click();
   await sheet.waitFor();
   await page.waitForFunction(() => !document.querySelector('dialog').getAnimations().some(a => a.playState === 'running'));
-  const bounds = await sheet.boundingBox();
-  assert.ok(bounds.y > 0 && Math.abs(bounds.y + bounds.height - page.viewportSize().height) < 2);
-  assert.equal(await sheet.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)');
+  const bounds = await sheet.boundingBox(), field = await trigger.boundingBox();
+  assert.ok(bounds.y >= 0 && Math.abs(bounds.y + bounds.height - field.y) < 2,
+    JSON.stringify({ message:'The wheel must end at the top of the language field', bounds, field }));
+  assert.ok(bounds.width < field.width && Math.abs(bounds.x + bounds.width/2 - field.x - field.width/2) < 2);
+  if (before.y > 240) assert.ok(Math.abs(before.y-field.y) < 2, 'Opening the picker moved the language field');
+  assert.equal(await sheet.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(255, 255, 255, 0.9)');
+  const chosen = await wheel.locator('[aria-pressed="true"]').boundingBox();
+  const area = await wheel.boundingBox();
+  assert.ok(Math.abs(chosen.y + chosen.height/2 - area.y - area.height/2) < 2);
+  if (page.viewportSize().height >= 600) assert.ok(area.height >= chosen.height*5 - 1, 'Expected a tall wheel');
   const box = await wheel.boundingBox();
   const touch = await page.context().newCDPSession(page);
   const x = box.x + box.width / 2, start = box.y + box.height / 4;
@@ -222,10 +235,10 @@ async function checkLoginLanguages(page) {
   await page.reload();
   await english.click();
   await sheet.getByRole('button', {name:'العربية',exact:true}).click();
-  await trigger.waitFor();
+  await page.getByRole('button', {name:/تغيير اللغة/}).waitFor();
   await trigger.click();
   await page.keyboard.press('Escape');
   await sheet.waitFor({state:'hidden'});
   assert.equal(await page.evaluate(() => localStorage.getItem('clipi.language.v2')), 'ar');
-  console.log('PASS Pi login white bottom sheet, touch-scroll selection, persistence, tap and cancel');
+  console.log('PASS narrow translucent wheel above the Pi language field, centred choice, touch, save, reload and cancel');
 }
