@@ -6,8 +6,7 @@ export default function MicFace({main, person, host, locked, speaking}) {
   const portrait = person?.avatar?.startsWith('data:image/');
   return <View pointerEvents="none" style={[s.seat, main && s.main, person && s.occupied,
     host && s.host, speaking && s.live, person?.frame && s.frame]}>
-    {portrait ? <Image source={{uri:person.avatar}} style={s.photo}/> : host ?
-      <Text style={s.crown}>♛</Text> : person?.avatar ?
+    {portrait ? <Image source={{uri:person.avatar}} style={s.photo}/> : person?.avatar ?
       <Text style={s.avatar}>{person.avatar}</Text> : person?.name ?
       <Text style={s.initial}>{Array.from(person.name.trim())[0]}</Text> : locked && !person ?
       <Text style={s.avatar}>🔒</Text> :

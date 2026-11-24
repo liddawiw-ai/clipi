@@ -3,11 +3,11 @@ import {theme} from './ClipiTheme';
 import React, {useRef, useState} from 'react';
 import {Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
-export function RoomAction({icon, label, active, onPress}) {
+export function RoomAction({icon, label, active, onPress,children}) {
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
     accessibilityState={active==null?undefined:{selected:active}} onPress={onPress}
     style={[s.action,active&&s.active]}>
-    <Text style={[s.glyph,active&&s.activeGlyph]}>{icon}</Text>
+    {children||<Text style={[s.glyph,active&&s.activeGlyph]}>{icon}</Text>}
   </TouchableOpacity>;
 }
 

@@ -1,5 +1,9 @@
 export const accountLabels = {
   "ar": {
+    "broadcasterName": "اسم صاحب البث",
+    "roomSupporters": "داعمو الغرفة",
+    "previousRooms": "إعادة فتح غرفة سابقة",
+    "more": "عرض المزيد",
     "hostCard": {
       "title": "بطاقة المضيف",
       "room": "إجمالي ماس الغرفة",
@@ -40,6 +44,10 @@ export const accountLabels = {
     "balance": "الماس المشترى"
   },
   "en": {
+    "broadcasterName": "Broadcaster name",
+    "roomSupporters": "Room supporters",
+    "previousRooms": "Reopen a previous room",
+    "more": "Show more",
     "hostCard": {
       "title": "Host card",
       "room": "Total room diamonds",
@@ -80,6 +88,10 @@ export const accountLabels = {
     "balance": "Purchased diamonds"
   },
   "es": {
+    "broadcasterName": "Nombre del anfitrión",
+    "roomSupporters": "Personas que apoyaron la sala",
+    "previousRooms": "Reabrir una sala anterior",
+    "more": "Ver más",
     "hostCard": {
       "title": "Perfil del anfitrión",
       "room": "Diamantes de la sala",
@@ -120,6 +132,10 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "fr": {
+    "broadcasterName": "Nom de l’hôte",
+    "roomSupporters": "Soutiens de la salle",
+    "previousRooms": "Rouvrir une salle précédente",
+    "more": "Afficher plus",
     "hostCard": {
       "title": "Fiche de l’hôte",
       "room": "Diamants de la salle",
@@ -160,6 +176,10 @@ export const accountLabels = {
     "balance": "Diamants achetés"
   },
   "de": {
+    "broadcasterName": "Name des Gastgebers",
+    "roomSupporters": "Unterstützer des Raums",
+    "previousRooms": "Früheren Raum wieder öffnen",
+    "more": "Mehr anzeigen",
     "hostCard": {
       "title": "Gastgeberprofil",
       "room": "Diamanten im Raum",
@@ -200,6 +220,10 @@ export const accountLabels = {
     "balance": "Gekaufte Diamanten"
   },
   "pt": {
+    "broadcasterName": "Nome do anfitrião",
+    "roomSupporters": "Apoiadores da sala",
+    "previousRooms": "Reabrir uma sala anterior",
+    "more": "Ver mais",
     "hostCard": {
       "title": "Perfil do anfitrião",
       "room": "Diamantes da sala",
@@ -240,6 +264,10 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "it": {
+    "broadcasterName": "Nome dell’host",
+    "roomSupporters": "Sostenitori della stanza",
+    "previousRooms": "Riapri una stanza precedente",
+    "more": "Mostra altro",
     "hostCard": {
       "title": "Profilo dell’host",
       "room": "Diamanti della stanza",
@@ -280,6 +308,10 @@ export const accountLabels = {
     "balance": "Diamanti acquistati"
   },
   "tr": {
+    "broadcasterName": "Yayıncının adı",
+    "roomSupporters": "Odayı destekleyenler",
+    "previousRooms": "Önceki bir odayı yeniden aç",
+    "more": "Daha fazla göster",
     "hostCard": {
       "title": "Yayıncı profili",
       "room": "Odadaki toplam elmas",
@@ -320,6 +352,10 @@ export const accountLabels = {
     "balance": "Satın alınan elmaslar"
   },
   "ru": {
+    "broadcasterName": "Имя ведущего",
+    "roomSupporters": "Сторонники комнаты",
+    "previousRooms": "Снова открыть прежнюю комнату",
+    "more": "Показать ещё",
     "hostCard": {
       "title": "Профиль ведущего",
       "room": "Алмазы комнаты",
@@ -360,6 +396,10 @@ export const accountLabels = {
     "balance": "Купленные алмазы"
   },
   "uk": {
+    "broadcasterName": "Ім’я ведучого",
+    "roomSupporters": "Прихильники кімнати",
+    "previousRooms": "Знову відкрити попередню кімнату",
+    "more": "Показати ще",
     "hostCard": {
       "title": "Профіль ведучого",
       "room": "Алмази кімнати",
@@ -400,6 +440,10 @@ export const accountLabels = {
     "balance": "Придбані діаманти"
   },
   "pl": {
+    "broadcasterName": "Nazwa prowadzącego",
+    "roomSupporters": "Wspierający pokój",
+    "previousRooms": "Otwórz ponownie wcześniejszy pokój",
+    "more": "Pokaż więcej",
     "hostCard": {
       "title": "Profil gospodarza",
       "room": "Diamenty pokoju",
@@ -440,6 +484,10 @@ export const accountLabels = {
     "balance": "Kupione diamenty"
   },
   "nl": {
+    "broadcasterName": "Naam van de host",
+    "roomSupporters": "Supporters van de kamer",
+    "previousRooms": "Eerdere kamer heropenen",
+    "more": "Meer tonen",
     "hostCard": {
       "title": "Profiel van de host",
       "room": "Diamanten in de kamer",
@@ -480,6 +528,10 @@ export const accountLabels = {
     "balance": "Gekochte diamanten"
   },
   "fa": {
+    "broadcasterName": "نام میزبان",
+    "roomSupporters": "حامیان اتاق",
+    "previousRooms": "بازگشایی اتاق قبلی",
+    "more": "نمایش بیشتر",
     "hostCard": {
       "title": "کارت میزبان",
       "room": "مجموع الماس‌های اتاق",
@@ -520,6 +572,10 @@ export const accountLabels = {
     "balance": "الماس‌های خریداری‌شده"
   },
   "ur": {
+    "broadcasterName": "میزبان کا نام",
+    "roomSupporters": "کمرے کے حامی",
+    "previousRooms": "پچھلا کمرہ دوبارہ کھولیں",
+    "more": "مزید دکھائیں",
     "hostCard": {
       "title": "میزبان کا پروفائل",
       "room": "کمرے کے کل ہیرے",
@@ -560,6 +616,10 @@ export const accountLabels = {
     "balance": "خریدے گئے ہیرے"
   },
   "he": {
+    "broadcasterName": "שם המארח",
+    "roomSupporters": "תומכי החדר",
+    "previousRooms": "פתיחת חדר קודם מחדש",
+    "more": "הצגת עוד",
     "hostCard": {
       "title": "כרטיס המארח",
       "room": "סך היהלומים בחדר",
@@ -600,6 +660,10 @@ export const accountLabels = {
     "balance": "יהלומים שנרכשו"
   },
   "hi": {
+    "broadcasterName": "होस्ट का नाम",
+    "roomSupporters": "कमरे के समर्थक",
+    "previousRooms": "पिछला कमरा फिर खोलें",
+    "more": "और दिखाएँ",
     "hostCard": {
       "title": "होस्ट प्रोफ़ाइल",
       "room": "कमरे के कुल हीरे",
@@ -640,6 +704,10 @@ export const accountLabels = {
     "balance": "खरीदे गए हीरे"
   },
   "bn": {
+    "broadcasterName": "হোস্টের নাম",
+    "roomSupporters": "রুমের সমর্থকরা",
+    "previousRooms": "আগের রুম আবার খুলুন",
+    "more": "আরও দেখুন",
     "hostCard": {
       "title": "হোস্ট প্রোফাইল",
       "room": "রুমের মোট হীরা",
@@ -680,6 +748,10 @@ export const accountLabels = {
     "balance": "কেনা হীরা"
   },
   "ta": {
+    "broadcasterName": "தொகுப்பாளர் பெயர்",
+    "roomSupporters": "அறையின் ஆதரவாளர்கள்",
+    "previousRooms": "முந்தைய அறையை மீண்டும் திற",
+    "more": "மேலும் காட்டு",
     "hostCard": {
       "title": "தொகுப்பாளர் சுயவிவரம்",
       "room": "அறையின் மொத்த வைரங்கள்",
@@ -720,6 +792,10 @@ export const accountLabels = {
     "balance": "வாங்கிய வைரங்கள்"
   },
   "id": {
+    "broadcasterName": "Nama host",
+    "roomSupporters": "Pendukung ruangan",
+    "previousRooms": "Buka kembali ruangan sebelumnya",
+    "more": "Tampilkan lagi",
     "hostCard": {
       "title": "Profil host",
       "room": "Total berlian ruangan",
@@ -760,6 +836,10 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "ms": {
+    "broadcasterName": "Nama hos",
+    "roomSupporters": "Penyokong bilik",
+    "previousRooms": "Buka semula bilik terdahulu",
+    "more": "Tunjukkan lagi",
     "hostCard": {
       "title": "Profil hos",
       "room": "Jumlah berlian bilik",
@@ -800,6 +880,10 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "fil": {
+    "broadcasterName": "Pangalan ng host",
+    "roomSupporters": "Mga sumuporta sa kuwarto",
+    "previousRooms": "Buksan muli ang dating kuwarto",
+    "more": "Ipakita pa",
     "hostCard": {
       "title": "Profile ng host",
       "room": "Kabuuang diyamante sa kuwarto",
@@ -840,6 +924,10 @@ export const accountLabels = {
     "balance": "Mga biniling diyamante"
   },
   "vi": {
+    "broadcasterName": "Tên chủ phòng",
+    "roomSupporters": "Người ủng hộ phòng",
+    "previousRooms": "Mở lại phòng trước",
+    "more": "Xem thêm",
     "hostCard": {
       "title": "Hồ sơ chủ phòng",
       "room": "Tổng kim cương trong phòng",
@@ -880,6 +968,10 @@ export const accountLabels = {
     "balance": "Kim cương đã mua"
   },
   "th": {
+    "broadcasterName": "ชื่อโฮสต์",
+    "roomSupporters": "ผู้สนับสนุนห้อง",
+    "previousRooms": "เปิดห้องเดิมอีกครั้ง",
+    "more": "แสดงเพิ่มเติม",
     "hostCard": {
       "title": "โปรไฟล์โฮสต์",
       "room": "เพชรรวมในห้อง",
@@ -920,6 +1012,10 @@ export const accountLabels = {
     "balance": "เพชรที่ซื้อ"
   },
   "zh-Hans": {
+    "broadcasterName": "主播名称",
+    "roomSupporters": "房间支持者",
+    "previousRooms": "重新打开以前的房间",
+    "more": "显示更多",
     "hostCard": {
       "title": "主播资料",
       "room": "房间钻石总数",
@@ -960,6 +1056,10 @@ export const accountLabels = {
     "balance": "已购钻石"
   },
   "zh-Hant": {
+    "broadcasterName": "主播名稱",
+    "roomSupporters": "房間支持者",
+    "previousRooms": "重新開啟先前的房間",
+    "more": "顯示更多",
     "hostCard": {
       "title": "主播資料",
       "room": "房間鑽石總數",
@@ -1000,6 +1100,10 @@ export const accountLabels = {
     "balance": "已購鑽石"
   },
   "ja": {
+    "broadcasterName": "配信者名",
+    "roomSupporters": "ルームの応援者",
+    "previousRooms": "以前のルームを再開",
+    "more": "もっと見る",
     "hostCard": {
       "title": "ホストのプロフィール",
       "room": "ルームの合計ダイヤ",
@@ -1040,6 +1144,10 @@ export const accountLabels = {
     "balance": "購入済みのダイヤ"
   },
   "ko": {
+    "broadcasterName": "방송자 이름",
+    "roomSupporters": "방 후원자",
+    "previousRooms": "이전 방 다시 열기",
+    "more": "더 보기",
     "hostCard": {
       "title": "호스트 프로필",
       "room": "방의 총 다이아몬드",
@@ -1080,6 +1188,10 @@ export const accountLabels = {
     "balance": "구매한 다이아몬드"
   },
   "sw": {
+    "broadcasterName": "Jina la mtangazaji",
+    "roomSupporters": "Wanaosaidia chumba",
+    "previousRooms": "Fungua tena chumba cha awali",
+    "more": "Onyesha zaidi",
     "hostCard": {
       "title": "Wasifu wa mwenyeji",
       "room": "Jumla ya almasi chumbani",
@@ -1120,6 +1232,10 @@ export const accountLabels = {
     "balance": "Almasi zilizonunuliwa"
   },
   "el": {
+    "broadcasterName": "Όνομα οικοδεσπότη",
+    "roomSupporters": "Υποστηρικτές δωματίου",
+    "previousRooms": "Άνοιγμα προηγούμενου δωματίου",
+    "more": "Περισσότερα",
     "hostCard": {
       "title": "Προφίλ οικοδεσπότη",
       "room": "Σύνολο διαμαντιών δωματίου",
@@ -1160,6 +1276,10 @@ export const accountLabels = {
     "balance": "Αγορασμένα διαμάντια"
   },
   "ro": {
+    "broadcasterName": "Numele gazdei",
+    "roomSupporters": "Susținătorii camerei",
+    "previousRooms": "Redeschide o cameră anterioară",
+    "more": "Arată mai multe",
     "hostCard": {
       "title": "Profilul gazdei",
       "room": "Total diamante în cameră",

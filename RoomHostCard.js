@@ -20,85 +20,119 @@ function DiamondTrack({label,caption,total,format}){
   </View>;
 }
 
-export default function RoomHostCard({hostName,ownAvatar,locale,act,lastGiftId}){
-  const menu=accountLabels[locale]||accountLabels.en;
-  const copy=menu.hostCard;
-  const rtl=['ar','he','fa','ur'].includes(locale);
-  const format=(n)=>n.toLocaleString(locale);
-  const [open,setOpen]=useState(false);
-  const [photo,setPhoto]=useState('');
-  const [totals,setTotals]=useState(null);
-  const [failed,setFailed]=useState(false);
-  const [retry,setRetry]=useState(0);
-  const request=useRef(act);
-  request.current=act;
-  useEffect(()=>{
-    if(ownAvatar||photo)return;
-    let current=true;
-    request.current('hostCard',{includeAvatar:true}).then(data=>{
-      if(current)setPhoto(data.avatar);
-    }).catch(()=>{});
-    return ()=>{current=false};
-  },[ownAvatar,photo,open,retry]);
+export function HostLevels({owner,request,locale,initialOpen}){
+  const menu=accountLabels[locale]||accountLabels.en,copy=menu.hostCard;
+  const [open,setOpen]=useState(!!initialOpen),[totals,setTotals]=useState(null),[failed,setFailed]=useState(false),[retry,setRetry]=useState(0);
+  useEffect(()=>{if(initialOpen)setOpen(true)},[initialOpen]);
   useEffect(()=>{
     if(!open)return;
-    let current=true,timer;
+    let active=true;
+    setFailed(false);
+    request('/account-number',{op:'hostLevels',owner}).then(data=>{
+      if(!Number.isSafeInteger(data.received)||!Number.isSafeInteger(data.sent))throw Error('Invalid levels');
+      if(active)setTotals(data);
+    }).catch(()=>{if(active)setFailed(true)});
+    return ()=>{active=false};
+  },[owner,request,open,retry]);
+  const format=n=>n.toLocaleString(locale);
+  const earned=totals&&[[copy.hostLevel,totals.received],[copy.supportLevel,totals.sent]].filter(([,value])=>value>=levelSize);
+  return <View style={s.levels}>
+    <TouchableOpacity accessibilityRole="button" aria-expanded={open} onPress={()=>setOpen(v=>!v)}>
+      <Text style={s.heading}>{copy.hostLevel} · {copy.supportLevel} {open?'⌃':'⌄'}</Text>
+    </TouchableOpacity>
+    {open&&(failed?<TouchableOpacity accessibilityRole="button" onPress={()=>setRetry(v=>v+1)}><Text style={s.retry}>{menu.retry}</Text></TouchableOpacity>:
+      !totals?<ActivityIndicator/>:<>
+        <DiamondTrack label={copy.hostLevel} caption={copy.received} total={totals.received} format={format}/>
+        <DiamondTrack label={copy.supportLevel} caption={copy.sent} total={totals.sent} format={format}/>
+        <View style={s.group}><Text style={s.heading}>{copy.achievements}</Text>
+          {earned.length?earned.map(([label,value])=><Text key={label} style={s.detail}>{label} · {format(Math.floor(value/levelSize))}</Text>):<Text style={s.detail}>{copy.empty}</Text>}
+        </View>
+        <View style={s.group}><Text style={s.heading}>{copy.badges}</Text><Text style={s.detail}>{copy.empty}</Text></View>
+      </>)}
+  </View>;
+}
+
+export function useRoomHost(act,enabled,lastGiftId){
+  const request=useRef(act);
+  request.current=act;
+  const knownPortrait=useRef(false);
+  const [summary,setSummary]=useState({});
+  useEffect(()=>{
+    if(!enabled)return;
+    let active=true,timer;
     async function refresh(){
       try{
-        const data=await request.current('hostCard',{details:true});
-        if(!['room','received','sent'].every(key=>Number.isSafeInteger(data.totals?.[key])&&data.totals[key]>=0))throw Error('Invalid diamond totals');
-        if(current){setTotals(data.totals);setFailed(false)}
-      }catch{
-        if(current)setFailed(true);
-      }
-      if(current)timer=setTimeout(refresh,12000);
+        const first=!knownPortrait.current;
+        const data=await request.current('hostCard',{includeAvatar:first,profileName:first,roomTotal:true});
+        if(active){
+          if(typeof data.avatar==='string')knownPortrait.current=true;
+          setSummary(old=>({...old,...data}));
+        }
+      }catch{ /* Keep the last confirmed total while reconnecting. */ }
+      if(active)timer=setTimeout(refresh,15000);
     }
     refresh();
-    return ()=>{current=false;clearTimeout(timer)};
-  },[open,lastGiftId,retry]);
-  const picture=ownAvatar||photo;
-  const name=hostName||copy.title;
-  const hostLevel=totals&&Math.floor(totals.received/levelSize);
-  const supportLevel=totals&&Math.floor(totals.sent/levelSize);
-  return <>
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={copy.title+' · '+name} aria-expanded={open}
-      style={s.portrait} onPress={()=>{setTotals(null);setFailed(false);setOpen(true)}}>
-      {picture?.startsWith('data:image/')?<Image style={s.photo} source={{uri:picture}}/>:
-        <Text style={s.initial}>{picture||Array.from(hostName||'👤')[0]}</Text>}
+    return ()=>{active=false;clearTimeout(timer)};
+  },[enabled,lastGiftId]);
+  return summary;
+}
+
+function SupporterList({act,lastGiftId,menu,onClose}){
+  const request=useRef(act);
+  request.current=act;
+  const [items,setItems]=useState([]),[next,setNext]=useState(null),[busy,setBusy]=useState(true),[error,setError]=useState(false);
+  const version=useRef(0),inFlight=useRef(false),cursor=useRef(null);
+  async function load(after,reset){
+    if(!reset&&inFlight.current)return;
+    const current=++version.current;
+    inFlight.current=true;cursor.current=after;setBusy(true);setError(false);
+    try{
+      const data=await request.current('hostCard',{supporters:true,after:after||''});
+      if(current===version.current){
+        setItems(old=>reset?data.supporters.people:[...old,...data.supporters.people]);setNext(data.supporters.next);
+      }
+    }catch{if(current===version.current)setError(true)}
+    finally{if(current===version.current){inFlight.current=false;setBusy(false)}}
+  }
+  useEffect(()=>{
+    load(null,true);
+    return ()=>{version.current++};
+  },[lastGiftId]);
+  return <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+    <View style={s.scrim}><View accessibilityViewIsModal style={s.panel}>
+      <View style={s.header}><Text accessibilityRole="header" style={s.title}>{menu.roomSupporters}</Text>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.back} onPress={onClose} style={s.close}>
+          <Text style={s.closeGlyph}>×</Text></TouchableOpacity></View>
+      <ScrollView contentContainerStyle={s.content}>
+        {items.map(person=><Text key={person.uid} style={s.heading}>{person.name||'—'}</Text>)}
+        {!items.length&&!busy&&!error&&<Text style={s.detail}>{menu.hostCard.empty}</Text>}
+        {busy?<ActivityIndicator/>:error?<TouchableOpacity accessibilityRole="button" onPress={()=>load(cursor.current,!cursor.current)}><Text style={s.retry}>{menu.retry}</Text></TouchableOpacity>:
+          next&&<TouchableOpacity accessibilityRole="button" onPress={()=>load(next,false)}><Text style={s.retry}>{menu.more}</Text></TouchableOpacity>}
+      </ScrollView>
+    </View></View>
+  </Modal>;
+}
+
+export default function RoomHostCard({hostName,portrait,total,locale,act,lastGiftId,onProfile}){
+  const menu=accountLabels[locale]||accountLabels.en;
+  const [open,setOpen]=useState(false);
+  const count=Number.isSafeInteger(total)?total.toLocaleString(locale):'…';
+  return <View style={s.roomHost}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.hostCard.title+' · '+(hostName||'')} onPress={onProfile} style={s.portrait}>
+      {portrait?.startsWith('data:image/')?<Image style={s.photo} source={{uri:portrait}}/>:
+        <Text style={s.initial}>{portrait||Array.from(hostName||'👤')[0]}</Text>}
     </TouchableOpacity>
-    {open&&<Modal transparent visible animationType="fade" onRequestClose={()=>setOpen(false)}>
-      <View style={s.scrim}>
-        <View accessibilityViewIsModal style={[s.panel,{direction:rtl?'rtl':'ltr'}]}>
-          <View style={s.header}>
-            <Text accessibilityRole="header" style={s.title}>{name}</Text>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.back} style={s.close} onPress={()=>setOpen(false)}>
-              <Text style={s.closeGlyph}>×</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-            {totals&&<>
-              <Text style={s.roomTotal}>{copy.room} · {format(totals.room)} 💎</Text>
-              <DiamondTrack label={copy.hostLevel} caption={copy.received} total={totals.received} format={format}/>
-              <DiamondTrack label={copy.supportLevel} caption={copy.sent} total={totals.sent} format={format}/>
-              <View style={s.group}><Text style={s.heading}>{copy.achievements}</Text>
-                {hostLevel>0&&<Text style={s.detail}>{copy.hostLevel} · {format(hostLevel)}</Text>}
-                {supportLevel>0&&<Text style={s.detail}>{copy.supportLevel} · {format(supportLevel)}</Text>}
-                {!hostLevel&&!supportLevel&&<Text style={s.detail}>{copy.empty}</Text>}
-              </View>
-              <View style={s.group}><Text style={s.heading}>{copy.badges}</Text><Text style={s.detail}>{copy.empty}</Text></View>
-            </>}
-            {failed?<TouchableOpacity accessibilityRole="button" onPress={()=>{setFailed(false);setRetry(n=>n+1)}}>
-              <Text style={s.retry}>{menu.retry}</Text></TouchableOpacity>:!totals&&<ActivityIndicator color={theme.accent}/>}
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>}
-  </>;
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.roomSupporters+' · '+count} onPress={()=>setOpen(true)} style={s.counter}>
+      <Text style={s.count}>{count} 💎</Text>
+    </TouchableOpacity>
+    {open&&<SupporterList act={act} lastGiftId={lastGiftId} menu={menu} onClose={()=>setOpen(false)}/>}
+  </View>;
 }
 
 const s=StyleSheet.create({
-  portrait:{width:44,height:44,borderRadius:22,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.brass,overflow:'hidden'},
-  photo:{height:'100%',width:'100%'},initial:{fontSize:23,fontWeight:'700',color:theme.ink},
+  roomHost:{alignItems:'center',flexShrink:0},counter:{alignItems:'center',justifyContent:'center',minHeight:24},count:{fontSize:12,fontWeight:'700',color:theme.ink},
+  levels:{marginTop:10,gap:10},portrait:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.brass,overflow:'hidden'},
+  photo:{height:'100%',width:'100%'},initial:{fontSize:19,fontWeight:'700',color:theme.ink},
   scrim:{flex:1,justifyContent:'center',alignItems:'center',padding:20,backgroundColor:'rgba(12,29,27,0.45)'},
   panel:{width:'100%',maxWidth:430,maxHeight:'85%',padding:20,borderRadius:18,backgroundColor:theme.canvas},
   header:{flexDirection:'row',alignItems:'center',gap:12,marginBottom:8},title:{flex:1,fontSize:22,fontWeight:'800',color:theme.ink},
