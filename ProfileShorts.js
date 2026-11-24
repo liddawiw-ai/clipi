@@ -5,6 +5,10 @@ import {shortThumbnail} from './ShortThumbnail';
 import DeleteVideoDialog from './DeleteVideoDialog';
 
 const unchanged=text=>text;
+const TILE_WIDTH = 76;
+const GRID_GAP = 6;
+const LIST_PADDING = 14;
+const LIST_MAX_WIDTH = 680;
 
 function Tile({clip,index,endpoint,onOpen,translate}){
   const [uri,setUri]=useState(null);
@@ -67,7 +71,9 @@ export default function ProfileShorts({request,endpoint,authorUid,header,transla
   const [clips,setClips]=useState([]),[cursor,setCursor]=useState(null),[canDelete,setCanDelete]=useState(false);
   const [loading,setLoading]=useState(true),[error,setError]=useState(''),[selected,setSelected]=useState(null);
   const life=useRef(0),loadingPage=useRef(null);
-  const {width}=useWindowDimensions(), columns=Math.max(1,Math.floor((Math.min(width,680)-28)/66));
+  const {width} = useWindowDimensions();
+  const gridWidth = Math.min(width, LIST_MAX_WIDTH) - 2 * LIST_PADDING;
+  const columns = Math.max(1, Math.floor((gridWidth + GRID_GAP) / (TILE_WIDTH + GRID_GAP)));
   const load=useCallback(async before=>{
     const generation=life.current;
     if(loadingPage.current===generation)return;
@@ -93,7 +99,7 @@ export default function ProfileShorts({request,endpoint,authorUid,header,transla
     <FlatList key={columns} data={clips} numColumns={columns} keyExtractor={clip=>clip.id} style={s.list} contentContainerStyle={s.content}
       initialNumToRender={4} windowSize={5} maxToRenderPerBatch={4} columnWrapperStyle={columns>1?s.row:undefined}
       onEndReachedThreshold={.3} onEndReached={()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}
-      ListHeaderComponent={<>{header}<Text accessibilityRole="header" style={s.heading}>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</Text></>}
+      ListHeaderComponent={<>{header}<Text accessibilityRole="header" style={[s.heading,header&&s.afterShortcuts]}>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</Text></>}
       renderItem={({item,index})=><Tile clip={item} index={index} endpoint={endpoint} translate={translate} onOpen={setSelected}/>}
       ListFooterComponent={<>
         {loading&&<Text style={s.note}>{translate('جارٍ تحميل الفيديوهات…')}</Text>}
@@ -106,9 +112,10 @@ export default function ProfileShorts({request,endpoint,authorUid,header,transla
   </>;
 }
 const s=StyleSheet.create({
-  list:{flex:1},content:{width:'100%',maxWidth:680,paddingHorizontal:14,paddingTop:4,paddingBottom:20,alignSelf:'center'},
+  list:{flex:1},content:{width:'100%',maxWidth:LIST_MAX_WIDTH,paddingHorizontal:LIST_PADDING,paddingTop:4,paddingBottom:20,alignSelf:'center'},
   heading:{fontSize:20,fontWeight:'700',textAlign:'right',color:'#192625',marginTop:14,marginBottom:10},
-  row:{flexDirection:'row-reverse',gap:6},tile:{width:60,aspectRatio:3/4,backgroundColor:'#263334',borderRadius:6,overflow:'hidden',marginBottom:6,justifyContent:'center'},
+  afterShortcuts:{marginTop:0},
+  row:{flexDirection:'row-reverse',gap:GRID_GAP},tile:{width:TILE_WIDTH,maxWidth:'100%',aspectRatio:2/3,backgroundColor:'#263334',borderRadius:6,overflow:'hidden',marginBottom:GRID_GAP,justifyContent:'center'},
   tileLabel:{fontSize:11,textAlign:'center',color:'white'},note:{textAlign:'right',color:'#53625b',padding:8},
   stage:{flex:1,backgroundColor:'#101518'},close:{position:'absolute',top:12,right:12},controls:{position:'absolute',bottom:16,left:12,right:12,flexDirection:'row-reverse',justifyContent:'space-between',gap:6},
   control:{minWidth:44,minHeight:44,alignItems:'center',justifyContent:'center',borderRadius:10,backgroundColor:'#172322',paddingHorizontal:12},
