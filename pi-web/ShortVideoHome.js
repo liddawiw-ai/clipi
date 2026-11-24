@@ -192,7 +192,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   </View>;
 }
 
-export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -294,8 +294,8 @@ export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLab
     </div>
     )}
     {liveMenu&&<FeedSheet title="go live" closeLabel={translate('إغلاق')} onClose={()=>setLiveMenu(false)} choices={[
-      {icon:'mic',label:translate('غرف صوتية'),onClick:()=>chooseRooms('audio')},
-      {icon:'camera',label:translate('بث فيديو'),onClick:()=>chooseRooms('video')}
+      {icon:'mic',label:roomLabels?.voiceRooms??translate('غرف صوتية'),onClick:()=>chooseRooms('audio')},
+      {icon:'camera',label:roomLabels?.liveBroadcast??translate('بث مباشر'),onClick:()=>chooseRooms('video')}
     ]}/>}
     {!!notice&&<div className="clipi-feed-notice" role="status">{notice}</div>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{error} · إعادة المحاولة</Text></Pressable>}

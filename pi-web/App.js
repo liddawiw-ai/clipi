@@ -1097,6 +1097,7 @@ export default function App(){
   const [payoutDrafts,setPayoutDrafts]=useState([]);
 
   const [blockedUsers,setBlockedUsers]=useState([]),[roomSearch,setRoomSearch]=useState(''),[roomError,setRoomError]=useState('');
+  const creatingRoom=useRef(false);
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
   const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
@@ -1412,17 +1413,18 @@ export default function App(){
     return {owner:old.owner-next.owner,welcome:old.welcome-next.welcome,purchased:old.purchased-next.purchased};
   }
 
-  async function createRoom(){
+  async function createRoom(kind,title){
+    if(creatingRoom.current)return;
     if(!user?.uid)return Alert.alert(ui("الحساب"),ui("سجّل الدخول أولًا"));
-    const label=roomName.trim().slice(0,55);
+    const label=title.trim().slice(0,55);
     if(!label)return Alert.alert(ui("اسم الغرفة"),ui("أدخل الاسم"));
-    setBusy(true);
+    creatingRoom.current=true;setBusy(true);
     try{
       const host=(name||user.displayName||'مستخدم').slice(0,35);
-      const data={name:label,type:roomType,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
+      const data={name:label,type:kind,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
       const doc=await firestore().collection('rooms').add(data);
       enterRoom({id:doc.id,...data,host,owner:user.uid});
-    }catch(e){Alert.alert(ui("تعذر إنشاء الغرفة"),e.message)}finally{setBusy(false)}
+    }catch(e){Alert.alert(ui("تعذر إنشاء الغرفة"),e.message)}finally{creatingRoom.current=false;setBusy(false)}
   }
   async function openRoomInvitation(account,isMounted=()=>true){
     const isCurrent=()=>isMounted()&&auth().currentUser?.uid===account.uid;
@@ -1569,7 +1571,7 @@ export default function App(){
     <Btn title={words.create} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
     <Btn title={words.back} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
-  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
+  if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
     if(own || uid===user.uid){go('profile');return;}
     setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
@@ -1584,18 +1586,23 @@ export default function App(){
       &&(discoveryFilter==='all'||(r.type==='video'?'video':'audio')===discoveryFilter)
       &&(!query||r.name?.toLowerCase().includes(query)||r.id.toLowerCase().includes(query)));
     const copy={
-      all:ui('الكل'),voice:ui('غرفة صوتية'),live:ui('بث فيديو'),create:ui('إنشاء غرفة'),
-      createNote:ui('ابدأ غرفة صوتية أو بث فيديو'),search:ui('ابحث بالاسم أو معرّف الغرفة'),
+      all:menu.roomAll,voiceRooms:menu.voiceRooms,voice:ui('غرفة صوتية'),live:menu.liveBroadcast,
+      create:discoveryFilter==='video'?menu.startBroadcast:menu.createRoom,
+      createNote:discoveryFilter==='all'?menu.roomStudioNote:null,search:ui('ابحث بالاسم أو معرّف الغرفة'),
       empty:ui('لا توجد غرف مطابقة'),close:ui('إغلاق غرفتي'),untitled:ui('الغرفة'),
       welcome:ui('🎁 هدية ترحيبية'),welcomeNote:ui('👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة')
     };
     return <HubScreen title={ui('الغرف')} dock={nav()}>
       <RoomDiscovery copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
-        onCreate={()=>{if(discoveryFilter!=='all')setRoomType(discoveryFilter);go('create')}} onEnter={enterRoom} onClose={closeMyRoom}/>
+        busy={busy} onCreate={()=>{
+          if(discoveryFilter==='all'){go('create');return;}
+          const title=name.trim()||user?.displayName?.trim()||(discoveryFilter==='audio'?copy.voice:copy.live);
+          createRoom(discoveryFilter,title);
+        }} onEnter={enterRoom} onClose={closeMyRoom}/>
     </HubScreen>;
   }
-  if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={createRoom} onClose={()=>go('home')} busy={busy} copy={{close:ui("رجوع"),title:ui("إنشاء غرفة"),name:ui("اسم الغرفة"),mode:ui("نوع الغرفة"),audio:ui("🎙 صوت"),video:ui("📹 فيديو"),start:ui("فتح الغرفة"),note:ui("الغرفة عامة للمستخدمين المسجلين.")}}/>;
+  if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={()=>go('home')} busy={busy} copy={{close:ui("رجوع"),title:ui("إنشاء غرفة"),name:ui("اسم الغرفة"),mode:ui("نوع الغرفة"),audio:ui("🎙 صوت"),video:ui("📹 فيديو"),start:ui("فتح الغرفة"),note:ui("الغرفة عامة للمستخدمين المسجلين.")}}/>;
   if(!SHOW_UNRELEASED_DEMOS&&['wallet','earningsWallet'].includes(page))return <HubScreen title={ui('المحفظة')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}><DiamondWallet key={user.uid} uid={user.uid} onHelp={()=>go('help')}/>{page==='wallet'&&<TrialWallet key={user.uid} request={mediaRequest} nonce={()=>crypto.randomUUID()} gifts={GIFTS} Game={GlobalGreedyPreview}/>}</HubScreen>;
   if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:theme.sea} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 PI" color={paymentMethod==='pi'?PINK:theme.sea} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر PI بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} PI`:ui("أدخل سعر PI")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من PI = 1,200 ماسة. يتغير سعر PI صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر PI الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة PI يحتاجان إعدادات دفع فعلية.")}</Text></>);
   if(page==='earnings')return layout('أرباح المضيف',<><Btn title="💼 فتح محفظة النقاط" onPress={()=>go('earningsWallet')}/>
