@@ -41,5 +41,26 @@ export async function uploadFile(url,draft,token){
   const response=await fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'video/mp4'},body:draft.file});
   if(!response.ok)throw Error((await response.json().catch(()=>({}))).error||'تعذّر رفع الفيديو');
 }
-export async function shareShort(url){if(navigator.share)await navigator.share({url});else await navigator.clipboard.writeText(url);}
+export function shortVideoUrl(endpoint,id) {
+  const path=Object.prototype.hasOwnProperty.call(starters,id)
+    ? '/shorts/starter/'+encodeURIComponent(id)+'.mp4' : '/shorts/media/'+encodeURIComponent(id);
+  return endpoint.replace(/\/+$/,'')+path;
+}
+export async function copyShortLink(url) {
+  if(navigator.clipboard?.writeText){
+    try {await navigator.clipboard.writeText(url);return;} catch {}
+  }
+  const field=document.createElement('textarea');
+  field.value=url;field.style.cssText='position:fixed;left:-9999px;top:0';
+  const focused=document.activeElement;
+  document.body.append(field);
+  try {
+    field.select();
+    if(!document.execCommand('copy'))throw Error('تعذّر نسخ الرابط');
+  } finally {field.remove();focused?.focus?.();}
+}
+export async function shareShort(url){
+  if(navigator.share)await navigator.share({url});
+  else await copyShortLink(url);
+}
 export function saveShort(id,url){const a=document.createElement('a');a.href=url;a.download='Clipi-'+id+'.mp4';document.body.appendChild(a);a.click();a.remove();}

@@ -53,7 +53,6 @@ button.clipi-feed-live{pointer-events:auto;display:inline-flex;align-items:cente
 .clipi-feed-shell .action-more{min-height:35px}
 .clipi-dock{background:#050505}.clipi-dock button[aria-selected=true]{color:#fff}.clipi-dock button[data-create=true] span:first-child{background:transparent;border:2px solid #fff;border-radius:50%;color:#fff;width:30px;height:30px}
 
-.clipi-feed-shell button.clipi-delete-video{position:absolute;top:max(8px,env(safe-area-inset-top));left:10px;z-index:2;pointer-events:auto;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 10px;border:1px solid #ffd6d5;border-radius:18px;background:#982e33;color:white;font:inherit;font-size:14px;font-weight:700}
 .clipi-feed-sheet .choice-trash{color:#ffa7a1}.choice-trash .clipi-choice-icon{background:#492e30;color:#ffaaa2}
 .clipi-sheet-note{margin:8px 0 18px;color:#dce3e3;line-height:1.5}
 .clipi-feed-notice{position:absolute;top:70px;align-self:center;max-width:90%;padding:9px 16px;border-radius:12px;background:#172023;color:#fff;pointer-events:none}
@@ -75,13 +74,3 @@ dialog.clipi-video-delete-dialog::backdrop{background:rgba(12,22,20,.48)}
 .clipi-profile-grid{display:grid;grid-template-columns:repeat(auto-fill,min(100%,2cm));gap:6px}
 button.clipi-profile-tile{position:relative;display:block;aspect-ratio:2 / 3;width:100%;min-width:0;overflow:hidden;border:0;border-radius:6px;background:#263334;padding:0;cursor:pointer}
 .clipi-profile-tile img,.clipi-profile-tile video{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:cover;pointer-events:none}
-dialog.clipi-profile-viewer{position:fixed;inset:0;box-sizing:border-box;width:100%;height:100%;max-width:none;max-height:none;margin:0;padding:0;overflow:hidden;border:0;border-radius:0;color:white;background:#101518}
-.clipi-profile-video-stage{position:relative;width:100%;height:100%}
-.clipi-profile-viewer button{width:auto;min-width:44px;min-height:44px;border:0;border-radius:12px;padding:8px 12px;font:inherit}
-.clipi-viewer-close,.clipi-viewer-controls button{display:inline-flex;align-items:center;justify-content:center;color:#fff;background:#101518d9;cursor:pointer}
-.clipi-viewer-close{position:absolute;inset-inline-start:max(12px,env(safe-area-inset-left));top:max(12px,env(safe-area-inset-top))}
-.clipi-viewer-controls{position:absolute;inset-inline:12px;bottom:max(12px,env(safe-area-inset-bottom));display:flex;align-items:center;gap:6px}
-.clipi-viewer-controls button:last-child{margin-inline-start:auto}
-.clipi-profile-menu-backdrop{position:absolute;inset:0;background:#0004}
-.clipi-profile-video-menu{position:absolute;inset-inline-end:12px;bottom:calc(max(12px,env(safe-area-inset-bottom)) + 52px);padding:4px;border-radius:12px;background:#fffefa;color:#872c30;box-shadow:0 6px 24px #0006}
-.clipi-profile-video-menu button{display:flex;align-items:center;gap:8px;background:transparent;color:inherit;font-weight:650;cursor:pointer}

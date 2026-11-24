@@ -32,6 +32,7 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   assert.equal(invalid.status,416);
   const clip={clip:id};
   for(let n=0;n<3;n++)assert.equal((await api('viewer','shortLike',{...clip,liked:true})).likes,1);
+  assert.deepEqual(await api('viewer','shortLike',{...clip,liked:true,likeOnly:true}),{status:200,likes:1,liked:true});
   const state=await api('viewer2','shortState',clip);
   assert.equal(state.likes,1);assert.equal(state.liked,false);assert.equal(state.commentCount,0);assert.equal(state.owner,'owner');
   assert.equal((await api('viewer','shortLike',{...clip,liked:false})).likes,0);

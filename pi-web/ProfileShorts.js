@@ -1,7 +1,6 @@
-import React, {useCallback, useEffect, useId, useLayoutEffect, useRef, useState} from 'react';
-import {Player} from './ShortMedia';
-import {FeedIcon} from './FeedControls';
-import DeleteVideoDialog from './DeleteVideoDialog';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {Modal} from 'react-native';
+import {ShortVideoHome} from './ShortVideoHome';
 
 const unchanged = text => text;
 
@@ -42,55 +41,7 @@ function ClipTile({source, label, onOpen}) {
   </button>;
 }
 
-function ProfileVideo({clip, source, canDelete, translate, onClose, onDelete}) {
-  const viewer = useRef(null), menuButton = useRef(null), menu = useRef(null), submitting = useRef(false);
-  const [panel,setPanel] = useState(''), [error,setError] = useState(''), [busy,setBusy] = useState(false);
-  const [playing,setPlaying] = useState(true), [muted,setMuted] = useState(true);
-  const menuId = useId();
-
-  useLayoutEffect(() => {
-    const dialog = viewer.current;
-    dialog.showModal();
-    return () => dialog.close();
-  }, []);
-  useEffect(() => { if(panel==='more') menu.current?.focus(); },[panel]);
-
-  function dismiss() {
-    if (submitting.current) return;
-    if (panel) {setPanel(''); menuButton.current?.focus();} else onClose();
-  }
-
-  async function remove() {
-    if (!canDelete || panel!=='delete' || submitting.current) return;
-    submitting.current=true;setBusy(true);setError('');
-    try {await onDelete(clip.id);}
-    catch(e) {setError(e.message || translate('تعذّر حذف الفيديو'));setBusy(false);}
-    finally {submitting.current=false;}
-  }
-
-  return <dialog ref={viewer} className="clipi-profile-viewer" aria-label={clip.title || translate('تشغيل الفيديو')}
-    onCancel={e=>{e.preventDefault();dismiss();}}>
-    <div className="clipi-profile-video-stage">
-      <Player source={source} fit="contain" active={playing && !panel} muted={muted} onMuteRequired={setMuted}/>
-      <button type="button" className="clipi-viewer-close" aria-label={translate('إغلاق')} onClick={dismiss}><FeedIcon name="close"/></button>
-      <div className="clipi-viewer-controls">
-        <button type="button" onClick={()=>setPlaying(!playing)}>{translate(playing?'إيقاف مؤقت':'تشغيل')}</button>
-        <button type="button" aria-label={translate(muted?'تشغيل الصوت':'كتم الصوت')} onClick={()=>setMuted(!muted)}><FeedIcon name={muted?'muted':'sound'}/></button>
-        {canDelete && <button ref={menuButton} type="button" aria-label={translate('المزيد')} aria-expanded={panel==='more'}
-          aria-controls={panel==='more'?menuId:undefined} onClick={()=>setPanel(panel==='more'?'':'more')}><FeedIcon name="more"/></button>}
-      </div>
-      {panel==='more' && canDelete && <>
-        <div className="clipi-profile-menu-backdrop" onClick={dismiss}/>
-        <div id={menuId} className="clipi-profile-video-menu" aria-label={translate('المزيد')}>
-          <button ref={menu} type="button" onClick={()=>{setError('');setPanel('delete');}}><FeedIcon name="trash" size={18}/>{translate('حذف الفيديو')}</button>
-        </div>
-      </>}
-      {panel==='delete' && canDelete && <DeleteVideoDialog translate={translate} busy={busy} error={error} onCancel={dismiss} onConfirm={remove}/>}
-    </div>
-  </dialog>;
-}
-
-export default function ProfileShorts({request, endpoint, authorUid, translate = unchanged}) {
+export default function ProfileShorts({playerProps,request, endpoint, authorUid, translate = unchanged}) {
   const [clips,setClips] = useState([]), [cursor,setCursor] = useState(null);
   const [canDelete,setCanDelete] = useState(false), [loading,setLoading] = useState(true);
   const [error,setError] = useState(''), [selected,setSelected] = useState(null);
@@ -124,12 +75,9 @@ export default function ProfileShorts({request, endpoint, authorUid, translate =
     return () => observer.disconnect();
   },[load,cursor,loading,error]);
 
-  async function remove(id) {
-    if (!canDelete || selected?.id!==id) return;
-    const generation=life.current;
-    await request('/account-number',{op:'shortDelete',clip:id});
-    if (life.current!==generation) return;
-    setClips(current=>current.filter(clip=>clip.id!==id));setSelected(null);
+  function removed(id) {
+    setClips(current => current.filter(clip => clip.id !== id));
+    setSelected(null);
   }
 
   const source = clip => endpoint + '/shorts/media/' + clip.id;
@@ -141,7 +89,11 @@ export default function ProfileShorts({request, endpoint, authorUid, translate =
     {!loading && !!error && <><p role="alert">{error}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
     {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
     {!loading && !error && cursor!=null && <button type="button" ref={more} onClick={()=>load(cursor)}>{translate('عرض المزيد')}</button>}
-    {selected && <ProfileVideo key={selected.id} clip={selected} source={source(selected)} canDelete={canDelete}
-      translate={translate} onClose={()=>setSelected(null)} onDelete={remove}/>}
+    {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>
+      <ShortVideoHome {...playerProps} request={request} endpoint={endpoint} translate={translate}
+        initialId={selected.id} onAuthor={()=>setSelected(null)}
+        profileFeed={{clips,canDelete,onClose:()=>setSelected(null),onDeleted:removed,
+          onMore:()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}}/>
+    </Modal>}
   </section>;
 }

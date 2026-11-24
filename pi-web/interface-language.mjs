@@ -21,6 +21,8 @@ const english = {
   "حذف الفيديو؟": "Delete this video?",
   "سيُحذف المقطع وتعليقاته نهائيًا.": "This video and its comments will be permanently deleted.",
   "جارٍ الحذف…": "Deleting…",
+  "نسخ رابط الفيديو": "Copy video link",
+  "تم نسخ رابط الفيديو": "Video link copied",
   "تم حذف الفيديو": "Video deleted",
   "تعذّر حذف الفيديو. حاول مجددًا": "Could not delete the video. Try again.",
   "هذا الفيديو لم يعد متاحًا": "This video is no longer available",

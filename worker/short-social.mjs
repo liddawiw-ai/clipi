@@ -15,9 +15,11 @@ export async function saveShortProfile(q,uid,profile) {
 }
 const counts = (q,clip) => q('SELECT COUNT(*) AS count FROM short_comment WHERE clip=?',clip).first();
 export async function authorState(q,uid,clip,owner) {
-  const author=await q('SELECT name,avatar FROM short_profile WHERE uid=?',owner).first();
-  const follows=await q('SELECT 1 FROM short_follow WHERE viewer=? AND owner=?',uid,owner).first();
-  return {owner,authorName:author?.name||(owner==='clipi:official'?'Clipi':'صاحب المقطع'),authorAvatar:author?.avatar||'',following:!!follows,commentCount:(await counts(q,clip)).count,social:true};
+  const state=await q(`SELECT p.name,p.avatar,
+    EXISTS(SELECT 1 FROM short_follow WHERE viewer=? AND owner=?) AS following,
+    (SELECT COUNT(*) FROM short_comment WHERE clip=?) AS commentCount
+    FROM (SELECT 1) LEFT JOIN short_profile p ON p.uid=?`,uid,owner,clip,owner).first();
+  return {owner,authorName:state.name||(owner==='clipi:official'?'Clipi':'صاحب المقطع'),authorAvatar:state.avatar||'',following:!!state.following,commentCount:state.commentCount,social:true};
 }
 export async function socialComments(q,uid,input,json,owner) {
   const {op,clip}=input;

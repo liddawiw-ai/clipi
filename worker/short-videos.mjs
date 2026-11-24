@@ -59,6 +59,7 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
       else await q('DELETE FROM short_like WHERE clip=? AND uid=?',clip,uid).run();
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
+    if(op==='shortLike' && input.likeOnly===true)return json({likes:state.likes,liked:Boolean(state.liked)});
     return json({...state,canDelete:owner===uid && !starterIds.includes(clip),liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
