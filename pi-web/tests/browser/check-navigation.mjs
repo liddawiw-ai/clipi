@@ -49,7 +49,7 @@ export async function checkNavigation(browser) {
     });
     p.setDefaultTimeout(12000);
     await p.addInitScript(
-      (l) => localStorage.setItem('clipi.language.v2', l),
+      (l) => { if (!localStorage.getItem('clipi.language.v2')) localStorage.setItem('clipi.language.v2', l); },
       lang
     );
     const errors = [];
@@ -180,6 +180,7 @@ export async function checkNavigation(browser) {
     await p.locator('.clipi-feed-live').click();
     await root.getByRole('button').first().click();
     await pageFull('home');
+    if (width === 390) await checkLoginLanguages(p);
     assert.deepEqual(errors, []);
     console.log(
       'PASS',
@@ -192,4 +193,39 @@ export async function checkNavigation(browser) {
     );
     await p.close();
   }
+}
+
+async function checkLoginLanguages(page) {
+  await page.goto('https://clipi.local/room?signedOut=1');
+  const trigger = page.getByRole('button', { name: /تغيير اللغة/ });
+  await trigger.click();
+  const sheet = page.getByRole('dialog'), wheel = sheet.locator('.clipi-language-wheel');
+  await sheet.waitFor();
+  await page.waitForFunction(() => !document.querySelector('dialog').getAnimations().some(a => a.playState === 'running'));
+  const bounds = await sheet.boundingBox();
+  assert.ok(bounds.y > 0 && Math.abs(bounds.y + bounds.height - page.viewportSize().height) < 2);
+  assert.equal(await sheet.evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(255, 255, 255)');
+  const box = await wheel.boundingBox();
+  const touch = await page.context().newCDPSession(page);
+  const x = box.x + box.width / 2, start = box.y + box.height / 4;
+  await touch.send('Input.dispatchTouchEvent', {type:'touchStart',touchPoints:[{x, y:start}]});
+  for (let i=1; i<=5; i++) {
+    await touch.send('Input.dispatchTouchEvent', {type:'touchMove',touchPoints:[{x, y:start+13*i}]});
+    await page.waitForTimeout(30);
+  }
+  await touch.send('Input.dispatchTouchEvent', {type:'touchEnd',touchPoints:[]});
+  await touch.detach();
+  await page.waitForFunction(() => document.querySelector('.clipi-language-wheel').scrollTop < 1);
+  await sheet.getByRole('button', {name:'حفظ',exact:true}).click();
+  const english = page.getByRole('button', {name:/Change language/});
+  await english.waitFor();
+  await page.reload();
+  await english.click();
+  await sheet.getByRole('button', {name:'العربية',exact:true}).click();
+  await trigger.waitFor();
+  await trigger.click();
+  await page.keyboard.press('Escape');
+  await sheet.waitFor({state:'hidden'});
+  assert.equal(await page.evaluate(() => localStorage.getItem('clipi.language.v2')), 'ar');
+  console.log('PASS Pi login white bottom sheet, touch-scroll selection, persistence, tap and cancel');
 }

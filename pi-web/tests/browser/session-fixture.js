@@ -1,4 +1,4 @@
-const user = {
+const user = new URLSearchParams(location.search).has('signedOut') ? null : {
   uid: 'layout-fixture',
   displayName: 'Layout test',
   getIdToken: async () => 'fixture'
