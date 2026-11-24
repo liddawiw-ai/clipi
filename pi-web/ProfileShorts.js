@@ -22,7 +22,7 @@ function ClipTile({source, label, onOpen}) {
     const video = event.currentTarget;
     if (video.seeking || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
     const canvas = document.createElement('canvas');
-    canvas.width = 120; canvas.height = 160;
+    canvas.width = 228; canvas.height = 342;
     const context = canvas.getContext('2d');
     if (!context) return;
     const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
