@@ -49,11 +49,15 @@ def tap(label):
 
 
 launch()
+field = bounds(find_label('تغيير اللغة'))
 tap('تغيير اللغة')
-# Move the centred Arabic row up by one full row, then save the highlighted English option.
+# English is first and Arabic is second. Drag down to centre English.
+# Both actions share the compact footer above the language field.
+save = bounds(find_label('حفظ'))
+assert save[2] - save[0] < field[2] - field[0], 'Expected a compact language picker'
 left, top, right, bottom = bounds(find_label('العربية'))
 x, y = str((left + right) // 2), (bottom + top) // 2
-adb('shell', 'input', 'swipe', x, str(y), x, str(y - (bottom - top)), '650')
+adb('shell', 'input', 'swipe', x, str(y), x, str(y + (bottom - top)), '650')
 time.sleep(1)
 tap('حفظ')
 find_label('Change language')

@@ -469,7 +469,7 @@ function ConnectedMedia({onMediaControls,room,canPublish,guestMedia,audio,blocke
       style={main?S.hostSeat:S.seatItem} onPress={()=>press(false)} onLongPress={()=>press(true)}>
       <MicFace main={main} person={person} host={!!person&&person.uid===room.ownerUid}
         locked={locked} speaking={!!live?.isMicrophoneEnabled&&!person?.muted}/>
-      <Text numberOfLines={1} style={main?S.hostSeatName:S.tiny}>{person?.name||(main?micName:slot)}</Text>
+      <Text numberOfLines={1} style={[main?S.hostSeatName:S.tiny,S.micCaption]}>{person?.name||(main?micName:slot)}</Text>
     </TouchableOpacity>;
   }
   return <>
@@ -890,6 +890,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   </Modal>;
   const selectedTheme=membership.state?.theme;
   const roomTheme=selectedTheme&&selectedTheme!=='default'?selectedTheme:null;
+  const headerOnImage=!audio||!!roomTheme;
   if(!membership.state){
     const validPin=/^[0-9]{4}$/.test(pin);
     const submitPin=()=>{if(validPin&&!membership.joining)void membership.join(pin)};
@@ -911,7 +912,6 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <StatusBar barStyle="dark-content" translucent={Platform.OS==='android'} backgroundColor="transparent"/>
     {audio&&!roomTheme&&<GoldFrame stage tone="audioRoom"/>}
     {roomTheme&&<Image pointerEvents="none" resizeMode="cover" style={[StyleSheet.absoluteFillObject,{width:'100%',height:'100%'}]} source={{uri:MEDIA_ENDPOINT+'/themes/'+(['palace','aurora','dunes'].includes(roomTheme)?roomTheme+'.jpg':encodeURIComponent(room.id)+'/'+roomTheme)}}/>}
-    {audio&&roomTheme&&<View pointerEvents="none" style={S.roomThemeShade}/>}
     {!audio&&<View style={StyleSheet.absoluteFillObject}><RoomMedia onMediaControls={setMediaControls} room={room} userId={userId} canPublish={videoCanPublish} guestMedia={isHost?null:guestMedia} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(videoCanPublish)+String(!!self?.muted)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} allMicsLocked={membership.state.locked} onSeat={onSeat} speakerMuted={speakerMuted}/></View>}
     <Modal visible={!!(report||messageMenu)&&!minimized} transparent animationType="fade"
       onRequestClose={()=>{setReport(null);setMessageMenu(null)}}>
@@ -930,16 +930,16 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <RoomHeader style={S.roomTop} testID="room-header">
       <View style={S.roomHeaderMain}>
         <View style={[S.roomTopRow,{direction:isRTL()?'rtl':'ltr'}]}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?appText('إغلاق البث'):appText('مغادرة الغرفة')} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?appText('إغلاق البث'):appText('مغادرة الغرفة')} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,headerOnImage&&S.onVideo]}>✕</Text></TouchableOpacity>
           <View style={S.roomIdentity}>
-            {!!room.name&&room.name.trim()!==displayHostName.trim()&&<Text style={[S.roomName,!audio&&S.onVideo]} numberOfLines={1}>{room.name}</Text>}
-            <Text style={[S.roomType,!audio&&S.onVideo]}>{audio?appText('🎙 غرفة صوتية'):appText('📹 بث فيديو')}</Text>
+            {!!room.name&&room.name.trim()!==displayHostName.trim()&&<Text style={[S.roomName,headerOnImage&&S.onVideo]} numberOfLines={1}>{room.name}</Text>}
+            <Text style={[S.roomType,headerOnImage&&S.onVideo]}>{audio?appText('🎙 غرفة صوتية'):appText('📹 بث فيديو')}</Text>
           </View>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText('تصغير الغرفة')} style={S.roomMenuTrigger} onPress={onMinimize}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>−</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText('تصغير الغرفة')} style={S.roomMenuTrigger} onPress={onMinimize}><Text style={[S.roomControlGlyph,headerOnImage&&S.onVideo]}>−</Text></TouchableOpacity>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText("إعدادات الغرفة")}
             accessibilityState={{expanded:roomMenu!==null}} style={S.roomMenuTrigger}
             onPress={()=>{Keyboard.dismiss();setRoomMenu('settings')}}>
-            <Text style={[S.roomControlGlyph,S.roomMenuDots,!audio&&S.onVideo]}>⋮</Text>
+            <Text style={[S.roomControlGlyph,S.roomMenuDots,headerOnImage&&S.onVideo]}>⋮</Text>
           </TouchableOpacity>
         </View>
         {!minimized&&!audio&&mediaControls&&<View style={S.cameraActions}>
@@ -949,7 +949,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
             style={S.roomMenuTrigger} onPress={mediaControls.camera}><Text style={[S.roomControlGlyph,S.onVideo]}>{mediaControls.cameraOn?'📹':'📷'}</Text></TouchableOpacity>
         </View>}
       </View>
-      {!minimized&&<RoomHostCard textStyle={!audio&&S.onVideo} hostName={displayHostName} portrait={hostPhoto} total={hostSummary.roomTotal}
+      {!minimized&&<RoomHostCard textStyle={headerOnImage&&S.onVideo} hostName={displayHostName} portrait={hostPhoto} total={hostSummary.roomTotal}
           locale={locale} act={membership.act} lastGiftId={lastGiftId}
           onProfile={()=>onHostProfile(room.ownerUid,hostSummary.profileName||room.ownerName||room.host,hostPhoto)}/>}
     </RoomHeader>
@@ -1050,41 +1050,87 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   </KeyboardAvoidingView>;
 }
 
-const languages = Object.entries(accountLabels);
-const languageRowHeight = 48;
+const languages = ['en', 'ar', ...Object.keys(accountLabels).filter(code=>code!=='en' && code!=='ar')]
+  .map(code=>[code, accountLabels[code]]);
 
-function LoginLanguageSheet({locale, menu, onSelect, onClose}){
-  const wheel = useRef(null);
-  const initial = languages.findIndex(([code])=>code===locale);
-  const [index,setIndex] = useState(Math.max(0,initial));
-  const rowHeight = Math.ceil(languageRowHeight * Math.max(1,useWindowDimensions().fontScale));
-  const align = () => wheel.current?.scrollTo({y:Math.max(0,initial)*rowHeight,animated:false});
-  const track = event => setIndex(Math.max(0,Math.min(languages.length-1,
-    Math.round(event.nativeEvent.contentOffset.y/rowHeight))));
-  return <Modal transparent animationType="slide" onRequestClose={onClose}>
-    <View style={S.languageBackdrop}>
+function languageWheelFrame(field, viewport, rowHeight) {
+  const gap = 8;
+  const footer = rowHeight + 18;
+  const fieldTop = field.y - viewport.y;
+  const spaceAbove = Math.min(fieldTop, viewport.height) - gap;
+  const idealMinimum = Math.min(rowHeight * 3 + footer, viewport.height - field.height - 2 * gap);
+  const extraSpace = Math.max(0, Math.ceil(idealMinimum - spaceAbove));
+  const availableRows = Math.max(1, Math.floor((spaceAbove - footer) / rowHeight));
+  const rows = Math.min(7, availableRows % 2 ? availableRows : availableRows - 1);
+  const width = Math.min(208, field.width * .8, viewport.width - 2 * gap);
+  const left = Math.max(gap, Math.min(viewport.width - width - gap,
+    field.x - viewport.x + (field.width - width) / 2));
+  return {left, width, rows, top:Math.max(gap, Math.min(fieldTop, viewport.height) - rows * rowHeight - footer), extraSpace};
+}
+
+function LoginLanguageSheet({locale, menu, fieldRef, space, setSpace, onSelect, onClose}){
+  const surface = useRef(null), wheel = useRef(null);
+  const {width, height, fontScale} = useWindowDimensions();
+  const rowHeight = Math.ceil(44 * Math.max(1, fontScale));
+  const initial = Math.max(0, languages.findIndex(([code])=>code===locale));
+  const [index,setIndex] = useState(initial), current = useRef(initial);
+  const [frame,setFrame] = useState(null);
+  const measured = useRef(0);
+  const align = () => wheel.current?.scrollTo({y:current.current * rowHeight, animated:false});
+  function position(){
+    const ticket = ++measured.current;
+    surface.current?.measureInWindow((x,y,w,h)=>{
+      fieldRef.current?.measureInWindow((fx,fy,fw,fh)=>{
+        if (ticket!==measured.current || !w || !h || !fw || !fh) return;
+        const next = languageWheelFrame({x:fx,y:fy,width:fw,height:fh},
+          {x,y,width:w,height:h}, rowHeight);
+        if (next.extraSpace && space===0) {
+          setSpace(next.extraSpace);
+          return;
+        }
+        setFrame(next);
+      });
+    });
+  }
+  useEffect(()=>{
+    const raf = requestAnimationFrame(position);
+    const keyboard = Keyboard.addListener('keyboardDidHide',position);
+    return ()=>{cancelAnimationFrame(raf); keyboard.remove(); measured.current++;};
+  },[width,height,rowHeight,space]);
+  function track(event){
+    const offset = event.nativeEvent.contentOffset.y;
+    current.current = Math.max(0, Math.min(languages.length-1, Math.round(offset / rowHeight)));
+    setIndex(current.current);
+  }
+  return <Modal transparent animationType="fade" onShow={position} onRequestClose={onClose}>
+    <View ref={surface} collapsable={false} onLayout={position} style={{flex:1}}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
-      <View style={S.languageSheet} accessibilityViewIsModal>
-        <View style={S.languageHandle}/>
-        <View style={S.languageHeading}>
-          <Text accessibilityRole="header" style={S.title}>{menu.changeLanguage}</Text>
-          <WindowControl label={menu.back} icon="×" onPress={onClose}/>
-        </View>
-        <View style={{height:rowHeight*3}}>
-          <View pointerEvents="none" style={[S.languageHighlight,{top:rowHeight,height:rowHeight}]}/>
+      {frame && <View testID="login-language-popover" accessibilityViewIsModal
+        style={[S.languageSheet,{left:frame.left,top:frame.top,width:frame.width}]}>
+        <View style={{height:rowHeight * frame.rows}}>
+          <View pointerEvents="none" style={[S.languageHighlight,{top:rowHeight*(frame.rows-1)/2,height:rowHeight}]}/>
           <ScrollView ref={wheel} testID="login-language-wheel" snapToInterval={rowHeight}
             onContentSizeChange={align} decelerationRate="fast" showsVerticalScrollIndicator={false}
-            scrollEventThrottle={16} onScroll={track} contentContainerStyle={{paddingVertical:rowHeight}}>
+            scrollEventThrottle={16} onScroll={track} contentContainerStyle={{paddingVertical:rowHeight*(frame.rows-1)/2}}>
             {languages.map(([code,labels],i)=>
               <TouchableOpacity key={code} accessibilityRole="button" accessibilityLabel={labels.languageName}
-                accessibilityState={{selected:code===locale}} onPress={()=>onSelect(code)}
+                accessibilityState={{selected:i===index}} onPress={()=>onSelect(code)}
                 style={{height:rowHeight,alignItems:'center',justifyContent:'center'}}>
-                <Text style={[S.languageName,i===index&&S.languageFocus]}>{labels.languageName}</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit style={[S.languageName,
+                  Math.abs(i-index)===1 && S.languageNear, i===index && S.languageFocus]}>{labels.languageName}</Text>
               </TouchableOpacity>)}
           </ScrollView>
         </View>
-        <Btn title={appText('حفظ')} onPress={()=>onSelect(languages[index][0])}/>
-      </View>
+        <View style={[S.languageFooter,{height:rowHeight}]}>
+          <TouchableOpacity accessibilityRole="button" style={S.languageApply}
+            onPress={()=>onSelect(languages[current.current][0])}>
+            <Text style={S.languageApplyText}>{appText('حفظ')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.back} style={S.languageClose} onPress={onClose}>
+            <Text style={S.languageCloseIcon}>×</Text>
+          </TouchableOpacity>
+        </View>
+      </View>}
     </View>
   </Modal>;
 }
@@ -1093,6 +1139,8 @@ const accountLanguageFile = FileSystem.documentDirectory + 'clipi-language.txt';
 export default function App(){
   const [locale,setLocale] = useState('ar');
   const [loginLanguages,setLoginLanguages]=useState(false);
+  const languageField=useRef(null);
+  const [languageSpace,setLanguageSpace]=useState(0);
   const [uploadOpen,setUploadOpen]=useState(false),[previewingDraft,setPreviewingDraft]=useState(false);
   function closeUpload(){setUploadOpen(false);setPreviewingDraft(false)}
   useSyncExternalStore(subscribeInterface,interfaceRevision,interfaceRevision);
@@ -1646,10 +1694,11 @@ export default function App(){
   };
   const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{appText(equipped.frame)}</Text><Text style={S.white}>{appText(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
 
-  const languageButton=<TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.changeLanguage} accessibilityState={{expanded:loginLanguages}}
-    onPress={()=>{Keyboard.dismiss();setLoginLanguages(true)}} style={S.languageButton}>
+  const languageButton=<View style={{paddingTop:loginLanguages?languageSpace:0}}>
+    <TouchableOpacity ref={languageField} accessibilityRole="button" accessibilityLabel={menu.changeLanguage} accessibilityState={{expanded:loginLanguages}}
+    onPress={()=>{Keyboard.dismiss();setLanguageSpace(0);setLoginLanguages(true)}} style={S.languageButton}>
     <Text style={S.languageFocus}>{menu.changeLanguage} · {menu.languageName}  ⌃</Text>
-  </TouchableOpacity>;
+    </TouchableOpacity></View>;
   function renderPage(){
   if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
   if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('wallet')}/>;
@@ -1882,7 +1931,7 @@ export default function App(){
   return <View style={S.page}><Btn title={appText("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}><StatusBar barStyle="dark-content" backgroundColor={theme.canvas}/>{renderPage()}
-    {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu}
+    {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu} fieldRef={languageField} space={languageSpace} setSpace={setLanguageSpace}
       onClose={()=>setLoginLanguages(false)} onSelect={selectLanguage}/>}
     {uploadOpen&&user?.uid&&<ShortUpload key={user.uid} viewer={shortPlayerProps.viewer} endpoint={MEDIA_ENDPOINT}
       request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()} onPreview={()=>setPreviewingDraft(true)}
@@ -1903,12 +1952,13 @@ export default function App(){
 
 const S=StyleSheet.create({
   languageButton:{minHeight:48,marginTop:12,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.line,borderRadius:14,backgroundColor:'#fff'},
-  languageBackdrop:{flex:1,justifyContent:'flex-end'},
-  languageSheet:{backgroundColor:'#fff',borderTopLeftRadius:26,borderTopRightRadius:26,paddingHorizontal:20,paddingBottom:20,paddingTop:8,borderWidth:1,borderColor:'#e1eae7',elevation:8},
-  languageHandle:{width:36,height:4,borderRadius:2,alignSelf:'center',backgroundColor:'#ccdad6'},
-  languageHeading:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
-  languageHighlight:{position:'absolute',left:4,right:4,backgroundColor:'#eff7f4',borderRadius:12,borderWidth:1,borderColor:'#d6e9e2'},
-  languageName:{color:theme.secondary,fontSize:16},languageFocus:{color:theme.ink,fontSize:17,fontWeight:'700'},
+  languageSheet:{position:'absolute',paddingHorizontal:8,paddingVertical:6,borderWidth:1,borderColor:'#bcced2',borderRadius:16,backgroundColor:'rgba(255,255,255,.96)',elevation:8},
+  languageHighlight:{position:'absolute',left:0,right:0,backgroundColor:'#e7f3fb',borderTopWidth:1,borderBottomWidth:1,borderColor:'#4385bb'},
+  languageFooter:{flexDirection:'row',gap:6,marginTop:4},
+  languageApply:{flex:1,borderRadius:10,backgroundColor:'#086d60',alignItems:'center',justifyContent:'center'},
+  languageApplyText:{color:'#fff',fontWeight:'700'},languageClose:{width:44,alignItems:'center',justifyContent:'center'},
+  languageCloseIcon:{fontSize:24,color:'#173e38'},languageName:{color:'#546966',fontSize:15},
+  languageNear:{fontSize:16},languageFocus:{color:theme.ink,fontSize:17,fontWeight:'700'},
   roomGameLayer:{position:'absolute',left:0,right:0,bottom:0,zIndex:30,elevation:10,overflow:'hidden'},
   roomGamesPicker:{position:'absolute',left:0,right:0,bottom:0,zIndex:30,elevation:10,paddingTop:6,backgroundColor:'#fff',borderColor:theme.line},
   gameThumbnail:{width:40,height:40,borderRadius:20},
@@ -1928,6 +1978,7 @@ const S=StyleSheet.create({
   gameAmountSelected:{backgroundColor:theme.mint,borderWidth:1,borderColor:theme.accent},gameAmountText:{color:theme.ink,fontSize:13,fontWeight:'800'},
   hostSeat:{alignSelf:'stretch',width:'100%',alignItems:'center',paddingVertical:5},
 
+  micCaption:{color:'#123747',backgroundColor:'#F4FDFF',borderRadius:6,overflow:'hidden',paddingHorizontal:4},
   hostSeatName:{fontWeight:'900',color:theme.ink,marginTop:2,fontSize:15},
   videoTag:{backgroundColor:theme.glass,paddingHorizontal:6,borderRadius:8},
   videoChrome:{backgroundColor:theme.glass},
@@ -1952,7 +2003,6 @@ const S=StyleSheet.create({
   roomDock:{flexDirection:'row',alignItems:'center',gap:4,paddingBottom:2},
   roomComment:{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',paddingEnd:3},
   roomSeatAction:{alignSelf:'flex-end',marginBottom:5},
-  roomThemeShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(250,252,245,0.78)'},
 
   homeHero:{backgroundColor:theme.paper,borderWidth:1,borderColor:theme.line,borderRadius:23,padding:20,alignItems:'flex-end',marginBottom:10},
   homeBrand:{color:theme.ink,fontSize:13,fontWeight:'900',letterSpacing:2},homeTitle:{fontSize:27,color:theme.ink,fontWeight:'900',marginVertical:5},homeSubtitle:{color:theme.secondary,fontSize:14},
