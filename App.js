@@ -1144,6 +1144,7 @@ export default function App(){
   const [payoutDrafts,setPayoutDrafts]=useState([]);
 
   const [blockedUsers,setBlockedUsers]=useState([]),[roomSearch,setRoomSearch]=useState(''),[roomError,setRoomError]=useState('');
+  const creatingRoom=useRef(false);
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
   const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
@@ -1461,17 +1462,18 @@ export default function App(){
     return {owner:old.owner-next.owner,welcome:old.welcome-next.welcome,purchased:old.purchased-next.purchased};
   }
 
-  async function createRoom(){
+  async function createRoom(kind,title){
+    if(creatingRoom.current)return;
     if(!user?.uid)return Alert.alert('الحساب','سجّل الدخول أولًا');
-    const label=roomName.trim().slice(0,55);
+    const label=title.trim().slice(0,55);
     if(!label)return Alert.alert('اسم الغرفة','أدخل الاسم');
-    setBusy(true);
+    creatingRoom.current=true;setBusy(true);
     try{
       const host=(name||user.displayName||'مستخدم').slice(0,35);
-      const data={name:label,type:roomType,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
+      const data={name:label,type:kind,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
       const doc=await firestore().collection('rooms').add(data);
       enterRoom({id:doc.id,...data,host,owner:user.uid});
-    }catch(e){Alert.alert('تعذر إنشاء الغرفة',e.message)}finally{setBusy(false)}
+    }catch(e){Alert.alert('تعذر إنشاء الغرفة',e.message)}finally{creatingRoom.current=false;setBusy(false)}
   }
   function enterRoom(room){
     if(room.status==='closed')return Alert.alert('غرفة مغلقة','هذه الغرفة مغلقة الآن');
@@ -1579,7 +1581,7 @@ export default function App(){
       {authError?<Text style={{color:theme.danger}}>{authError}</Text>:null}
     </>}
   </View></ScrollView></View>;
-  if(page==='home')return <ShortVideoHome onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
+  if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
     if(own || uid===user.uid){go('profile');return;}
     setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
@@ -1594,18 +1596,23 @@ export default function App(){
       &&(discoveryFilter==='all'||(r.type==='video'?'video':'audio')===discoveryFilter)
       &&(!query||r.name?.toLowerCase().includes(query)||r.id.toLowerCase().includes(query)));
     const copy={
-      all:'الكل',voice:'غرفة صوتية',live:'بث فيديو',create:'إنشاء غرفة',
-      createNote:'ابدأ غرفة صوتية أو بث فيديو',search:'ابحث بالاسم أو معرّف الغرفة',
+      all:menu.roomAll,voiceRooms:menu.voiceRooms,voice:'غرفة صوتية',live:menu.liveBroadcast,
+      create:discoveryFilter==='video'?menu.startBroadcast:menu.createRoom,
+      createNote:discoveryFilter==='all'?menu.roomStudioNote:null,search:'ابحث بالاسم أو معرّف الغرفة',
       empty:'لا توجد غرف مطابقة',close:'إغلاق غرفتي',untitled:'الغرفة',
       welcome:'🎁 هدية ترحيبية',welcomeNote:'💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة'
     };
     return <HubScreen title="الغرف" dock={nav()}>
       <RoomDiscovery copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
-        onCreate={()=>{if(discoveryFilter!=='all')setRoomType(discoveryFilter);go('create')}} onEnter={enterRoom} onClose={closeMyRoom}/>
+        busy={busy} onCreate={()=>{
+          if(discoveryFilter==='all'){go('create');return;}
+          const title=name.trim()||user?.displayName?.trim()||(discoveryFilter==='audio'?copy.voice:copy.live);
+          createRoom(discoveryFilter,title);
+        }} onEnter={enterRoom} onClose={closeMyRoom}/>
     </HubScreen>;
   }
-  if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={createRoom} onClose={()=>go('home')} busy={busy} copy={{close:"رجوع",title:"إنشاء غرفة",name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:"الغرفة عامة للمستخدمين المسجلين."}}/>;
+  if(page==='create')return <RoomStudio name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={()=>go('home')} busy={busy} copy={{close:"رجوع",title:"إنشاء غرفة",name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:"الغرفة عامة للمستخدمين المسجلين."}}/>;
   if(page==='wallet')return layout('محفظة كليبي',<>
     <TrialWallet key={user.uid} request={mediaRequest} nonce={Crypto.randomUUID} gifts={GIFTS} Game={GlobalGreedyPreview}/>
     <BalanceCard icon="💎" tone="sky" label="الماس المشترى" value={funded?fmt(funded.diamonds):'…'} action="شراء الماس" onPress={()=>go('diamondShop')}/>

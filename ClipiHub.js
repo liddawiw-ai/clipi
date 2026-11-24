@@ -36,20 +36,20 @@ export function HubScreen({title, action, children, dock, scrollable=true}) {
   </View>;
 }
 
-export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome}) {
-  const tabs = [['all',copy.all],['audio',copy.voice],['video',copy.live]];
+export function RoomDiscovery({copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+  const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
-    <View style={s.filters}>
-      {tabs.map(([id,title])=><TouchableOpacity key={id} accessibilityRole="tab" accessibilityState={{selected:filter===id}}
+    <View accessibilityRole="tablist" style={s.filters}>
+      {tabs.map(([id,title])=><TouchableOpacity key={id} accessibilityRole="tab" aria-selected={filter===id} disabled={busy} accessibilityState={{selected:filter===id,disabled:busy}}
         style={[s.filter,filter===id&&s.selectedFilter]} onPress={()=>onFilter(id)}>
         <Text style={[s.filterLabel,filter===id&&s.active]}>{title}</Text>
       </TouchableOpacity>)}
     </View>
-    <TouchableOpacity accessibilityRole="button" style={s.hero} onPress={onCreate}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={copy.create} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
       <Image accessible={false} resizeMode="cover" style={s.heroImage} source={require('./assets/live-studio.jpg')}/>
       <View style={s.heroBody}>
         <Text style={s.heroTitle}>{copy.create}</Text>
-        <Text style={s.heroNote}>{copy.createNote}</Text>
+        {!!copy.createNote&&<Text style={s.heroNote}>{copy.createNote}</Text>}
         <Text accessibilityElementsHidden style={s.heroPlus}>+</Text>
       </View>
     </TouchableOpacity>

@@ -1,5 +1,11 @@
 export const accountLabels = {
   "ar": {
+    "roomAll": "الكل",
+    "voiceRooms": "غرف صوتية",
+    "liveBroadcast": "بث مباشر",
+    "createRoom": "إنشاء غرفة",
+    "startBroadcast": "بدء البث",
+    "roomStudioNote": "ابدأ غرفة صوتية أو بث مباشر",
     "friends": "أصدقاء",
     "followers": "تابع",
     "followingCount": "يتابع",
@@ -23,6 +29,12 @@ export const accountLabels = {
     "balance": "الماس المشترى"
   },
   "en": {
+    "roomAll": "All",
+    "voiceRooms": "Voice rooms",
+    "liveBroadcast": "Live broadcasts",
+    "createRoom": "Create room",
+    "startBroadcast": "Start broadcast",
+    "roomStudioNote": "Start a voice room or live broadcast",
     "friends": "Friends",
     "followers": "Followers",
     "followingCount": "Following",
@@ -46,6 +58,12 @@ export const accountLabels = {
     "balance": "Purchased diamonds"
   },
   "es": {
+    "roomAll": "Todo",
+    "voiceRooms": "Salas de voz",
+    "liveBroadcast": "En directo",
+    "createRoom": "Crear sala",
+    "startBroadcast": "Iniciar transmisión",
+    "roomStudioNote": "Abre una sala de voz o inicia una transmisión en directo",
     "friends": "Amigos",
     "followers": "Seguidores",
     "followingCount": "Siguiendo",
@@ -69,6 +87,12 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "fr": {
+    "roomAll": "Tout",
+    "voiceRooms": "Salons vocaux",
+    "liveBroadcast": "En direct",
+    "createRoom": "Créer un salon",
+    "startBroadcast": "Lancer le direct",
+    "roomStudioNote": "Ouvrez un salon vocal ou lancez un direct",
     "friends": "Amis",
     "followers": "Abonnés",
     "followingCount": "Abonnements",
@@ -92,6 +116,12 @@ export const accountLabels = {
     "balance": "Diamants achetés"
   },
   "de": {
+    "roomAll": "Alle",
+    "voiceRooms": "Sprachräume",
+    "liveBroadcast": "Livestreams",
+    "createRoom": "Raum erstellen",
+    "startBroadcast": "Livestream starten",
+    "roomStudioNote": "Starte einen Sprachraum oder Livestream",
     "friends": "Freunde",
     "followers": "Follower",
     "followingCount": "Gefolgt",
@@ -115,6 +145,12 @@ export const accountLabels = {
     "balance": "Gekaufte Diamanten"
   },
   "pt": {
+    "roomAll": "Todos",
+    "voiceRooms": "Salas de voz",
+    "liveBroadcast": "Ao vivo",
+    "createRoom": "Criar sala",
+    "startBroadcast": "Iniciar transmissão",
+    "roomStudioNote": "Abra uma sala de voz ou inicie uma transmissão ao vivo",
     "friends": "Amigos",
     "followers": "Seguidores",
     "followingCount": "Seguindo",
@@ -138,6 +174,12 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "it": {
+    "roomAll": "Tutti",
+    "voiceRooms": "Stanze vocali",
+    "liveBroadcast": "Dirette",
+    "createRoom": "Crea stanza",
+    "startBroadcast": "Avvia diretta",
+    "roomStudioNote": "Apri una stanza vocale o avvia una diretta",
     "friends": "Amici",
     "followers": "Follower",
     "followingCount": "Seguiti",
@@ -161,6 +203,12 @@ export const accountLabels = {
     "balance": "Diamanti acquistati"
   },
   "tr": {
+    "roomAll": "Tümü",
+    "voiceRooms": "Sesli odalar",
+    "liveBroadcast": "Canlı yayın",
+    "createRoom": "Oda oluştur",
+    "startBroadcast": "Yayını başlat",
+    "roomStudioNote": "Sesli oda aç veya canlı yayın başlat",
     "friends": "Arkadaşlar",
     "followers": "Takipçiler",
     "followingCount": "Takip edilen",
@@ -184,6 +232,12 @@ export const accountLabels = {
     "balance": "Satın alınan elmaslar"
   },
   "ru": {
+    "roomAll": "Все",
+    "voiceRooms": "Голосовые комнаты",
+    "liveBroadcast": "Прямые эфиры",
+    "createRoom": "Создать комнату",
+    "startBroadcast": "Начать эфир",
+    "roomStudioNote": "Откройте голосовую комнату или начните прямой эфир",
     "friends": "Друзья",
     "followers": "Подписчики",
     "followingCount": "Подписки",
@@ -207,6 +261,12 @@ export const accountLabels = {
     "balance": "Купленные алмазы"
   },
   "uk": {
+    "roomAll": "Усі",
+    "voiceRooms": "Голосові кімнати",
+    "liveBroadcast": "Прямі ефіри",
+    "createRoom": "Створити кімнату",
+    "startBroadcast": "Почати ефір",
+    "roomStudioNote": "Відкрийте голосову кімнату або почніть прямий ефір",
     "friends": "Друзі",
     "followers": "Підписники",
     "followingCount": "Підписки",
@@ -230,6 +290,12 @@ export const accountLabels = {
     "balance": "Придбані діаманти"
   },
   "pl": {
+    "roomAll": "Wszystkie",
+    "voiceRooms": "Pokoje głosowe",
+    "liveBroadcast": "Transmisje na żywo",
+    "createRoom": "Utwórz pokój",
+    "startBroadcast": "Rozpocznij transmisję",
+    "roomStudioNote": "Otwórz pokój głosowy lub rozpocznij transmisję na żywo",
     "friends": "Znajomi",
     "followers": "Obserwujący",
     "followingCount": "Obserwowani",
@@ -253,6 +319,12 @@ export const accountLabels = {
     "balance": "Kupione diamenty"
   },
   "nl": {
+    "roomAll": "Alles",
+    "voiceRooms": "Spraakruimtes",
+    "liveBroadcast": "Livestreams",
+    "createRoom": "Ruimte maken",
+    "startBroadcast": "Livestream starten",
+    "roomStudioNote": "Open een spraakruimte of start een livestream",
     "friends": "Vrienden",
     "followers": "Volgers",
     "followingCount": "Volgend",
@@ -276,6 +348,12 @@ export const accountLabels = {
     "balance": "Gekochte diamanten"
   },
   "fa": {
+    "roomAll": "همه",
+    "voiceRooms": "اتاق‌های صوتی",
+    "liveBroadcast": "پخش زنده",
+    "createRoom": "ایجاد اتاق",
+    "startBroadcast": "شروع پخش",
+    "roomStudioNote": "یک اتاق صوتی یا پخش زنده شروع کنید",
     "friends": "دوستان",
     "followers": "دنبال‌کنندگان",
     "followingCount": "دنبال‌شوندگان",
@@ -299,6 +377,12 @@ export const accountLabels = {
     "balance": "الماس‌های خریداری‌شده"
   },
   "ur": {
+    "roomAll": "سب",
+    "voiceRooms": "صوتی کمرے",
+    "liveBroadcast": "لائیو نشریات",
+    "createRoom": "کمرہ بنائیں",
+    "startBroadcast": "نشریات شروع کریں",
+    "roomStudioNote": "صوتی کمرہ یا لائیو نشریات شروع کریں",
     "friends": "دوست",
     "followers": "فالوورز",
     "followingCount": "فالوونگ",
@@ -322,6 +406,12 @@ export const accountLabels = {
     "balance": "خریدے گئے ہیرے"
   },
   "he": {
+    "roomAll": "הכול",
+    "voiceRooms": "חדרי קול",
+    "liveBroadcast": "שידורים חיים",
+    "createRoom": "יצירת חדר",
+    "startBroadcast": "התחלת שידור",
+    "roomStudioNote": "פתיחת חדר קולי או התחלת שידור חי",
     "friends": "חברים",
     "followers": "עוקבים",
     "followingCount": "במעקב",
@@ -345,6 +435,12 @@ export const accountLabels = {
     "balance": "יהלומים שנרכשו"
   },
   "hi": {
+    "roomAll": "सभी",
+    "voiceRooms": "वॉइस रूम",
+    "liveBroadcast": "लाइव प्रसारण",
+    "createRoom": "रूम बनाएँ",
+    "startBroadcast": "प्रसारण शुरू करें",
+    "roomStudioNote": "वॉइस रूम खोलें या लाइव प्रसारण शुरू करें",
     "friends": "दोस्त",
     "followers": "फ़ॉलोअर",
     "followingCount": "फ़ॉलोइंग",
@@ -368,6 +464,12 @@ export const accountLabels = {
     "balance": "खरीदे गए हीरे"
   },
   "bn": {
+    "roomAll": "সব",
+    "voiceRooms": "ভয়েস রুম",
+    "liveBroadcast": "লাইভ সম্প্রচার",
+    "createRoom": "রুম তৈরি করুন",
+    "startBroadcast": "সম্প্রচার শুরু করুন",
+    "roomStudioNote": "ভয়েস রুম খুলুন বা লাইভ সম্প্রচার শুরু করুন",
     "friends": "বন্ধু",
     "followers": "অনুসারী",
     "followingCount": "অনুসরণ করছেন",
@@ -391,6 +493,12 @@ export const accountLabels = {
     "balance": "কেনা হীরা"
   },
   "ta": {
+    "roomAll": "அனைத்தும்",
+    "voiceRooms": "குரல் அறைகள்",
+    "liveBroadcast": "நேரலை",
+    "createRoom": "அறையை உருவாக்கு",
+    "startBroadcast": "நேரலையைத் தொடங்கு",
+    "roomStudioNote": "குரல் அறையைத் திறக்கவும் அல்லது நேரலையைத் தொடங்கவும்",
     "friends": "நண்பர்கள்",
     "followers": "பின்தொடர்பவர்கள்",
     "followingCount": "பின்தொடர்பவை",
@@ -414,6 +522,12 @@ export const accountLabels = {
     "balance": "வாங்கிய வைரங்கள்"
   },
   "id": {
+    "roomAll": "Semua",
+    "voiceRooms": "Ruang suara",
+    "liveBroadcast": "Siaran langsung",
+    "createRoom": "Buat ruang",
+    "startBroadcast": "Mulai siaran",
+    "roomStudioNote": "Buka ruang suara atau mulai siaran langsung",
     "friends": "Teman",
     "followers": "Pengikut",
     "followingCount": "Mengikuti",
@@ -437,6 +551,12 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "ms": {
+    "roomAll": "Semua",
+    "voiceRooms": "Bilik suara",
+    "liveBroadcast": "Siaran langsung",
+    "createRoom": "Cipta bilik",
+    "startBroadcast": "Mulakan siaran",
+    "roomStudioNote": "Buka bilik suara atau mulakan siaran langsung",
     "friends": "Rakan",
     "followers": "Pengikut",
     "followingCount": "Mengikuti",
@@ -460,6 +580,12 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "fil": {
+    "roomAll": "Lahat",
+    "voiceRooms": "Mga voice room",
+    "liveBroadcast": "Mga live na broadcast",
+    "createRoom": "Gumawa ng room",
+    "startBroadcast": "Simulan ang broadcast",
+    "roomStudioNote": "Magbukas ng voice room o magsimula ng live na broadcast",
     "friends": "Mga kaibigan",
     "followers": "Mga tagasubaybay",
     "followingCount": "Sinusundan",
@@ -483,6 +609,12 @@ export const accountLabels = {
     "balance": "Mga biniling diyamante"
   },
   "vi": {
+    "roomAll": "Tất cả",
+    "voiceRooms": "Phòng thoại",
+    "liveBroadcast": "Phát trực tiếp",
+    "createRoom": "Tạo phòng",
+    "startBroadcast": "Bắt đầu phát",
+    "roomStudioNote": "Mở phòng thoại hoặc bắt đầu phát trực tiếp",
     "friends": "Bạn bè",
     "followers": "Người theo dõi",
     "followingCount": "Đang theo dõi",
@@ -506,6 +638,12 @@ export const accountLabels = {
     "balance": "Kim cương đã mua"
   },
   "th": {
+    "roomAll": "ทั้งหมด",
+    "voiceRooms": "ห้องเสียง",
+    "liveBroadcast": "ถ่ายทอดสด",
+    "createRoom": "สร้างห้อง",
+    "startBroadcast": "เริ่มถ่ายทอดสด",
+    "roomStudioNote": "เปิดห้องเสียงหรือเริ่มถ่ายทอดสด",
     "friends": "เพื่อน",
     "followers": "ผู้ติดตาม",
     "followingCount": "กำลังติดตาม",
@@ -529,6 +667,12 @@ export const accountLabels = {
     "balance": "เพชรที่ซื้อ"
   },
   "zh-Hans": {
+    "roomAll": "全部",
+    "voiceRooms": "语音房",
+    "liveBroadcast": "直播",
+    "createRoom": "创建房间",
+    "startBroadcast": "开始直播",
+    "roomStudioNote": "开启语音房或直播",
     "friends": "好友",
     "followers": "粉丝",
     "followingCount": "关注",
@@ -552,6 +696,12 @@ export const accountLabels = {
     "balance": "已购钻石"
   },
   "zh-Hant": {
+    "roomAll": "全部",
+    "voiceRooms": "語音房",
+    "liveBroadcast": "直播",
+    "createRoom": "建立房間",
+    "startBroadcast": "開始直播",
+    "roomStudioNote": "開啟語音房或直播",
     "friends": "好友",
     "followers": "粉絲",
     "followingCount": "追蹤中",
@@ -575,6 +725,12 @@ export const accountLabels = {
     "balance": "已購鑽石"
   },
   "ja": {
+    "roomAll": "すべて",
+    "voiceRooms": "音声ルーム",
+    "liveBroadcast": "ライブ配信",
+    "createRoom": "ルームを作成",
+    "startBroadcast": "配信を開始",
+    "roomStudioNote": "音声ルームまたはライブ配信を開始",
     "friends": "友達",
     "followers": "フォロワー",
     "followingCount": "フォロー中",
@@ -598,6 +754,12 @@ export const accountLabels = {
     "balance": "購入済みのダイヤ"
   },
   "ko": {
+    "roomAll": "전체",
+    "voiceRooms": "음성 방",
+    "liveBroadcast": "라이브 방송",
+    "createRoom": "방 만들기",
+    "startBroadcast": "방송 시작",
+    "roomStudioNote": "음성 방을 열거나 라이브 방송을 시작하세요",
     "friends": "친구",
     "followers": "팔로워",
     "followingCount": "팔로잉",
@@ -621,6 +783,12 @@ export const accountLabels = {
     "balance": "구매한 다이아몬드"
   },
   "sw": {
+    "roomAll": "Zote",
+    "voiceRooms": "Vyumba vya sauti",
+    "liveBroadcast": "Matangazo ya moja kwa moja",
+    "createRoom": "Unda chumba",
+    "startBroadcast": "Anza matangazo",
+    "roomStudioNote": "Fungua chumba cha sauti au anza matangazo ya moja kwa moja",
     "friends": "Marafiki",
     "followers": "Wafuasi",
     "followingCount": "Anaowafuata",
@@ -644,6 +812,12 @@ export const accountLabels = {
     "balance": "Almasi zilizonunuliwa"
   },
   "el": {
+    "roomAll": "Όλα",
+    "voiceRooms": "Δωμάτια φωνής",
+    "liveBroadcast": "Ζωντανές μεταδόσεις",
+    "createRoom": "Δημιουργία δωματίου",
+    "startBroadcast": "Έναρξη μετάδοσης",
+    "roomStudioNote": "Ανοίξτε ένα δωμάτιο φωνής ή ξεκινήστε ζωντανή μετάδοση",
     "friends": "Φίλοι",
     "followers": "Ακόλουθοι",
     "followingCount": "Ακολουθεί",
@@ -667,6 +841,12 @@ export const accountLabels = {
     "balance": "Αγορασμένα διαμάντια"
   },
   "ro": {
+    "roomAll": "Toate",
+    "voiceRooms": "Camere audio",
+    "liveBroadcast": "Transmisiuni live",
+    "createRoom": "Creează o cameră",
+    "startBroadcast": "Începe transmisia",
+    "roomStudioNote": "Deschide o cameră audio sau începe o transmisie live",
     "friends": "Prieteni",
     "followers": "Urmăritori",
     "followingCount": "Urmărește",

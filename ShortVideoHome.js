@@ -180,7 +180,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   </View>;
 }
 
-export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=identity,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -273,8 +273,8 @@ export function ShortVideoHome({onAuthor,followRevision,onFollowChange,followLab
     </View>
     )}
     {liveMenu&&<Panel onClose={()=>setLiveMenu(false)} closeLabel={translate('إغلاق')}>
-      <Button label={translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
-      <Button label={translate('بث فيديو')} onPress={()=>chooseRooms('video')}/>
+      <Button label={roomLabels?.voiceRooms??translate('غرف صوتية')} onPress={()=>chooseRooms('audio')}/>
+      <Button label={roomLabels?.liveBroadcast??translate('بث مباشر')} onPress={()=>chooseRooms('video')}/>
     </Panel>}
     {!viewMode&&!!notice&&<View pointerEvents="none" style={s.notice}><Text accessibilityLiveRegion="polite" style={s.label}>{notice}</Text></View>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{error} · إعادة المحاولة</Text></Pressable>}
