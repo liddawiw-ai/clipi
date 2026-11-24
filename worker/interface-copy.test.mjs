@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
+import {languages} from '../pi-web/languages.mjs';
 import {interfaceCopy} from './interface-copy.mjs';
 import {copyId,languageNames,sources} from '../pi-web/interface-keys.mjs';
 import {videoActions,roomActions,english} from '../pi-web/interface-copy.mjs';
-import {configureInterface,setInterfaceLanguage,ui,isRTL} from '../pi-web/interface-language.mjs';
+import {configureInterface,setInterfaceLanguage,ui,uiError,isRTL} from '../pi-web/interface-language.mjs';
 
 test('video settings have offline labels in every offered language and English copy does not leak Arabic',()=>{
   configureInterface('','ar');
+  assert.deepEqual(Object.keys(languages).sort(),Object.keys(languageNames).sort());
+  assert.equal(uiError(new Error('Failed to fetch')), 'تعذّر جلب البيانات');
+  assert.equal(uiError('upstream debug text'), 'تعذّر إتمام العملية. حاول مجددًا.');
+
   for(const code of Object.keys(languageNames)){
     setInterfaceLanguage(code);
     assert.deepEqual(videoActions.ar.map(ui),videoActions[code]);
@@ -16,6 +21,7 @@ test('video settings have offline labels in every offered language and English c
     assert.equal(ui('ليلى ٤٢'),'ليلى ٤٢');
   }
   setInterfaceLanguage('en');
+  assert.equal(uiError('مايك المضيف محمي'),'Host microphone is protected');
   for(const [id,key] of sources)if(/[\u0620-\u064a]/.test(key)){
     assert.ok(english[key]||videoActions.ar.includes(key),id);
     assert.doesNotMatch(ui(key),/[\u0620-\u064a]/);

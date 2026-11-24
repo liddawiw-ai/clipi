@@ -1,5 +1,5 @@
 import {equippedEntrance,incomingEntries} from './entranceStyles.mjs';
-import {ui} from './interface-language.mjs';
+import {uiError,ui} from './interface-language.mjs';
 import {useState,useRef,useEffect} from 'react';
 import {auth} from './services';
 
@@ -44,7 +44,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     setJoining(true);
     try{
       await act('join',{pin,avatar:current.current.avatar,name:current.current.username,frame:!!current.current.equipped.frame,ride:equippedEntrance(current.current.equipped)});
-    }catch(error){if(alive.current)setError(error.message)}
+    }catch(error){if(alive.current)setError(uiError(error))}
     finally{joinLock.current=false;if(alive.current)setJoining(false)}
   }
   useEffect(()=>{
@@ -57,7 +57,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
     if(!joined)return;
     let stopped=false,timer;
     async function poll(){
-      try{await act('poll')}catch(e){if(!stopped)setError(e.message)}
+      try{await act('poll')}catch(e){if(!stopped)setError(uiError(e))}
       if(!stopped)timer=setTimeout(poll,3500);
     }
     timer=setTimeout(poll,3500);

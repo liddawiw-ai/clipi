@@ -2,6 +2,7 @@ import {english,videoActions,roomActions} from './interface-copy.mjs';
 import {copyId,languageNames,sources} from './interface-keys.mjs';
 
 const builtin=new Map(),aliases=new Map(),listeners=new Set(),packs=new Map();
+const localizedValues=new Set();
 function register(table){
   const source=table.ar;
   for(const key of Object.keys(source)){
@@ -10,6 +11,7 @@ function register(table){
     }else if(key!=='languageName'){
       const values=Object.fromEntries(Object.entries(table).map(([lang,labels])=>[lang,labels[key]]));
       builtin.set(source[key],values);
+      for(const label of Object.values(values))localizedValues.add(label);
       aliases.set(values.en,source[key]);
     }
   }
@@ -114,4 +116,15 @@ export function ui(value){
     else {enqueue(locale,id);output=english[key]||key;}
   }
   return value.replace(raw,()=>output);
+}
+
+// Only app-owned errors pass through translation. Platform exceptions can contain
+// URLs, account data or diagnostics, so show the action's localized fallback.
+export function uiError(error, fallback='تعذّر إتمام العملية. حاول مجددًا.'){
+  const message=(typeof error==='string'?error:error?.message)?.trim();
+  if(message){
+    if(aliases.has(message)||builtin.has(message)||sources.has(copyId(message)))return ui(message);
+    if(localizedValues.has(message)||Object.values(packFor(locale)).includes(message))return message;
+  }
+  return ui(fallback);
 }

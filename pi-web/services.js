@@ -1,4 +1,4 @@
-import {ui} from './interface-language.mjs';
+import {uiError,ui} from './interface-language.mjs';
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
@@ -23,7 +23,7 @@ async function piRequest(path,session,body){
    headers:{Authorization:'Bearer '+session.accessToken,...(body?{'Content-Type':'application/json'}:{})},
    ...(body?{body:JSON.stringify(body)}:{})});
  const data=await response.json();
- if(!response.ok)throw Error(data.error||ui("تعذر تأكيد حساب PI"));
+ if(!response.ok)throw Error(uiError(data.error,"تعذر تأكيد حساب PI"));
  return data;
 }
 async function enterPiSession(data){

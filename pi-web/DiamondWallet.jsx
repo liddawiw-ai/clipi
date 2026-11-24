@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import {BalanceCard} from './ClipiSurfaces';
 import React,{useState,useEffect,useRef} from 'react';
 import {auth,piSdk} from './services';
@@ -28,7 +28,7 @@ export function DiamondWallet({uid,onHelp}){
     let active=true,timer;
     async function sync(){
       if(!active||document.hidden)return;
-      try{await refresh()}catch(error){if(active)setMessage(error.message)}
+      try{await refresh()}catch(error){if(active)setMessage(uiError(error))}
     }
     void sync();
     timer=setInterval(sync,15000);
@@ -49,7 +49,7 @@ export function DiamondWallet({uid,onHelp}){
       }
       await refresh();
       setMessage(restored?appText('تم التحقق من الشراء وتحديث المحفظة'):appText('لم نجد دفعة باقة مؤكدة للاستعادة. راجع سجل الشحن أو أدخل معرّف دفعة PI.'));
-    }catch(e){setMessage(e.message)}finally{lock.current=false;setBusy(false)}
+    }catch(e){setMessage(uiError(e))}finally{lock.current=false;setBusy(false)}
   }
   async function buy(diamonds){
     if(lock.current)return;
@@ -68,7 +68,7 @@ export function DiamondWallet({uid,onHelp}){
       }
       if(pending.length){await refresh();finish(appText('تمت مراجعة الدفعة السابقة'));return}
       await sdk.createPayment({amount:packPrice(diamonds),memo:'Clipi · '+diamonds+' diamonds',metadata:{kind:'diamond_pack',uid,diamonds,rate:diamondsPerPi}},{
-        onReadyForServerApproval:id=>payment('approve',{paymentId:id,kind:'diamond_pack',accessToken}).catch(e=>setMessage(e.message)),
+        onReadyForServerApproval:id=>payment('approve',{paymentId:id,kind:'diamond_pack',accessToken}).catch(e=>setMessage(uiError(e))),
         onReadyForServerCompletion:async(id,txid)=>{try{await payment('complete',{paymentId:id,txid,kind:'diamond_pack',accessToken});await refresh();finish(appText('تم شحن الماس'))}catch(e){finish(e.message)}},
         onCancel:()=>finish(appText('أُلغي الدفع')),onError:()=>finish(appText('تعذر إتمام الشراء'))
       });
@@ -87,7 +87,7 @@ export function DiamondWallet({uid,onHelp}){
       <BalanceCard icon="◇" tone="sand" label={appText('الماس المستخدم في الهدايا')} value={data.ownerBox.gifted}/>
     </section>}
     {!!data?.earningsUnits&&<p>{appText('رصيد سابق محفوظ')} · {data.earningsUnits/20} PI</p>}
-    <button onClick={()=>refresh().catch(e=>setMessage(e.message))}>{appText('تحديث الرصيد')}</button>
+    <button onClick={()=>refresh().catch(e=>setMessage(uiError(e)))}>{appText('تحديث الرصيد')}</button>
     {paymentPiUid&&<div><input aria-label={appText('معرّف دفعة PI')} placeholder={appText('معرّف دفعة PI (اختياري)')} value={receipt} onChange={e=>setReceipt(e.target.value)}/><button disabled={busy} onClick={restore}>{appText('استعادة شراء سابق')}</button></div>}
     <h3>{appText('سجل شحن الماس')}</h3>
     {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}{p.reversed?' · '+appText('ماس مسترد')+' '+p.reversed:''}</p>)}

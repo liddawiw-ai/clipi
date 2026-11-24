@@ -48,8 +48,9 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       assert.equal((await act(admin,'deleteMessage',{id:other.id})).chat.some(v=>v.id===other.id),false);
       for(const op of ['mute','kick','eject','demote','ban'])assert.equal((await act(admin,op,{uid:owner})).status,403);
       if(type==='audio'){
-        for(const slot of [0,4]){
-          if(slot)await act(owner,'move',{slot});
+        for(const slot of [0,1,2,3,4,5,6,7,8,0,4]){
+          await act(owner,'move',{slot});
+          for(const action of ['mute','demote','eject'])assert.equal((await act(admin,action,{uid:owner})).status,403);
           assert.equal((await act(admin,'slot',{slot,locked:true})).status,403);
           assert.equal((await act(owner,'poll')).lockedSlots.includes(slot),false);
         }

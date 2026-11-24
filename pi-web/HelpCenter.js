@@ -1,4 +1,4 @@
-import {ui as appText} from './interface-language.mjs';
+import {uiError,ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
@@ -15,7 +15,7 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      const result=await request(staff?'caseQueue':'caseList');
      if(!alive.current||ticket!==revision.current)return;
      if(staff)setQueue(result.cases);else{setData(result);setQueue(null)}
-   }catch(error){if(alive.current)setMessage(error.message)}
+   }catch(error){if(alive.current)setMessage(uiError(error))}
  }
  useEffect(()=>{alive.current=true;void refresh();return()=>{alive.current=false}},[]);
  async function submit(){
@@ -28,7 +28,7 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      if(!alive.current)return;
      choose(null);setSubject('');setDetail('');attempt.current=null;
      setMessage(t('رقم الطلب')+' · '+r.id);await refresh();
-   }catch(error){if(alive.current)setMessage(error.message)}
+   }catch(error){if(alive.current)setMessage(uiError(error))}
    finally{pending.current=false;if(alive.current)setBusy(false)}
  }
  function button(label,press,disabled=false){
@@ -56,7 +56,7 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      <Text selectable style={s.text}>{t('رقم الطلب')} · {item.id}</Text>
      {queue&&<><Text selectable style={s.text}>{t('معرّف الحساب')} · {item.uid}</Text>
        {!!item.subject&&<Text selectable style={s.text}>{item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
-       {item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(e.message)}})}
+       {item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
      </>}
    </View>)}
    {(queue||data?.cases)?.length===0&&<Text style={s.text}>{t('لا توجد طلبات')}</Text>}
