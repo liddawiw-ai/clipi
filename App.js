@@ -1,3 +1,5 @@
+import * as FileSystem from 'expo-file-system';
+import {accountLabels} from './AccountLabels';
 import ProfileGames from './ProfileGames';
 import TrialWallet from './TrialWallet';
 import AgencyScreen from './AgencyScreen';
@@ -1012,7 +1014,33 @@ function Room({room,userId,username,avatar,equipped,diamonds,onBet,onCredit,onEx
   </KeyboardAvoidingView>;
 }
 
+const accountLanguageFile = FileSystem.documentDirectory + 'clipi-language.txt';
 export default function App(){
+  const [locale,setLocale] = useState('ar');
+  const hasSelectedLanguage = useRef(false);
+  useEffect(() => {
+    let active = true;
+    FileSystem.readAsStringAsync(accountLanguageFile).then(code => {
+      if (active && !hasSelectedLanguage.current && Object.prototype.hasOwnProperty.call(accountLabels, code)) setLocale(code);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  const savingLanguage = useRef(false);
+  async function selectLanguage(code) {
+    if (savingLanguage.current) return;
+    hasSelectedLanguage.current = true;
+    savingLanguage.current = true;
+    try {
+      await FileSystem.writeAsStringAsync(accountLanguageFile, code);
+      setLocale(code);
+      if (pageRef.current === 'accountLanguage') go('accountSettings');
+    } catch {
+      Alert.alert(menu.changeLanguage, 'تعذّر حفظ اللغة / Could not save language');
+    } finally {
+      savingLanguage.current = false;
+    }
+  }
+  const menu = accountLabels[locale];
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
   const [shortAuthor,setShortAuthor]=useState(null);
@@ -1501,7 +1529,7 @@ export default function App(){
       {id:'store',icon:'◇',label:'المتجر'},
       {id:'profile',icon:'◎',label:'حسابي'}
     ];
-    const current=page==='profileEdit'||page==='accountSettings'||page==='earningsWallet'?'profile':page;
+    const current=page==='profileEdit'||page==='accountSettings'||page==='accountLanguage'||page==='earningsWallet'?'profile':page;
     return <ClipiDock items={items} page={current} onNavigate={destination=>{
       if(destination==='home'||destination==='rooms'){setDiscoveryFilter('all');setRoomSearch('')}
       go(destination==='create'?'uploadShort':destination);
@@ -1657,29 +1685,25 @@ export default function App(){
   if(page==='shortAuthor' && shortAuthor)return <HubScreen scrollable={false} title={shortAuthor.name} action={{label:'رجوع',onPress:()=>go('home')}} dock={nav()}>
     <ProfileShorts key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
   </HubScreen>;
-  if(page==='profileGames')return <HubScreen title={'ألعاب'} action={{label:'رجوع إلى حسابي',onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
-  if(page==='agencies')return <HubScreen title={'الوكالات'} action={{label:'رجوع',onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
-  if(page==='profile')return <HubScreen scrollable={false} title={'حسابي'}
-    action={{label:'الإعدادات',onPress:()=>go('accountSettings')}} dock={nav()}>
+  if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
+  if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
+  if(page==='profile')return <HubScreen scrollable={false} title={menu.account}
+    action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <ProfileShorts key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} header={<AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
-      balance={funded?.diamonds} copy={{balance:'الماس المشترى',photo:'الصورة الشخصية'}}
+      balance={funded?.diamonds} copy={{balance:menu.balance,photo:'الصورة الشخصية'}}
+      compactShortcuts
       shortcuts={[
-        {icon:'💎',label:'شراء الماس',onPress:()=>go('diamondShop')},
-        {icon:'♧',label:'الوكالات',onPress:()=>go('agencies')},
-        {icon:'◇',label:'المحفظة',onPress:()=>go('wallet')},
-        {icon:'#',label:'المتجر',onPress:()=>go('store')},
-        {icon:'↗',label:'الأرباح',onPress:()=>go('earningsWallet')},
-
-        {icon:'♫',label:"الغرف",onPress:()=>go('rooms')},
-        {icon:'✦',label:"مركز المضيف",onPress:()=>go('hostCenter')},
-      ]}
-      settings={[
-        {label:'ألعاب',onPress:()=>go('profileGames')},
-        {label:'تعديل الملف الشخصي',onPress:()=>go('profileEdit')},
-        {label:'الإعدادات',onPress:()=>go('accountSettings')},
+        {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},
+        {icon:'◇',label:menu.wallet,onPress:()=>go('wallet')},
+        {icon:'#',label:menu.shop,onPress:()=>go('store')},
+        {icon:'♫',label:menu.rooms,onPress:()=>go('rooms')},
+        {icon:'✦',label:menu.host,onPress:()=>go('hostCenter')},
+        {icon:'🎮',label:menu.games,onPress:()=>go('profileGames')},
+        {icon:'💎',label:menu.buy,onPress:()=>go('diamondShop')},
+        {icon:'↗',label:menu.earnings,onPress:()=>go('earningsWallet')},
       ]}/>} />
   </HubScreen>;
-  if(page==='hostCenter')return <HubScreen title={"مركز المضيف"} action={{label:"رجوع",onPress:()=>go('profile')}} dock={nav()}>
+  if(page==='hostCenter')return <HubScreen title={menu.host} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||"مستخدم"} avatar={avatar} number={visibleNumber?.number}
       balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:"غرفي المفتوحة",photo:"الصورة الشخصية"}} unit="♫"
       shortcuts={[{icon:'＋',label:"إنشاء غرفة",onPress:()=>go('create')},{icon:'◇',label:"المحفظة",onPress:()=>go('wallet')}]}
@@ -1687,13 +1711,19 @@ export default function App(){
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
     newId={Crypto.randomUUID} lang={'ar'} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
+  if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:()=>go('accountSettings')}} dock={nav()}>
+    <HubRows items={Object.entries(accountLabels).map(([code,labels])=>({
+      label:(code===locale?'✓ ':'')+labels.languageName,onPress:()=>selectLanguage(code)
+    }))}/>
+  </HubScreen>;
   if(page==='accountSettings'){
-    return <HubScreen title={'الإعدادات'} action={{label:'رجوع',onPress:()=>go('profile')}} dock={nav()}>
+    return <HubScreen title={menu.settings} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
 
       <HubRows items={[
+        {label:menu.edit,onPress:()=>go('profileEdit')},
+        {label:menu.changeLanguage,onPress:()=>go('accountLanguage')},
         {label:'الدعم وطلباتي',onPress:()=>go('help')},
         {label:'طلب حذف الحساب',destructive:true,onPress:deleteAccount},
-        {label:'الملف الشخصي والحسابات المحظورة',onPress:()=>go('profileEdit')},
         {label:'سياسة الخصوصية',onPress:()=>setPolicy('privacy')},
         {label:'شروط الخدمة',onPress:()=>setPolicy('terms')},
         {label:'مشاركة Clipi',onPress:()=>Share.share({message:MEDIA_ENDPOINT+'/'}).catch(()=>Alert.alert('تعذرت المشاركة'))},
@@ -1706,7 +1736,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout('الملف الشخصي',<>{myProfile}<Btn color={ORANGE} title="💼 محفظة النقاط والأرباح" onPress={()=>go('earningsWallet')}/><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>الصورة الرمزية</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title="حفظ الاسم والصورة" onPress={async()=>{try{if(!name.trim())throw Error('أدخل الاسم');await saveProfile(user,name.trim(),true);Alert.alert('تم الحفظ')}catch(e){Alert.alert('خطأ',e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>🚫 الحسابات المحظورة ({blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>لا توجد حسابات محظورة</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>المستخدم: {uid.slice(0,14)}...</Text><Btn title="إلغاء الحظر" color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.</Text><Btn title="حذف حسابي" color={theme.peach} onPress={deleteAccount}/><Btn title="تسجيل الخروج" color={theme.secondary} onPress={logout}/></>,()=>go('profile'));
+  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title="💼 محفظة النقاط والأرباح" onPress={()=>go('earningsWallet')}/><Text style={S.label}>الاسم</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>الصورة الرمزية</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title="حفظ الاسم والصورة" onPress={async()=>{try{if(!name.trim())throw Error('أدخل الاسم');await saveProfile(user,name.trim(),true);Alert.alert('تم الحفظ')}catch(e){Alert.alert('خطأ',e.message)}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>👑 معاينة المالك فقط</Text><Text style={S.muted}>زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.</Text><Btn title={ownerDemo?'إيقاف معاينة المالك':'تفعيل 100,000,000 تجريبية'} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>🚫 الحسابات المحظورة ({blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>لا توجد حسابات محظورة</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>المستخدم: {uid.slice(0,14)}...</Text><Btn title="إلغاء الحظر" color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.</Text><Btn title="حذف حسابي" color={theme.peach} onPress={deleteAccount}/><Btn title="تسجيل الخروج" color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
   if(page==='games')return layout('الألعاب',<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>الماسات والنتائج هنا تجريبية</Text><Btn title="العب الآن" onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>

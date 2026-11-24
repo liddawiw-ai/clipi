@@ -88,7 +88,7 @@ export function AccountPhoto({avatar,label,onPress}){
   </TouchableOpacity>;
 }
 
-export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, unit="💎"}) {
+export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, balance, copy, shortcuts, settings, compactShortcuts = false, unit="💎"}) {
   return <>
     <View style={s.account}><GoldFrame tone="apricot"/>
       <View style={s.identity}>
@@ -104,11 +104,11 @@ export function AccountHub({children,onPhoto,photoLabel,name, avatar, number, ba
       </View>
     </View>
     {children}
-    <View style={s.shortcuts}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
-      style={s.shortcut} onPress={item.onPress}>
+    <View style={[s.shortcuts, compactShortcuts && s.compactShortcuts]}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
+      style={[s.shortcut, compactShortcuts && s.compactShortcut]} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>
     </TouchableOpacity>)}</View>
-    <HubRows items={settings}/>
+    {settings?.length > 0 && <HubRows items={settings}/>}
   </>;
 }
 
@@ -172,8 +172,10 @@ const s = StyleSheet.create({
   balanceValue:{color:ink,fontWeight:'800',fontSize:18,marginTop:3},
   shortcuts:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12},
   shortcut:{flexGrow:1,flexBasis:'22%',backgroundColor:theme.paper,borderRadius:13,padding:9,alignItems:'center',minHeight:66,justifyContent:'center',borderWidth:1,borderColor:theme.line},
+  compactShortcuts:{gap:4},
+  compactShortcut:{flexBasis:'14.5%',minWidth:44,paddingHorizontal:2},
   shortcutIcon:{fontSize:20,color:accent,fontWeight:'800'},
-  shortcutLabel:{color:ink,fontSize:11,fontWeight:'700',textAlign:'center'},
+  shortcutLabel:{alignSelf:'stretch',color:ink,fontSize:11,fontWeight:'700',textAlign:'center'},
   rows:{backgroundColor:'transparent',borderRadius:14,overflow:'hidden',marginBottom:12},
   row:{padding:13,borderBottomWidth:1,borderBottomColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:51,backgroundColor:'transparent'},
   rowLabel:{color:ink,fontWeight:'700',flexShrink:1},
