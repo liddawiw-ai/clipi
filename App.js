@@ -1654,14 +1654,14 @@ export default function App(){
       onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
   if(page==='gifts')return layout('الهدايا',<><Text style={S.muted}>الهدايا تُرسل من داخل غرفة صوت أو فيديو</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{g[1]}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title="استعراض الغرف" onPress={()=>go('rooms')}/></>);
-  if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:'رجوع',onPress:()=>go('home')}} dock={nav()}>
+  if(page==='shortAuthor' && shortAuthor)return <HubScreen scrollable={false} title={shortAuthor.name} action={{label:'رجوع',onPress:()=>go('home')}} dock={nav()}>
     <ProfileShorts key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
   </HubScreen>;
   if(page==='profileGames')return <HubScreen title={'ألعاب'} action={{label:'رجوع إلى حسابي',onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
   if(page==='agencies')return <HubScreen title={'الوكالات'} action={{label:'رجوع',onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
-  if(page==='profile')return <HubScreen title={'حسابي'}
+  if(page==='profile')return <HubScreen scrollable={false} title={'حسابي'}
     action={{label:'الإعدادات',onPress:()=>go('accountSettings')}} dock={nav()}>
-    <AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
+    <ProfileShorts key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} header={<AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
       balance={funded?.diamonds} copy={{balance:'الماس المشترى',photo:'الصورة الشخصية'}}
       shortcuts={[
         {icon:'💎',label:'شراء الماس',onPress:()=>go('diamondShop')},
@@ -1677,9 +1677,7 @@ export default function App(){
         {label:'ألعاب',onPress:()=>go('profileGames')},
         {label:'تعديل الملف الشخصي',onPress:()=>go('profileEdit')},
         {label:'الإعدادات',onPress:()=>go('accountSettings')},
-      ]}>
-      <ProfileShorts key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT}/>
-    </AccountHub>
+      ]}/>} />
   </HubScreen>;
   if(page==='hostCenter')return <HubScreen title={"مركز المضيف"} action={{label:"رجوع",onPress:()=>go('profile')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={"اختيار صورة من الاستوديو"} name={name||user?.displayName||"مستخدم"} avatar={avatar} number={visibleNumber?.number}

@@ -22,7 +22,7 @@ export function ClipiDock({items, page, onNavigate}) {
   </View>;
 }
 
-export function HubScreen({title, action, children, dock}) {
+export function HubScreen({title, action, children, dock, scrollable=true}) {
   return <View style={s.screen}>
     <StatusBar barStyle="dark-content" backgroundColor="#f5f7f2"/>
     <View style={s.header}>
@@ -31,7 +31,7 @@ export function HubScreen({title, action, children, dock}) {
         <Text style={s.actionText}>{action.label}</Text>
       </TouchableOpacity>}
     </View>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>{children}</ScrollView>
+    {scrollable?<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>{children}</ScrollView>:children}
     {dock}
   </View>;
 }

@@ -4,6 +4,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {FlatList,Image,Modal,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
+import DeleteVideoDialog from './DeleteVideoDialog';
 import {Player,starters,shareShort,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
@@ -132,7 +133,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
   },[dialog,item.id]);
   return <View style={s.fill}>
     <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable&&dialog!=='gift'&&dialog!=='delete'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
-    {!showing&&<>
+    {!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
     {canDelete && !dialog && <Pressable accessibilityRole="button" accessibilityLabel={translate('حذف الفيديو')} onPress={openDelete} style={s.deleteChip}><Text style={s.deleteLabel}>{translate('حذف الفيديو')}</Text></Pressable>}
     <SoundControl {...{playerRef,muted,setMuted}}/>
@@ -153,11 +154,7 @@ function Clip({item,onAuthor,endpoint,request,gifts,onWallet,onShop,playable,onR
       {!!message&&!dialog&&<Text accessibilityLiveRegion="polite" style={s.label}>{message}</Text>}</View>
     {dialog==='more'&&<Panel onClose={()=>setDialog('')}><Button label="إهداء الفيديو" onPress={openGifts}/>{canDelete&&<Button label={translate('حذف الفيديو')} onPress={openDelete}/>}{onReport&&<Button label="الإبلاغ عن المقطع أو تعليق" onPress={()=>{setDialog('');onReport(item.id);}}/>}</Panel>}
     </>}
-    {dialog==='delete'&&<Panel onClose={cancelDelete} closeLabel={translate('إلغاء')} busy={busyDelete}>
-      <Text accessibilityRole="header" style={s.lightTitle}>{translate('حذف الفيديو؟')}</Text>
-      <Text accessibilityLiveRegion="polite" style={s.label}>{message||translate('سيُحذف المقطع وتعليقاته نهائيًا.')}</Text>
-      <Button label={translate(busyDelete?'جارٍ الحذف…':'تأكيد الحذف')} disabled={busyDelete} onPress={confirmDelete}/>
-    </Panel>}
+    {dialog==='delete'&&<DeleteVideoDialog translate={translate} busy={busyDelete} error={message} onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     {showing&&<ShortCommentsSheet clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={identity} copy={copy}
