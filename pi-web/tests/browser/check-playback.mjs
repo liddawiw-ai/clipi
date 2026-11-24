@@ -8,7 +8,7 @@ const require=createRequire(import.meta.url);
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright-core');
 const entry=new URL('short-feed.jsx',import.meta.url).pathname;
 const output=await build({entryPoints:[entry],bundle:true,write:false,minify:true,outfile:'feed.js',
-  alias:{'react-native':'react-native-web'},loader:{'.js':'jsx','.png':'dataurl','.jpg':'dataurl','.gif':'dataurl'},
+  alias:{'react-native':'react-native-web'},loader:{'.js':'jsx','.png':'dataurl','.jpg':'dataurl','.gif':'dataurl','.mp3':'dataurl'},
   define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
 const video=await readFile(new URL('../../assets/shorts/palace.mp4',import.meta.url));
 const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
