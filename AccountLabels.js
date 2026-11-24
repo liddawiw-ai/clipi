@@ -1,5 +1,16 @@
 export const accountLabels = {
   "ar": {
+    "hostCard": {
+      "title": "بطاقة المضيف",
+      "room": "إجمالي ماس الغرفة",
+      "received": "الماس المستلَم",
+      "sent": "الماس المُهدى",
+      "hostLevel": "مستوى المضيف",
+      "supportLevel": "مستوى الدعم",
+      "achievements": "الإنجازات",
+      "badges": "الشارات",
+      "empty": "لا يوجد بعد"
+    },
     "roomAll": "الكل",
     "voiceRooms": "غرف صوتية",
     "liveBroadcast": "بث مباشر",
@@ -29,6 +40,17 @@ export const accountLabels = {
     "balance": "الماس المشترى"
   },
   "en": {
+    "hostCard": {
+      "title": "Host card",
+      "room": "Total room diamonds",
+      "received": "Diamonds received",
+      "sent": "Diamonds sent",
+      "hostLevel": "Host level",
+      "supportLevel": "Support level",
+      "achievements": "Achievements",
+      "badges": "Badges",
+      "empty": "None yet"
+    },
     "roomAll": "All",
     "voiceRooms": "Voice rooms",
     "liveBroadcast": "Live broadcasts",
@@ -58,6 +80,17 @@ export const accountLabels = {
     "balance": "Purchased diamonds"
   },
   "es": {
+    "hostCard": {
+      "title": "Perfil del anfitrión",
+      "room": "Diamantes de la sala",
+      "received": "Diamantes recibidos",
+      "sent": "Diamantes enviados",
+      "hostLevel": "Nivel de anfitrión",
+      "supportLevel": "Nivel de apoyo",
+      "achievements": "Logros",
+      "badges": "Insignias",
+      "empty": "Aún no hay"
+    },
     "roomAll": "Todo",
     "voiceRooms": "Salas de voz",
     "liveBroadcast": "En directo",
@@ -87,6 +120,17 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "fr": {
+    "hostCard": {
+      "title": "Fiche de l’hôte",
+      "room": "Diamants de la salle",
+      "received": "Diamants reçus",
+      "sent": "Diamants offerts",
+      "hostLevel": "Niveau d’hôte",
+      "supportLevel": "Niveau de soutien",
+      "achievements": "Réussites",
+      "badges": "Badges",
+      "empty": "Aucun pour le moment"
+    },
     "roomAll": "Tout",
     "voiceRooms": "Salons vocaux",
     "liveBroadcast": "En direct",
@@ -116,6 +160,17 @@ export const accountLabels = {
     "balance": "Diamants achetés"
   },
   "de": {
+    "hostCard": {
+      "title": "Gastgeberprofil",
+      "room": "Diamanten im Raum",
+      "received": "Erhaltene Diamanten",
+      "sent": "Verschenkte Diamanten",
+      "hostLevel": "Gastgeberstufe",
+      "supportLevel": "Unterstützerstufe",
+      "achievements": "Erfolge",
+      "badges": "Abzeichen",
+      "empty": "Noch keine"
+    },
     "roomAll": "Alle",
     "voiceRooms": "Sprachräume",
     "liveBroadcast": "Livestreams",
@@ -145,6 +200,17 @@ export const accountLabels = {
     "balance": "Gekaufte Diamanten"
   },
   "pt": {
+    "hostCard": {
+      "title": "Perfil do anfitrião",
+      "room": "Diamantes da sala",
+      "received": "Diamantes recebidos",
+      "sent": "Diamantes enviados",
+      "hostLevel": "Nível de anfitrião",
+      "supportLevel": "Nível de apoio",
+      "achievements": "Conquistas",
+      "badges": "Emblemas",
+      "empty": "Nenhum ainda"
+    },
     "roomAll": "Todos",
     "voiceRooms": "Salas de voz",
     "liveBroadcast": "Ao vivo",
@@ -174,6 +240,17 @@ export const accountLabels = {
     "balance": "Diamantes comprados"
   },
   "it": {
+    "hostCard": {
+      "title": "Profilo dell’host",
+      "room": "Diamanti della stanza",
+      "received": "Diamanti ricevuti",
+      "sent": "Diamanti inviati",
+      "hostLevel": "Livello host",
+      "supportLevel": "Livello di supporto",
+      "achievements": "Traguardi",
+      "badges": "Distintivi",
+      "empty": "Nessuno per ora"
+    },
     "roomAll": "Tutti",
     "voiceRooms": "Stanze vocali",
     "liveBroadcast": "Dirette",
@@ -203,6 +280,17 @@ export const accountLabels = {
     "balance": "Diamanti acquistati"
   },
   "tr": {
+    "hostCard": {
+      "title": "Yayıncı profili",
+      "room": "Odadaki toplam elmas",
+      "received": "Alınan elmas",
+      "sent": "Gönderilen elmas",
+      "hostLevel": "Yayıncı seviyesi",
+      "supportLevel": "Destek seviyesi",
+      "achievements": "Başarılar",
+      "badges": "Rozetler",
+      "empty": "Henüz yok"
+    },
     "roomAll": "Tümü",
     "voiceRooms": "Sesli odalar",
     "liveBroadcast": "Canlı yayın",
@@ -232,6 +320,17 @@ export const accountLabels = {
     "balance": "Satın alınan elmaslar"
   },
   "ru": {
+    "hostCard": {
+      "title": "Профиль ведущего",
+      "room": "Алмазы комнаты",
+      "received": "Получено алмазов",
+      "sent": "Отправлено алмазов",
+      "hostLevel": "Уровень ведущего",
+      "supportLevel": "Уровень поддержки",
+      "achievements": "Достижения",
+      "badges": "Значки",
+      "empty": "Пока нет"
+    },
     "roomAll": "Все",
     "voiceRooms": "Голосовые комнаты",
     "liveBroadcast": "Прямые эфиры",
@@ -261,6 +360,17 @@ export const accountLabels = {
     "balance": "Купленные алмазы"
   },
   "uk": {
+    "hostCard": {
+      "title": "Профіль ведучого",
+      "room": "Алмази кімнати",
+      "received": "Отримано алмазів",
+      "sent": "Надіслано алмазів",
+      "hostLevel": "Рівень ведучого",
+      "supportLevel": "Рівень підтримки",
+      "achievements": "Досягнення",
+      "badges": "Відзнаки",
+      "empty": "Поки немає"
+    },
     "roomAll": "Усі",
     "voiceRooms": "Голосові кімнати",
     "liveBroadcast": "Прямі ефіри",
@@ -290,6 +400,17 @@ export const accountLabels = {
     "balance": "Придбані діаманти"
   },
   "pl": {
+    "hostCard": {
+      "title": "Profil gospodarza",
+      "room": "Diamenty pokoju",
+      "received": "Otrzymane diamenty",
+      "sent": "Wysłane diamenty",
+      "hostLevel": "Poziom gospodarza",
+      "supportLevel": "Poziom wsparcia",
+      "achievements": "Osiągnięcia",
+      "badges": "Odznaki",
+      "empty": "Na razie brak"
+    },
     "roomAll": "Wszystkie",
     "voiceRooms": "Pokoje głosowe",
     "liveBroadcast": "Transmisje na żywo",
@@ -319,6 +440,17 @@ export const accountLabels = {
     "balance": "Kupione diamenty"
   },
   "nl": {
+    "hostCard": {
+      "title": "Profiel van de host",
+      "room": "Diamanten in de kamer",
+      "received": "Ontvangen diamanten",
+      "sent": "Verstuurde diamanten",
+      "hostLevel": "Hostniveau",
+      "supportLevel": "Steunniveau",
+      "achievements": "Prestaties",
+      "badges": "Badges",
+      "empty": "Nog geen"
+    },
     "roomAll": "Alles",
     "voiceRooms": "Spraakruimtes",
     "liveBroadcast": "Livestreams",
@@ -348,6 +480,17 @@ export const accountLabels = {
     "balance": "Gekochte diamanten"
   },
   "fa": {
+    "hostCard": {
+      "title": "کارت میزبان",
+      "room": "مجموع الماس‌های اتاق",
+      "received": "الماس دریافتی",
+      "sent": "الماس اهدایی",
+      "hostLevel": "سطح میزبان",
+      "supportLevel": "سطح حمایت",
+      "achievements": "دستاوردها",
+      "badges": "نشان‌ها",
+      "empty": "هنوز موردی نیست"
+    },
     "roomAll": "همه",
     "voiceRooms": "اتاق‌های صوتی",
     "liveBroadcast": "پخش زنده",
@@ -377,6 +520,17 @@ export const accountLabels = {
     "balance": "الماس‌های خریداری‌شده"
   },
   "ur": {
+    "hostCard": {
+      "title": "میزبان کا پروفائل",
+      "room": "کمرے کے کل ہیرے",
+      "received": "موصولہ ہیرے",
+      "sent": "بھیجے گئے ہیرے",
+      "hostLevel": "میزبان کا لیول",
+      "supportLevel": "سپورٹ کا لیول",
+      "achievements": "کامیابیاں",
+      "badges": "بیجز",
+      "empty": "ابھی کوئی نہیں"
+    },
     "roomAll": "سب",
     "voiceRooms": "صوتی کمرے",
     "liveBroadcast": "لائیو نشریات",
@@ -406,6 +560,17 @@ export const accountLabels = {
     "balance": "خریدے گئے ہیرے"
   },
   "he": {
+    "hostCard": {
+      "title": "כרטיס המארח",
+      "room": "סך היהלומים בחדר",
+      "received": "יהלומים שהתקבלו",
+      "sent": "יהלומים שנשלחו",
+      "hostLevel": "רמת אירוח",
+      "supportLevel": "רמת תמיכה",
+      "achievements": "הישגים",
+      "badges": "תגים",
+      "empty": "עדיין אין"
+    },
     "roomAll": "הכול",
     "voiceRooms": "חדרי קול",
     "liveBroadcast": "שידורים חיים",
@@ -435,6 +600,17 @@ export const accountLabels = {
     "balance": "יהלומים שנרכשו"
   },
   "hi": {
+    "hostCard": {
+      "title": "होस्ट प्रोफ़ाइल",
+      "room": "कमरे के कुल हीरे",
+      "received": "मिले हुए हीरे",
+      "sent": "भेजे गए हीरे",
+      "hostLevel": "होस्ट स्तर",
+      "supportLevel": "सहयोग स्तर",
+      "achievements": "उपलब्धियाँ",
+      "badges": "बैज",
+      "empty": "अभी कोई नहीं"
+    },
     "roomAll": "सभी",
     "voiceRooms": "वॉइस रूम",
     "liveBroadcast": "लाइव प्रसारण",
@@ -464,6 +640,17 @@ export const accountLabels = {
     "balance": "खरीदे गए हीरे"
   },
   "bn": {
+    "hostCard": {
+      "title": "হোস্ট প্রোফাইল",
+      "room": "রুমের মোট হীরা",
+      "received": "প্রাপ্ত হীরা",
+      "sent": "পাঠানো হীরা",
+      "hostLevel": "হোস্ট লেভেল",
+      "supportLevel": "সহায়তার লেভেল",
+      "achievements": "অর্জন",
+      "badges": "ব্যাজ",
+      "empty": "এখনও নেই"
+    },
     "roomAll": "সব",
     "voiceRooms": "ভয়েস রুম",
     "liveBroadcast": "লাইভ সম্প্রচার",
@@ -493,6 +680,17 @@ export const accountLabels = {
     "balance": "কেনা হীরা"
   },
   "ta": {
+    "hostCard": {
+      "title": "தொகுப்பாளர் சுயவிவரம்",
+      "room": "அறையின் மொத்த வைரங்கள்",
+      "received": "பெற்ற வைரங்கள்",
+      "sent": "வழங்கிய வைரங்கள்",
+      "hostLevel": "தொகுப்பாளர் நிலை",
+      "supportLevel": "ஆதரவு நிலை",
+      "achievements": "சாதனைகள்",
+      "badges": "பதக்கங்கள்",
+      "empty": "இன்னும் இல்லை"
+    },
     "roomAll": "அனைத்தும்",
     "voiceRooms": "குரல் அறைகள்",
     "liveBroadcast": "நேரலை",
@@ -522,6 +720,17 @@ export const accountLabels = {
     "balance": "வாங்கிய வைரங்கள்"
   },
   "id": {
+    "hostCard": {
+      "title": "Profil host",
+      "room": "Total berlian ruangan",
+      "received": "Berlian diterima",
+      "sent": "Berlian dikirim",
+      "hostLevel": "Level host",
+      "supportLevel": "Level dukungan",
+      "achievements": "Pencapaian",
+      "badges": "Lencana",
+      "empty": "Belum ada"
+    },
     "roomAll": "Semua",
     "voiceRooms": "Ruang suara",
     "liveBroadcast": "Siaran langsung",
@@ -551,6 +760,17 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "ms": {
+    "hostCard": {
+      "title": "Profil hos",
+      "room": "Jumlah berlian bilik",
+      "received": "Berlian diterima",
+      "sent": "Berlian dihantar",
+      "hostLevel": "Tahap hos",
+      "supportLevel": "Tahap sokongan",
+      "achievements": "Pencapaian",
+      "badges": "Lencana",
+      "empty": "Belum ada"
+    },
     "roomAll": "Semua",
     "voiceRooms": "Bilik suara",
     "liveBroadcast": "Siaran langsung",
@@ -580,6 +800,17 @@ export const accountLabels = {
     "balance": "Berlian yang dibeli"
   },
   "fil": {
+    "hostCard": {
+      "title": "Profile ng host",
+      "room": "Kabuuang diyamante sa kuwarto",
+      "received": "Natanggap na diyamante",
+      "sent": "Ipinadalang diyamante",
+      "hostLevel": "Antas ng host",
+      "supportLevel": "Antas ng suporta",
+      "achievements": "Mga nakamit",
+      "badges": "Mga badge",
+      "empty": "Wala pa"
+    },
     "roomAll": "Lahat",
     "voiceRooms": "Mga voice room",
     "liveBroadcast": "Mga live na broadcast",
@@ -609,6 +840,17 @@ export const accountLabels = {
     "balance": "Mga biniling diyamante"
   },
   "vi": {
+    "hostCard": {
+      "title": "Hồ sơ chủ phòng",
+      "room": "Tổng kim cương trong phòng",
+      "received": "Kim cương đã nhận",
+      "sent": "Kim cương đã tặng",
+      "hostLevel": "Cấp chủ phòng",
+      "supportLevel": "Cấp ủng hộ",
+      "achievements": "Thành tích",
+      "badges": "Huy hiệu",
+      "empty": "Chưa có"
+    },
     "roomAll": "Tất cả",
     "voiceRooms": "Phòng thoại",
     "liveBroadcast": "Phát trực tiếp",
@@ -638,6 +880,17 @@ export const accountLabels = {
     "balance": "Kim cương đã mua"
   },
   "th": {
+    "hostCard": {
+      "title": "โปรไฟล์โฮสต์",
+      "room": "เพชรรวมในห้อง",
+      "received": "เพชรที่ได้รับ",
+      "sent": "เพชรที่ส่ง",
+      "hostLevel": "ระดับโฮสต์",
+      "supportLevel": "ระดับผู้สนับสนุน",
+      "achievements": "ความสำเร็จ",
+      "badges": "ตราสัญลักษณ์",
+      "empty": "ยังไม่มี"
+    },
     "roomAll": "ทั้งหมด",
     "voiceRooms": "ห้องเสียง",
     "liveBroadcast": "ถ่ายทอดสด",
@@ -667,6 +920,17 @@ export const accountLabels = {
     "balance": "เพชรที่ซื้อ"
   },
   "zh-Hans": {
+    "hostCard": {
+      "title": "主播资料",
+      "room": "房间钻石总数",
+      "received": "收到的钻石",
+      "sent": "送出的钻石",
+      "hostLevel": "主播等级",
+      "supportLevel": "支持等级",
+      "achievements": "成就",
+      "badges": "徽章",
+      "empty": "暂无"
+    },
     "roomAll": "全部",
     "voiceRooms": "语音房",
     "liveBroadcast": "直播",
@@ -696,6 +960,17 @@ export const accountLabels = {
     "balance": "已购钻石"
   },
   "zh-Hant": {
+    "hostCard": {
+      "title": "主播資料",
+      "room": "房間鑽石總數",
+      "received": "收到的鑽石",
+      "sent": "送出的鑽石",
+      "hostLevel": "主播等級",
+      "supportLevel": "支持等級",
+      "achievements": "成就",
+      "badges": "徽章",
+      "empty": "暫無"
+    },
     "roomAll": "全部",
     "voiceRooms": "語音房",
     "liveBroadcast": "直播",
@@ -725,6 +1000,17 @@ export const accountLabels = {
     "balance": "已購鑽石"
   },
   "ja": {
+    "hostCard": {
+      "title": "ホストのプロフィール",
+      "room": "ルームの合計ダイヤ",
+      "received": "受け取ったダイヤ",
+      "sent": "贈ったダイヤ",
+      "hostLevel": "ホストレベル",
+      "supportLevel": "応援レベル",
+      "achievements": "実績",
+      "badges": "バッジ",
+      "empty": "まだありません"
+    },
     "roomAll": "すべて",
     "voiceRooms": "音声ルーム",
     "liveBroadcast": "ライブ配信",
@@ -754,6 +1040,17 @@ export const accountLabels = {
     "balance": "購入済みのダイヤ"
   },
   "ko": {
+    "hostCard": {
+      "title": "호스트 프로필",
+      "room": "방의 총 다이아몬드",
+      "received": "받은 다이아몬드",
+      "sent": "보낸 다이아몬드",
+      "hostLevel": "호스트 레벨",
+      "supportLevel": "후원 레벨",
+      "achievements": "업적",
+      "badges": "배지",
+      "empty": "아직 없음"
+    },
     "roomAll": "전체",
     "voiceRooms": "음성 방",
     "liveBroadcast": "라이브 방송",
@@ -783,6 +1080,17 @@ export const accountLabels = {
     "balance": "구매한 다이아몬드"
   },
   "sw": {
+    "hostCard": {
+      "title": "Wasifu wa mwenyeji",
+      "room": "Jumla ya almasi chumbani",
+      "received": "Almasi zilizopokelewa",
+      "sent": "Almasi zilizotumwa",
+      "hostLevel": "Kiwango cha mwenyeji",
+      "supportLevel": "Kiwango cha usaidizi",
+      "achievements": "Mafanikio",
+      "badges": "Beji",
+      "empty": "Bado hakuna"
+    },
     "roomAll": "Zote",
     "voiceRooms": "Vyumba vya sauti",
     "liveBroadcast": "Matangazo ya moja kwa moja",
@@ -812,6 +1120,17 @@ export const accountLabels = {
     "balance": "Almasi zilizonunuliwa"
   },
   "el": {
+    "hostCard": {
+      "title": "Προφίλ οικοδεσπότη",
+      "room": "Σύνολο διαμαντιών δωματίου",
+      "received": "Διαμάντια που έλαβε",
+      "sent": "Διαμάντια που χάρισε",
+      "hostLevel": "Επίπεδο οικοδεσπότη",
+      "supportLevel": "Επίπεδο υποστήριξης",
+      "achievements": "Επιτεύγματα",
+      "badges": "Σήματα",
+      "empty": "Κανένα ακόμη"
+    },
     "roomAll": "Όλα",
     "voiceRooms": "Δωμάτια φωνής",
     "liveBroadcast": "Ζωντανές μεταδόσεις",
@@ -841,6 +1160,17 @@ export const accountLabels = {
     "balance": "Αγορασμένα διαμάντια"
   },
   "ro": {
+    "hostCard": {
+      "title": "Profilul gazdei",
+      "room": "Total diamante în cameră",
+      "received": "Diamante primite",
+      "sent": "Diamante trimise",
+      "hostLevel": "Nivel de gazdă",
+      "supportLevel": "Nivel de susținere",
+      "achievements": "Realizări",
+      "badges": "Insigne",
+      "empty": "Încă nu există"
+    },
     "roomAll": "Toate",
     "voiceRooms": "Camere audio",
     "liveBroadcast": "Transmisiuni live",
