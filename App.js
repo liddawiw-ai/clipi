@@ -16,7 +16,7 @@ import GoldFrame from './GoldFrame';
 import {HelpCenter} from './HelpCenter';
 import {LoginCover,RoomStudio,BalanceCard} from './ClipiSurfaces';
 import ClipiCollection from './ClipiCollection';
-import {RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
+import {GiftRecipients, RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {PolicySheet,PolicyModal} from './PolicySheet';
 import {RoomTermsNotice} from './RoomTermsNotice';
 import {AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
@@ -24,7 +24,7 @@ import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
 import React,{useEffect,useRef,useState} from 'react';
-import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,BackHandler,Keyboard,KeyboardAvoidingView,Platform,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal,InteractionManager,Linking} from 'react-native';
+import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Alert,Animated,BackHandler,Keyboard,KeyboardAvoidingView,Platform,SafeAreaView,StatusBar,Dimensions,useWindowDimensions,Easing,Share,Modal,InteractionManager,Linking} from 'react-native';
 import auth from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import DiamondShop from './DiamondShop';
@@ -482,6 +482,8 @@ const mediaStyles=StyleSheet.create({
   guest:{position:'absolute',right:12,bottom:185,width:116,height:150,zIndex:2,overflow:'hidden',borderRadius:12,borderWidth:2,borderColor:GOLD},
 });
 
+const RoomHeader=Platform.OS==='ios'?SafeAreaView:View;
+
 function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onWallet,onShop,minimized}){
   const [gamePanel,setGamePanel]=useState(null);
   const [micBottom,setMicBottom]=useState(0);
@@ -504,7 +506,7 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
   const paidNonce=useRef(null),giftSending=useRef(false);
-  const [giftTarget,setGiftTarget]=useState(null),[targetProfile,setTargetProfile]=useState(null);
+  const [giftTarget,setGiftTarget]=useState(null);
   const [roomActionPending,setRoomActionPending]=useState(false);
   const roomActionLock=useRef(false);
   const [roomMenu,setRoomMenu]=useState(null);
@@ -553,6 +555,7 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
   const lastGiftId=membership.state?.giftEvents?.slice(-1)[0]?.id;
   const hostSummary=useRoomHost(membership.act,!!membership.state&&!minimized,lastGiftId);
   const hostPhoto=isHost?avatar:hostSummary.avatar;
+  const displayHostName=room.ownerName||room.host||hostSummary.profileName||'';
   const people=(membership.state?.people||[]).map(person=>person.uid===room.ownerUid?{...person,avatar:hostPhoto}:person);
   const guests=Object.fromEntries(people.filter(p=>p.seat).map(p=>[p.uid,p.name]));
   const self=people.find(p=>p.uid===userId);
@@ -584,27 +587,18 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
   function openGifts(uid){
     if(giftSending.current)return;
     Keyboard.dismiss();
-    if(!giftOpen||giftTarget!==uid)setTargetProfile(null);
     setGiftIssue('');
     setGiftNotice('');
     setGiftTarget(uid&&uid!==userId?uid:null);
     setGiftOpen(true);
   }
-  const giftPeople=people.filter(person=>person.uid!==userId&&!blocked.includes(person.uid)&&
-    (audio?audioSlot(person,room.ownerUid)!==null:person.uid===room.ownerUid||person.seat>0));
-  const selectedPerson=giftPeople.find(person=>person.uid===giftTarget);
-  const selectedPresent=!!selectedPerson;
-  const defaultRecipient=giftPeople.find(person=>person.uid===room.ownerUid)?.uid||(giftPeople.length===1?giftPeople[0].uid:null);
-  const recipientReady=giftOpen && !minimized && selectedPresent && targetProfile?.uid===giftTarget;
-  useEffect(()=>{
-    setTargetProfile(null);
-    if(!giftOpen||minimized||!selectedPresent)return;
-    let active=true;
-    membership.act('giftRecipient',{recipient:giftTarget}).then(data=>{
-      if(active && data?.recipient?.uid===giftTarget)setTargetProfile(data.recipient);
-    }).catch(()=>{if(active)setTargetProfile(null)});
-    return ()=>{active=false};
-  },[room.id,giftOpen,minimized,giftTarget,selectedPresent]);
+  const giftPeople=people.filter(person=>!blocked.includes(person.uid))
+    .map(person=>person.uid===userId?{...person,avatar}:person)
+    .sort((a,b)=>Number(b.uid===room.ownerUid)-Number(a.uid===room.ownerUid));
+  const defaultRecipient=room.ownerUid!==userId?room.ownerUid:null;
+  const recipientUid=giftTarget||defaultRecipient;
+  const selectedPerson=giftPeople.find(person=>person.uid===recipientUid);
+  const recipientReady=giftOpen&&!minimized&&!!selectedPerson&&recipientUid!==userId;
   useEffect(()=>{
     if(!giftNotice)return;
     const timer=setTimeout(()=>setGiftNotice(''),6500);
@@ -614,17 +608,17 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
     if(giftSending.current)return;
     if(roomClosedRef.current){setGiftIssue("الغرفة مغلقة");return}
     if(!recipientReady){
-      setGiftIssue(giftPeople.length?"اختر مستلمًا للهدية":"تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.");
+      setGiftIssue("المستلم غير متاح");
       return;
     }
     setGiftIssue('');
-    const key=JSON.stringify([room.id,giftTarget,gift[1]]);
+    const key=JSON.stringify([room.id,recipientUid,gift[1]]);
     if(paidNonce.current?.key!==key)paidNonce.current={key,nonce:Crypto.randomUUID()};
     const nonce=paidNonce.current.nonce;
     giftSending.current=true;
     try{
-      const receipt=await membership.act('paidGift',{recipient:giftTarget,nonce,gift:gift[1],cost:gift[2]});
-      if(receipt?.nonce!==nonce||receipt.recipient!==giftTarget||receipt.diamonds!==gift[2]||receipt.gift!==gift[1]){
+      const receipt=await membership.act('paidGift',{recipient:recipientUid,nonce,gift:gift[1],cost:gift[2]});
+      if(receipt?.nonce!==nonce||receipt.recipient!==recipientUid||receipt.diamonds!==gift[2]||receipt.gift!==gift[1]){
         throw Error("تعذّر تأكيد الهدية. أعد المحاولة.");
       }
       paidNonce.current=null;
@@ -893,7 +887,7 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
     </View>;
   }
   return <KeyboardAvoidingView onLayout={e=>setRoomHeight(e.nativeEvent.layout.height)} style={[S.room,{backgroundColor:audio?theme.canvas:theme.ink}]} behavior={Platform.OS==='ios'?'padding':undefined}>
-    <StatusBar barStyle="dark-content"/>
+    <StatusBar barStyle="dark-content" translucent={Platform.OS==='android'} backgroundColor="transparent"/>
     {audio&&!roomTheme&&<GoldFrame stage tone="audioRoom"/>}
     {roomTheme&&<Image pointerEvents="none" resizeMode="cover" style={[StyleSheet.absoluteFillObject,{width:'100%',height:'100%'}]} source={{uri:MEDIA_ENDPOINT+'/themes/'+(['palace','aurora','dunes'].includes(roomTheme)?roomTheme+'.jpg':encodeURIComponent(room.id)+'/'+roomTheme)}}/>}
     {audio&&roomTheme&&<View pointerEvents="none" style={S.roomThemeShade}/>}
@@ -912,35 +906,32 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
     </Modal>
     {roomSettings}
     <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
-    <View style={S.roomTop}>
-      <View style={S.roomTopRow}>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
-        <View style={S.roomIdentity}>
-          <Text style={[S.roomName,!audio&&S.onVideo]} numberOfLines={1}>{room.name}</Text>
-          {!!room.ownerName&&room.ownerName!==room.name&&<Text style={[S.roomType,!audio&&S.onVideo]} numberOfLines={1}>{room.ownerName}</Text>}
-          <Text style={[S.roomType,!audio&&S.onVideo]}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'}</Text>
+    <RoomHeader style={S.roomTop} testID="room-header">
+      <View style={S.roomHeaderMain}>
+        <View style={[S.roomTopRow,{direction:locale==='ar'?'rtl':'ltr'}]}>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?'إغلاق البث':'مغادرة الغرفة'} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
+          <View style={S.roomIdentity}>
+            {!!room.name&&room.name.trim()!==displayHostName.trim()&&<Text style={[S.roomName,!audio&&S.onVideo]} numberOfLines={1}>{room.name}</Text>}
+            <Text style={[S.roomType,!audio&&S.onVideo]}>{audio?'🎙 غرفة صوتية':'📹 بث فيديو'}</Text>
+          </View>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={'تصغير الغرفة'} style={S.roomMenuTrigger} onPress={onMinimize}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>−</Text></TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="إعدادات الغرفة"
+            accessibilityState={{expanded:roomMenu!==null}} style={S.roomMenuTrigger}
+            onPress={()=>{Keyboard.dismiss();setRoomMenu('settings')}}>
+            <Text style={[S.roomControlGlyph,S.roomMenuDots,!audio&&S.onVideo]}>⋮</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel={'تصغير الغرفة'} style={S.roomMenuTrigger} onPress={onMinimize}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>−</Text></TouchableOpacity>
-        <TouchableOpacity accessibilityRole="button" accessibilityLabel="إعدادات الغرفة"
-          accessibilityState={{expanded:roomMenu!==null}} style={S.roomMenuTrigger}
-          onPress={()=>{Keyboard.dismiss();setRoomMenu('settings')}}>
-          <Text style={[S.roomControlGlyph,S.roomMenuDots,!audio&&S.onVideo]}>⋮</Text>
-        </TouchableOpacity>
+        {!minimized&&!audio&&mediaControls&&<View style={S.cameraActions}>
+          {mediaControls.cameraOn&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={"تبديل الكاميرا"} disabled={mediaControls.busy}
+            style={S.roomMenuTrigger} onPress={mediaControls.flip}><Text style={[S.roomControlGlyph,S.onVideo]}>⟲</Text></TouchableOpacity>}
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel={mediaControls.cameraOn?"إغلاق الكاميرا":"تشغيل الكاميرا"} disabled={mediaControls.busy}
+            style={S.roomMenuTrigger} onPress={mediaControls.camera}><Text style={[S.roomControlGlyph,S.onVideo]}>{mediaControls.cameraOn?'📹':'📷'}</Text></TouchableOpacity>
+        </View>}
       </View>
-      {!minimized&&<View pointerEvents="box-none" style={S.cameraHostRow}>
-        <View style={S.cameraActions}>
-          {!audio&&mediaControls&&<>
-            {mediaControls.cameraOn&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={"تبديل الكاميرا"} disabled={mediaControls.busy}
-              style={S.roomMenuTrigger} onPress={mediaControls.flip}><Text style={[S.roomControlGlyph,S.onVideo]}>⟲</Text></TouchableOpacity>}
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel={mediaControls.cameraOn?"إغلاق الكاميرا":"تشغيل الكاميرا"} disabled={mediaControls.busy}
-              style={S.roomMenuTrigger} onPress={mediaControls.camera}><Text style={[S.roomControlGlyph,S.onVideo]}>{mediaControls.cameraOn?'📹':'📷'}</Text></TouchableOpacity>
-          </>}
-        </View>
-        <RoomHostCard textStyle={!audio&&S.onVideo} hostName={room.ownerName||room.host} portrait={hostPhoto} total={hostSummary.roomTotal}
+      {!minimized&&<RoomHostCard textStyle={!audio&&S.onVideo} hostName={displayHostName} portrait={hostPhoto} total={hostSummary.roomTotal}
           locale={locale} act={membership.act} lastGiftId={lastGiftId}
-          onProfile={()=>onHostProfile(room.ownerUid,hostSummary.profileName||room.ownerName||room.host,hostPhoto)}/>
-      </View>}
-    </View>
+          onProfile={()=>onHostProfile(room.ownerUid,hostSummary.profileName||room.ownerName||room.host,hostPhoto)}/>}
+    </RoomHeader>
     {audio&&<RoomMedia onMediaControls={setMediaControls} room={room} userId={userId} canPublish={audioCanPublish} audio={audio} blocked={blocked} guests={guests} initialMedia={membership.state.media} key={String(audioCanPublish)} session={membership.session} people={people} lockedSlots={membership.state?.lockedSlots||[]} allMicsLocked={membership.state.locked} onSeat={onSeat} speakerMuted={speakerMuted}/>}
     </View>
     <View pointerEvents="none" style={{flex:1}}/>
@@ -960,18 +951,16 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
       </TouchableOpacity>}
     {chatVisible&&membership.state.slow>0&&<Text style={S.tiny}>{'مهلة الدردشة'} · {membership.state.slow} {'ثانية'}</Text>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||'مستخدم'}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    <RoomGiftSheet recipientKey={giftTarget} visible={giftOpen&&!minimized} recipientReady={recipientReady}
+    <RoomGiftSheet recipientPicker={<GiftRecipients people={giftPeople} target={recipientUid} userId={userId}
+        act={membership.act} onSelect={openGifts}/>} visible={giftOpen&&!minimized} recipientReady={recipientReady}
       gifts={GIFTS} allLabel="الكل" translate={value=>value}
       copy={{title:"صندوق الهدايا",close:"إغلاق",balance:"الماس المشترى",wallet:"المحفظة",shop:"شراء الماس",send:"إرسال"}}
       recipient={selectedPerson?.name||"اختر مستلمًا للهدية"}
-      recipientAvatar={selectedPresent&&targetProfile?.uid===giftTarget?targetProfile.avatar:null} balance={paidBalance}
+      balance={paidBalance}
       onWallet={()=>{setGiftOpen(false);onWallet()}}
       onShop={()=>{setGiftOpen(false);onShop()}}
       onClose={()=>setGiftOpen(false)} onSend={sendRoomGift}>
-      {(giftPeople.length>1||(!selectedPresent&&giftPeople.length>0))&&<ScrollView horizontal style={{flexGrow:0}} keyboardShouldPersistTaps="handled">
-        {giftPeople.map(person=><Small key={person.uid} title={person.name} onPress={()=>openGifts(person.uid)}/>)}
-      </ScrollView>}
-      {!selectedPresent&&<Text style={S.white}>{giftPeople.length?"اختر مستلمًا للهدية":"بانتظار صعود مستلم على المايك"}</Text>}
+      {!!giftTarget&&!selectedPerson&&<Text accessibilityLiveRegion="polite" style={S.white}>{"المستلم غير متاح"}</Text>}
       {!!giftIssue&&<Text accessibilityLiveRegion="polite" style={S.white}>{giftIssue}</Text>}
     </RoomGiftSheet>
     {!!giftNotice&&<Text accessibilityLiveRegion="polite" style={S.gold}>{giftNotice}</Text>}
@@ -1000,7 +989,7 @@ function Room({room,locale,onHostProfile,userId,username,avatar,equipped,diamond
           onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGamePanel('picker')}}>
           <Image accessible={false} source={greedyStarCover} resizeMode="cover" style={S.gameThumbnail}/>
         </RoomAction>}
-        <RoomAction icon="🎁" label={"صندوق الهدايا"} active={giftOpen} onPress={()=>openGifts(defaultRecipient)}/>
+        <RoomAction icon="🎁" label={"صندوق الهدايا"} active={giftOpen} onPress={()=>openGifts(null)}/>
       </View>
     </View>
     {fx&&<GiftFX key={fx.key} gift={fx.gift} muted={speakerMuted||minimized} onDone={finishGift}/>}
@@ -1851,11 +1840,11 @@ const S=StyleSheet.create({
   hostSeatName:{fontWeight:'900',color:theme.ink,marginTop:2,fontSize:15},
   videoTag:{backgroundColor:theme.glass,paddingHorizontal:6,borderRadius:8},
   videoChrome:{backgroundColor:theme.glass},
-  roomTop:{paddingHorizontal:10,paddingTop:10,paddingBottom:5,backgroundColor:'transparent'},
+  roomTop:{direction:'ltr',flexDirection:'row',alignItems:'flex-start',gap:4,paddingHorizontal:8,paddingTop:Platform.OS==='android'?(StatusBar.currentHeight||0):0,paddingBottom:3,backgroundColor:'transparent'},
   onVideo:{color:'#FFF',textShadowColor:'#10241D',textShadowOffset:{width:0,height:1},textShadowRadius:3},
-  cameraHostRow:{direction:'ltr',flexDirection:'row',alignItems:'center',justifyContent:'space-between'},
+  roomHeaderMain:{flex:1,minWidth:0},
   cameraActions:{flexDirection:'row',alignItems:'center',gap:6},
-  roomTopRow:{flexDirection:'row',alignItems:'center',gap:8},roomIdentity:{flex:1,alignItems:'center',paddingHorizontal:3},roomName:{fontSize:19,fontWeight:'900',color:theme.ink},roomType:{color:theme.secondary,fontSize:11},
+  roomTopRow:{flexDirection:'row',alignItems:'flex-start',gap:2},roomIdentity:{flex:1,alignItems:'center',paddingHorizontal:3},roomName:{fontSize:19,fontWeight:'900',color:theme.ink},roomType:{color:theme.secondary,fontSize:11},
   compact:{alignSelf:"center",maxWidth:"100%",paddingVertical:8,paddingHorizontal:13,borderRadius:12},
   orangeInk:{color:theme.ink,textAlign:"center"},
   roomMenuTrigger:{width:44,height:44,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},

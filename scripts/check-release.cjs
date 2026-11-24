@@ -75,7 +75,7 @@ assert(source.includes('إغلاق الغرفة للجميع')&&source.includes(
 // Room support is purchased-diamond spending recorded by the shared Worker.
 assert(source.includes("membership.act('paidGift'")&&source.includes('receipt?.nonce!==nonce'),'Gift sends must wait for the matching ledger receipt');
 assert(!source.includes("هدايا تجريبية محلية")&&!source.includes('onSendGift={'),'A room must not send simulated gifts');
-assert(source.includes('receipt.recipient!==giftTarget')&&source.includes('recipientAvatar={'),'Confirm the selected seat recipient');
+assert(source.includes('receipt.recipient!==recipientUid')&&source.includes('recipientPicker={<GiftRecipients')&&source.includes('recipientUid=giftTarget||defaultRecipient'),'Confirm the chosen room participant or default host');
 assert(source.includes('هدف ماس الهدايا')&&source.includes('funded.progress'),'Wallet must show the recipient gift goal');
 assert(source.includes('closingByHostRef.current=true')&&source.includes('if(closingByHostRef.current){exitRoomOnce();return;}'),'Host must not receive remote-closure alert for own action');
 assert(source.includes('if(!exitHandledRef.current){exitHandledRef.current=true;')&&source.includes('function exitRoomOnce()'),'Closed-room listener must suppress duplicate alerts');

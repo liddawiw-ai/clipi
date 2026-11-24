@@ -1,7 +1,7 @@
 import GiftMark from './GiftMark';
 import {theme} from './ClipiTheme';
-import React, {useRef, useState} from 'react';
-import {Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
+import React, {useEffect, useRef, useState} from 'react';
+import {FlatList, Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View} from 'react-native';
 
 export function RoomAction({icon, label, active, onPress,children}) {
   return <TouchableOpacity accessibilityRole="button" accessibilityLabel={label}
@@ -17,17 +17,50 @@ export function RoomOption({title, onPress, disabled}) {
   </TouchableOpacity>;
 }
 
-export function RoomGiftSheet({visible, recipientKey, gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
+function GiftRecipientChoice({person,selected,own,onSelect,request}) {
+  const [photo,setPhoto]=useState(null);
+  useEffect(()=>{
+    if(person.avatar||own)return;
+    let active=true;
+    request.current('giftRecipient',{recipient:person.uid}).then(data=>{
+      if(active && data?.recipient?.uid===person.uid)setPhoto(data.recipient.avatar);
+    }).catch(()=>{});
+    return ()=>{active=false};
+  },[person.uid,person.avatar,own,request]);
+  const portrait=person.avatar||photo;
+  return <TouchableOpacity accessibilityRole="button" accessibilityLabel={person.name}
+    aria-pressed={selected} accessibilityState={{selected,disabled:own}} disabled={own} onPress={()=>onSelect(person.uid)}
+    style={s.recipientChoice}>
+    <View style={[s.recipientRing,selected&&s.selectedRecipient]}>
+      {portrait?.startsWith('data:image/')?<Image accessible={false} source={{uri:portrait}} style={s.recipientPhoto}/>:
+        <Text style={s.recipientInitial}>{portrait||Array.from(person.name||'👤')[0]}</Text>}
+    </View>
+    <Text numberOfLines={1} style={[s.recipientName,selected&&s.chosenName]}>{person.name}</Text>
+  </TouchableOpacity>;
+}
+
+export function GiftRecipients({people,target,userId,act,onSelect}) {
+  const request=useRef(act);
+  request.current=act;
+  return <FlatList horizontal testID="room-gift-recipients" style={s.recipients}
+    keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false}
+    data={people} extraData={target} initialNumToRender={6} maxToRenderPerBatch={5} windowSize={3}
+    keyExtractor={person=>person.uid} renderItem={({item})=>
+      <GiftRecipientChoice person={item} selected={item.uid===target} own={item.uid===userId}
+        request={request} onSelect={onSelect}/>}/>;
+}
+
+export function RoomGiftSheet({visible, recipientPicker, gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   return <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
     <View style={s.overlay}>
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
-      {visible&&<GiftPanel key={recipientKey} gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
+      {visible&&<GiftPanel recipientPicker={recipientPicker} gifts={gifts} allLabel={allLabel} translate={translate} copy={copy}
         recipient={recipient} recipientReady={recipientReady} recipientAvatar={recipientAvatar} onWallet={onWallet} onShop={onShop} balance={balance} onClose={onClose} onSend={onSend}>{children}</GiftPanel>}
     </View>
   </Modal>;
 }
 
-function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
+function GiftPanel({recipientPicker, gifts, allLabel, translate, copy, recipient, recipientReady, recipientAvatar, balance, onWallet, onShop, onClose, onSend, children}) {
   const [category,setCategory]=useState(allLabel);
   const [selected,setSelected]=useState(null);
   const [pending,setPending]=useState(false);
@@ -43,15 +76,16 @@ function GiftPanel({gifts, allLabel, translate, copy, recipient, recipientReady,
   }
   return <View style={s.sheet}>
     <View style={s.sheetHeading}>
-      {recipientAvatar?.startsWith('data:image/jpeg;base64,')
+      {!recipientPicker&&(recipientAvatar?.startsWith('data:image/jpeg;base64,')
         ?<Image accessibilityLabel={recipient} source={{uri:recipientAvatar}} style={{width:44,height:44,borderRadius:22}}/>
-        :<Text accessibilityLabel={recipient} style={{fontSize:27}}>{recipientAvatar||'👤'}</Text>}
+        :<Text accessibilityLabel={recipient} style={{fontSize:27}}>{recipientAvatar||'👤'}</Text>)}
       <View style={{flex:1}}>
         <Text accessibilityRole="header" style={s.title}>{copy.title}</Text>
         <Text numberOfLines={1} style={s.sub}>{recipient}</Text>
       </View>
       <RoomAction icon="×" label={copy.close} onPress={onClose}/>
     </View>
+    {recipientPicker}
     <ScrollView horizontal style={s.tabs} showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabContent}>
       {categories.map(item=><TouchableOpacity key={item} accessibilityRole="tab"
         disabled={pending} accessibilityState={{selected:category===item}} onPress={()=>{
@@ -105,6 +139,12 @@ const s=StyleSheet.create({
   sheetHeading:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8},
   title:{fontSize:20,fontWeight:'800',color:theme.ink},
   sub:{fontSize:12,color:theme.secondary},
+  recipients:{flexGrow:0,flexShrink:0,marginBottom:6},
+  recipientChoice:{width:68,alignItems:'center',paddingHorizontal:3,paddingVertical:2},
+  recipientRing:{width:36,height:36,borderRadius:18,borderWidth:2,borderColor:'transparent',alignItems:'center',justifyContent:'center',overflow:'hidden'},
+  selectedRecipient:{borderColor:theme.accent},recipientPhoto:{width:30,height:30,borderRadius:15},
+  recipientInitial:{fontSize:16,color:theme.ink},recipientName:{maxWidth:'100%',fontSize:12,color:theme.ink,textAlign:'center'},
+  chosenName:{color:theme.accent,fontWeight:'800'},
   tabs:{flexGrow:0,maxHeight:43,marginBottom:8},
   tabContent:{alignItems:'center',gap:6},
   tab:{backgroundColor:'transparent',paddingVertical:8,paddingHorizontal:11,borderRadius:0,borderBottomWidth:1,borderBottomColor:theme.line},

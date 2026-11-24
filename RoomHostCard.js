@@ -118,9 +118,12 @@ export default function RoomHostCard({hostName,portrait,total,locale,act,lastGif
   const [open,setOpen]=useState(false);
   const count=Number.isSafeInteger(total)?total.toLocaleString(locale):'…';
   return <View style={s.roomHost}>
-    <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.hostCard.title+' · '+(hostName||'')} onPress={onProfile} style={s.portrait}>
+    <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.hostCard.title+' · '+(hostName||'')} onPress={onProfile} style={s.hostProfile}>
+      <View style={s.portrait}>
       {portrait?.startsWith('data:image/')?<Image style={s.photo} source={{uri:portrait}}/>:
         <Text style={[s.initial,textStyle]}>{portrait||Array.from(hostName||'👤')[0]}</Text>}
+      </View>
+      {!!hostName&&<Text testID="room-host-name" numberOfLines={1} style={[s.hostName,textStyle]}>{hostName}</Text>}
     </TouchableOpacity>
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={menu.roomSupporters+' · '+count} onPress={()=>setOpen(true)} style={s.counter}>
       <Text style={[s.count,textStyle]}>{count} 💎</Text>
@@ -130,7 +133,8 @@ export default function RoomHostCard({hostName,portrait,total,locale,act,lastGif
 }
 
 const s=StyleSheet.create({
-  roomHost:{alignItems:'center',flexShrink:0},counter:{alignItems:'center',justifyContent:'center',minHeight:24},count:{fontSize:12,fontWeight:'700',color:theme.ink},
+  roomHost:{alignItems:'center',flexShrink:0,maxWidth:'28%'},hostProfile:{alignItems:'center',maxWidth:'100%'},
+  hostName:{fontSize:12,fontWeight:'700',color:theme.ink,backgroundColor:'transparent',textAlign:'center',maxWidth:'100%'},counter:{alignItems:'center',justifyContent:'center',minHeight:24},count:{fontSize:12,fontWeight:'700',color:theme.ink},
   levels:{marginTop:10,gap:10},portrait:{width:36,height:36,borderRadius:18,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:theme.brass,overflow:'hidden'},
   photo:{height:'100%',width:'100%'},initial:{fontSize:19,fontWeight:'700',color:theme.ink},
   scrim:{flex:1,justifyContent:'center',alignItems:'center',padding:20,backgroundColor:'rgba(12,29,27,0.45)'},
