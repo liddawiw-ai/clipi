@@ -65,6 +65,7 @@ const english = {
   "صعود": "Take seat",
   "المايك الرئيسي": "Main microphone",
   "تحتاج الهدية إلى مضيف أو متحدث آخر على المايك.": "A gift needs another host or speaker on a microphone.",
+  "المستلم غير متاح": "Recipient unavailable",
   "اختر مستلمًا للهدية": "Choose a gift recipient",
   "إرسال": "Send",
   "بانتظار صعود مستلم على المايك": "Waiting for a recipient to take a microphone",

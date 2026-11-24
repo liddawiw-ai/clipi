@@ -17,9 +17,9 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     first:()=>sql.prepare(query).get(...args)
   }},query}},batch(statements){return Promise.resolve(statements.map(statement=>statement.all?statement.all():sql.exec(statement.query)))}};
   const visits=new Map(), kicks=[];
-  const call=async(user,op,extra={},path='/room-control',room='test',ownerUid='host')=>{
+  const call=async(user,op,extra={},path='/room-control',room='test',ownerUid='host',type='audio')=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
-    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room,user,ownerUid,host:user===ownerUid,type:'audio',path,
+    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room,user,ownerUid,host:user===ownerUid,type,path,
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
@@ -139,6 +139,34 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     await run('operator',{op:'caseReviewed',id:a.id});
     assert.equal((await run('requester',{op:'caseList'})).deletion,a.id);
   });
+  for(const type of ['audio','video']){
+    await t.test(type+' gifts go to the chosen listener or default host exactly once',async t=>{
+      sql.exec('SAVEPOINT gift_recipient');
+      t.after(()=>sql.exec('ROLLBACK TO gift_recipient; RELEASE gift_recipient'));
+      const host=type+'-gifter-host',sender=type+'-sender',listener=type+'-audience';
+      const room=type+'-gift-room',q=await roomStore(db);
+      const act=(uid,op,extra={})=>call(uid,op,extra,'/room-control',room,host,type);
+      const gift={gift:'وردة حمراء',cost:10,nonce:crypto.randomUUID()};
+      await act(host,'join');
+      await act(sender,'join');
+      await act(listener,'join',{avatar:'🌱'});
+      await q('INSERT INTO diamond_purchase VALUES(?,?,?,?)',room,sender,100,room).run();
+      assert.equal((await act(sender,'giftRecipient',{recipient:listener})).recipient.avatar,'🌱');
+      assert.equal((await act(sender,'paidGift',gift)).receipt.recipient,host);
+      const chosen={...gift,nonce:crypto.randomUUID(),recipient:listener};
+      const [one,two]=await Promise.all([act(sender,'paidGift',chosen),act(sender,'paidGift',chosen)]);
+      assert.equal(one.receipt.recipient,listener);
+      assert.deepEqual(two.receipt,one.receipt);
+      assert.equal((await readWallet(q,listener)).progress,10);
+      assert.equal((await readWallet(q,host)).progress,10);
+      assert.equal((await act(host,'hostCard',{roomTotal:true})).roomTotal,20);
+      await act(listener,'leave');
+      assert.equal((await act(sender,'paidGift',{...chosen,nonce:crypto.randomUUID()})).status,409);
+      assert.equal((await act(sender,'giftRecipient',{recipient:listener})).status,409);
+      assert.equal((await act(sender,'paidGift',{...gift,recipient:sender})).status,400);
+      assert.equal((await readWallet(q,sender)).diamonds,80);
+    });
+  }
   await t.test('moves preserve occupancy, microphone permissions and gifts including the main mic',async()=>{
     const room='moving-mics',host='owner',guest='speaker',other='listener';
     const act=(uid,op,args={},path='/room-control')=>call(uid,op,args,path,room,host);
@@ -170,7 +198,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     assert.equal((await act(target,'move',{slot:8})).status,409);
     assert.equal(seat(await act(target,'poll'),target),2);
     await act(host,'demote',{uid:target});
-    assert.equal((await act(other===target?guest:other,'giftRecipient',{recipient:target})).status,409);
+    assert.equal((await act(other===target?guest:other,'giftRecipient',{recipient:target})).recipient.uid,target);
     await act(host,'settings',{locked:true});
     assert.equal(seat(await act(host,'poll'),host),3);
     assert.equal((await act(guest,'move',{slot:1})).status,409);
@@ -178,7 +206,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     assert.equal(seat(await act(host,'approve',{uid:guest,slot:0}),guest),9);
     await act(host,'stepDown');
     assert.equal(await publisher(host),false);
-    assert.equal((await act(other,'giftRecipient',{recipient:host})).status,409);
+    assert.equal((await act(other,'giftRecipient',{recipient:host})).recipient.uid,host);
     await act(host,'settings',{locked:false});
     visits.delete(host);
     assert.equal(seat(await act(host,'join'),host),-1);
@@ -386,6 +414,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   assert.equal((await readWallet(q,second)).diamonds,980);
   assert.equal((await readWallet(q,'u0')).progress,10);
   await call('host','demote',{uid:'u0'});
+  await call('u0','leave');
   assert.equal((await call(second,'paidGift',{...routed,nonce:crypto.randomUUID()})).status,409);
   const ownerWallet=await readWallet(q,'host','host');
   assert.equal(ownerWallet.progress,10);

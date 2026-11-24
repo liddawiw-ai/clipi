@@ -101,7 +101,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(typeof visit!=='string'||!/^[a-f0-9-]{36}$/.test(visit))return json({error:'جلسة غير صالحة'},400);
   const op=input.op;
   if(!['join','poll','leave','move','stepDown','slot','settings','request','cancel','approve','reject','demote','ban','eject','kick','mute','unmute','message','pinMessage','deleteMessage','supportGift','catalogGift','paidGift','giftRecipient','hostCard'].includes(op))return json({error:'طلب غير صالح'},400);
-  if(!host&&['join','poll','hostCard'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
+  if(!host&&['join','poll','hostCard','giftRecipient'].includes(op)&&!await q('SELECT 1 FROM room_member WHERE room=? AND uid=? AND seen>=?',room,ownerUid,cutoff).first())return json({error:'انتهى البث'},404);
   if(op==='join'){
     const name=String(input.name||'ضيف').trim().slice(0,35)||'ضيف';
     if(!host&&policy?.pin && !(member?.visit===visit && member.seen>=cutoff)){
@@ -156,7 +156,9 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(op==='giftRecipient'){
     if(typeof input.recipient!=='string')return json({error:'اختر مستلمًا للهدية'},400);
-    const target=await q('SELECT m.uid,m.name,a.avatar FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=? AND (m.seat>0 OR (m.uid=? AND m.seat=0))',room,input.recipient,cutoff,ownerUid).first();
+    const target=await q(`SELECT m.uid,m.name,COALESCE(NULLIF(a.avatar,''),p.avatar) AS avatar
+      FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid LEFT JOIN short_profile p ON p.uid=m.uid
+      WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=?`,room,input.recipient,cutoff).first();
     if(!target||target.uid===user)return json({error:'المستلم غير متاح'},409);
     const balance=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
     return json({recipient:target,senderDiamonds:balance.diamonds});
@@ -280,7 +282,12 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const recipient=input.recipient??ownerUid;
     if(typeof recipient!=='string'||!recipient||recipient===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,? WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=? AND (seat>0 OR (uid=? AND seat=0))) ON CONFLICT(sender,nonce) DO NOTHING`,user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,ownerUid).run();
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,?
+      WHERE (${paidBalance})>=?
+      AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?)
+      AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?)
+      ON CONFLICT(sender,nonce) DO NOTHING`,
+      user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,room,ownerUid,cutoff).run();
     const sent=await q(`SELECT room,host,gift,cost,nonce,${paidBalance} AS senderDiamonds FROM paid_room_gift WHERE sender=? AND nonce=?`,user,user,user,nonce).first();
     if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==recipient)return json({error:'Purchased diamonds insufficient or host offline'},409);
     return json({senderDiamonds:sent.senderDiamonds,receipt:{nonce:sent.nonce,recipient:sent.host,gift:sent.gift,diamonds:sent.cost}});
