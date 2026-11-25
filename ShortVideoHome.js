@@ -8,7 +8,7 @@ import {AccessibilityInfo,FlatList,Image,Linking,Modal,PanResponder,Platform,Pre
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
-import {Player,starters,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
+import {Player,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
 const redHeart=require('./assets/actions/like-on.png');
@@ -16,8 +16,6 @@ const commentIcon=require('./assets/actions/comment-bubble.png');
 const soundOn=require('./assets/actions/sound-on.png');
 const soundOff=require('./assets/actions/sound-off.png');
 const liveBroadcastIcon=require('./assets/actions/live-broadcast.png');
-const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
-const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
 
 function Button({label,onPress,children,disabled=false,selected,onPaper=false}){
@@ -85,7 +83,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     update();const timer=setInterval(update,150);return()=>clearInterval(timer);
   },[isCurrent,playable,stats?.cues]);
   const liveRoom=ownerUid&&liveRooms?.find(room=>room.ownerUid===ownerUid);
-  const canDelete=!starters[item.id] && (stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid));
+  const canDelete=stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid);
   function openDelete(){
     if(!canDelete)return;
     setMessage('');setDialog('delete');setViewMode('delete');
@@ -106,7 +104,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
       if(alive.current)setBusyDelete(false);
     }
   }
-  const source=asVideo(item,endpoint);
+  const source=shortVideoUrl(endpoint,item.id);
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
   const {liked,likes,like,initialize}=useClipLike(
     wanted=>api('shortLike',{liked:wanted,likeOnly:true}),
@@ -132,11 +130,10 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
   },[item.id,followRevision,isCurrent]);
-  const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
     run(async()=>{
-      await copyShortLink(videoLink);
+      await copyShortLink(source);
       if(alive.current)setMessage(translate('تم نسخ رابط الفيديو'));
     });
   }
@@ -152,7 +149,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     catch(e){if(alive.current)setMessage(uiError(e,'تعذّرت المتابعة'));}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
-  const official=!!starters[item.id],authorName=stats?.authorName||(official?'Clipi':appText('صاحب المقطع'));
+  const authorName=stats?.authorName||appText('صاحب المقطع');
   async function submit(kind,value,callback){
     if(lock.current || (kind==='shortGift' && confirmedClip!==item.id))return;
     lock.current=true;setMessage('');
@@ -190,7 +187,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     <SoundControl belowHeader {...{playerRef,muted,setMuted}}/>
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
-        disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
+        disabled={!ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} size={40}/></Pressable>
         {liveRoom&&onVisitLive&&<Pressable accessibilityRole="button" accessibilityLabel={appText('دخول البث المباشر')+' · '+authorName}
           style={{backgroundColor:'#992449',borderColor:'white',borderWidth:1,borderRadius:15,minHeight:44,marginBottom:6,paddingHorizontal:6,justifyContent:'center'}}
           onPress={()=>onVisitLive(liveRoom)}><Text style={{color:'white',fontSize:12}}>{appText('مباشر الآن')}</Text></Pressable>}
@@ -199,11 +196,11 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
         {liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{likes!=null&&<Text style={s.count}>{likes}</Text>}
       </Button>
       <Button label={appText("التعليقات")} onPress={openComments}><Image source={commentIcon} style={s.commentIcon}/>{commentCount!=null&&<Text style={s.count}>{commentCount}</Text>}</Button>
-      <Button label={appText("مشاركة الفيديو")} onPress={()=>run(()=>shareShort(videoLink))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>{appText("مشاركة")}</Text></Button>
+      <Button label={appText("مشاركة الفيديو")} onPress={()=>run(()=>shareShort(source))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>{appText("مشاركة")}</Text></Button>
       <Button label={appText("تنزيل الفيديو")} onPress={()=>run(()=>saveShort(item.id,source))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
       <Button label={appText("المزيد")} onPress={()=>setDialog('more')}><Text style={s.label}>•••</Text></Button>
     </View>
-    <View pointerEvents="box-none" style={s.caption}>{!!caption&&<Text style={{alignSelf:"flex-start",backgroundColor:"rgba(0,0,0,.7)",color:"white",paddingHorizontal:6}}>{caption}</Text>}<Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{official?appText(item.title):item.title}</Text>}
+    <View pointerEvents="box-none" style={s.caption}>{!!caption&&<Text style={{alignSelf:"flex-start",backgroundColor:"rgba(0,0,0,.7)",color:"white",paddingHorizontal:6}}>{caption}</Text>}<Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{item.title}</Text>}
       
       {!!message&&!dialog&&<Text accessibilityLiveRegion="polite" style={s.label}>{appText(message)}</Text>}</View>
     {dialog==='more'&&<VideoSettings closeLabel={translate('إغلاق')} onClose={()=>setDialog('')} actions={[
@@ -217,7 +214,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
-      recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
+      recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
       <Text style={s.paperLabel}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
@@ -280,11 +277,11 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
 export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
-  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState(null),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const profileClips=profileFeed?.clips;
   const items=useMemo(()=>{
-    if(!profileClips)return homeItems;
+    if(!profileClips)return homeItems ?? [];
     const selected=profileClips.find(clip=>clip.id===initialId);
     return selected?[selected,...profileClips.filter(clip=>clip.id!==initialId)]:profileClips;
   },[profileClips,initialId,homeItems]);
@@ -317,7 +314,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
         const {clips}=await request('/account-number',{op:'shortList'});
         if(!current)return;
         page.current=clips.length===30?clips.at(-1).cursor:null;
-        const all=[...clips.filter(c=>!removed.current.has(c.id)),...samples];
+        const all=clips.filter(c=>!removed.current.has(c.id));
         const selected=all.find(c=>c.id===initialId);
         if(initialId&&!selected&&!removed.current.has(initialId)&&/^[0-9a-f-]{36}$/i.test(initialId)){
           const {clip}=await request('/account-number',{op:'shortLookup',clip:initialId});
@@ -368,6 +365,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
       renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+    {!fromProfile && homeItems?.length===0 && !error && <View pointerEvents="none" style={s.emptyFeed}><Text style={s.count}>{translate('لا توجد فيديوهات منشورة بعد')}</Text></View>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
@@ -501,6 +499,7 @@ const s=StyleSheet.create({
   settingsContent:{paddingHorizontal:16,paddingVertical:8},
   settingsRow:{minHeight:44,justifyContent:'center',borderBottomWidth:StyleSheet.hairlineWidth,borderColor:'#dce4e0'},
   settingsLabel:{color:'#172925',fontSize:16,fontWeight:'600'},destructiveLabel:{color:'#a12932'},
+  emptyFeed:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center'},
   retry:{position:'absolute',left:12,bottom:4},panel:{flexGrow:0,backgroundColor:'#fff',maxHeight:'66%',borderTopLeftRadius:24,borderTopRightRadius:24,elevation:6},panelContent:{padding:16,gap:6},lightTitle:{fontSize:20,fontWeight:'700',color:'#172925',textAlign:'center'},paperLabel:{fontSize:16,fontWeight:'600',color:'#172925',textAlign:'center'},
   scrim:{flex:1,justifyContent:'flex-end',backgroundColor:'transparent'},
   input:{borderColor:'#c8d7d1',borderWidth:1,borderRadius:8,padding:10,color:'#172925'}

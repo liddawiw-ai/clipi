@@ -8,11 +8,6 @@ import * as Crypto from 'expo-crypto';
 import {Asset} from 'expo-asset';
 
 export const nonce = () => Crypto.randomUUID();
-export const starters = {
-  palace: require('./assets/shorts/palace.mp4'),
-  aurora: require('./assets/shorts/aurora.mp4'),
-  dunes: require('./assets/shorts/dunes.mp4')
-};
 export function Player(props) {
   return <ShortVideoPlayer key={props.source} {...props}/>;
 }
@@ -71,9 +66,7 @@ export async function uploadFile(url,file,token) {
 }
 export const releaseDraft=()=>{};
 export function shortVideoUrl(endpoint,id) {
-  const path=Object.prototype.hasOwnProperty.call(starters,id)
-    ? '/shorts/starter/'+encodeURIComponent(id)+'.mp4' : '/shorts/media/'+encodeURIComponent(id);
-  return endpoint.replace(/\/+$/,'')+path;
+  return endpoint.replace(/\/+$/,'')+'/shorts/media/'+encodeURIComponent(id);
 }
 export const copyShortLink=url=>Clipboard.setString(url);
 export const shareShort=url=>Share.share({message:url});

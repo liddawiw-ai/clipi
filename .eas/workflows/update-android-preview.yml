@@ -11,4 +11,3 @@ jobs:
     params:
       platform: android
       channel: preview
-      message: Stop outgoing short video audio when swiping on Android 45
