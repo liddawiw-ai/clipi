@@ -100,7 +100,7 @@ export async function checkNavigation(browser) {
         shortIdentity: {}
       };
       return route.fulfill({
-        json: name === '/active-rooms' ? { rooms: ['cover-video','cover-audio'],tags:Object.fromEntries(['audio','video'].map(type=>['cover-'+type,{cover:'6f6e492b-b5ee-4db2-b76d-1d78e7e238d8'}])), supportRoom: {id:'clipi-admin-help'} } : (fixtures[op] ?? {})
+        json: name === '/active-rooms' ? { rooms: ['cover-video','cover-audio'],tags:Object.fromEntries(['audio','video'].map(type=>['cover-'+type,{cover:'6f6e492b-b5ee-4db2-b76d-1d78e7e238d8'}])), supportRoom: {id:'clipi-admin-help',cover:'6f6e492b-b5ee-4db2-b76d-1d78e7e238d8'} } : (fixtures[op] ?? {})
       });
     });
     await p.goto('https://clipi.local/room?signedOut=1&firstVisit=1');
@@ -213,6 +213,7 @@ export async function checkNavigation(browser) {
           await help.waitFor();
           assert.ok((await help.innerText()).includes('٢٤ ساعة'));
           assert.equal(await help.locator('img').count(),1);
+          assert.match(await help.locator('img').getAttribute('src'),/\/room-covers\/clipi-admin-help\/6f6e492b-b5ee-4db2-b76d-1d78e7e238d8\.jpg$/);
         }else assert.equal(await help.count(),0);
       }
       await home();

@@ -1,4 +1,4 @@
-import {saveCover,coverResponse} from './room-cover.mjs';
+import {saveCover,saveHelpCover,coverResponse} from './room-cover.mjs';
 import {liveProgram,tagRoom} from './live-program.mjs';
 import {deviceInstall} from './device-install.mjs';
 import {interfaceCopy} from './interface-copy.mjs';
@@ -64,7 +64,11 @@ export default {
       const q=await roomStore(env.PI_GIFTS_DB);
       const rows=await q('SELECT h.room,l.language,l.topic,c.revision AS cover FROM room_host h LEFT JOIN room_continuation chain ON chain.session=h.room LEFT JOIN room_cover c ON c.root=COALESCE(chain.root,h.room) LEFT JOIN room_listing l ON l.room=h.room JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
       const rooms=rows.results.map(row=>row.room).filter(id=>id!==helpRoomId);
-      return json({rooms,tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}])), ...(env.PI_GIFTS_NETWORK==='mainnet'?{supportRoom:{id:helpRoomId,type:'audio',name:helpRoomName,status:'open'}}:{})});
+      const supportRoom=env.PI_GIFTS_NETWORK==='mainnet'?{
+        id:helpRoomId,type:'audio',name:helpRoomName,status:'open',
+        cover:(await q('SELECT revision FROM room_cover WHERE root=?',helpRoomId).first())?.revision??null
+      }:null;
+      return json({rooms,tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}])), ...(supportRoom?{supportRoom}:{})});
     }
     if(request.method==='GET'&&path.startsWith('/themes/')){
       if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
@@ -110,6 +114,10 @@ export default {
           entry=await q('SELECT number FROM room_public_number WHERE room=?',room).first();
         }
         return json({number:String(numberBase+entry.number)});
+      }
+      if(input?.op==='roomCover'&&input.room===helpRoomId){
+        if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'الغرفة غير متاحة'},404);
+        return saveHelpCover(await roomStore(env.PI_GIFTS_DB),helpRoomId,uid,env.CLIPI_OWNER_UID,input.image,json);
       }
       if(input?.op==='roomTag'||input?.op==='roomCover'){
         if(typeof input.room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(input.room))return json({error:'طلب غير صالح'},400);

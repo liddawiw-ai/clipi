@@ -31,6 +31,24 @@ test('official help room accepts the first authenticated visitor after a day emp
     return (await result.json()).supportRoom;
   }
   assert.equal((await directory()).id,id);
+  const save=image=>({room:id,image});
+  const jpeg='data:image/jpeg;base64,/9j/2Q==';
+  const coverPath=revision=>'https://app.test/room-covers/'+id+'/'+revision+'.jpg';
+  assert.equal((await post('first','roomCover',save(jpeg),'/account-number')).status,403);
+  assert.equal((await post('team-owner','roomCover',save('broken'),'/account-number')).status,400);
+  const saved=await (await post('team-owner','roomCover',save(jpeg),'/account-number')).json();
+  assert.ok(saved.cover);
+  assert.equal((await directory()).cover,saved.cover);
+  assert.equal((await worker.fetch(new Request(coverPath(saved.cover)),env)).status,200);
+  sql.prepare('INSERT INTO clipi_app_admin(uid) VALUES(?)').run('staff');
+  const replaced=await (await post('staff','roomCover',save(jpeg),'/account-number')).json();
+  assert.ok(replaced.cover);
+  assert.notEqual(replaced.cover,saved.cover);
+  assert.equal((await directory()).cover,replaced.cover);
+  assert.equal((await post('first','roomCover',save(null),'/account-number')).status,403);
+  assert.equal((await post('staff','roomCover',save(null),'/account-number')).status,200);
+  assert.equal((await directory()).cover,null);
+  assert.equal((await worker.fetch(new Request(coverPath(replaced.cover)),env)).status,404);
   assert.equal((await post('unverified','join')).status,401);
   const first=await (await post('first','join')).json();
   assert.deepEqual(first.people.map(p=>p.uid),['first']);
