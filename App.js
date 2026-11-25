@@ -778,8 +778,10 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
   const [filterDraft,setFilterDraft]=useState('');
   const [messageMenu,setMessageMenu]=useState(null);
   const [report,setReport]=useState(null);
+  const [helpText,setHelpText]=useState('');
   const submittingReport=useRef(false);
   function startReport(kind,subject){
+    setHelpText('');
     setSeatMenu(null);setMessageMenu(null);setRoomMenu(null);
     setReport({kind,subject,id:Crypto.randomUUID()});
   }
@@ -788,7 +790,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
     submittingReport.current=true;
     try{
       const result=await supportRequest('caseCreate',{...report,detail:reason});
-      setReport(null);Alert.alert(appText('تم إرسال البلاغ'),appText('رقم الطلب')+' · '+result.id);
+      setReport(null);Alert.alert(appText(report.kind==='help'?'تم إرسال طلب المساعدة':'تم إرسال البلاغ'),appText('رقم الطلب')+' · '+result.id);
     }catch(error){Alert.alert(appText('تعذر الإبلاغ'),uiError(error))}
     finally{submittingReport.current=false}
   }
@@ -972,9 +974,12 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
     <Modal visible={!!(report||messageMenu)&&!minimized} transparent animationType="fade"
       onRequestClose={()=>{setReport(null);setMessageMenu(null)}}>
       <View style={S.roomMenuOverlay}><View style={S.roomMenuPanel}>
-        <Text accessibilityRole="header" style={S.title}>{report?appText('سبب البلاغ'):messageMenu?.title}</Text>
+        <Text accessibilityRole="header" style={S.title}>{report?appText(report.kind==='help'?'اترك طلب مساعدة':'سبب البلاغ'):messageMenu?.title}</Text>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
-          {report?['إساءة أو تهديد','احتيال أو انتحال','انتهاك الخصوصية','سلامة طفل','محتوى غير مناسب'].map(reason=>
+          {report?.kind==='help'?<>
+            <TextInput style={S.input} multiline maxLength={400} accessibilityLabel={appText('تفاصيل المشكلة')} placeholder={appText('تفاصيل المشكلة')} value={helpText} onChangeText={setHelpText}/>
+            <RoomOption title={appText('إرسال الطلب')} disabled={!helpText.trim()} onPress={()=>helpText.trim()&&sendReport(helpText.trim())}/>
+          </>:report?['إساءة أو تهديد','احتيال أو انتحال','انتهاك الخصوصية','سلامة طفل','محتوى غير مناسب'].map(reason=>
             <RoomOption key={reason} title={reason} onPress={()=>sendReport(reason)}/>)
             :messageMenu?.options.map(option=><RoomOption key={option.text} title={option.text} onPress={()=>{setMessageMenu(null);option.onPress()}}/>)}
           <RoomOption title={appText('إلغاء')} onPress={()=>{setReport(null);setMessageMenu(null)}}/>
@@ -985,6 +990,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
     <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
     <RoomHeader style={S.roomTop} testID="room-header">
       <View style={S.roomHeaderMain}>
+        {officialHelp&&!minimized&&<Small plain title={appText('اترك طلب مساعدة')} onPress={()=>startReport('help',room.id)}/>}
         <View style={[S.roomTopRow,{direction:isRTL()?'rtl':'ltr'}]}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?appText('إغلاق البث'):appText('مغادرة الغرفة')} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,headerOnImage&&S.onVideo]}>✕</Text></TouchableOpacity>
           <View style={S.roomIdentity}>
@@ -2117,7 +2123,7 @@ export default function App(){
       <HubRows items={[
         {label:menu.edit,onPress:()=>go('profileEdit')},
         {label:menu.changeLanguage,onPress:()=>go('accountLanguage')},
-        {label:appText('الدعم وطلباتي'),onPress:()=>go('help')},
+        {label:appText('صندوق الوارد والدعم'),onPress:()=>go('help')},
         {label:appText('طلب حذف الحساب'),destructive:true,onPress:deleteAccount},
         {label:appText('سياسة الخصوصية'),onPress:()=>setPolicy('privacy')},
         {label:appText('شروط الخدمة'),onPress:()=>setPolicy('terms')},
