@@ -1,3 +1,4 @@
+import {manageAppAdmin} from './app-admins.mjs';
 import {hostEarnings} from './host-earnings.mjs';
 import {saveCover,saveHelpCover,coverResponse} from './room-cover.mjs';
 import {liveProgram,tagRoom} from './live-program.mjs';
@@ -153,6 +154,7 @@ export default {
       }
       if(typeof input?.op==='string'&&input.op.startsWith('table'))return profileTables(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('trial'))return trialAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      if(['lookupAppAdmin','setAppAdmin'].includes(input?.op))return manageAppAdmin(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(input?.op==='shortDelete')return deleteShort(await roomStore(env.PI_GIFTS_DB),uid,input.clip,json,env.SHORT_VIDEOS,env.CLIP_MEDIA);
       if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.CLIP_MEDIA || env.SHORT_VIDEOS));
@@ -172,7 +174,7 @@ export default {
       }
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
       const q=await roomStore(env.PI_GIFTS_DB);
-      const result=await account(q,uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json);
+      const result=await account(q,uid,input,100+(env.CLIPI_OWNER_UID===uid?100000000:0),json,env.CLIPI_OWNER_UID);
       if(input.op!=='read'||!result.ok||env.PI_GIFTS_NETWORK!=='mainnet')return result;
       const owner=await q('SELECT 1 FROM clipi_app_owner WHERE uid=?',uid).first();
       if(!owner)return result;

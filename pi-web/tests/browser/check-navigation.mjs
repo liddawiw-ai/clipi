@@ -53,6 +53,8 @@ export async function checkNavigation(browser) {
       (l) => { if (!localStorage.getItem('clipi.language.v2')) localStorage.setItem('clipi.language.v2', l); },
       lang
     );
+    const isOwner = width === 390;
+    let assigned = false;
     const errors = [];
     p.on('pageerror', (e) => {
       errors.push(e.message);
@@ -75,12 +77,22 @@ export async function checkNavigation(browser) {
       if(name==='/shorts/media/fixture')return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       const op = route.request().postDataJSON()?.op;
+      if (op === 'lookupAppAdmin' || op === 'setAppAdmin') {
+        const body = route.request().postDataJSON();
+        assert.ok(isOwner);
+        assert.equal(body.number, '7654321');
+        if (op === 'setAppAdmin') {
+          assert.equal(body.targetUid, 'target-fixture');
+          assigned = body.enabled;
+        }
+        return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
+      }
       const fixtures = {
         shortList: { clips: [{id:'fixture',title:'Navigation fixture'}] },
         shortState: { social: true, likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
         roomInviteInbox: { invites: [] },
-        read: { number: '1234567' },
+        read: { number: '1234567', canManageAppAdmins: isOwner },
         wallet: { diamonds: 0, history: [] },
         shortSocialStats: {},
         shortIdentity: {}
@@ -159,6 +171,23 @@ export async function checkNavigation(browser) {
     ]) {
       await dock.getByRole('tab').nth(i).click();
       await pageFull(name);
+      if (name === 'profile') {
+        const entry = p.getByText(lang === 'ar' ? 'تعيين أدمن للتطبيق' : 'Assign an app admin', {exact:true});
+        if (isOwner) {
+          await entry.click();
+          await pageFull('appAdmins');
+          await p.getByRole('textbox', {name:'رقم حساب كليبي'}).fill('٧٦٥٤٣٢١');
+          await p.getByRole('button', {name:'بحث عن الحساب'}).click();
+          await p.getByText('Fixture user · 7654321', {exact:true}).waitFor();
+          await p.getByRole('button', {name:'تأكيد تعيين أدمن للتطبيق'}).click();
+          await p.getByText('تم تعيين أدمن التطبيق', {exact:true}).waitFor();
+          await p.getByRole('button', {name:'سحب صلاحية أدمن التطبيق'}).click();
+          await p.getByText('تم سحب صلاحية أدمن التطبيق', {exact:true}).waitFor();
+        } else {
+          await p.getByText('1234567', {exact:false}).first().waitFor();
+          assert.equal(await entry.count(), 0);
+        }
+      }
       if(name==='rooms'){
         for(const type of ['audio','video']){
           await p.getByText('Cover fixture '+type,{exact:true}).waitFor();

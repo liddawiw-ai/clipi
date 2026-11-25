@@ -1,3 +1,4 @@
+import AppAdminScreen from './AppAdminScreen';
 import {uiError,ui as appText,interfaceLocale,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
 import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
 import RoomHostCard,{useRoomHost} from './RoomHostCard';
@@ -1904,13 +1905,17 @@ export default function App(){
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid} translate={ui}/>
   </HubScreen>;
   if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
+  if(page==='appAdmins' && visibleNumber?.canManageAppAdmins)return <HubScreen title={appText('تعيين أدمن للتطبيق')} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+    <AppAdminScreen key={user.uid} request={mediaRequest}/>
+  </HubScreen>;
   if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
-  if(page==='profile')return <HubScreen title={menu.account}
+  if(page==='profile'||page==='appAdmins')return <HubScreen title={menu.account}
     action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={ui("اختيار صورة من الاستوديو")} name={name||user?.displayName||ui('مستخدم')} avatar={avatar} number={visibleNumber?.number}
       socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
       shortcuts={[
+        ...(visibleNumber?.canManageAppAdmins?[{icon:'♔',label:appText('تعيين أدمن للتطبيق'),onPress:()=>go('appAdmins')}]:[]),
         {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},
         {icon:'◇',label:menu.wallet,onPress:()=>go('wallet')},
         {icon:'#',label:menu.shop,onPress:()=>go('store')},
