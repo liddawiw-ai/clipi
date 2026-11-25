@@ -85,7 +85,7 @@ export async function roomStore(db) {
 // Existing audio rooms use seat 0 for the owner's main mic and for listeners.
 // Number 9 represents a deliberate move to the main mic. An off-stage owner uses -1.
 export const helpRoomId='clipi-admin-help';
-export const helpRoomName='الإدارة';
+export const helpRoomName='غرفة أدمن كليبي';
 const MAIN_MIC=9;
 function mayPublish(member,host,type){
   if(type!=='audio')return (host&&member.seat>=0)||Boolean(member.seat>0&&!member.muted);

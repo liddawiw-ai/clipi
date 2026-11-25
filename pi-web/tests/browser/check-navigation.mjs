@@ -184,6 +184,7 @@ export async function checkNavigation(browser) {
       await dock.getByRole('tab').nth(i).click();
       await pageFull(name);
       if(name==='rooms'){
+        await root.getByRole('button',{name:lang==='ar'?/غرفة أدمن كليبي/:/Clipi Admin Room/}).waitFor();
         for(const type of ['audio','video']){
           await p.getByText('Cover fixture '+type,{exact:true}).waitFor();
           await p.waitForFunction(id=>Array.from(document.querySelectorAll('img')).some(img=>img.src.includes('/room-covers/'+id+'/')&&img.complete&&img.naturalWidth>0),'cover-'+type);
@@ -211,10 +212,10 @@ export async function checkNavigation(browser) {
         await roomTabs.nth(i + 1).getAttribute('aria-selected'),
         'true'
       );
+      const help=root.getByRole('button',{name:lang==='ar'?/غرفة أدمن كليبي/:/Clipi Admin Room/});
+      await help.waitFor();
       if(lang==='ar'){
-        const help=root.getByRole('button',{name:/الإدارة/});
-        if(i===0){
-          await help.waitFor();
+
           const search=root.getByRole('textbox',{name:'ابحث بالاسم أو معرّف الغرفة'});
           await search.fill('no-room-matches-this-search');
           assert.ok(await help.isVisible());
@@ -223,7 +224,6 @@ export async function checkNavigation(browser) {
           assert.ok((await help.innerText()).includes('٢٤ ساعة'));
           assert.equal(await help.locator('img').count(),1);
           assert.match(await help.locator('img').getAttribute('src'),/\/room-covers\/clipi-admin-help\/6f6e492b-b5ee-4db2-b76d-1d78e7e238d8\.jpg$/);
-        }else assert.equal(await help.count(),0);
       }
       await home();
     }
