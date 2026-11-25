@@ -1,5 +1,10 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "غرفة المساعدة الرسمية · مفتوحة ٢٤ ساعة": "Official voice support room · open 24 hours",
+  "حتى ٣ دقائق و٥٠ ميغابايت · MP4": "MP4 · up to 3 minutes and 50 MB",
+  "اختر فيديو حجمه حتى ٥٠ ميغابايت": "Choose a video no larger than 50 MB.",
+  "أقصى مدة للفيديو ثلاث دقائق. قصّر المقطع ثم حاول مجددًا.": "Videos can be up to 3 minutes long. Trim your clip and try again.",
+  "غرفة أدمن كليبي": "Clipi Admin Room",
   "غلاف البث": "Broadcast cover",
   "اختيار غلاف البث": "Choose broadcast cover",
   "تغيير غلاف البث": "Change broadcast cover",

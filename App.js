@@ -48,7 +48,7 @@ function loadRoomMediaRuntime(){
   return roomMediaRuntime;
 }
 
-const helpRoom=Object.freeze({id:'clipi-admin-help',type:'audio',status:'open',ownerUid:'',name:'الإدارة',ownerName:'غرفة المساعدة الرسمية'});
+const helpRoom=Object.freeze({id:'clipi-admin-help',type:'audio',status:'open',ownerUid:'',name:'غرفة أدمن كليبي',ownerName:'غرفة المساعدة الرسمية'});
 const MEDIA_ENDPOINT=process.env.EXPO_PUBLIC_CLIPI_MEDIA_URL?.trim().replace(/\/+$/,'')||'https://clipi-mainnet.liddawiw.workers.dev';
 configureInterface(MEDIA_ENDPOINT,'ar',{
   read:code=>FileSystem.readAsStringAsync(FileSystem.cacheDirectory+'clipi-ui-v1-'+code+'.json'),
@@ -1970,10 +1970,6 @@ export default function App(){
   </HubScreen>;
   if(page==='rooms'){
     const query=roomSearch.trim().toLowerCase();
-    const showHelpRoom=discoveryFilter==='audio'||(
-      discoveryFilter==='all'&&(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&
-      (!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'أدمن كليبي','Clipi Admin Support'].join(' ').toLowerCase().includes(query))
-    );
     const visibleRooms=rooms.filter(r=>(!searchTags.language||searchTags.language===r.language)&&(!searchTags.topic||searchTags.topic===r.topic)&&r.status==='open'&&!blockedUsers.includes(r.ownerUid)
       &&(discoveryFilter==='all'||(r.type==='video'?'video':'audio')===discoveryFilter)
       &&(!query||r.name?.toLowerCase().includes(query)||r.id.toLowerCase().includes(query)));
@@ -1987,7 +1983,7 @@ export default function App(){
     return <HubScreen title={appText("الغرف")} dock={nav()}>
       <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
         <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
-          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={showHelpRoom?helpRoom:null} helpImage={helpCoverImage} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
+          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={helpRoom} helpImage={helpCoverImage} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch} onSearchById={enterRoomById}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}

@@ -16,8 +16,12 @@ export function Player(props) {
   return <ShortVideoPlayer key={props.source} {...props}/>;
 }
 
-function ShortVideoPlayer({source, active = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
-  const player = useVideoPlayer(source, p => {p.loop=true;p.muted=muted;});
+function ShortVideoPlayer({source, active = true, mountedSurface = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
+  const player = useVideoPlayer(source, p => {
+    p.loop = true;
+    p.muted = muted;
+    p.bufferOptions = {preferredForwardBufferDuration: 6, minBufferForPlayback: 0.5, maxBufferBytes: 6 * 1024 * 1024};
+  });
   useImperativeHandle(playerRef, () => player, [player]);
   useLayoutEffect(() => {player.muted=muted;},[muted,player]);
   useLayoutEffect(() => {
@@ -45,13 +49,16 @@ function ShortVideoPlayer({source, active = true, muted = true, playerRef, onPla
       ready.remove();
     };
   }, [active, player]);
+  if (!mountedSurface) return null;
   return <VideoView style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
 }
 export async function pickShort() {
   const result=await launchImageLibraryAsync({mediaTypes:['videos'],allowsEditing:false});
   if(result.canceled)return null;
   const file=result.assets[0];
-  if(file.fileSize>24*1024*1024)throw Error('اختر فيديو حجمه حتى ٢٤ ميغابايت');
+  const bytes = file.fileSize ?? (await FS.getInfoAsync(file.uri).catch(() => null))?.size;
+  if (bytes > 50 * 1024 * 1024) throw Error('اختر فيديو حجمه حتى ٥٠ ميغابايت');
+  if (file.duration > 180000) throw Error('أقصى مدة للفيديو ثلاث دقائق. قصّر المقطع ثم حاول مجددًا.');
   return {uri:file.uri};
 }
 export async function uploadFile(url,file,token) {

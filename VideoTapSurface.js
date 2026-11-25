@@ -67,6 +67,7 @@ export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, p
       singleTimer.current = setTimeout(() => {
         firstTap.current = null;
         revealControls();
+        onPlaybackPress();
       }, 320);
       return;
     }

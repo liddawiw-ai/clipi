@@ -57,11 +57,12 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     </View>
   </Modal>;
 }
-function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
+  useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
@@ -72,7 +73,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
   const ownerUid=item.owner || stats?.owner;
   const [caption,setCaption]=useState('');
   useEffect(()=>{
-    if(!playable||!stats?.cues?.length){setCaption('');return}
+    if(!isCurrent||!playable||!stats?.cues?.length){setCaption('');return}
     function update(){
       const time=playerRef.current?.currentTime||0;
       const cues=stats.cues;
@@ -81,7 +82,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
       setCaption(text);
     }
     update();const timer=setInterval(update,150);return()=>clearInterval(timer);
-  },[playable,stats?.cues]);
+  },[isCurrent,playable,stats?.cues]);
   const liveRoom=ownerUid&&liveRooms?.find(room=>room.ownerUid===ownerUid);
   const canDelete=!starters[item.id] && (stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid));
   function openDelete(){
@@ -121,6 +122,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
   useEffect(()=>{
     let current=true;
     alive.current=true;
+    if(!isCurrent)return ()=>{alive.current=false;};
     api('shortState').then(v=>{
       if(!current)return;
       initialize(v);setStats(v);
@@ -128,7 +130,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
       if(v.commentCount>0)firstComments();
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
-  },[item.id,followRevision]);
+  },[item.id,followRevision,isCurrent]);
   const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
@@ -179,8 +181,8 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} active={playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
-    {!showing&&dialog!=='delete'&&<>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    {isCurrent&&!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
@@ -314,7 +316,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
@@ -364,6 +366,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,
   }
   return <Panel onClose={onClose} closeLabel={appText('إغلاق')} busy={busy}>
     <Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
+    <Text style={s.paperLabel}>{appText("حتى ٣ دقائق و٥٠ ميغابايت · MP4")}</Text>
     {draft&&<View style={s.preview}><Player source={draft.uri} fit="contain" muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></View>}
     <Button onPaper label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#52645f" placeholder={appText("عنوان الفيديو")}/>
