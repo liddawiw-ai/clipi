@@ -5,7 +5,7 @@ export async function linkStore(env) {
   if (env.PI_GIFTS_NETWORK !== 'mainnet') return null;
   const db = env.PI_GIFTS_DB;
   if (!db) throw Error('Missing login database');
-  if (!ready.has(db)) ready.set(db,db.prepare(schema).run().catch(e=>{ready.delete(db);throw e;}));
+  if (!ready.has(db)) ready.set(db,Promise.resolve().then(()=>db.prepare(schema).bind().run()).catch(e=>{ready.delete(db);throw e;}));
   await ready.get(db);
   return db;
 }

@@ -1,3 +1,4 @@
+import {piAccountUid,isErasing} from './account-erasure.mjs';
 import {linkStore,linkedEmail} from './pi-account-link.mjs';
 import {validPack} from './diamond-wallet.mjs';
 import {roomStore} from './room-controls.mjs';
@@ -96,7 +97,8 @@ export async function piGifts(request, env, json) {
     }
     if (packRequest) {
       // The recipient in the Pi-verified payment remains fixed, including when restoring older receipts.
-      const piUid='pi:'+identity.uid;
+      const piUid=await piAccountUid(await linkStore(env),'pi:'+identity.uid);
+      if(mainnet && (await isErasing(await roomStore(env.PI_GIFTS_DB),piUid) || (typeof metadata.uid==='string' && await isErasing(await roomStore(env.PI_GIFTS_DB),metadata.uid))))return json({error:'Account deletion in progress'},403);
       if(typeof metadata.uid!=='string'||(metadata.uid!==piUid && metadata.uid!==await linkedEmail(await linkStore(env),piUid))){
         return json({error:'Account does not match the payment'},403);
       }

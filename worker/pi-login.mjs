@@ -1,3 +1,4 @@
+import {piAccountUid} from './account-erasure.mjs';
 import {linkStore,linkedEmail,linkedPi,recentPasswordAccount,registeredPair,recordLink} from './pi-account-link.mjs';
 
 const enc=new TextEncoder();
@@ -44,8 +45,8 @@ export async function piLogin(request,env,json,apiKey) {
     if(!res.ok)return json({error:'تعذّر التحقق من حساب Pi'},res.status===401||res.status===403?401:502);
     const {uid,username}=await res.json();
     if(typeof uid!=='string'||!uid.length||uid.length>110)return json({error:'Invalid Pi identity'},502);
-    const piUid='pi:'+uid;
     const db=await linkStore(env);
+    const piUid=await piAccountUid(db,'pi:'+uid);
     let emailUid=await linkedEmail(db,piUid);
     if(linking){
       if(!db || request.headers.get('Content-Type')?.split(';')[0]!=='application/json')return json({error:'طلب ربط غير صالح'},400);
@@ -68,6 +69,7 @@ export async function piLogin(request,env,json,apiKey) {
       destination=piUid;
       needsEmail=true;
     }
+    if(db && await db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='account_erasure'").bind().first() && await db.prepare('SELECT 1 FROM account_erasure WHERE uid IN (?,?)').bind(piUid,destination).first())return json({error:'Account deletion in progress'},403);
     return json({token:await loginToken(env,destination),linked:Boolean(emailUid),needsEmail,original:destination===piUid,
       username:destination===piUid&&typeof username==='string'?username.slice(0,35):''});
   }catch{return json({error:'تعذّر التحقق من تسجيل الدخول حاليًا. حاول مجددًا.'},503);}

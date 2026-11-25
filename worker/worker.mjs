@@ -1,3 +1,4 @@
+import {operatorErasure,isErasing} from './account-erasure.mjs';
 import {saveCover,coverResponse} from './room-cover.mjs';
 import {liveProgram,tagRoom} from './live-program.mjs';
 import {deviceInstall} from './device-install.mjs';
@@ -14,7 +15,7 @@ import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
 import {readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
-import {roomStore,roomControls} from './room-controls.mjs';
+import {roomStore,roomControls,helpRoomId,helpRoomName} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
 import {linkStore,linkedPi,linkedEmail} from './pi-account-link.mjs';
 import { piGifts } from './pi-gifts.mjs';
@@ -46,6 +47,7 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path==='/internal/account-deletion')return operatorErasure(request,env,roomStore,json);
     if(request.method==='GET'&&(path==='/device-install/android'||path==='/device-install/ios'))return deviceInstall(request,path.split('/').pop());
     if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
     if((path==='/external-checkout/'||path==='/external-checkout.html')&&request.method==='GET'&&env.CLIPI_APP){
@@ -63,7 +65,8 @@ export default {
     if(path==='/active-rooms'&&request.method==='GET'){
       const q=await roomStore(env.PI_GIFTS_DB);
       const rows=await q('SELECT h.room,l.language,l.topic,c.revision AS cover FROM room_host h LEFT JOIN room_continuation chain ON chain.session=h.room LEFT JOIN room_cover c ON c.root=COALESCE(chain.root,h.room) LEFT JOIN room_listing l ON l.room=h.room JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
-      return json({rooms:rows.results.map(row=>row.room),tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}]))});
+      const rooms=rows.results.map(row=>row.room).filter(id=>id!==helpRoomId);
+      return json({rooms,tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}])), ...(env.PI_GIFTS_NETWORK==='mainnet'?{supportRoom:{id:helpRoomId,type:'audio',name:helpRoomName,status:'open'}}:{})});
     }
     if(request.method==='GET'&&path.startsWith('/themes/')){
       if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
@@ -87,6 +90,7 @@ export default {
       if(!check.ok)return json({error:'تعذّر التحقق من الحساب'},check.status===400?401:502);
       const uid=(await check.json()).users?.[0]?.localId;
       if(!uid)return json({error:'سجل الدخول'},401);
+      if(await isErasing(await roomStore(env.PI_GIFTS_DB),uid))return json({error:'Account deletion in progress'},403);
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
       if(['eventCreate','eventCancel','eventList','eventRemind','eventSeen'].includes(input?.op))return liveProgram(await roomStore(env.PI_GIFTS_DB),uid,input,json);
@@ -186,22 +190,37 @@ export default {
 
     try {
       const project = env.FIREBASE_PROJECT_ID;
-      const roomResponse = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(project)}/databases/(default)/documents/rooms/${roomId}`,
-        { headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000) },
-      );
-      if ([401, 403].includes(roomResponse.status)) return json({ error: 'Unauthorized' }, 401);
-      if (roomResponse.status === 404) return json({ error: 'Room unavailable' }, 404);
-      if (!roomResponse.ok) return json({ error: 'Room lookup failed' }, 502);
-
-      // Read claims only after Firestore has validated the same Firebase ID token.
+      const official=roomId===helpRoomId;
+      let fields, verifiedUid;
+      if(official){
+        if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'Room unavailable'},404);
+        if(!['/token','/room-control'].includes(path))return json({error:'غرفة المساعدة دائمة'},403);
+        if(!input.session)return json({error:'جلسة غير صالحة'},403);
+        const lookup=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+firebaseWebApiKey,{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:match[1]}),signal:AbortSignal.timeout(8000)
+        });
+        if(!lookup.ok)return json({error:'تعذّر التحقق من الحساب'},[400,401,403].includes(lookup.status)?401:502);
+        verifiedUid=(await lookup.json()).users?.[0]?.localId;
+        if(!verifiedUid)return json({error:'Unauthorized'},401);
+        fields={type:{stringValue:'audio'},status:{stringValue:'open'},ownerUid:{stringValue:''},name:{stringValue:helpRoomName}};
+      }else{
+        const roomResponse = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(project)}/databases/(default)/documents/rooms/${roomId}`,
+          { headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000) },
+        );
+        if ([401, 403].includes(roomResponse.status)) return json({ error: 'Unauthorized' }, 401);
+        if (roomResponse.status === 404) return json({ error: 'Room unavailable' }, 404);
+        if (!roomResponse.ok) return json({ error: 'Room lookup failed' }, 502);
+        fields=(await roomResponse.json()).fields;
+      }
+      // Both paths validate this Firebase ID token before trusting any of its claims.
       const part = match[1].split('.')[1].replaceAll('-', '+').replaceAll('_', '/');
       const claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(part), c => c.charCodeAt(0))));
-      if (claims.aud !== project || claims.iss !== `https://securetoken.google.com/${project}` ||
+      if ((official && verifiedUid!==claims.sub) || claims.aud !== project || claims.iss !== `https://securetoken.google.com/${project}` ||
           typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 128) {
         return json({ error: 'Unauthorized' }, 401);
       }
-      const { fields } = await roomResponse.json();
+      if(env.PI_GIFTS_NETWORK==='mainnet'&&await isErasing(await roomStore(env.PI_GIFTS_DB),claims.sub))return json({error:'Account deletion in progress'},403);
       const type = fields?.type?.stringValue;
       const status = fields?.status?.stringValue;
       if(path==='/room-control'&&env.PI_GIFTS_NETWORK==='mainnet'&&['resumeBroadcast','currentBroadcast'].includes(input.op)){
