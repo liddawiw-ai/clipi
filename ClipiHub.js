@@ -71,8 +71,9 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
         return <View key={room.id} style={s.roomCard}>
           <TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(room)}>
             <View style={[s.cover,{backgroundColor:covers[index%covers.length]}]}>
+              {room.coverUrl?<Image accessible={false} resizeMode="cover" source={{uri:room.coverUrl}} style={{position:'absolute',top:0,left:0,width:'100%',height:'100%'}}/>:<>
               <GoldFrame tone={video?'apricot':'lilac'}/>
-              <Text accessibilityElementsHidden importantForAccessibility="no" style={s.coverIcon}>{video?'▸':'♫'}</Text>
+              <Text accessibilityElementsHidden importantForAccessibility="no" style={s.coverIcon}>{video?'▸':'♫'}</Text></>}
               <Text style={s.coverLabel}>{video?copy.live:copy.voice}</Text>
             </View>
             <View style={s.cardText}>
