@@ -14,6 +14,7 @@ const tables = [
   coverSchema,
   ...programSchema,
   appOwnerSchema,
+  'CREATE TABLE IF NOT EXISTS room_public_number (number INTEGER PRIMARY KEY AUTOINCREMENT, room TEXT NOT NULL UNIQUE)',
   'CREATE TABLE IF NOT EXISTS public_numbers(number TEXT PRIMARY KEY,uid TEXT NOT NULL,cost INTEGER NOT NULL)',
   'CREATE UNIQUE INDEX IF NOT EXISTS one_standard_number ON public_numbers(uid) WHERE cost=0',
   'CREATE TABLE IF NOT EXISTS selected_number(uid TEXT PRIMARY KEY,number TEXT NOT NULL)',

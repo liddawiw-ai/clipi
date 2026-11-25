@@ -91,6 +91,26 @@ export default {
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
       if(['eventCreate','eventCancel','eventList','eventRemind','eventSeen'].includes(input?.op))return liveProgram(await roomStore(env.PI_GIFTS_DB),uid,input,json);
+      if(input?.op==='roomNumber'||input?.op==='findRoomNumber'){
+        if(input.op==='findRoomNumber'&&(typeof input.number!=='string'||!/^\d{7,15}$/.test(input.number)))return json({error:'معرّف غير صالح'},400);
+        const q=await roomStore(env.PI_GIFTS_DB);
+        const numberBase=1000000;
+        const room=input.op==='roomNumber'?input.room:
+          (await q('SELECT room FROM room_public_number WHERE number=?',Number(input.number)-numberBase).first())?.room;
+        if(typeof room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(room))return json({error:'الغرفة غير متاحة'},404);
+        if(room!==helpRoomId){
+          const target='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/rooms/'+room;
+          const doc=await fetch(target,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(8000)});
+          if(!doc.ok||(await doc.json()).fields?.status?.stringValue!=='open')return json({error:'الغرفة غير متاحة'},404);
+        }
+        if(input.op==='findRoomNumber')return json({room});
+        let entry=await q('SELECT number FROM room_public_number WHERE room=?',room).first();
+        if(!entry){
+          await q('INSERT INTO room_public_number(room) VALUES(?) ON CONFLICT(room) DO NOTHING',room).run();
+          entry=await q('SELECT number FROM room_public_number WHERE room=?',room).first();
+        }
+        return json({number:String(numberBase+entry.number)});
+      }
       if(input?.op==='roomTag'||input?.op==='roomCover'){
         if(typeof input.room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(input.room))return json({error:'طلب غير صالح'},400);
         const target='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/rooms/'+input.room;

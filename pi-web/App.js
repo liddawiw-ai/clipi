@@ -22,7 +22,7 @@ import {DiamondWallet} from './DiamondWallet';
 import {GiftRecipients, RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {PolicySheet,PolicyModal} from './PolicySheet';
 import {RoomTermsNotice} from './RoomTermsNotice';
-import {AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
+import {normalizeRoomNumber,AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {ui, setInterfaceLanguage} from './interface-language.mjs';
 import {LanguageDropdown} from './LanguagePicker';
 import {languages, readLocale, saveLocale} from './languages.mjs';
@@ -484,6 +484,16 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
   const officialHelp=room.id===helpRoom.id;
+  const [publicRoomNumber,setPublicRoomNumber]=useState(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setPublicRoomNumber(null);
+    mediaRequest('/account-number',{op:'roomNumber',room:room.id},controller.signal)
+      .then(({number})=>{if(!controller.signal.aborted)setPublicRoomNumber(number)})
+      .catch(()=>{if(!controller.signal.aborted)setPublicRoomNumber('')});
+    return ()=>controller.abort();
+  },[room.id,userId]);
+
   const isHost=!officialHelp&&room.ownerUid===userId;
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
@@ -883,7 +893,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}>
       <Text style={S.title}>{ui("مشاركة الغرفة")}</Text>
       <Text style={S.muted}>{ui(room.type==='video'?'معرّف البث':'معرّف الغرفة')}</Text>
-      <Text selectable style={S.muted}>{room.id}</Text>
+      <Text selectable style={S.muted}>{publicRoomNumber===null?appText('جارٍ تحميل الرقم…'):publicRoomNumber||appText('الرقم غير متاح حاليًا')}</Text>
       <TextInput ref={shareInput} accessibilityLabel={ui("رابط دعوة الغرفة")} value={inviteUrl}
         editable={false} selectTextOnFocus style={[S.input,{textAlign:'left',writingDirection:'ltr'}]}/>
       {!!shareStatus&&<Text accessibilityLiveRegion="polite" style={S.muted}>{shareStatus}</Text>}
@@ -1659,10 +1669,11 @@ export default function App(){
     setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
   }
   async function enterRoomById(){
-    const id=roomSearch.trim();
-    if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))return;
+    const number=normalizeRoomNumber(roomSearch);
+    if(!/^\d{7,15}$/.test(number))return;
     const uid=user.uid;
     try{
+      const {room:id}=await mediaRequest('/account-number',{op:'findRoomNumber',number});
       const room=id===helpRoom.id?helpRoom:(await firestore().collection('rooms').doc(id).get()).data();
       if(auth().currentUser?.uid!==uid||pageRef.current!=='rooms')return;
       if(room?.status==='open'&&!blockedUsers.includes(room.ownerUid)){
