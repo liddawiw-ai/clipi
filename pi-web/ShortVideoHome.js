@@ -38,13 +38,18 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
+  const showPlay=paused||!playing;
   function togglePlayback(){
     if(!playable)return;
-    if(paused){
-      // Keep resume inside the press event for browsers that require a user gesture.
-      playerRef.current?.play().catch(()=>{});
+    const player=playerRef.current;
+    if(!player)return;
+    if(player.paused||paused){
+      setPaused(false);
+      player.play().catch(()=>{if(playerRef.current===player&&player.paused)setPaused(true)});
+    }else{
+      player.pause();
+      setPaused(true);
     }
-    setPaused(previous=>!previous);
   }
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
@@ -170,8 +175,8 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
     {!showing&&<>
-    <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={togglePlayback}
-      playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
+    <VideoTapSurface clipId={item.id} paused={showPlay} playing={playing} onPlaybackPress={togglePlayback}
+      playbackLabel={translate(showPlay?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
     <div className="clipi-action-stack">
