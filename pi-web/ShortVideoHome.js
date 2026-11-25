@@ -2,7 +2,7 @@ import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useEffect,useRef,useState} from 'react';
 import {FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
@@ -33,12 +33,13 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
   </button>;
 }
-function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
   const showPlay=paused||!playing;
+  useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
   function togglePlayback(){
     if(!playable)return;
     const player=playerRef.current;
@@ -111,6 +112,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
   useEffect(()=>{
     let current=true;
     alive.current=true;
+    if(!isCurrent)return ()=>{alive.current=false;};
     api('shortState').then(v=>{
       if(!current)return;
       initialize(v);setStats(v);
@@ -118,7 +120,7 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
       if(v.commentCount>0)firstComments();
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
-  },[item.id,followRevision]);
+  },[item.id,followRevision,isCurrent]);
   const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
@@ -169,12 +171,12 @@ function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPaused(true)} active={playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPaused(true)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
-    {!showing&&<>
+    {isCurrent&&!showing&&<>
     <VideoTapSurface clipId={item.id} paused={showPlay} playing={playing} onPlaybackPress={togglePlayback}
       playbackLabel={translate(showPlay?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
@@ -233,14 +235,11 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     setNotice(roomLabels.deviceStoreNotice);
   },[]);
   const fromProfile=!!profileFeed;
-  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
+  const windowHeight=useWindowDimensions().height;
+  const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
+  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
-  const profileClips=profileFeed?.clips;
-  const items=useMemo(()=>{
-    if(!profileClips)return homeItems;
-    const selected=profileClips.find(clip=>clip.id===initialId);
-    return selected?[selected,...profileClips.filter(clip=>clip.id!==initialId)]:profileClips;
-  },[profileClips,initialId,homeItems]);
+  const items=profileFeed?.clips ?? homeItems;
   const removed=useRef(new Set()),list=useRef(null);
   useEffect(()=>{
     if(!notice)return;
@@ -248,7 +247,6 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     return ()=>clearTimeout(timer);
   },[notice]);
   const [muted,setMuted]=useState(true);
-  const windowHeight=useWindowDimensions().height;
   const [viewMode,setViewModeState]=useState('');
   const locked=useRef(''),openedHeight=useRef(0);
   function setViewMode(mode){
@@ -313,12 +311,12 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
-      getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
+      getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
-      scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{Math.abs(index-active)<=1&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={fromProfile&&item.id===initialId?profileFeed.initialVideo:undefined} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>

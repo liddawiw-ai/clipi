@@ -2,6 +2,7 @@ import {ui as appText} from './interface-language.mjs';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Modal} from 'react-native';
 import {ShortVideoHome} from './ShortVideoHome';
+import {startProfileVideo} from './ShortMedia';
 
 
 function ClipTile({source, label, onOpen}) {
@@ -32,7 +33,7 @@ function ClipTile({source, label, onOpen}) {
     } catch { /* Keep the paused video frame when capture is unavailable. */ }
   }
 
-  return <button ref={tile} type="button" className="clipi-profile-tile" aria-label={label} onClick={onOpen}>
+  return <button ref={tile} type="button" className="clipi-profile-tile" aria-label={label} onClick={()=>onOpen(image)}>
     {image ? <img alt="" src={image}/> : visible && <video aria-hidden="true" muted playsInline preload="metadata"
       src={source + '#t=0.1'} onLoadedMetadata={e => {
         const v=e.currentTarget;
@@ -75,6 +76,8 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     return () => observer.disconnect();
   },[load,cursor,loading,error]);
 
+  useEffect(() => () => { selected?.video.pause(); }, [selected]);
+
   function removed(id) {
     setClips(current => current.filter(clip => clip.id !== id));
     setSelected(null);
@@ -84,7 +87,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   return <section className="clipi-profile-gallery">
     <h2>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</h2>
     <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
-      source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={()=>setSelected(clip)}/>)}</div>
+      source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>setSelected({id:clip.id, video:startProfileVideo(source(clip),poster,playerProps?.playable!==false)})}/>)}</div>
     {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
     {!loading && !!error && <><p role="alert">{appText(error)}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
     {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
@@ -92,7 +95,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>
       <ShortVideoHome {...playerProps} request={request} endpoint={endpoint} translate={translate}
         initialId={selected.id} onAuthor={()=>setSelected(null)}
-        profileFeed={{clips,canDelete,onClose:()=>setSelected(null),onDeleted:removed,
+        profileFeed={{clips,canDelete,initialVideo:selected.video,onClose:()=>setSelected(null),onDeleted:removed,
           onMore:()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}}/>
     </Modal>}
   </section>;
