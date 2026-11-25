@@ -1,3 +1,4 @@
+import {fastStartLayout, mediaSpans} from './mp4-fast-start.mjs';
 import {checkShortVideo, maxShortBytes, sizeError} from '../pi-web/short-upload-limits.mjs';
 
 const chunkBytes = 256 * 1024;
@@ -47,6 +48,14 @@ export function playback(request, size) {
   return {headers, status: 206, offset: start, length: end - start + 1};
 }
 
+// workerd derives Content-Length from the stream type, even for HTTP 206.
+export function withKnownLength(body, length) {
+  if (!body || typeof FixedLengthStream === 'undefined') return body;
+  const fixed = new FixedLengthStream(length);
+  body.pipeTo(fixed.writable).catch(() => {}); // Client cancellation also cancels the source.
+  return fixed.readable;
+}
+
 // A clip has one private object. The first complete upload wins, including on concurrent retries.
 export class ClipiVideo {
   constructor(ctx) {
@@ -61,8 +70,36 @@ export class ClipiVideo {
     return tail ? tail.part * chunkBytes + tail.length : 0;
   }
 
+  // SQLite substr uses one-based offsets. A small metadata/range probe reads only
+  // those bytes, including when the requested range crosses a stored part.
+  readBytes(offset, length) {
+    const bytes = new Uint8Array(length);
+    let written = 0;
+    while (written < length) {
+      const from = offset % chunkBytes;
+      const take = Math.min(chunkBytes - from, length - written);
+      const row = this.sql.exec('SELECT substr(bytes, ?, ?) AS bytes FROM parts WHERE part = ?',
+        from + 1, take, Math.floor(offset / chunkBytes)).one();
+      const piece = new Uint8Array(row.bytes);
+      if (piece.length !== take) throw Error('Incomplete video part');
+      bytes.set(piece, written);
+      written += take;
+      offset += take;
+    }
+    return bytes;
+  }
+
+  async readLayout(size) {
+    if (!this.layout) {
+      this.layout = fastStartLayout(size, (offset, length) => this.readBytes(offset, length))
+        .catch(error => { this.layout = null; throw error; });
+    }
+    return this.layout;
+  }
+
   async fetch(request) {
     if (request.method === 'DELETE') {
+      this.layout = null;
       this.storage.transactionSync(() => {
         this.sql.exec('INSERT OR IGNORE INTO deletion(id) VALUES(1)');
         this.sql.exec('DELETE FROM parts');
@@ -92,22 +129,23 @@ export class ClipiVideo {
     if (!size) return failure('الفيديو غير موجود', 404);
     const spec = playback(request, size);
     if (spec instanceof Response) return spec;
-    const {headers, status, length} = spec;
-    let offset = spec.offset;
-    const end = offset + length;
-    const body = request.method === 'HEAD' ? null : new ReadableStream({
+    const {headers, status, offset, length} = spec;
+    if (request.method === 'HEAD') return new Response(null, {status, headers});
+    const layout = offset + length <= 8 ? null : await this.readLayout(size);
+    const spans = mediaSpans(layout, size, offset, length);
+    let spanIndex = 0, used = 0;
+    const body = new ReadableStream({
       pull: controller => {
-        const part = Math.floor(offset / chunkBytes);
-        const row = this.sql.exec('SELECT bytes FROM parts WHERE part = ?', part).one();
-        const data = new Uint8Array(row.bytes);
-        const from = offset % chunkBytes;
-        const slice = data.subarray(from, Math.min(from + end - offset, data.length));
-        controller.enqueue(slice);
-        offset += slice.length;
-        if (offset === end) controller.close();
+        const span = spans[spanIndex], from = span.offset + used;
+        const take = Math.min(span.length - used, chunkBytes - from % chunkBytes);
+        const bytes = span.index ? span.index.subarray(from, from+take) : this.readBytes(from,take);
+        controller.enqueue(bytes);
+        used += bytes.length;
+        if (used === span.length) {spanIndex++; used=0;}
+        if (spanIndex === spans.length) controller.close();
       }
     });
-    return new Response(body, {status, headers});
+    return new Response(withKnownLength(body,length), {status, headers});
   }
 }
 

@@ -27,8 +27,10 @@ export async function checkProfilePlayback(browser, origin) {
     }
     await page.goto(origin+'/?lang=en&role=user&profile=1');
     const tiles = page.locator('.clipi-profile-tile');
+    const firstPreview = await tiles.nth(0).locator('video').elementHandle();
     await tiles.nth(0).tap();
     await moving('one');
+    assert.ok(await firstPreview.evaluate(v=>v.isConnected && !!v.closest('.clipi-feed-stage')));
     const next = await media('two').elementHandle();
     await page.waitForFunction(v=>v && v.readyState>=2 && v.paused,next);
     await swipe();

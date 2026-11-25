@@ -4,13 +4,13 @@ import {checkShortVideo} from './short-upload-limits.mjs';
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
 export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
 export const nonce=()=>crypto.randomUUID();
-export function startProfileVideo(source, poster, playable) {
-  const video = document.createElement('video');
-  video.muted = true;
+export function startProfileVideo(source, poster, playable, preparedVideo) {
+  const video = preparedVideo || document.createElement('video');
+  video.defaultMuted = video.muted = true;
   video.playsInline = true;
   video.preload = 'auto';
   if (poster) video.poster = poster;
-  video.src = source;
+  if (video.getAttribute('src') !== source) video.src = source;
   // Start inside the tile's tap, before the modal has measured its layout.
   if (playable && !document.hidden) video.play().catch(() => {});
   return video;
@@ -49,7 +49,7 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
   }, [video]);
 
   useLayoutEffect(() => {video.style.objectFit = fit;}, [video, fit]);
-  useLayoutEffect(() => {video.muted = muted;}, [video, muted]);
+  useLayoutEffect(() => {video.defaultMuted = video.muted = muted;}, [video, muted]);
   useLayoutEffect(() => {
     video.preload = preload;
     if (poster) video.poster = poster;
@@ -57,24 +57,32 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
   }, [video, preload, poster, source]);
 
   useLayoutEffect(() => {
-    let current = true;
+    let current = true, gestureRequired = false;
+    video.autoplay = active;
     function sync() {
       if (!active || document.hidden) {video.pause(); return;}
       if (!video.paused) return;
       video.play().catch(error => {
         if (!current || document.hidden || error.name !== 'NotAllowedError') return;
-        if (video.muted) {callbacks.current.onPlayBlocked?.(); return;}
+        if (video.muted) {gestureRequired = true; callbacks.current.onPlayBlocked?.(); return;}
         video.muted = true;
         callbacks.current.onMuteRequired?.(true);
         video.play().catch(retry => {
-          if (current && !document.hidden && retry.name === 'NotAllowedError') callbacks.current.onPlayBlocked?.();
+          if (current && !document.hidden && retry.name === 'NotAllowedError') {
+            gestureRequired = true; callbacks.current.onPlayBlocked?.();
+          }
         });
       });
     }
+    // A denied autoplay must not consume a tap on the visible play button.
+    const ready = () => {if (!gestureRequired) sync();};
     sync();
+    video.addEventListener('canplay', ready);
     document.addEventListener('visibilitychange', sync);
     return () => {
       current = false;
+      video.autoplay = false;
+      video.removeEventListener('canplay', ready);
       document.removeEventListener('visibilitychange', sync);
       video.pause();
     };

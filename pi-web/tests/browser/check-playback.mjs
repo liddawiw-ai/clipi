@@ -108,6 +108,8 @@ try{
   }
   const restricted=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
   await restricted.addInitScript(()=>{
+    // Model a browser that blocks both declarative and scripted autoplay.
+    Object.defineProperty(HTMLMediaElement.prototype,'autoplay',{get(){return false;},set(){}});
     const play=HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play=function(){
       return navigator.userActivation.isActive ? play.call(this)
