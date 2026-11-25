@@ -1,5 +1,18 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "تعيين أدمن للتطبيق": "Assign an app admin",
+  "رقم حساب كليبي": "Clipi account ID",
+  "بحث عن الحساب": "Find account",
+  "هذا الحساب مالك التطبيق": "This account is an app owner",
+  "أدمن للتطبيق": "App admin",
+  "حساب بدون صلاحية أدمن للتطبيق": "This account has no app admin role",
+  "سحب صلاحية أدمن التطبيق": "Revoke app admin role",
+  "تأكيد تعيين أدمن للتطبيق": "Confirm app admin appointment",
+  "تم تعيين أدمن التطبيق": "App admin role granted",
+  "تم سحب صلاحية أدمن التطبيق": "App admin role revoked",
+  "أدخل رقم حساب كليبي": "Enter a Clipi account ID",
+  "لم نجد حسابًا بهذا الرقم": "No account found for this ID",
+  "ابحث عن الحساب مرة أخرى": "Look up the account again",
   "تأكيد بريد الاستلام": "Verify payout email",
   "راجع بريدك ثم حدّث حالة الطلب لربط جهة الاستلام": "Check your email, then refresh the request status to link your verified contact.",
   "النقاط المتاحة": "Available points",

@@ -1,3 +1,4 @@
+import AppAdminScreen from './AppAdminScreen';
 import {createRoundClock} from './greedy-clock.mjs';
 import {uiError,setInterfaceLanguage} from './interface-language.mjs';
 import {ui as appText,interfaceLocale,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
@@ -2090,13 +2091,17 @@ export default function App(){
     <ProfileShorts header={<AccountHub socialProfile={socialProfile(shortAuthor.uid)} name={shortAuthor.name} avatar={shortAuthor.avatar} copy={menu} photoLabel={shortAuthor.name}/>} playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
   </HubScreen>;
   if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
+  if(page==='appAdmins' && visibleNumber?.canManageAppAdmins)return <HubScreen title={appText('تعيين أدمن للتطبيق')} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+    <AppAdminScreen key={user.uid} request={mediaRequest}/>
+  </HubScreen>;
   if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
-  if(page==='profile')return <HubScreen scrollable={false} title={menu.account}
+  if(page==='profile'||page==='appAdmins')return <HubScreen scrollable={false} title={menu.account}
     action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} header={<AccountHub onPhoto={pickAccountPhoto} photoLabel={appText("اختيار صورة من الاستوديو")} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
       socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
       shortcuts={[
+        ...(visibleNumber?.canManageAppAdmins?[{icon:'♔',label:appText('تعيين أدمن للتطبيق'),onPress:()=>go('appAdmins')}]:[]),
         {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},
         {icon:'◇',label:menu.wallet,onPress:()=>go('wallet')},
         {icon:'#',label:menu.shop,onPress:()=>go('store')},
