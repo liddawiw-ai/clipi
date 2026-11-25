@@ -366,6 +366,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   }
   return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
+    <Text style={s.label}>{appText("MP4 · حتى ٣ دقائق و٥٠ ميغابايت")}</Text>
     <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
       <Button label={appText('إضافة نص متزامن')} disabled={busy||!!job.current} onPress={()=>{

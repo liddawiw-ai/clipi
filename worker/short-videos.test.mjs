@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {roomStore} from './room-controls.mjs';
@@ -15,7 +16,7 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   assert.equal((await api('owner','shortPrepare',{},false)).status,503);
   const {id}=await api('owner','shortPrepare',{title:'مقطعي'});
   assert.equal((await api('other','shortList',{})).clips.length,0);
-  const bytes=Uint8Array.from([0,0,0,16,102,116,121,112,105,115,111,109,0,0,0,0]);
+  const bytes=await readFile(new URL('./fixtures/short-180s.mp4',import.meta.url));
   const objects=new Map(),bucket={
     put:async(k,v)=>objects.set(k,v),delete:async k=>objects.delete(k),head:async k=>({size:objects.get(k).length}),
     get:async(k,{range}={})=>({body:range?objects.get(k).slice(range.offset,range.offset+range.length):objects.get(k)})
@@ -23,12 +24,15 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   const upload=(uid,data=bytes)=>receiveShort(new Request('https://test.local/',{method:'PUT',headers:{'Content-Length':String(data.length)},body:data}),bucket,q,uid,id,json);
   assert.equal((await upload('other')).status,404);
   assert.equal((await upload('owner',new Uint8Array(16))).status,415);
+  const overLimit = await readFile(new URL('./fixtures/short-over-180s.mp4',import.meta.url));
+  assert.equal((await upload('owner',overLimit)).status,422);
+  assert.equal(objects.size,0);
   assert.equal((await upload('owner')).id,id);
   await upload('owner');assert.equal(objects.size,1);
   assert.equal((await api('other','shortList',{})).clips[0].id,id);
   const range=await serveShort(new Request('https://test.local/',{headers:{Range:'bytes=4-7'}}),bucket,q,id,json);
   assert.equal(range.status,206);assert.equal(await range.text(),'ftyp');
-  const invalid=await serveShort(new Request('https://test.local/',{headers:{Range:'bytes=200-'}}),bucket,q,id,json);
+  const invalid=await serveShort(new Request('https://test.local/',{headers:{Range:'bytes='+bytes.length+'-'}}),bucket,q,id,json);
   assert.equal(invalid.status,416);
   const clip={clip:id};
   for(let n=0;n<3;n++)assert.equal((await api('viewer','shortLike',{...clip,liked:true})).likes,1);

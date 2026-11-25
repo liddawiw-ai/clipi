@@ -1,37 +1,34 @@
+import {checkShortVideo, maxShortBytes, sizeError} from '../pi-web/short-upload-limits.mjs';
+
 const chunkBytes = 256 * 1024;
-const maxBytes = 24 * 1024 * 1024;
 const internalUrl = 'https://video.internal/file';
 const failure = (error, status) => Response.json({error}, {status, headers: {'Cache-Control': 'no-store'}});
 
 export async function readMp4(request) {
   const declared = request.headers.get('content-length');
   const size = declared === null ? null : Number(declared);
-  const tooLarge = () => failure('اختر ملف MP4 حجمه حتى ٢٤ ميغابايت', 413);
-  if (size !== null && (!Number.isSafeInteger(size) || size < 12 || size > maxBytes)) return tooLarge();
+  const tooLarge = () => failure(sizeError, 413);
+  if (size !== null && (!Number.isSafeInteger(size) || size < 12 || size > maxShortBytes)) return tooLarge();
   if (!request.body) return tooLarge();
 
   const reader = request.body.getReader();
-  const chunks = [];
+  const buffer = new Uint8Array(size ?? maxShortBytes);
   let length = 0;
   while (true) {
     const {done, value} = await reader.read();
     if (done) break;
-    length += value.byteLength;
-    if (length > maxBytes || (size !== null && length > size)) {
+    if (value.byteLength > buffer.length - length) {
       await reader.cancel();
       return tooLarge();
     }
-    chunks.push(value);
+    buffer.set(value, length);
+    length += value.byteLength;
   }
   if (length < 12 || (size !== null && length !== size)) return tooLarge();
-  const bytes = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.length;
-  }
+  const bytes = buffer.subarray(0, length);
   if (String.fromCharCode(...bytes.subarray(4, 8)) !== 'ftyp') return failure('اختر فيديو بصيغة MP4', 415);
-  return bytes;
+  const problem = await checkShortVideo(bytes);
+  return problem ? failure(problem.error, problem.status) : bytes;
 }
 
 export function playback(request, size) {

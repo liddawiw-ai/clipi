@@ -1,4 +1,5 @@
 import test from 'node:test';
+import {readFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {ClipiVideo} from './video-storage.mjs';
@@ -26,7 +27,7 @@ test('deleting a cloud clip is owner-only and a late upload cannot restore its b
   const videos={getByName(name){assert.equal(name,key);return {fetch:(url,init)=>object.fetch(new Request(url,{...init,duplex:'half'}))};}};
   const json=(data,status=200)=>Response.json(data,{status});
   const url='https://example.test/shorts/media/'+id;
-  const file=new Uint8Array([0,0,0,16,102,116,121,112,105,115,111,109,0,0,0,0]);
+  const file=await readFile(new URL('./fixtures/short-180s.mp4',import.meta.url));
   q('INSERT INTO short_clip(id,owner,title) VALUES(?,?,?)',id,'author','Video').run();
   const response=await receiveShort(new Request(url,{method:'PUT',body:file}),null,q,'author',id,json,videos);
   assert.equal(response.status,200);
