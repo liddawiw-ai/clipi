@@ -343,8 +343,9 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true"/>
     <div className="clipi-feed-stage" ref={pullStage}><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
-      showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory',overscrollBehaviorY:'contain'}:null}
+    {/* Keep the first snap target mounted when a new clip replaces it, so the browser stays at the top. */}
+    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={(item,index)=>!fromProfile&&index===0?'home-first-slot':item.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+      showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory',overscrollBehaviorY:'contain',overflowAnchor:'none'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
