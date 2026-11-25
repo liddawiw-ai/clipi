@@ -1538,6 +1538,9 @@ export default function App(){
       if(u){
         // Account creation or SMS confirmation owns profile creation and navigation until it finishes.
         if(profileSetupRef.current)return;
+        // A signed-in viewer can start the local first clip while their profile loads.
+        go(returnToWallet.current?'wallet':(pageRef.current==='profile'?'profile':accountLanding()));
+        returnToWallet.current=false;
         try{
           const doc=await firestore().collection('users').doc(u.uid).get();
           if(!active||auth().currentUser?.uid!==u.uid)return;
@@ -1547,7 +1550,7 @@ export default function App(){
             setAvatar(d.avatar||'👤');
           }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        if(active&&auth().currentUser?.uid===u.uid){go(returnToWallet.current?'wallet':(pageRef.current==='profile'?'profile':accountLanding()));returnToWallet.current=false}
+
       }else{
         setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
         setName('');setRoomError('');
@@ -1925,7 +1928,7 @@ export default function App(){
     </TouchableOpacity></View>;
   function renderPage(){
   if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
-  if(page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('wallet')}/>;
+  if(page==='earningsWallet')return <EarningsWalletScreen request={supportRequest} onBack={()=>go('wallet')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>{appText("Clipi · تحميل الحساب...")}</Text></View>;
   if(page==='login'||page==='verify')return <View style={{flex:1,backgroundColor:theme.canvas}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
     <LoginCover image={require('./assets/clipi-icon.png')}/>{page==='verify'&&languageButton}<View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>

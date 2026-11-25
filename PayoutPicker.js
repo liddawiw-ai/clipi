@@ -5,7 +5,7 @@ import {View,Text,TextInput,ScrollView,TouchableOpacity,StyleSheet,Alert,Linking
 import countries from './payout-countries.json';
 const normalize=v=>v.trim().toLowerCase().replace(/[أآإ]/g,'ا');
 const digits=v=>v.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace('٫','.');
-export default function PayoutPicker({data,call,reload}){
+export default function PayoutPicker({data,call,reload,request}){
  const [open,setOpen]=useState(false),[search,filter]=useState(''),[country,choose]=useState(null);
  const [options,setOptions]=useState(null),[method,setMethod]=useState(null),[amount,setAmount]=useState(''),[pin,setPin]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState(''),[retry,refresh]=useState(0);
@@ -17,11 +17,43 @@ export default function PayoutPicker({data,call,reload}){
   if(country)call('getPayoutMethods')({country:country[0]}).then(r=>{if(current)setOptions(r.data.methods)}).catch(()=>{if(current)setError(appText('تعذّر تحميل طرق السحب المتاحة في هذه الدولة.'))});
   return()=>{current=false};
  },[country,retry,call]);
+ const [preference,setPreference]=useState(null);
+ useEffect(()=>{
+   let mounted=true;
+   request('hostEarnings').then(summary=>{
+     if(!mounted)return;
+     setPreference(summary);
+     if(summary.method)choose(countries.find(([code])=>code===summary.method.country)||null);
+   }).catch(e=>{if(mounted)setError(uiError(e))});
+   return ()=>{mounted=false};
+ },[request]);
+ useEffect(()=>{
+   if(options&&preference?.method?.country===country?.[0]){
+     setMethod(options.find(m=>m.id===preference.method.product)||null);
+   }
+ },[options,preference,country]);
+ async function saveMethod(){
+   if(lock.current||!method||!country)return;
+   lock.current=true;setBusy(true);
+   try{
+     const next=await request('saveReceivingMethod',{country:country[0],product:method.id,label:method.name});
+     if(alive.current){setPreference(next);setResult('تم ربط وسيلة الاستلام')}
+   }catch(e){if(alive.current)setError(uiError(e))}
+   finally{lock.current=false;if(alive.current)setBusy(false)}
+ }
  const locale=interfaceLocale();
  const regions=React.useMemo(()=>typeof Intl.DisplayNames==='function'?new Intl.DisplayNames([locale],{type:'region'}):null,[locale]);
  const countryName=([code,fallback])=>regions?.of(code)||appText(fallback);
  const points=Math.round(Number(digits(amount))*100);
- const can=Boolean(data?.canRequest&&method&&/^\d+(\.\d{1,2})?$/.test(digits(amount))&&points>=data.minimumPoints&&points<=data.availablePoints&&method.bands.some(b=>points>=Math.round(b.min*100)&&points<=Math.round(b.max*100)));
+ const can=Boolean(data?.payoutsEnabled&&data?.canRequest&&method&&/^\d+(\.\d{1,2})?$/.test(digits(amount))&&points>=data.minimumPoints&&points<=data.availablePoints&&method.bands.some(b=>points>=Math.round(b.min*100)&&points<=Math.round(b.max*100)));
+ const funded=data||preference?.funded;
+ async function linkContact(){
+   if(lock.current)return;
+   lock.current=true;setBusy(true);
+   try{const next=await request('linkReceivingContact');if(alive.current)setPreference(next)}
+   catch(e){if(alive.current)setError(uiError(e))}
+   finally{lock.current=false;if(alive.current)setBusy(false)}
+ }
  async function submit(receipt=false){
   if(lock.current)return;
   lock.current=true;setBusy(true);setError('');
@@ -37,7 +69,13 @@ export default function PayoutPicker({data,call,reload}){
  }
  const action=(text,onPress,disabled=false)=><TouchableOpacity accessibilityRole="button" disabled={disabled} onPress={onPress} style={[S.button,disabled&&{opacity:.5}]}><Text style={S.cta}>{text}</Text></TouchableOpacity>;
  return <View style={S.panel}><Text style={S.heading}>{appText("سحب الأرباح")}</Text>
- <Text style={S.label}>{appText("الرصيد المتاح للسحب ")}{data?'$'+(data.availableUsdMinor/100).toFixed(2):'…'}</Text>
+ {preference&&<Text style={S.label}>{appText('نقاط كشف الوكالة')} · {preference.statementPoints} · {appText('قيمة تقديرية')} ${(preference.statementPoints/100).toFixed(2)}</Text>}
+ {preference?.method&&<Text style={S.label}>{appText('وسيلة الاستلام المرتبطة')} · {preference.method.label} · {preference.method.country}</Text>}
+ {preference?.walletAddress&&<Text style={S.label}>{appText('محفظة Pi المرتبطة')} · {preference.walletAddress.slice(0,6)}…{preference.walletAddress.slice(-6)}</Text>}
+ {preference?.contact&&<Text style={S.label}>{appText('جهة الاستلام الموثقة')} · {preference.contact}</Text>}
+ {preference?.canLinkContact&&action(appText('ربط جهة الاستلام بحسابي'),linkContact,busy)}
+ {funded?.withdrawal&&<Text style={S.label}>{appText('حالة طلب السحب')} · {appText(({pending:'قيد المعالجة',issued:'صدر رابط الاستلام',canceled:'ملغى'})[funded.withdrawal.state]||'قيد المعالجة')} · ${(funded.withdrawal.points/100).toFixed(2)}</Text>}
+ <Text style={S.label}>{appText("الرصيد المتاح للسحب ")}{funded?'$'+(funded.availableUsdMinor/100).toFixed(2):appText('تعذّر تأكيد الرصيد')}</Text>
  <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} style={S.selection}><Text style={S.value}>{country?countryName(country):appText('اختر الدولة')}　{open?'▴':'▾'}</Text></TouchableOpacity>
  {open&&<View><TextInput accessibilityLabel={appText("البحث عن دولة")} placeholder={appText("ابحث باسم الدولة أو رمزها")} placeholderTextColor={theme.secondary} value={search} onChangeText={filter} style={S.input}/>
  <ScrollView nestedScrollEnabled style={{maxHeight:215}} keyboardShouldPersistTaps="handled">{countries.filter(([code,name])=>(normalize(name).includes(normalize(search))||normalize(countryName([code,name])).includes(normalize(search)))||code.includes(search.trim().toUpperCase())).map(c=><TouchableOpacity accessibilityRole="button" key={c[0]} onPress={()=>{choose(c);setOpen(false);filter('')}} style={S.row}><Text style={S.value}>{countryName(c)}</Text></TouchableOpacity>)}</ScrollView></View>}
@@ -45,6 +83,7 @@ export default function PayoutPicker({data,call,reload}){
  {options?.length===0&&<Text style={S.label}>{appText("لا تتوفر وسيلة سحب بالدولار لهذه الدولة حاليًا.")}</Text>}
  {['bank','wallet'].map(t=>options?.some(m=>m.type===t)&&<View key={t}><Text style={S.label}>{t==='bank'?appText('التحويل البنكي'):appText('المحافظ الإلكترونية')}</Text>
  {options.filter(m=>m.type===t).map(m=><TouchableOpacity key={m.id} accessibilityRole="radio" accessibilityState={{selected:method?.id===m.id}} onPress={()=>setMethod(m)} style={S.row}><Text style={S.value}>{method?.id===m.id?'●':'○'}　{m.name}</Text></TouchableOpacity>)}</View>)}
+ {method&&action(appText('ربط وسيلة الاستلام'),saveMethod,busy||preference?.method?.product===method.id&&preference?.method?.country===country?.[0])}
  {method&&<TextInput accessibilityLabel={appText("مبلغ السحب بالدولار")} keyboardType="decimal-pad" placeholder={appText("المبلغ بالدولار")} value={amount} onChangeText={setAmount} placeholderTextColor={theme.secondary} style={S.input}/>}
  {(method||data?.activeWithdrawal||data?.lastWithdrawal)&&<TextInput keyboardType="number-pad" secureTextEntry maxLength={6} placeholder={appText("الرقم السري للمحفظة")} placeholderTextColor={theme.secondary} value={pin} onChangeText={setPin} style={S.input}/>}
  {method&&!data?.activeWithdrawal&&action(appText('طلب سحب'),()=>Alert.alert(appText('تأكيد السحب'),amount+' USD · '+countryName(country)+' · '+method.name,[{text:appText('إلغاء'),style:'cancel'},{text:appText('تأكيد'),onPress:()=>submit()}]),busy||!can||!/^\d{6}$/.test(digits(pin)))}

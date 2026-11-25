@@ -1,4 +1,5 @@
-import React, {useLayoutEffect, useImperativeHandle} from 'react';
+import {ui as appText} from './interface-language.mjs';
+import React, {useLayoutEffect, useImperativeHandle, useState} from 'react';
 import {AppState, Clipboard, Share, StyleSheet} from 'react-native';
 import {VideoView, useVideoPlayer} from 'expo-video';
 import {launchImageLibraryAsync} from 'expo-image-picker';
@@ -16,7 +17,8 @@ export function Player(props) {
   return <ShortVideoPlayer key={props.source} {...props}/>;
 }
 
-function ShortVideoPlayer({source, active = true, mountedSurface = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
+function ShortVideoPlayer({source, clipId, active = true, mountedSurface = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
+  const [rendered,setRendered]=useState(false),[playing,setPlaying]=useState(false);
   const player = useVideoPlayer(source, p => {
     p.loop = true;
     p.muted = muted;
@@ -25,9 +27,9 @@ function ShortVideoPlayer({source, active = true, mountedSurface = true, muted =
   useImperativeHandle(playerRef, () => player, [player]);
   useLayoutEffect(() => {player.muted=muted;},[muted,player]);
   useLayoutEffect(() => {
-    if (!onPlayingChange) return;
-    const subscription = player.addListener('playingChange', ({isPlaying}) => onPlayingChange(isPlaying));
-    onPlayingChange(player.playing);
+    const syncPlaying=isPlaying=>{setPlaying(isPlaying);onPlayingChange?.(isPlaying)};
+    const subscription = player.addListener('playingChange', ({isPlaying}) => syncPlaying(isPlaying));
+    syncPlaying(player.playing);
     return () => subscription.remove();
   }, [player, onPlayingChange]);
   useLayoutEffect(() => {
@@ -50,7 +52,7 @@ function ShortVideoPlayer({source, active = true, mountedSurface = true, muted =
     };
   }, [active, player]);
   if (!mountedSurface) return null;
-  return <VideoView style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
+  return <VideoView accessible={!!clipId} accessibilityLabel={clipId?appText('تشغيل الفيديو'):undefined} testID={clipId&&active&&rendered&&playing?'short-frame-'+clipId:undefined} onFirstFrameRender={()=>setRendered(true)} style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
 }
 export async function pickShort() {
   const result=await launchImageLibraryAsync({mediaTypes:['videos'],allowsEditing:false});

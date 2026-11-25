@@ -73,3 +73,4 @@ jobs:
           script: |
             adb install -r Clipi-Android-45.apk
             python3 scripts/check-installed-language.py
+            python3 scripts/check-installed-video.py

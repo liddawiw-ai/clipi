@@ -320,11 +320,14 @@ exports.getEarningsWallet=onCall({enforceAppCheck:true,maxInstances:10,secrets:[
  const last=data.lastPayoutRequestAt?.toMillis?.()||0;
  const nextEligibleAt=last?new Date(last+WITHDRAW_INTERVAL_MS).toISOString():null;
  const waitMs=Math.max(0,last+WITHDRAW_INTERVAL_MS-Date.now());
+ const withdrawalId=data.activeWithdrawal||data.lastWithdrawal;
+ const withdrawal=withdrawalId?(await doc.ref.collection('withdrawals').doc(withdrawalId).get()).data():null;
  return {role,availablePoints:available,pendingPoints:pending,
   availableUsdMinor:available,pendingUsdMinor:pending,
   minimumPoints:POINTS_MIN,remainingPoints:Math.max(0,POINTS_MIN-available),
   pinConfigured:typeof data.pinHash==='string',nextEligibleAt,
   meetsWithdrawalPolicy:available>=POINTS_MIN&&waitMs===0,
+  withdrawal:withdrawal?{id:withdrawalId,state:withdrawal.state,points:withdrawal.points}:null,
   activeWithdrawal:Boolean(data.activeWithdrawal),lastWithdrawal:Boolean(data.lastWithdrawal),
   canRequest:available>=POINTS_MIN&&waitMs===0,
   payoutProcessingBusinessDays:5,payoutsEnabled:Boolean(process.env.TREMENDOUS_API_KEY)};

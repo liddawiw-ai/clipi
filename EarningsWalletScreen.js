@@ -17,7 +17,7 @@ const call=name=>async payload=>{
  return functions().httpsCallable(name)(payload);
 };
 const money=n=>'$'+((n||0)/100).toFixed(2);
-export default function EarningsWalletScreen({onBack}){
+export default function EarningsWalletScreen({onBack,request}){
  const [unlocked,setUnlocked]=useState(false),[unlocking,setUnlocking]=useState(false),[lockError,setLockError]=useState('');
  const lockRef=useRef(false);
  const authenticatingRef=useRef(false);
@@ -89,15 +89,15 @@ export default function EarningsWalletScreen({onBack}){
   {btn('❮ رجوع',onBack)}
   <Text style={S.heading}>{appText("💼 محفظة ")}{data?.role==='owner'?appText('المالك'):data?.role==='agent'?appText('الوكيل'):appText('المضيف')}</Text>
   <View style={S.panel}>
-   <Text style={S.number}>🪙 {(data?.availablePoints||0).toLocaleString(interfaceLocale())}{appText(" نقطة")}</Text>
-   <Text style={S.value}>{appText("القيمة بالدولار: ")}{money(data?.availableUsdMinor)}</Text>
+   <Text style={S.number}>🪙 {data?data.availablePoints.toLocaleString(interfaceLocale()):'…'}{appText(" نقطة")}</Text>
+   <Text style={S.value}>{appText("القيمة بالدولار: ")}{data?money(data.availableUsdMinor):'…'}</Text>
    <Text style={S.label}>{appText("نقاط معلقة: ")}{data?.pendingPoints||0} · {money(data?.pendingUsdMinor)}</Text>
    <Text style={S.label}>{appText("المتبقي للوصول إلى 2,000 نقطة: ")}{data?.remainingPoints??2000}</Text>
    <Text style={S.label}>{appText("طلب سحب واحد كل 15 يومًا. وصول المال مستهدف خلال 5 أيام عمل بعد الموافقة، وليس مضمونًا.")}</Text>
    {data?.nextEligibleAt&&<Text style={S.label}>{appText("أقرب موعد طلب: ")}{new Date(data.nextEligibleAt).toLocaleDateString(interfaceLocale())}</Text>}
    {btn('تحديث المحفظة',load)}
   </View>
-  <PayoutPicker call={call} data={data} reload={load}/>
+  <PayoutPicker request={request} call={call} data={data} reload={load}/>
   <View style={S.panel}>
    <Text style={S.heading}>{appText("🔐 الرقم السري للمحفظة")}</Text>
    {data?.pinConfigured&&<TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={oldPin} onChangeText={setOldPin} placeholder={appText("الرقم الحالي")}/>}

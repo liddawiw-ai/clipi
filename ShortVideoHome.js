@@ -182,7 +182,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {isCurrent&&!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
