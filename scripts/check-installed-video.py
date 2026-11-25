@@ -38,6 +38,13 @@ def control(predicate, scroll=False, timeout=55):
     until = time.monotonic() + timeout
     while time.monotonic() < until:
         tree = nodes()
+        launcher_dialog=any("Pixel Launcher isn't responding" in n.get('text','') for n in tree)
+        if launcher_dialog:
+            close=next((n for n in tree if n.get('resource-id')=='android:id/aerr_close'),None)
+            if close is not None:
+                tap(close)
+                adb('shell','am','start','-W','-n',PACKAGE+'/.MainActivity')
+                continue
         for node in tree:
             if predicate(node) and bounds(node)[3] > bounds(node)[1]:
                 return node
@@ -48,11 +55,16 @@ def control(predicate, scroll=False, timeout=55):
                 x, h = str((x1+x2)//2), y2-y1
                 adb('shell','input','swipe',x,str(y1+3*h//4),x,str(y1+h//3),'350')
         time.sleep(.3)
+    print('Visible packages and view IDs:',sorted({(n.get('package',''),n.get('resource-id','')) for n in tree if n.get('package')}),flush=True)
+    print('Process:',adb('shell','pidof',PACKAGE),flush=True)
+    logs=adb('logcat','-d','-s','AndroidRuntime:E','MediaCodec:E','ExoPlayerImplInternal:E','ReactNativeJS:E')
+    print('Player/system errors:',re.sub(r'https?://\S+','[URL]',logs[-5500:]),flush=True)
     raise AssertionError('Expected viewer control did not appear')
 
 
 def label(text):
-    return lambda n: any(text in n.get(k, '') for k in ('text', 'content-desc', 'hint'))
+    choices=text if isinstance(text, tuple) else (text,)
+    return lambda n: any(value.lower() in n.get(k,'').lower() for value in choices for k in ('text','content-desc','hint'))
 
 
 def tap(node):
@@ -77,24 +89,32 @@ def frame(exclude=None):
 def login_and_play(email, password):
     adb('shell','am','force-stop',PACKAGE)
     adb('shell','am','start','-W','-n',PACKAGE+'/.MainActivity')
-    # The preceding installed-language check leaves the app in Arabic.
-    control(lambda n:n.get('class')=='android.widget.EditText' and label('البريد الإلكتروني')(n))
-    type_field('البريد الإلكتروني',email)
-    type_field('كلمة المرور',password)
-    tap(control(label('أوافق على الشروط'),True))
-    tap(control(label('تسجيل الدخول بالبريد'),True))
+    control(lambda n:n.get('class')=='android.widget.EditText' and label(('البريد الإلكتروني','Email'))(n))
+    type_field(('البريد الإلكتروني','Email'),email)
+    type_field(('كلمة المرور','password'),password)
+    tap(control(label(('أوافق على الشروط','I accept the terms')),True))
+    tap(control(label(('تسجيل الدخول بالبريد','Sign in with email','Log in with email')),True))
     first=frame()
+    print('Decoded first visible frame',first.get('resource-id'),bounds(first),flush=True)
     time.sleep(6)
     first=frame()  # The feed may replace its offline starter when the catalog arrives.
     pid=adb('shell','pidof',PACKAGE)
     x1,y1,x2,y2=bounds(first)
     if (x2-x1)<80 or (y2-y1)<120:
         raise AssertionError('First decoded frame did not cover the video surface')
-    x, h=str((x1+x2)//2),y2-y1
-    adb('shell','input','swipe',x,str(y1+3*h//4),x,str(y1+h//4),'350')
-    second=frame(first.get('resource-id'))
-    assert second is not None and pid and adb('shell','pidof',PACKAGE)==pid
-    print('Signed APK decoded first and next video frames through the viewer flow.')
+    seen={first.get('resource-id')}
+    for _ in range(2):
+        x,h=str((x1+x2)//2),y2-y1
+        adb('shell','input','swipe',x,str(y1+4*h//5),x,str(y1+h//5),'325')
+        current=control(lambda n:'short-frame-' in n.get('resource-id','') and n.get('resource-id') not in seen,timeout=75)
+        seen.add(current.get('resource-id'))
+        print('Decoded new clip after swipe',current.get('resource-id'),bounds(current),flush=True)
+        assert pid and adb('shell','pidof',PACKAGE)==pid
+        x1,y1,x2,y2=bounds(current)
+        time.sleep(2)
+    assert len(seen)==3
+    print('Signed APK decoded first and next two video frames through the viewer flow in the same process.')
+
 
 
 if __name__=='__main__':

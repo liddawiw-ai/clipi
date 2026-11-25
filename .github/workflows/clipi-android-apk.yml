@@ -75,8 +75,12 @@ jobs:
           arch: x86_64
           target: google_apis
           profile: pixel_6
+          ram-size: 4096M
+          heap-size: 512M
           disable-animations: true
           script: |
+            adb shell settings put system screen_off_timeout 900000
+            adb shell wm dismiss-keyguard
             adb install -r Clipi-Android-45.apk
             python3 scripts/check-installed-language.py
             python3 scripts/check-installed-video.py

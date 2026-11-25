@@ -21,6 +21,13 @@ def find_label(label, timeout=45):
         adb('shell', 'uiautomator', 'dump', '/sdcard/clipi-ui.xml')
         xml = adb('shell', 'cat', '/sdcard/clipi-ui.xml')
         tree = ET.fromstring(xml)
+        if any("Pixel Launcher isn't responding" in n.get('text','') for n in tree.iter('node')):
+            close=next((n for n in tree.iter('node') if n.get('resource-id')=='android:id/aerr_close'),None)
+            if close is not None:
+                left,top,right,bottom=bounds(close)
+                adb('shell','input','tap',str((left+right)//2),str((top+bottom)//2))
+                launch()
+                continue
         for node in tree.iter('node'):
             for key in ('text', 'content-desc'):
                 value = node.get(key, '').strip()

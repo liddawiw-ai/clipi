@@ -4,7 +4,7 @@ import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {FlatList,Image,Linking,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
+import {AccessibilityInfo,FlatList,Image,Linking,Modal,PanResponder,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
@@ -233,6 +233,50 @@ async function openPiAccount(openURL){
   }
 }
 
+function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
+  const [screenReader,setScreenReader]=useState(false);
+  useEffect(()=>{
+    if(Platform.OS!=='android')return;
+    let mounted=true;
+    const subscription=AccessibilityInfo.addEventListener('screenReaderChanged',setScreenReader);
+    AccessibilityInfo.isScreenReaderEnabled().then(enabled=>{if(mounted)setScreenReader(enabled);}).catch(()=>{});
+    return ()=>{mounted=false;subscription.remove();};
+  },[]);
+  const manual=Platform.OS==='android'&&!screenReader;
+  const startPage=useRef(0);
+  const latest=useRef(null);
+  latest.current={active,height,count,manual};
+  const responder=useMemo(()=>{
+    function scroll(page,animated){
+      const {height,count}=latest.current;
+      const offset=Math.max(0,Math.min(count-1,page))*height;
+      list.current?.scrollToOffset({offset,animated});
+    }
+    return PanResponder.create({
+      onMoveShouldSetPanResponderCapture:(_,gesture)=>{
+        const {manual,height,count}=latest.current;
+        return manual&&height>0&&count>1&&!locked.current&&gesture.numberActiveTouches===1&&
+          Math.abs(gesture.dy)>10&&Math.abs(gesture.dy)>1.3*Math.abs(gesture.dx);
+      },
+      onPanResponderGrant:()=>{startPage.current=latest.current.active;},
+      onPanResponderMove:(_,gesture)=>{
+        const {height}=latest.current;
+        if(height)scroll(startPage.current-gesture.dy/height,false);
+      },
+      onPanResponderRelease:(_,gesture)=>{
+        const {height,count}=latest.current;
+        const advance=Math.abs(gesture.dy)>=Math.min(80,height*.14) ||
+          (Math.abs(gesture.dy)>=18&&Math.abs(gesture.vy)>.5);
+        const page=Math.max(0,Math.min(count-1,startPage.current-(advance?Math.sign(gesture.dy):0)));
+        setActive(page);scroll(page,true);
+      },
+      onPanResponderTerminationRequest:()=>false,
+      onPanResponderTerminate:()=>scroll(latest.current.active,true)
+    });
+  },[list,locked,setActive]);
+  return {manual,handlers:manual?responder.panHandlers:{}};
+}
+
 export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
@@ -309,10 +353,16 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     setItems(old=>old.filter(c=>c.id!==id));setNotice(translate('تم حذف الفيديو'));
     if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
-  const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
+  const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked});
+  const automaticVisibility=useRef(true);
+  automaticVisibility.current=!paging.manual;
+  const visible=useRef(({viewableItems})=>{
+    const i=viewableItems.find(v=>v.isViewable)?.index;
+    if(automaticVisibility.current&&!locked.current&&i!=null)setActive(i);
+  }).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
-  return <View style={s.screen}><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode} extraData={[active,muted,suppressAudio,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+  return <View style={s.screen}><View style={s.screen} {...paging.handlers} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
+    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode&&!paging.manual} extraData={[active,muted,suppressAudio,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
