@@ -1,3 +1,4 @@
+import {coverSchema} from './room-cover.mjs';
 import {programSchema} from './live-program.mjs';
 import {roomHistorySchema,rootFor,roomDiamonds,roomSupporters} from './room-history.mjs';
 import {broadcastAccessSchema,inviteFriendsAtStart,roomInvites,manageRoomAdmins} from './broadcast-access.mjs';
@@ -10,6 +11,7 @@ import {walletSchema,paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
+  coverSchema,
   ...programSchema,
   appOwnerSchema,
   'CREATE TABLE IF NOT EXISTS public_numbers(number TEXT PRIMARY KEY,uid TEXT NOT NULL,cost INTEGER NOT NULL)',

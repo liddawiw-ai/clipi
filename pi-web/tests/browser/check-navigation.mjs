@@ -66,7 +66,7 @@ export async function checkNavigation(browser) {
       const url = new URL(route.request().url()),
         name = url.pathname;
       const send = (contentType, body) => route.fulfill({ contentType, body });
-      if (url.hostname !== 'clipi.local') return route.abort();
+      if (url.hostname !== 'clipi.local' && url.hostname !== 'clipi-mainnet.liddawiw.workers.dev') return route.abort();
       if (name === '/room')
         return send(
           'text/html',
@@ -87,6 +87,7 @@ export async function checkNavigation(browser) {
             )
           )
         );
+      if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       const op = route.request().postDataJSON()?.op;
       const fixtures = {
         shortList: { clips: [] },
@@ -99,7 +100,7 @@ export async function checkNavigation(browser) {
         shortIdentity: {}
       };
       return route.fulfill({
-        json: name === '/active-rooms' ? { rooms: [], supportRoom: {id:'clipi-admin-help'} } : (fixtures[op] ?? {})
+        json: name === '/active-rooms' ? { rooms: ['cover-video','cover-audio'],tags:Object.fromEntries(['audio','video'].map(type=>['cover-'+type,{cover:'6f6e492b-b5ee-4db2-b76d-1d78e7e238d8'}])), supportRoom: {id:'clipi-admin-help'} } : (fixtures[op] ?? {})
       });
     });
     await p.goto('https://clipi.local/room?signedOut=1&firstVisit=1');
@@ -176,6 +177,12 @@ export async function checkNavigation(browser) {
     ]) {
       await dock.getByRole('tab').nth(i).click();
       await pageFull(name);
+      if(name==='rooms'){
+        for(const type of ['audio','video']){
+          await p.getByText('Cover fixture '+type,{exact:true}).waitFor();
+          await p.waitForFunction(id=>Array.from(document.querySelectorAll('img')).some(img=>img.src.includes('/room-covers/'+id+'/')&&img.complete&&img.naturalWidth>0),'cover-'+type);
+        }
+      }
       if (name === 'uploadShort') {
         assert.equal(await p.locator('video').count(), 0);
         await p

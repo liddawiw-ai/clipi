@@ -11,7 +11,12 @@ export const auth = () => ({
   }
 });
 const query = {
-  collection: () => query,
+  collection: name => name==='rooms' ? {
+    ...query,orderBy(){return this},limit(){return this},onSnapshot(fn){
+      const docs=['audio','video'].map(type=>({id:'cover-'+type,data:()=>({type,name:'Cover fixture '+type,ownerUid:'test-'+type,status:'open'})}));
+      queueMicrotask(()=>fn({docs}));return ()=>{};
+    }
+  }:query,
   doc: () => query,
   orderBy: () => query,
   limit: () => query,

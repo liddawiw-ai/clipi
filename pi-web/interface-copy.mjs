@@ -1,5 +1,11 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "غلاف البث": "Broadcast cover",
+  "اختيار غلاف البث": "Choose broadcast cover",
+  "تغيير غلاف البث": "Change broadcast cover",
+  "إزالة الغلاف": "Remove cover",
+  "تعذّر حفظ غلاف البث": "Could not save broadcast cover",
+  "اختر صورة JPEG أصغر": "Choose a smaller JPEG image",
   "فلترة الغرف": "Filter rooms",
   "لغة البث وموضوعه": "Language and topic",
   "دردشة": "Chat",
