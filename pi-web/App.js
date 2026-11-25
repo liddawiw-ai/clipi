@@ -1595,6 +1595,22 @@ export default function App(){
       setInviteRoomId(inviteAll?doc.id:null);setInviteAll(false);setBroadcastName('');enterRoom({id:doc.id,...data,host,owner:user.uid});
     }catch(e){Alert.alert(ui("تعذر إنشاء الغرفة"),uiError(e))}finally{creatingRoom.current=false;setBusy(false)}
   }
+  useEffect(()=>{
+    if(!user?.uid)return;
+    let revision=0;
+    function openChangedInvitation(){
+      const attempt=++revision;
+      const account=auth().currentUser;
+      if(account?.uid===user.uid&&roomInvitationId(location)){
+        void openRoomInvitation(account,()=>attempt===revision);
+      }
+    }
+    window.addEventListener('hashchange',openChangedInvitation);
+    return ()=>{
+      revision++;
+      window.removeEventListener('hashchange',openChangedInvitation);
+    };
+  },[user?.uid]);
   async function openRoomInvitation(account,isMounted=()=>true){
     const isCurrent=()=>isMounted()&&auth().currentUser?.uid===account.uid;
     if(!isCurrent())return;
@@ -1606,16 +1622,17 @@ export default function App(){
       go('profile');return;
     }
     const id=roomInvitationId(location);
+    const isCurrentInvite=()=>isCurrent()&&roomInvitationId(location)===id;
     if(id===helpRoom.id){enterRoom(helpRoom);return;}
     if(id){
       try{
         let target=id;
         let room=(await firestore().collection('rooms').doc(target).get()).data();
-        if(room?.status==='closed'){
+        if(room?.status!=='open'){
           const current=await mediaRequest('/room-control',{op:'currentBroadcast',roomId:id});
           if(current.session){target=current.session;room=(await firestore().collection('rooms').doc(target).get()).data()}
         }
-        if(!isCurrent())return;
+        if(!isCurrentInvite())return;
         if(room?.status==='open'){
           enterRoom({...room,id:target});
           return;
@@ -1623,6 +1640,14 @@ export default function App(){
       }catch(error){
         console.warn('Room invitation could not be loaded:',error.code||error.message);
       }
+      if(isCurrentInvite()){
+        setActiveRoom(null);
+        setMini(false);
+        setDiscoveryFilter('audio');
+        go('rooms');
+        Alert.alert(ui('تعذر فتح الغرفة'),ui('قد تكون الغرفة مغلقة أو الرابط غير متاح الآن.'));
+      }
+      return;
     }
     if(isCurrent())go(['linkPiAccount','profile'].includes(pageRef.current)?'profile':'home');
   }
