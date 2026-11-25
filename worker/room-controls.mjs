@@ -1,3 +1,4 @@
+import {programSchema} from './live-program.mjs';
 import {roomHistorySchema,rootFor,roomDiamonds,roomSupporters} from './room-history.mjs';
 import {broadcastAccessSchema,inviteFriendsAtStart,roomInvites,manageRoomAdmins} from './broadcast-access.mjs';
 import {appOwnerSchema,isAppOwner} from './app-owners.mjs';
@@ -9,6 +10,7 @@ import {walletSchema,paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
+  ...programSchema,
   appOwnerSchema,
   'CREATE TABLE IF NOT EXISTS public_numbers(number TEXT PRIMARY KEY,uid TEXT NOT NULL,cost INTEGER NOT NULL)',
   'CREATE UNIQUE INDEX IF NOT EXISTS one_standard_number ON public_numbers(uid) WHERE cost=0',
@@ -28,6 +30,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_attempt (room TEXT,uid TEXT,bucket INTEGER,hits INTEGER,PRIMARY KEY(room,uid))',
   'CREATE TABLE IF NOT EXISTS room_gift_target (payment TEXT PRIMARY KEY,uid TEXT,name TEXT)',
   'CREATE TABLE IF NOT EXISTS room_chat_config(room TEXT PRIMARY KEY,slow INTEGER NOT NULL DEFAULT 0,pin INTEGER)',
+  'CREATE TABLE IF NOT EXISTS room_shield(room TEXT PRIMARY KEY)',
   'CREATE TABLE IF NOT EXISTS room_chat_filter(room TEXT PRIMARY KEY,words TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_chat_clock(room TEXT,uid TEXT,stamp INTEGER,token TEXT,PRIMARY KEY(room,uid))',
   "CREATE TABLE IF NOT EXISTS support_case(id TEXT PRIMARY KEY,uid TEXT NOT NULL,kind TEXT NOT NULL,subject TEXT NOT NULL,detail TEXT NOT NULL,created INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'open')",
@@ -236,6 +239,11 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   }
   if(op==='settings'){
     if(!moderator)return json({error:'للمضيف فقط'},403);
+    if(input.shield!==undefined){
+      if(typeof input.shield!=='boolean')return json({error:'طلب غير صالح'},400);
+      if(input.shield)await q('INSERT OR IGNORE INTO room_shield(room) VALUES(?)',room).run();
+      else await q('DELETE FROM room_shield WHERE room=?',room).run();
+    }
     if(input.micFree!==undefined){
       if(type!=='audio'||typeof input.micFree!=='boolean')return json({error:'طلب غير صالح'},400);
       await q('INSERT INTO room_mic_mode VALUES(?,?) ON CONFLICT(room) DO UPDATE SET free=excluded.free',room,Number(input.micFree)).run();
@@ -333,16 +341,18 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='message'){
     const text=String(input.text||'').trim();
     if(!text||text.length>500)return json({error:'تعليق غير صالح'},400);
-    const filter=await q('SELECT words FROM room_chat_filter WHERE room=?',room).first();
+    const filter=await q('SELECT (SELECT words FROM room_chat_filter WHERE room=?) AS words, EXISTS(SELECT 1 FROM room_shield WHERE room=?) AS shield',room,room).first();
     const normalized=text.normalize('NFKC').toLowerCase();
-    if(!host&&filter&&JSON.parse(filter.words).some(word=>normalized.includes(word)))return json({error:'تتضمن الرسالة عبارة محظورة في هذه الغرفة'},422);
+    const words=JSON.parse(filter?.words||'[]');
+    if(filter?.shield)words.push('كلمة السر الخاصة بك','send your password','أرسل رمز التحقق','send your verification code');
+    if(!host&&words.some(word=>normalized.includes(word)))return json({error:'تتضمن الرسالة عبارة محظورة في هذه الغرفة'},422);
     const token=crypto.randomUUID();
     const accepted='EXISTS(SELECT 1 FROM room_chat_clock WHERE room=? AND uid=? AND token=?)';
     const results=await env.PI_GIFTS_DB.batch([
       q(`INSERT INTO room_chat_clock(room,uid,stamp,token) VALUES(?,?,?,?)
         ON CONFLICT(room,uid) DO UPDATE SET stamp=excluded.stamp,token=excluded.token
-        WHERE ? OR excluded.stamp-room_chat_clock.stamp>=COALESCE((SELECT slow FROM room_chat_config WHERE room=?),0)
-        RETURNING stamp`,room,user,now,token,Number(moderator),room),
+        WHERE ? OR excluded.stamp-room_chat_clock.stamp>=MAX(COALESCE((SELECT slow FROM room_chat_config WHERE room=?),0),10*EXISTS(SELECT 1 FROM room_shield WHERE room=?))
+        RETURNING stamp`,room,user,now,token,Number(moderator),room,room),
       q('INSERT INTO room_chat(room,uid,name,text) SELECT ?,?,?,? WHERE '+accepted,room,user,member.name,text,room,user,token),
       q('INSERT INTO room_chat_activity(room,revision) SELECT ?,1 WHERE '+accepted+
         ' ON CONFLICT(room) DO UPDATE SET revision=revision+1',room,room,user,token)
@@ -374,7 +384,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(member&&now-member.seen>=20)await q('UPDATE room_member SET seen=? WHERE room=? AND uid=? AND visit=?',now,room,user,visit).run();
   const [people,settings,history,pinned]=await Promise.all([
     q('SELECT m.uid,m.name,m.frame,CASE WHEN m.ride IN (5,7) THEN 0 ELSE m.ride END AS ride,m.seat,m.waiting,m.muted,m.joined,e.token AS entranceId FROM room_member m LEFT JOIN room_entrance_id e ON e.room=m.room AND e.uid=m.uid WHERE m.room=? AND m.banned=0 AND m.seen>=? ORDER BY m.joined,m.uid',room,cutoff).all(),
-    q(`SELECT COALESCE((SELECT free FROM room_mic_mode WHERE room=r.room),1) AS micFree,p.locked,length(p.pin)>0 AS protected,COALESCE(a.revision,0) AS chatRevision,COALESCE(c.slow,0) AS slow,f.words
+    q(`SELECT COALESCE((SELECT free FROM room_mic_mode WHERE room=r.room),1) AS micFree,p.locked,length(p.pin)>0 AS protected,COALESCE(a.revision,0) AS chatRevision,MAX(COALESCE(c.slow,0),10*EXISTS(SELECT 1 FROM room_shield WHERE room=r.room)) AS slow,EXISTS(SELECT 1 FROM room_shield WHERE room=r.room) AS shield,f.words
       FROM (SELECT ? AS room) r LEFT JOIN room_policy p ON p.room=r.room
       LEFT JOIN room_chat_activity a ON a.room=r.room LEFT JOIN room_chat_config c ON c.room=r.room LEFT JOIN room_chat_filter f ON f.room=r.room`,room).first(),
     q('SELECT id,uid AS userUid,name AS userName,text FROM room_chat WHERE room=? ORDER BY id DESC LIMIT 100',room).all(),
@@ -388,5 +398,5 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   const wallet=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
   const theme=await q('SELECT theme FROM room_theme WHERE room=?',room).first();
   const locks=await q('SELECT slot FROM room_lock WHERE room=?',room).all();
-  return json({micFree:!!settings.micFree,roomAdmin:!!roles.roomAdmin,appStaff,...(moderator?{words:JSON.parse(settings.words||'[]')} :{}),pinned:pinned||null,slow:settings.slow,chatRevision:settings.chatRevision,lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),giftEvents:events.results.reverse(),chat:history.results.reverse()});
+  return json({shield:!!settings.shield,micFree:!!settings.micFree,roomAdmin:!!roles.roomAdmin,appStaff,...(moderator?{words:JSON.parse(settings.words||'[]')} :{}),pinned:pinned||null,slow:settings.slow,chatRevision:settings.chatRevision,lockedSlots:locks.results.map(row=>row.slot),theme:theme?.theme||'default',supportBalance:wallet.diamonds,media,people:people.results,locked:Boolean(settings?.locked),protected:Boolean(settings?.protected),giftEvents:events.results.reverse(),chat:history.results.reverse()});
 }

@@ -11,6 +11,8 @@ export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_like(clip TEXT NOT NULL, uid TEXT NOT NULL, PRIMARY KEY(clip,uid))',
   'CREATE TABLE IF NOT EXISTS short_comment(clip TEXT NOT NULL, uid TEXT NOT NULL, nonce TEXT NOT NULL, body TEXT NOT NULL, PRIMARY KEY(uid,nonce))',
   'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)',
+  'CREATE TABLE IF NOT EXISTS short_captions(clip TEXT PRIMARY KEY,cues TEXT NOT NULL)',
+  'CREATE TRIGGER IF NOT EXISTS remove_clip_captions AFTER DELETE ON short_clip BEGIN DELETE FROM short_captions WHERE clip=OLD.id; END',
   ...socialSchema,
   `CREATE TRIGGER IF NOT EXISTS short_clip_cleanup AFTER DELETE ON short_clip BEGIN
     DELETE FROM short_comment_heart WHERE comment_id IN (SELECT rowid FROM short_comment WHERE clip=OLD.id);
@@ -45,10 +47,13 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
   }
   if (op === 'shortPrepare') {
     if (!hasStorage) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
+    const cues=input.cues??[];
+    if(!Array.isArray(cues)||cues.length>80||cues.some((c,i)=>!c||!Number.isFinite(c.at)||c.at<0||c.at>3600||(i>0&&c.at<=cues[i-1].at)||typeof c.text!=='string'||!c.text.trim()||c.text.length>160))return json({error:'تحقّق من توقيت النص'},400);
     await saveShortProfile(q,uid,input.profile);
     const id = crypto.randomUUID();
     const title = String(input.title || '').trim().slice(0,100);
     await q('INSERT INTO short_clip(id,owner,title) VALUES(?,?,?)',id,uid,title).run();
+    if(cues.length)await q('INSERT INTO short_captions VALUES(?,?)',id,JSON.stringify(cues.map(c=>({at:c.at,text:c.text.trim()})))).run();
     return json({id});
   }
   const owner=starterIds.includes(clip)?'clipi:official':publishedId.test(clip)?(await q('SELECT owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first())?.owner:null;
@@ -61,7 +66,8 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
     if(op==='shortLike' && input.likeOnly===true)return json({likes:state.likes,liked:Boolean(state.liked)});
-    return json({...state,canDelete:owner===uid && !starterIds.includes(clip),liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
+    const captions=op==='shortState'?await q('SELECT cues FROM short_captions WHERE clip=?',clip).first():null;
+    return json({...state,...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid && !starterIds.includes(clip),liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
   if (op === 'shortGift') {

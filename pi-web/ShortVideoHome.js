@@ -33,7 +33,7 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
   </button>;
 }
-function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
@@ -54,6 +54,19 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   const deleting=useRef(false);
   const [busyDelete,setBusyDelete]=useState(false);
   const ownerUid=item.owner || stats?.owner;
+  const [caption,setCaption]=useState('');
+  useEffect(()=>{
+    if(!playable||!stats?.cues?.length){setCaption('');return}
+    function update(){
+      const time=playerRef.current?.currentTime||0;
+      const cues=stats.cues;
+      let text='';
+      for(let i=cues.length-1;i>=0;i--)if(time>=cues[i].at){text=time<cues[i].at+5?cues[i].text:'';break}
+      setCaption(text);
+    }
+    update();const timer=setInterval(update,150);return()=>clearInterval(timer);
+  },[playable,stats?.cues]);
+  const liveRoom=ownerUid&&liveRooms?.find(room=>room.ownerUid===ownerUid);
   const canDelete=!starters[item.id] && (stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid));
   function openDelete(){
     if(!canDelete)return;
@@ -165,6 +178,9 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
         style={{border:0,padding:0,background:'transparent',borderRadius:'50%',color:'inherit',display:'inline-flex'}}
         onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></button>
+        {liveRoom&&onVisitLive&&<button type="button" aria-label={appText('دخول البث المباشر')+' · '+authorName}
+          style={{color:'#fff',background:'#992449',border:'1px solid white',borderRadius:15,minHeight:44,marginBottom:6,padding:'2px 7px',fontSize:12,cursor:'pointer'}}
+          onClick={()=>onVisitLive(liveRoom)}>{appText('مباشر الآن')}</button>}
         {stats?.social&&stats.owner!==viewer?.uid&&<button type="button" className="clipi-follow" aria-pressed={!!stats.following} onClick={follow}>{stats.following?(followLabels?.followed??appText('متابَع')):(followLabels?.follow??appText('متابعة'))}</button>}</div>
       <FeedAction icon="like" label={liked?appText('إلغاء الإعجاب'):appText('إعجاب')} selected={liked} count={likes} onClick={()=>like()}/>
       <FeedAction icon="comment" label={appText("التعليقات")} count={commentCount} onClick={openComments}/>
@@ -173,7 +189,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
       <FeedAction icon="download" label={appText("تنزيل الفيديو")} onClick={()=>run(()=>saveShort(item.id,source))}/>
       <FeedAction icon="more" label={translate('المزيد')} onClick={()=>setDialog('more')}/>
     </div>
-    <div className="clipi-caption">
+    <div className="clipi-caption">{!!caption&&<span dir="auto" style={{alignSelf:"flex-start",background:"#111b",color:"white",padding:"2px 6px",whiteSpace:"pre-wrap"}}>{caption}</span>}
       <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{official?appText(item.title):item.title}</p>}
       <div className="clipi-caption-meta">
 
@@ -188,10 +204,10 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
         {icon:'share',label:translate('نسخ رابط الفيديو'),onClick:copyLink},
         {icon:'gift',label:appText('إهداء الفيديو'),onClick:openGifts},
         ...(canDelete?[{icon:'trash',label:translate('حذف الفيديو'),onClick:openDelete}]:[]),
-        ...(onReport?[{icon:'flag',label:appText('الإبلاغ عن المقطع أو تعليق'),onClick:()=>{setDialog('');onReport(item.id);}}]:[])
+        ...(onReport?[{icon:'flag',label:appText('إبلاغ عن الفيديو'),onClick:()=>{setDialog('');onReport(item.id);}}]:[])
       ]}/>}
     </>}
-    {showing&&<ShortCommentsSheet firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
+    {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
@@ -225,7 +241,7 @@ function watchDeviceLaunch(store){
   return clear;
 }
 
-export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const target=deviceAccountTarget();
   const launchCleanup=useRef(null);
@@ -323,7 +339,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index===active&&<Clip key={item.id} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
@@ -342,6 +358,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
 }
 
 export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
+  const [cues,setCues]=useState([]),[cueText,setCueText]=useState(''),[editingCues,setEditingCues]=useState(false),[cueAt,setCueAt]=useState(0);
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [muted,setMuted]=useState(true);
   const playerRef=useRef(null);
@@ -350,7 +367,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
   useEffect(()=>()=>{if(draft)releaseDraft(draft);},[draft]);
   async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setAccepted(false);setDraft(file);setNotice('');}}
+    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
@@ -358,7 +375,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     lock.current=true;setBusy(true);setNotice('');
     try{
       const token=await getToken();
-      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,profile:await shortProfile(viewer)})).id;
+      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,profile:await shortProfile(viewer)})).id;
       await uploadFile(endpoint+'/shorts/media/'+job.current,draft,token);
       if(alive.current)onDone(job.current);
     }catch(e){if(alive.current)setNotice(uiError(e,'تعذّر نشر الفيديو'));}
@@ -368,6 +385,16 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
+      <Button label={appText('إضافة نص متزامن')} disabled={busy||!!job.current} onPress={()=>{
+        setEditingCues(!editingCues);setCueAt(Math.round((playerRef.current?.currentTime||0)*10)/10);
+        if(!editingCues)playerRef.current?.pause?.();else playerRef.current?.play?.();
+      }}/>
+      {editingCues&&<View><TextInput accessible accessibilityLabel={appText('نص اللقطة')} placeholder={appText('نص اللقطة')} value={cueText} maxLength={160} onChangeText={setCueText} style={s.input}/>
+        <Button label={appText('تثبيت النص عند هذه اللقطة')+' · '+cueAt+'s'} disabled={!cueText.trim()||cues.length>=80||busy||!!job.current} onPress={()=>{
+          setCues(old=>[...old.filter(c=>c.at!==cueAt),{at:cueAt,text:cueText.trim()}].sort((a,b)=>a.at-b.at));
+          setCueText('');setEditingCues(false);playerRef.current?.play?.();
+        }}/>
+        {cues.map(c=><Button key={c.at} disabled={busy||!!job.current} label={appText('حذف')+' · '+c.at+'s · '+c.text} onPress={()=>setCues(old=>old.filter(x=>x.at!==c.at))}/>)}</View>}
       <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
       <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.label}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
       <Button label={busy?appText('جارٍ النشر…'):appText('نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
