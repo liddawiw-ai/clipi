@@ -38,7 +38,7 @@ import EarningsWalletScreen from './EarningsWalletScreen';
 import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
-const helpRoom=Object.freeze({id:'clipi-admin-help',type:'audio',status:'open',ownerUid:'',name:'أدمن كليبي',ownerName:'غرفة المساعدة الرسمية'});
+const helpRoom=Object.freeze({id:'clipi-admin-help',type:'audio',status:'open',ownerUid:'',name:'الإدارة',ownerName:'غرفة المساعدة الرسمية'});
 const MEDIA_ENDPOINT=location.origin, MEDIA_CONFIGURED=true;
 configureInterface(MEDIA_ENDPOINT,readLocale(()=>window.localStorage)||'en',null,accountLabels);
 const PINK=theme.peach,GOLD=theme.gold;
@@ -1206,7 +1206,6 @@ export default function App(){
   const creatingRoom=useRef(false);
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   useEffect(()=>setInviteAll(false),[page,discoveryFilter]);
-  const [helpAvailable,setHelpAvailable]=useState(false);
   const [draftCover,setDraftCover]=useState(null);
   const coverPicker=useRef(false);
   async function chooseDraftCover(){
@@ -1360,7 +1359,7 @@ export default function App(){
   },[]);
   useEffect(()=>{
     if(!user?.uid)return;
-    setRooms([]);setRoomError('');setHelpAvailable(false);
+    setRooms([]);setRoomError('');
     let candidates=[],live=new Set(),liveTags={},mounted=true,pending=false;
     const display=()=>setRooms(candidates.filter(r=>r.id!==helpRoom.id&&r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id],coverUrl:liveTags[r.id]?.cover?MEDIA_ENDPOINT+'/room-covers/'+encodeURIComponent(r.id)+'/'+liveTags[r.id].cover+'.jpg':null})));
     async function refresh(){
@@ -1370,7 +1369,7 @@ export default function App(){
         const response=await fetch(MEDIA_ENDPOINT+'/active-rooms');
         if(!response.ok)throw Error(appText('تعذر التحقق من الغرف المفتوحة'));
         const data=await response.json();
-        if(mounted){live=new Set(data.rooms);liveTags=data.tags||{};setHelpAvailable(data.supportRoom?.id===helpRoom.id);display();setRoomError('')}
+        if(mounted){live=new Set(data.rooms);liveTags=data.tags||{};display();setRoomError('')}
       }catch(e){if(mounted){live.clear();display();setRoomError(uiError(e))}}
       finally{pending=false}
     }
@@ -1817,7 +1816,7 @@ export default function App(){
     return <HubScreen title={ui('الغرف')} dock={nav()}>
       <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
         <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
-          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={helpAvailable&&(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={brandIcon} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
+          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'أدمن كليبي','Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={brandIcon} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}

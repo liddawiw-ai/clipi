@@ -206,7 +206,7 @@ export async function checkNavigation(browser) {
         'true'
       );
       if(lang==='ar'){
-        const help=root.getByRole('button',{name:/أدمن كليبي/});
+        const help=root.getByRole('button',{name:/الإدارة/});
         if(i===0){
           await help.waitFor();
           assert.ok((await help.innerText()).includes('٢٤ ساعة'));

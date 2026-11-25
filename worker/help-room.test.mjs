@@ -39,7 +39,7 @@ test('official help room accepts the first authenticated visitor after a day emp
   assert.equal((await post('first','leave')).status,200);
   assert.equal(sql.prepare('SELECT count(*) AS n FROM room_member WHERE room=?').get(id).n,0);
   const later=Date.now()+25*3600000;t.mock.method(Date,'now',()=>later);
-  assert.equal((await directory()).name,'أدمن كليبي');
+  assert.equal((await directory()).name,'الإدارة');
   const next=await (await post('second','join')).json();assert.deepEqual(next.people.map(p=>p.uid),['second']);
   await post('team-owner','join');
   assert.equal((await post('team-owner','settings',{slow:5})).status,200);
