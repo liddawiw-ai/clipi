@@ -1,5 +1,13 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "تأكيد بريد الاستلام": "Verify payout email",
+  "راجع بريدك ثم حدّث حالة الطلب لربط جهة الاستلام": "Check your email, then refresh the request status to link your verified contact.",
+  "النقاط المتاحة": "Available points",
+  "مراجعة سحب الأرباح": "Withdrawal review",
+  "يراجع المالك الطلب ويرسل الرد إلى صندوق الوارد. إرسال الطلب لا يحوّل المال.": "The owner reviews your request and replies to your inbox. Sending a request does not transfer funds.",
+  "إرسال طلب مراجعة السحب": "Request a withdrawal review",
+  "تحديث حالة الطلب": "Refresh request status",
+  "تحقّق من وسيلة الاستلام والرصيد وموعد طلب السحب": "Check your payout method, balance and next request date.",
   "محفظة المضيف": "Host wallet",
   "نقاط كشف الوكالة": "Agency statement points",
   "قيمة تقديرية": "Estimated value",

@@ -165,7 +165,7 @@ export default {
       if(['caseCreate','caseList','caseQueue','caseReviewed','caseReply'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       }
-      if(['hostEarnings','saveReceivingMethod','linkReceivingContact'].includes(input?.op))
+      if(['hostEarnings','saveReceivingMethod','linkReceivingContact','requestWithdrawalReview'].includes(input?.op))
         return hostEarnings(await roomStore(env.PI_GIFTS_DB),uid,input,json,env,identity);
       if(input?.op==='wallet'||input?.op==='linkHostWallet'){
         const q=await roomStore(env.PI_GIFTS_DB);
