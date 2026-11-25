@@ -12,7 +12,7 @@ import {agencyAccount} from './agencies.mjs';
 import {shortAccount,receiveShort,serveShort,deleteShort} from './short-videos.mjs';
 import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
-import {readWallet} from './diamond-wallet.mjs';
+import {linkHostWallet,readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
 import {roomStore,roomControls,helpRoomId,helpRoomName} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
@@ -163,9 +163,12 @@ export default {
       if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       }
-      if(input?.op==='wallet'){
-        const wallet=await readWallet(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID);
+      if(input?.op==='wallet'||input?.op==='linkHostWallet'){
+        const q=await roomStore(env.PI_GIFTS_DB);
         const linkedPiUid=uid.startsWith('pi:')?null:await linkedPi(await linkStore(env),uid);
+        if(input.op==='linkHostWallet')
+          return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json);
+        const wallet=await readWallet(q,uid,env.CLIPI_OWNER_UID);
         return json({...wallet,linkedPiUid});
       }
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);

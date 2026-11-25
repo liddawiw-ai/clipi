@@ -1,5 +1,11 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.": "Pi did not share a wallet address. Open your Pi wallet and try again.",
+  "تعذّر ربط المحفظة. حاول مجددًا.": "Could not link your wallet. Please try again.",
+  "تم ربط محفظتك.": "Your wallet is linked.",
+  "محفظة Pi المرتبطة": "Linked Pi wallet",
+  "تحديث ربط المحفظة": "Update wallet link",
+  "اربط محفظتي": "Link my wallet",
   "طلبات إنشاء الوكالات": "Agency applications",
   "لا توجد طلبات بانتظار قرارك": "No applications are waiting for your decision.",
   "رقم حساب المضيف": "Host account number",

@@ -8,6 +8,7 @@ export function validPack(metadata,amount,allowLegacy){
   return allowLegacy&&metadata.rate===undefined&&[10,100,500,1000].includes(metadata.diamonds)&&amount===metadata.diamonds/10;
 }
 export const walletSchema=[
+  'CREATE TABLE IF NOT EXISTS host_pi_wallet(uid TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS diamond_checkout(payment TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS diamond_checkout_user ON diamond_checkout(uid)',
   'CREATE TABLE IF NOT EXISTS diamond_purchase(payment TEXT PRIMARY KEY,uid TEXT NOT NULL,diamonds INTEGER NOT NULL,txid TEXT UNIQUE NOT NULL)',
@@ -17,6 +18,30 @@ export const walletSchema=[
   'CREATE INDEX IF NOT EXISTS paid_room_gift_host ON paid_room_gift(host)',
   `CREATE TRIGGER IF NOT EXISTS announce_paid_gift AFTER INSERT ON paid_room_gift BEGIN INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),'🎁 '||NEW.gift||' · '||NEW.cost||' 💎 → '||(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.host)); END`
 ];
+export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
+  if (!piUid || typeof accessToken !== 'string' || !/^\S{1,4096}$/.test(accessToken))
+    return json({error:'ادخل بحساب PI نفسه'}, 403);
+  let identity;
+  try {
+    const response = await fetch('https://api.minepi.com/v2/me', {
+      headers: {Authorization:'Bearer ' + accessToken}, signal:AbortSignal.timeout(10000)
+    });
+    if (!response.ok) {
+      const status = [401,403].includes(response.status) ? 401 : 502;
+      return json({error:'تعذّر التحقق من حساب Pi'}, status);
+    }
+    identity = await response.json();
+  } catch {
+    return json({error:'تعذّر التحقق من حساب Pi'}, 502);
+  }
+  if (typeof identity?.uid !== 'string' || 'pi:' + identity.uid !== piUid)
+    return json({error:'حساب Pi المفتوح مختلف عن حساب التطبيق.'}, 409);
+  const address = identity.wallet_address;
+  if (typeof address !== 'string' || !/^G[A-Z2-7]{55}$/.test(address))
+    return json({error:'لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.'}, 422);
+  await q('INSERT INTO host_pi_wallet(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address', accountUid, address).run();
+  return json({walletAddress:address});
+}
 // Pi amounts in the ledger use twentieths of Pi (one half of a diamond).
 export const paidBalance='(SELECT COALESCE(SUM(p.diamonds-COALESCE(r.diamonds,0)),0) FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE uid=?) - (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE sender=?)';
 export async function readWallet(q,uid,ownerUid){
@@ -28,5 +53,6 @@ export async function readWallet(q,uid,ownerUid){
   const ownerBox=owner?await q(`SELECT
     (SELECT COALESCE(SUM(diamonds),0) FROM diamond_purchase) AS sold,
     (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift) AS gifted`).first():null;
-  return {...totals,...(ownerBox?{ownerBox}:{}),rewardPi:5*Math.floor(totals.collected/10000),progress:totals.collected%10000,history:history.results,purchases:purchases.results,pending:pending.results};
+  const linkedWallet=await q('SELECT address FROM host_pi_wallet WHERE uid=?',uid).first();
+  return {...totals,walletAddress:linkedWallet?.address??null,...(ownerBox?{ownerBox}:{}),rewardPi:5*Math.floor(totals.collected/10000),progress:totals.collected%10000,history:history.results,purchases:purchases.results,pending:pending.results};
 }

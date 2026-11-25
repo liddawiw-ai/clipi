@@ -16,6 +16,7 @@ async function payment(action,data){
 export function DiamondWallet({uid,onHelp}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
+  const [linkMessage,setLinkMessage]=useState('');
   const lock=useRef(false);
   const revision=useRef(0);
   const paymentPiUid=uid.startsWith('pi:')?uid:(window.Pi&&data?.linkedPiUid);
@@ -35,6 +36,29 @@ export function DiamondWallet({uid,onHelp}){
     document.addEventListener('visibilitychange',sync);
     return ()=>{active=false;revision.current++;clearInterval(timer);document.removeEventListener('visibilitychange',sync)};
   },[uid]);
+  async function linkWallet(){
+    if(lock.current)return;
+    lock.current=true;setBusy(true);setLinkMessage('');
+    try{
+      const user=auth().currentUser;
+      if(user?.uid!==uid)throw Error(appText('تغيّر الحساب المفتوح. أعد التحقق.'));
+      const session=await piSdk().authenticate(['wallet_address'],()=>{});
+      if(auth().currentUser?.uid!==uid||'pi:'+session.user.uid!==paymentPiUid)
+        throw Error(appText('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
+      const token=await user.getIdToken();
+      const response=await fetch('/account-number',{method:'POST',
+        headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken})});
+      const result=await response.json();
+      if(!response.ok)throw Error(uiError(result.error,'تعذّر ربط المحفظة. حاول مجددًا.'));
+      if(auth().currentUser?.uid===uid){
+        revision.current++;
+        setData(previous=>({...previous,walletAddress:result.walletAddress}));
+        setLinkMessage(appText('تم ربط محفظتك.'));
+      }
+    }catch(error){setLinkMessage(uiError(error,'تعذّر ربط المحفظة. حاول مجددًا.'))}
+    finally{lock.current=false;setBusy(false)}
+  }
   async function restore(){
     if(lock.current)return;
     lock.current=true;setBusy(true);setMessage('');
@@ -79,6 +103,11 @@ export function DiamondWallet({uid,onHelp}){
     <BalanceCard icon="♡" tone="rose" label={appText('الماس المستهدف')} value={(data?.receivedDiamonds??'…')+' 💎'}/>
     <p>{appText('كل ماسة يرسلها لك مستخدم في هدية تُضاف إلى هذا الإجمالي.')}</p>
     <BalanceCard icon="✦" tone="sand" label={appText('مكافآت المضيف')} value={(data?data.rewardPi:'…')+' PI'}/>
+    {paymentPiUid&&<>
+      {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
+      <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
+      {linkMessage&&<p role="status">{linkMessage}</p>}
+    </>}
     <p>{appText('التقدّم نحو المكافأة التالية')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>
     <p>{appText('كل 10,000 ماسة هدايا تُسجّل للمضيف مكافأة قدرها 5 PI داخل كليبي.')}</p>
     {data?.ownerBox&&<section aria-label={appText('صندوق ماس المالك')}>
