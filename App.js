@@ -1180,12 +1180,19 @@ export default function App(){
   const [broadcastName,setBroadcastName]=useState('');
   const [followRevision,setFollowRevision]=useState(0);
   const [initialShort,setInitialShort]=useState(null);
-  const returnToWallet=useRef(false),checkoutOrder=useRef(null);
+  const returnToAccount=useRef(false),returnToWallet=useRef(false),checkoutOrder=useRef(null);
   useEffect(()=>{
     function onUrl(url){
+      if(/^clipi:\/\/account\/?$/i.test(url||'')){
+        returnToAccount.current=true;
+        returnToWallet.current=false;
+        if(auth().currentUser&&!profileSetupRef.current&&pageRef.current!=='loading'){setMini(true);go('profile');returnToAccount.current=false}
+        return;
+      }
       const match=/^clipi:\/\/wallet\/?(?:\?order=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}))?$/i.exec(url||'');
       if(!match)return;
       checkoutOrder.current=match[1]||null;
+      returnToAccount.current=false;
       returnToWallet.current=true;
       if(auth().currentUser){setMini(true);go('wallet');setWalletRequest(v=>v+1)}
     }
@@ -1287,6 +1294,11 @@ export default function App(){
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
+  function accountLanding(){
+    const target=returnToAccount.current?'profile':'home';
+    returnToAccount.current=false;
+    return target;
+  }
   const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
@@ -1367,7 +1379,7 @@ export default function App(){
             setAvatar(d.avatar||'👤');
           }else if(u.displayName)setName(u.displayName);
         }catch(e){console.warn('Profile load failed',e.message)}
-        if(active&&auth().currentUser?.uid===u.uid){go(returnToWallet.current?'wallet':'home');returnToWallet.current=false}
+        if(active&&auth().currentUser?.uid===u.uid){go(returnToWallet.current?'wallet':(pageRef.current==='profile'?'profile':accountLanding()));returnToWallet.current=false}
       }else{
         setConfirmation(null);setSmsCode('');setAvatar('👤');setBlockedUsers([]);
         setName('');setRoomError('');
@@ -1463,7 +1475,7 @@ export default function App(){
       try{await saveProfile(created,displayName);}
       catch(error){console.warn('Email profile sync failed',error.code);}
       setName(displayName);
-      go('home');
+      go(pageRef.current==='profile'?'profile':accountLanding());
     }catch(error){
       const messages={
         'auth/operation-not-allowed':'خدمة الدخول بالبريد غير مفعّلة حاليًا.',
@@ -1519,7 +1531,7 @@ export default function App(){
       // A valid SMS code must not be reported as invalid if Firestore is unavailable.
       try{await saveProfile(credential.user,name.trim())}
       catch(e){console.warn('Profile save failed:',e.message);Alert.alert(appText('تعذر حفظ الملف الشخصي'),appText('تم تسجيل الدخول بنجاح، لكن تعذر حفظ الاسم مؤقتًا. يمكنك المحاولة لاحقًا.'));}
-      setUser(credential.user);setConfirmation(null);go('home');
+      setUser(credential.user);setConfirmation(null);go(pageRef.current==='profile'?'profile':accountLanding());
     }
     catch(e){const message=phoneAuthMessage(e);setAuthError(message);Alert.alert(appText('فشل التحقق'),uiError(message))}
     finally{profileSetupRef.current=false;setBusy(false)}
@@ -1539,7 +1551,7 @@ export default function App(){
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Google profile sync:',profileError.message)}
-      setUser(signed.user);go('home');
+      setUser(signed.user);go(pageRef.current==='profile'?'profile':accountLanding());
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
       const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Google'),uiError(detail))
     }}finally{setBusy(false)}
@@ -1570,7 +1582,7 @@ export default function App(){
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
-      setUser(signed.user);go('home');
+      setUser(signed.user);go(pageRef.current==='profile'?'profile':accountLanding());
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
       const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Facebook'),uiError(detail))
     }}

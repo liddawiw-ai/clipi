@@ -3,7 +3,7 @@ import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {FlatList,Image,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
+import {FlatList,Image,Linking,Modal,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
@@ -14,6 +14,7 @@ const redHeart=require('./assets/actions/like-on.png');
 const commentIcon=require('./assets/actions/comment-bubble.png');
 const soundOn=require('./assets/actions/sound-on.png');
 const soundOff=require('./assets/actions/sound-off.png');
+const liveBroadcastIcon=require('./assets/actions/live-broadcast.png');
 const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
 const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
@@ -23,7 +24,7 @@ function Button({label,onPress,children,disabled=false,selected,onPaper=false}){
     {children||<Text style={onPaper?s.paperLabel:s.label}>{label}</Text>}
   </Pressable>;
 }
-function SoundControl({playerRef,muted,setMuted}){
+function SoundControl({playerRef,muted,setMuted,belowHeader=false}){
   function toggleSound(){
     const next=!muted;
     setMuted(next);
@@ -31,7 +32,7 @@ function SoundControl({playerRef,muted,setMuted}){
     if(!player)return;
     player.muted=next;
   }
-  return <View style={s.audio}><Button label={muted?appText('تشغيل الصوت'):appText('كتم الصوت')} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
+  return <View style={[s.audio,belowHeader&&{top:76}]}><Button label={muted?appText('تشغيل الصوت'):appText('كتم الصوت')} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
 }
 function VideoSettings({actions,onClose,closeLabel}){
   return <Modal transparent animationType="fade" onRequestClose={onClose}>
@@ -170,7 +171,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
-    <SoundControl {...{playerRef,muted,setMuted}}/>
+    <SoundControl belowHeader {...{playerRef,muted,setMuted}}/>
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
         disabled={official || !ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></Pressable>
@@ -204,8 +205,17 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   </View>;
 }
 
+async function openPiAccount(openURL){
+  try{
+    await openURL('pi://clipi-mainnet.liddawiw.workers.dev/room?open=account');
+  }catch{
+    try{await openURL('market://details?id=pi.browser')}
+    catch{await openURL('https://play.google.com/store/apps/details?id=pi.browser')}
+  }
+}
+
 export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
-  const goLiveLabel=interfaceLocale()==='en'?'go live':roomLabels?.startBroadcast||translate('ابدأ البث');
+  const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -292,7 +302,13 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <View pointerEvents="box-none" style={[s.header,viewMode&&{display:'none'}]}>
+      <Pressable accessibilityRole="link" accessibilityLabel={roomLabels.otherAccount}
+        onPress={()=>openPiAccount(url=>Linking.openURL(url)).catch(e=>setNotice(uiError(e)))}
+        style={({pressed})=>[s.goLive,s.accountPill,pressed&&s.pressed]}>
+        <Text style={s.liveLabel} numberOfLines={2}>{roomLabels.otherAccount}</Text>
+      </Pressable>
       <Pressable accessibilityRole="button" accessibilityLabel={goLiveLabel} accessibilityState={{expanded:liveMenu}} onPress={()=>setLiveMenu(true)} style={({pressed})=>[s.goLive,pressed&&s.pressed]}>
+        <Image accessible={false} source={liveBroadcastIcon} style={{width:20,height:20}}/>
         <Text style={s.liveLabel}>{goLiveLabel}</Text>
       </Pressable>
     </View>
@@ -346,11 +362,12 @@ const s=StyleSheet.create({
   backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
   screen:{flex:1,backgroundColor:'#111416'},fill:{flex:1,overflow:'hidden',backgroundColor:'#000'},preview:{height:160,overflow:'hidden',backgroundColor:'#f3f6f5',borderRadius:12},
-  header:{position:'absolute',top:12,alignSelf:'center',alignItems:'center'},
-  goLive:{backgroundColor:'rgba(0,0,0,.22)',borderWidth:1,borderColor:'rgba(255,255,255,.8)',borderRadius:24,minWidth:94,minHeight:46,paddingHorizontal:17,alignItems:'center',justifyContent:'center'},
+  header:{position:'absolute',top:12,left:8,right:8,direction:'ltr',flexDirection:'row',justifyContent:'flex-end',alignItems:'center',gap:6},
+  accountPill:{maxWidth:'65%',minWidth:0,flexShrink:1},
+  goLive:{flexDirection:'row',gap:5,backgroundColor:'transparent',borderWidth:1,borderColor:'#fff',borderRadius:28,minWidth:94,minHeight:44,paddingHorizontal:12,alignItems:'center',justifyContent:'center'},
   pressed:{opacity:.72},
   notice:{position:'absolute',bottom:12,alignSelf:'center',backgroundColor:'#fff',borderRadius:14,paddingHorizontal:14,paddingVertical:8},
-  liveLabel:{color:'white',fontSize:19,fontWeight:'800',textShadowColor:'#171717',textShadowOffset:{width:0,height:1},textShadowRadius:4},
+  liveLabel:{textAlign:'center',color:'white',fontSize:15,fontWeight:'800',textShadowColor:'#171717',textShadowOffset:{width:0,height:1},textShadowRadius:4},
   commentIcon:{width:24,height:24},soundIcon:{width:24,height:24},
   audio:{position:'absolute',right:9,top:12},
   authorBadge:{alignItems:'center',paddingBottom:4},follow:{backgroundColor:'#ff4b22',paddingHorizontal:7,borderRadius:10,marginTop:-6},followText:{color:'white',fontSize:11,fontWeight:'700'},
