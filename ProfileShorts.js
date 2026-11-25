@@ -70,7 +70,9 @@ export default function ProfileShorts({playerProps,request,endpoint,authorUid,he
       </>}/>
     {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>
       <ShortVideoHome {...playerProps} request={request} endpoint={endpoint} translate={translate}
-        initialId={selected.id} onAuthor={()=>setSelected(null)}
+        initialId={selected.id} onAuthor={()=>setSelected(null)} onCommentAuthor={playerProps?.onAuthor?(...args)=>{
+          setSelected(null);playerProps.onAuthor(...args);
+        }:undefined}
         profileFeed={{clips,canDelete,onClose:()=>setSelected(null),onDeleted:removed,
           onMore:()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}}/>
     </Modal>}

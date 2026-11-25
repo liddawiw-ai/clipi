@@ -1903,7 +1903,13 @@ export default function App(){
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
   const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,followRevision,onFollowChange});
-  const shortPlayerProps={translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
+  function openShortAccount(uid,authorName,clip,own,authorAvatar){
+    setInitialShort(clip);
+    setRoomProfileUid(null);
+    if(own || uid===user.uid){go('profile');return;}
+    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
+  }
+  const shortPlayerProps={onAuthor:openShortAccount,translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
     const uid=user?.uid;
     if(!uid)return;
     if(activeRoom?.id===room.id){setMini(false);return}
@@ -1959,11 +1965,7 @@ export default function App(){
       {authError?<Text style={{color:theme.danger}}>{uiError(authError)}</Text>:null}
     </>}
   </View></ScrollView></View>;
-  if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
-    setInitialShort(clip);
-    if(own || uid===user.uid){go('profile');return;}
-    setRoomProfileUid(null);setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
-  }} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
+  if(page==='home')return <ShortVideoHome roomLabels={menu} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
   const hostField=<View>

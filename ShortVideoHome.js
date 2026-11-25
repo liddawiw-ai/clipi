@@ -1,10 +1,11 @@
 import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
+import {useRandomShort} from './useRandomShort';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {AccessibilityInfo,FlatList,Image,Linking,Modal,PanResponder,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
+import {AccessibilityInfo,ActivityIndicator,FlatList,Image,Linking,Modal,PanResponder,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
@@ -56,7 +57,7 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     </View>
   </Modal>;
 }
-function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
@@ -211,7 +212,10 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,followRevision,onFo
     ]}/>}
     </>}
     {dialog==='delete'&&<DeleteVideoDialog translate={translate} busy={busyDelete} error={message} onCancel={cancelDelete} onConfirm={confirmDelete}/>}
-    {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
+    {showing&&<ShortCommentsSheet onProfile={onCommentAuthor?row=>{
+      closeComments();
+      onCommentAuthor(row.uid,row.name||appText('مستخدم كليبي'),item.id,row.uid===viewer?.uid,row.avatar);
+    }:undefined} onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
@@ -230,7 +234,7 @@ async function openPiAccount(openURL){
   }
 }
 
-function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
+function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull}){
   const [screenReader,setScreenReader]=useState(false);
   useEffect(()=>{
     if(Platform.OS!=='android')return;
@@ -242,7 +246,7 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
   const manual=Platform.OS==='android'&&!screenReader;
   const startPage=useRef(0);
   const latest=useRef(null);
-  latest.current={active,height,count,manual};
+  latest.current={active,height,count,manual,onPull};
   const responder=useMemo(()=>{
     function scroll(page,animated){
       const {height,count}=latest.current;
@@ -251,8 +255,9 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
     }
     return PanResponder.create({
       onMoveShouldSetPanResponderCapture:(_,gesture)=>{
-        const {manual,height,count}=latest.current;
-        return manual&&height>0&&count>1&&!locked.current&&gesture.numberActiveTouches===1&&
+        const {manual,height,count,active,onPull}=latest.current;
+        const pull=onPull&&active===0&&gesture.dy>0;
+        return manual&&height>0&&(count>1||pull)&&!locked.current&&gesture.numberActiveTouches===1&&
           Math.abs(gesture.dy)>10&&Math.abs(gesture.dy)>1.3*Math.abs(gesture.dx);
       },
       onPanResponderGrant:()=>{startPage.current=latest.current.active;},
@@ -261,7 +266,8 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
         if(height)scroll(startPage.current-gesture.dy/height,false);
       },
       onPanResponderRelease:(_,gesture)=>{
-        const {height,count}=latest.current;
+        const {height,count,onPull}=latest.current;
+        if(startPage.current===0&&gesture.dy>=64&&onPull){scroll(0,false);onPull();return;}
         const advance=Math.abs(gesture.dy)>=Math.min(80,height*.14) ||
           (Math.abs(gesture.dy)>=18&&Math.abs(gesture.vy)>.5);
         const page=Math.max(0,Math.min(count-1,startPage.current-(advance?Math.sign(gesture.dy):0)));
@@ -274,7 +280,7 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked}){
   return {manual,handlers:manual?responder.panHandlers:{}};
 }
 
-export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(null),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
@@ -328,6 +334,8 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     })();
     return ()=>{current=false;mounted.current=false;};
   },[retry,initialId,fromProfile]);
+  const canRefresh=!fromProfile&&homeItems!==null&&active===0&&!viewMode&&playable&&!liveMenu;
+  const {refresh,refreshing}=useRandomShort({enabled:canRefresh,firstId:items[0]?.id,initialId,request,removed,setItems,setNotice});
   async function more(){
     if(fromProfile){profileFeed.onMore();return;}
     if(!page.current||loading.current)return;
@@ -350,7 +358,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     setItems(old=>old.filter(c=>c.id!==id));setNotice(translate('تم حذف الفيديو'));
     if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
-  const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked});
+  const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked,onPull:canRefresh?refresh:null});
   const automaticVisibility=useRef(true);
   automaticVisibility.current=!paging.manual;
   const visible=useRef(({viewableItems})=>{
@@ -362,9 +370,13 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode&&!paging.manual} extraData={[active,muted,suppressAudio,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
+      refreshing={refreshing} onRefresh={!paging.manual&&canRefresh?refresh:undefined}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+    {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
+      <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
+    </View>}
     {!fromProfile && homeItems?.length===0 && !error && <View pointerEvents="none" style={s.emptyFeed}><Text style={s.count}>{translate('لا توجد فيديوهات منشورة بعد')}</Text></View>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
@@ -478,6 +490,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,
 }
 
 const s=StyleSheet.create({
+  refreshStatus:{position:'absolute',top:74,alignSelf:'center',flexDirection:'row',alignItems:'center',gap:8,paddingVertical:7,paddingHorizontal:14,borderRadius:16,backgroundColor:'#172023',zIndex:4},
   back:{position:'absolute',top:12,left:8,width:48,height:48,alignItems:'center',justifyContent:'center'},
   backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},

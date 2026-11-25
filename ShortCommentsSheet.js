@@ -37,12 +37,15 @@ function Media({value}) {
   const source=stickers[value]||{uri:value};
   return <Image accessibilityLabel={appText(stickerNames[value]||'صورة التعليق')} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
 }
-function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open,onFlag}) {
+function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open,onFlag,onProfile}) {
   const author=row.name||appText('مستخدم كليبي');
+  const profileLabel=appText('فتح حساب')+' '+author;
+  const avatar=<ShortAvatar name={author} avatar={row.avatar} size={nested?29:36}/>;
+  const name=<Text style={s.author}>{author}{row.uid&&row.uid===owner?appText(' · المنشئ'):''}</Text>;
   return <View style={[s.row,nested&&s.nested]}>
-    <ShortAvatar name={author} avatar={row.avatar} size={nested?29:36}/>
+    {onProfile?<Pressable accessibilityRole="button" accessibilityLabel={profileLabel} onPress={onProfile}>{avatar}</Pressable>:avatar}
     <View style={s.copy}>
-      <Text style={s.author}>{author}{row.uid&&row.uid===owner?appText(' · المنشئ'):''}</Text>
+      {onProfile?<Pressable accessibilityRole="button" accessibilityLabel={profileLabel} onPress={onProfile}>{name}</Pressable>:name}
       <Pressable disabled={!onFlag} onLongPress={onFlag}
         accessibilityActions={onFlag?[{name:'longpress',label:appText('إبلاغ')}]:[]}
         onAccessibilityAction={e=>{if(e.nativeEvent.actionName==='longpress')onFlag?.()}}>
@@ -63,7 +66,7 @@ function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open,onFlag
   </View>;
 }
 const emptyPage={rows:[],next:null};
-export default function ShortCommentsSheet({onReportComment,firstComments,invalidateComments,clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
+export default function ShortCommentsSheet({onProfile,onReportComment,firstComments,invalidateComments,clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
   const [outgoing,setOutgoing]=useState(null);
   const [main,setMain]=useState(emptyPage),[threads,setThreads]=useState({}),[open,setOpen]=useState({});
   const [draft,setDraft]=useState(''),[attachment,setAttachment]=useState(''),[reply,setReply]=useState(null);
@@ -156,7 +159,7 @@ export default function ShortCommentsSheet({onReportComment,firstComments,invali
   }
   function startReply(row,root){setReply({id:root.id,name:row.name||appText('مستخدم كليبي')});setTools('');showKeyboard();}
   function rowView(row,root){
-    return <CommentRow row={row} onFlag={!row.pending&&onReportComment?()=>onReportComment(row):undefined} owner={owner} social={social} nested={!!root} open={!!open[row.id]} onToggle={()=>toggle(row)} onReply={()=>startReply(row,root||row)} onLike={()=>like(row)}/>;
+    return <CommentRow row={row} onProfile={row.uid&&onProfile?()=>onProfile(row):undefined} onFlag={!row.pending&&onReportComment?()=>onReportComment(row):undefined} owner={owner} social={social} nested={!!root} open={!!open[row.id]} onToggle={()=>toggle(row)} onReply={()=>startReply(row,root||row)} onLike={()=>like(row)}/>;
   }
   const canSend=!!(draft.trim()||attachment)&&!sending;
   const names=[...new Set([...main.rows,...Object.values(threads).flatMap(t=>t.rows)].map(r=>r.name).filter(Boolean))].slice(0,10);
