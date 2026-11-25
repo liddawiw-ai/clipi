@@ -54,7 +54,7 @@ module.exports = {
     },
     android: {
       package: androidPackage,
-      versionCode: 43,
+      versionCode: 44,
       runtimeVersion: {policy: 'nativeVersion'},
       googleServicesFile: './google-services.json',
       permissions: ['CAMERA', 'RECORD_AUDIO']
