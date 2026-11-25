@@ -1,3 +1,4 @@
+import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
@@ -370,25 +371,66 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   const job=useRef(null),lock=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
   useEffect(()=>()=>{if(draft)releaseDraft(draft);},[draft]);
+  const [restoring,setRestoring]=useState(true),[retryUpload,setRetryUpload]=useState(false);
+  const cached=useRef(null);
+  const uid=viewer?.uid;
+  useEffect(()=>{
+    let current=true;
+    if(!uid){setRestoring(false);return}
+    readShortDraft(uid).then(value=>{
+      if(!current){if(value?.draft)releaseDraft(value.draft);return;}
+      if(value){
+        cached.current=value.draft;setDraft(value.draft);setTitle(value.title||'');setCues(value.cues||[]);
+        job.current=value.job||null;setAccepted(!!value.accepted);setRetryUpload(!!value.attempted);
+        setNotice(appText('تم استرجاع مسودتك'));
+      }
+    }).catch(()=>{if(current)setNotice(appText('تعذّرت قراءة المسودة المحلية'))}).finally(()=>{if(current)setRestoring(false)});
+    return ()=>{current=false};
+  },[uid]);
+  async function persist(attempted){
+    const media=await saveShortDraft(uid,cached.current||draft,{title,cues,accepted,job:job.current,attempted});
+    cached.current=media;
+  }
+  async function keepDraft(){
+    if(lock.current||!draft||!uid)return;
+    lock.current=true;setBusy(true);
+    try{await persist(false);if(alive.current)setNotice(appText('تم حفظ المسودة على هذا الجهاز'))}
+    catch(e){if(alive.current)setNotice(uiError(e,'تعذّر حفظ المسودة'))}
+    finally{lock.current=false;if(alive.current)setBusy(false)}
+  }
+  async function discard(){
+    if(lock.current||!uid)return;
+    lock.current=true;setBusy(true);
+    try{
+      await clearShortDraft(uid);
+      if(alive.current){cached.current=null;job.current=null;setDraft(null);setTitle('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setRetryUpload(false);setNotice('');}
+    }catch(e){if(alive.current)setNotice(uiError(e))}
+    finally{lock.current=false;if(alive.current)setBusy(false)}
+  }
   async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
+    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
-    if(lock.current||!draft||!accepted)return;
+    if(lock.current||!draft||!accepted||!uid)return;
     lock.current=true;setBusy(true);setNotice('');
     try{
+      await persist(true);
       const token=await getToken();
       if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,profile:await shortProfile(viewer)})).id;
-      await uploadFile(endpoint+'/shorts/media/'+job.current,draft,token);
+      await persist(true);
+      await uploadFile(endpoint+'/shorts/media/'+job.current,cached.current||draft,token);
+      await clearShortDraft(uid);
       if(alive.current)onDone(job.current);
-    }catch(e){if(alive.current)setNotice(uiError(e,'تعذّر نشر الفيديو'));}
+    }catch(e){if(alive.current){setRetryUpload(true);setNotice(uiError(e,'تعذّر نشر الفيديو'));}}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
   return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Text style={s.label}>{appText("MP4 · حتى ٣ دقائق و٥٠ ميغابايت")}</Text>
-    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy} onPress={choose}/>
+    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>
+    {draft&&<><Button label={appText('حفظ المسودة')} disabled={busy} onPress={keepDraft}/>
+      <Button label={appText('حذف المسودة')} disabled={busy} onPress={discard}/></>}
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
       <Button label={appText('إضافة نص متزامن')} disabled={busy||!!job.current} onPress={()=>{
         setEditingCues(!editingCues);setCueAt(Math.round((playerRef.current?.currentTime||0)*10)/10);
@@ -402,7 +444,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
         {cues.map(c=><Button key={c.at} disabled={busy||!!job.current} label={appText('حذف')+' · '+c.at+'s · '+c.text} onPress={()=>setCues(old=>old.filter(x=>x.at!==c.at))}/>)}</View>}
       <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
       <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.label}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
-      <Button label={busy?appText('جارٍ النشر…'):appText('نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
+      <Button label={busy?appText('جارٍ النشر…'):appText(retryUpload?'إعادة رفع الفيديو':'نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
     {!!notice&&<Text accessibilityLiveRegion="polite" style={s.label}>{appText(notice)}</Text>}
     <Button label={appText("رجوع")} disabled={busy} onPress={onClose}/></View><PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/></View>;
 }

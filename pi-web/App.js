@@ -716,8 +716,10 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const [filterDraft,setFilterDraft]=useState('');
   const [messageMenu,setMessageMenu]=useState(null);
   const [report,setReport]=useState(null);
+  const [helpText,setHelpText]=useState('');
   const submittingReport=useRef(false);
   function startReport(kind,subject){
+    setHelpText('');
     setSeatMenu(null);setMessageMenu(null);setRoomMenu(null);
     setReport({kind,subject,id:crypto.randomUUID()});
   }
@@ -726,7 +728,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     submittingReport.current=true;
     try{
       const result=await supportRequest('caseCreate',{...report,detail:reason});
-      setReport(null);Alert.alert(ui('تم إرسال البلاغ'),ui('رقم الطلب')+' · '+result.id);
+      setReport(null);Alert.alert(ui(report.kind==='help'?'تم إرسال طلب المساعدة':'تم إرسال البلاغ'),ui('رقم الطلب')+' · '+result.id);
     }catch(error){Alert.alert(ui('تعذر الإبلاغ'),uiError(error))}
     finally{submittingReport.current=false}
   }
@@ -926,9 +928,12 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <Modal visible={!!(report||messageMenu)&&!minimized} transparent animationType="fade"
       onRequestClose={()=>{setReport(null);setMessageMenu(null)}}>
       <View style={S.roomMenuOverlay}><View style={S.roomMenuPanel}>
-        <Text accessibilityRole="header" style={S.title}>{report?ui('سبب البلاغ'):messageMenu?.title}</Text>
+        <Text accessibilityRole="header" style={S.title}>{report?ui(report.kind==='help'?'اترك طلب مساعدة':'سبب البلاغ'):messageMenu?.title}</Text>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
-          {report?['إساءة أو تهديد','احتيال أو انتحال','انتهاك الخصوصية','سلامة طفل','محتوى غير مناسب'].map(reason=>
+          {report?.kind==='help'?<>
+            <TextInput style={S.input} multiline maxLength={400} accessibilityLabel={ui('تفاصيل المشكلة')} placeholder={ui('تفاصيل المشكلة')} value={helpText} onChangeText={setHelpText}/>
+            <RoomOption title={ui('إرسال الطلب')} disabled={!helpText.trim()} onPress={()=>helpText.trim()&&sendReport(helpText.trim())}/>
+          </>:report?['إساءة أو تهديد','احتيال أو انتحال','انتهاك الخصوصية','سلامة طفل','محتوى غير مناسب'].map(reason=>
             <RoomOption key={reason} title={ui(reason)} onPress={()=>sendReport(reason)}/>)
             :messageMenu?.options.map(option=><RoomOption key={option.text} title={option.text} onPress={()=>{setMessageMenu(null);option.onPress()}}/>)}
           <RoomOption title={ui('إلغاء')} onPress={()=>{setReport(null);setMessageMenu(null)}}/>
@@ -940,6 +945,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
     <View style={S.roomTop} testID="room-header">
       <View style={S.roomHeaderMain}>
+        {officialHelp&&!minimized&&<Small plain title={ui('اترك طلب مساعدة')} onPress={()=>startReport('help',room.id)}/>}
         <View style={[S.roomTopRow,{direction:isRTL()?'rtl':'ltr'}]}>
           <TouchableOpacity accessibilityRole="button" accessibilityLabel={isHost?appText('إغلاق البث'):appText('مغادرة الغرفة')} style={S.roomMenuTrigger} onPress={isHost?closeHostedRoom:exitRoomOnce}><Text style={[S.roomControlGlyph,!audio&&S.onVideo]}>✕</Text></TouchableOpacity>
           <View style={S.roomIdentity}>
@@ -1922,7 +1928,7 @@ export default function App(){
       settings={[{label:ui("استعراض الغرف"),onPress:()=>go('rooms')},{label:ui("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
-    newId={crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
+    newId={()=>crypto.randomUUID()} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
   if(page==='linkPiAccount')return <HubScreen title={ui('ربط حساب Pi بحساب البريد')} action={{label:ui('رجوع'),onPress:()=>go('accountSettings')}} dock={nav()}>
     <LinkPiAccount key={user.uid} uid={user.uid} linked={visibleNumber?.piLoginLink==='linked'} onDone={confirmed=>{go('profile');if(confirmed)Alert.alert(ui('تم ربط الحسابين'));}}/>
   </HubScreen>;
@@ -1932,7 +1938,7 @@ export default function App(){
       <HubRows items={[
         {label:menu.edit,onPress:()=>go('profileEdit')},
         ...(window.Pi&&visibleNumber?.piLoginLink?[{label:ui('ربط حساب Pi بحساب البريد'),onPress:()=>go('linkPiAccount')}]:[]),
-        {label:ui('الدعم وطلباتي'),onPress:()=>go('help')},
+        {label:ui('صندوق الوارد والدعم'),onPress:()=>go('help')},
         {label:ui('طلب حذف الحساب'),destructive:true,onPress:deleteAccount},
         {label:ui('سياسة الخصوصية'),onPress:()=>setPolicy('privacy')},
         {label:ui('شروط الخدمة'),onPress:()=>setPolicy('terms')},

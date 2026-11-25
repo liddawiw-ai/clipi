@@ -1,18 +1,34 @@
 import {isAppOwner} from './app-owners.mjs';
-const kinds=['video','comment','room','participant','message','purchase','deletion'];
+const kinds=['video','comment','room','participant','message','purchase','deletion','help'];
 const uuid=/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i;
 export async function supportCase(q,uid,owner,input,json){
-  const staff=await isAppOwner(q,uid,owner);
+  const ownerAccess=await isAppOwner(q,uid,owner);
+  const staff=ownerAccess||Boolean(await q('SELECT 1 FROM clipi_app_admin WHERE uid=?',uid).first());
+  if(input.op==='caseReply'){
+    if(!staff)return json({error:'غير مصرح'},403);
+    const body=typeof input.body==='string'?input.body.trim():'';
+    if(!uuid.test(input.id)||!body||body.length>800)return json({error:'أدخل نص الرد'},400);
+    const result=await q(`INSERT INTO support_reply(case_id,staff,body,created)
+      SELECT id,?,?,? FROM support_case WHERE id=? AND kind='help'
+      ON CONFLICT(case_id) DO NOTHING`,uid,body,Math.floor(Date.now()/1000),input.id).run();
+    if(!result.meta.changes){
+      const saved=await q('SELECT staff,body FROM support_reply WHERE case_id=?',input.id).first();
+      if(saved?.staff!==uid||saved?.body!==body)return json({error:'الطلب غير متاح للرد'},409);
+    }
+    return json({sent:true});
+  }
   if(input.op==='caseQueue'||input.op==='caseReviewed'){
     if(!staff)return json({error:'غير مصرح'},403);
     if(input.op==='caseReviewed'){
-      await q("UPDATE support_case SET state='reviewed' WHERE id=? AND kind<>'deletion' AND state='open'",input.id).run();
+      if(!ownerAccess)return json({error:'غير مصرح'},403);
+      await q("UPDATE support_case SET state='reviewed' WHERE id=? AND kind NOT IN ('deletion','help') AND state='open'",input.id).run();
     }
-    const rows=await q("SELECT * FROM support_case WHERE state='open' ORDER BY created,id LIMIT 100").all();
+    const rows=await q(`SELECT c.* FROM support_case c WHERE state='open' AND (?=1 OR kind='help')
+      AND NOT EXISTS(SELECT 1 FROM support_reply WHERE case_id=c.id) ORDER BY created,id LIMIT 100`,Number(ownerAccess)).all();
     return json({cases:rows.results,staff});
   }
   if(input.op==='caseList'){
-    const rows=await q('SELECT id,kind,created,state FROM support_case WHERE uid=? ORDER BY created DESC,rowid DESC LIMIT 30',uid).all();
+    const rows=await q(`SELECT c.id,c.kind,c.created,c.state,r.body AS reply,CASE WHEN c.kind='help' THEN c.detail END AS question FROM support_case c LEFT JOIN support_reply r ON r.case_id=c.id WHERE c.uid=? ORDER BY COALESCE(r.created,c.created) DESC,c.rowid DESC LIMIT 30`,uid).all();
     const deletion=await q("SELECT id FROM support_case WHERE uid=? AND kind='deletion' AND state='open'",uid).first();
     return json({cases:rows.results,staff,deletion:deletion?.id||null});
   }

@@ -160,7 +160,7 @@ export default {
       if(input?.op==='shortDelete')return deleteShort(await roomStore(env.PI_GIFTS_DB),uid,input.clip,json,env.SHORT_VIDEOS,env.CLIP_MEDIA);
       if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.CLIP_MEDIA || env.SHORT_VIDEOS));
       if(['externalCreate','externalOrders','externalStoreAccount'].includes(input?.op))return accountCheckout(env,uid,input,new URL(request.url).origin);
-      if(['caseCreate','caseList','caseQueue','caseReviewed'].includes(input?.op)){
+      if(['caseCreate','caseList','caseQueue','caseReviewed','caseReply'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       }
       if(input?.op==='wallet'||input?.op==='linkHostWallet'){
