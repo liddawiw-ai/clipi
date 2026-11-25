@@ -8,6 +8,14 @@ keep_vars = true
 CLIPI_WEB_ENTRY = "room"
 PI_GIFTS_TESTNET = "1"
 
+[build]
+command = "npm ci --prefix pi-web --no-audit --no-fund && cd pi-web && node build.mjs"
+
+[assets]
+directory = "./pi-web/dist"
+binding = "CLIPI_APP"
+run_worker_first = true
+
 [[d1_databases]]
 binding = "PI_GIFTS_DB"
 database_name = "clipi-pi-testnet-gifts"

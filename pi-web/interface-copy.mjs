@@ -1,5 +1,11 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "اربط محفظتي": "Link my wallet",
+  "تحديث ربط المحفظة": "Update wallet link",
+  "محفظة Pi المرتبطة": "Linked Pi wallet",
+  "تم ربط محفظتك.": "Your wallet is linked.",
+  "تعذّر ربط المحفظة. حاول مجددًا.": "Could not link your wallet. Please try again.",
+  "لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.": "Pi did not share a wallet address. Open your Pi wallet and try again.",
   "غلاف البث": "Broadcast cover",
   "اختيار غلاف البث": "Choose broadcast cover",
   "تغيير غلاف البث": "Change broadcast cover",

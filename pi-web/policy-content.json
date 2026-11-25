@@ -3,7 +3,7 @@
     "en": [
       "Privacy Policy",
       "Clipi uses your sign-in identifier, including your PI account identifier when you sign in with PI. Firebase processes profile information, room activity and chat messages. LiveKit carries the audio and video you choose to share with participants.",
-      "For confirmed diamond purchases, Clipi records the payment identifier. For room gifts, Clipi records the room, gift and diamonds sent and received. Keep your wallet passphrase private.",
+      "For confirmed diamond purchases, Clipi records the payment identifier. For room gifts, Clipi records the room, gift and diamonds sent and received. If you link your Pi wallet, Clipi saves its public address with your account. Keep your wallet passphrase private.",
       "Cloudflare services process account and room identifiers, messages, gift records and receipts for rooms and wallets. The support center stores the requester ID, report reason, reference and status. The authorized operator can review requests.",
       "Request deletion of your Clipi account and associated data in Settings → Request account deletion, or at /delete-account on the Clipi website. Keep the reference for follow-up. The operator reviews the request. Some payment or dispute records may need to be retained. For help or if you cannot sign in, contact Liddawiw@gmail.com.",
       "When you select Publish video, Clipi sends the selected clip and its title and associates them with your account. Clipi stores video files in Cloudflare R2 when uploads are enabled. People browsing Explore can view a published clip, share its link and download a copy. Copies others have saved may remain after the clip is removed from Clipi.",
@@ -15,7 +15,7 @@
     "ar": [
       "سياسة الخصوصية",
       "يستخدم كليبي معرّف تسجيل الدخول، بما فيه معرّف حساب PI عند الدخول باستخدام PI. يعالج Firebase معلومات الملف الشخصي ونشاط الغرف ورسائل الدردشة. ينقل LiveKit الصوت والفيديو اللذين تختار مشاركتهما مع المشاركين.",
-      "يسجّل كليبي معرّف الدفع عند تأكيد شراء الماس. وعند إرسال هدية، يسجّل الغرفة والهدية وعدد الماسات المُرسلة والمُستلمة. احتفظ بعبارة مرور محفظتك لنفسك.",
+      "يسجّل كليبي معرّف الدفع عند تأكيد شراء الماس. وعند إرسال هدية، يسجّل الغرفة والهدية وعدد الماسات المُرسلة والمُستلمة. إذا ربطت محفظة Pi، يحفظ كليبي عنوانها العام مع حسابك. احتفظ بعبارة مرور محفظتك لنفسك.",
       "تعالج خدمات الغرف والمحفظة لدى Cloudflare معرّفات الحساب والغرفة والرسائل والهدايا والإيصالات. يحفظ مركز الدعم معرّف صاحب الطلب، وسبب البلاغ، ومرجعه وحالته للمراجعة. يستطيع حساب الإدارة المخوّل الاطلاع على الطلبات.",
       "لطلب حذف حساب Clipi والبيانات المرتبطة به، افتح الإعدادات ← طلب حذف الحساب، أو استخدم صفحة /delete-account على موقع كليبي. احفظ رقم الطلب للمتابعة. يراجع المشغّل الطلب؛ وقد تتطلب بعض سجلات الدفع أو تسوية النزاعات الاحتفاظ بها. للاستفسارات أو تعذّر الدخول تواصل مع Liddawiw@gmail.com.",
       "عند الضغط على «نشر الفيديو»، يرسل التطبيق المقطع الذي اخترته وعنوانه، ويربطهما بحسابك. يحفظ كليبي ملفات المقاطع في Cloudflare R2 عند تفعيل الرفع. يستطيع مستخدمو «استكشف» مشاهدة المقطع ومشاركة رابطه وتنزيل نسخة منه. وقد تبقى نسخ نزّلها آخرون بعد إزالة المقطع من كليبي.",
