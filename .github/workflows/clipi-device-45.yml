@@ -1,0 +1,40 @@
+name: Clipi signed 45 viewer verification
+on:
+  push:
+    branches:
+      - review/clipi-device-45
+    paths:
+      - .github/workflows/clipi-device-45.yml
+      - scripts/check-installed-video.py
+permissions:
+  contents: read
+  actions: read
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clipi-Android-45
+          run-id: 45700871750
+          github-token: ${{ github.token }}
+      - name: Check the exact shared package
+        run: |
+          echo 'd1a0403e39cc16817b99e15fe86a03920c5f94d45759d63e45a4b251e90db1a8  Clipi-Android-45.apk' | sha256sum -c -
+          sudo chmod a+rw /dev/kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          heap-size: 512M
+          disable-animations: true
+          script: |
+            adb shell settings put system screen_off_timeout 900000
+            adb shell wm dismiss-keyguard
+            adb install -r Clipi-Android-45.apk
+            python3 -u scripts/check-installed-video.py
