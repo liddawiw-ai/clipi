@@ -1,3 +1,4 @@
+import {createRoundClock} from './greedy-clock.mjs';
 import {uiError,ui as appText,interfaceLocale,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
 import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
 import RoomHostCard,{useRoomHost} from './RoomHostCard';
@@ -135,7 +136,10 @@ function globalRoundAt(now){
     remaining:Math.ceil((deadline-elapsed)/1000)};
 }
 function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRoom,roomName,diamonds,onBet,onCredit}){
-  const [now,setNow]=useState(Date.now());
+  const clock=useRef(null);
+  if (!clock.current) clock.current=createRoundClock();
+  const roundClock=clock.current;
+  const [now,setNow]=useState(roundClock.now());
   const {height,width}=useWindowDimensions();
   const rotation=useRef(new Animated.Value(0)).current;
   const [chosen,setChosen]=useState({});
@@ -144,11 +148,28 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
   creditRef.current=onCredit;
   const [amount,setAmount]=useState(10);
   const [roundHistory,setRoundHistory]=useState([]);
-  const lastRound=useRef(globalRoundAt(Date.now()).round);
+  const lastRound=useRef(globalRoundAt(roundClock.now()).round);
   useEffect(()=>{
-    const tick=setInterval(()=>setNow(Date.now()),200);
+    const tick=setInterval(()=>setNow(roundClock.now()),200);
     return ()=>clearInterval(tick);
   },[]);
+  useEffect(()=>{
+    if(!visible)return;
+    const controller=new AbortController();
+    async function sample(){
+      try{
+        await roundClock.sync(async()=>{
+          const response=await fetch(MEDIA_ENDPOINT+'/game-clock',{signal:controller.signal});
+          if(!response.ok)return null;
+          return (await response.json()).now;
+        });
+        if(!controller.signal.aborted)setNow(roundClock.now());
+      }catch{}
+    }
+    sample();
+    const interval=setInterval(sample,30000);
+    return ()=>{controller.abort();clearInterval(interval)};
+  },[visible,roundClock]);
   const state=globalRoundAt(now);
   function settle(current){
     const bets=roundBets.current;
@@ -168,11 +189,11 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
       lastRound.current=state.round;
     }
   },[state.round,state.phase]);
-  useEffect(()=>()=>settle(globalRoundAt(Date.now())),[]);
+  useEffect(()=>()=>settle(globalRoundAt(roundClock.now())),[]);
   const placingTrialBet=useRef(false);
   const choose=async i=>{
     if(placingTrialBet.current)return;
-    const current=globalRoundAt(Date.now());
+    const current=globalRoundAt(roundClock.now());
     if(!current.betting||current.round!==state.round)return;
     settle(current);
     if(roundBets.current.round!==current.round)roundBets.current={round:current.round,stakes:{},settled:false};
@@ -182,14 +203,14 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRo
     try{
       if(!await onBet(amount,i,current.round))return Alert.alert(appText('اللعب التجريبي'),appText('تعذّر تسجيل الاختيار. تحقق من الرصيد وتوقيت الجولة.'));
     }finally{placingTrialBet.current=false;}
-    if(globalRoundAt(Date.now()).round!==current.round)return;
+    if(globalRoundAt(roundClock.now()).round!==current.round)return;
 
     const updated={...stakes,[i]:(stakes[i]||0)+amount};
     roundBets.current.stakes=updated;
     setChosen(updated);
   };
   useEffect(()=>{
-    const current=globalRoundAt(Date.now());
+    const current=globalRoundAt(roundClock.now());
     const target=5*360+(360-current.winner*360/FOOD.length)%360;
     if(!visible||current.phase!=='spinning'){
       rotation.setValue(current.phase==='result'?target:0);

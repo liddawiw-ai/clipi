@@ -47,6 +47,7 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path==='/game-clock' && request.method==='GET')return json({now:Date.now()});
     if(path==='/internal/account-deletion')return operatorErasure(request,env,roomStore,json);
     if(request.method==='GET'&&(path==='/device-install/android'||path==='/device-install/ios'))return deviceInstall(request,path.split('/').pop());
     if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
