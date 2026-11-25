@@ -1,5 +1,6 @@
 import test from 'node:test';
 import {readFile} from 'node:fs/promises';
+import {checkShortVideo} from '../pi-web/short-upload-limits.mjs';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {roomStore} from './room-controls.mjs';
@@ -84,4 +85,9 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0);
   }
   assert.equal((await readWallet(q,'viewer')).diamonds,20);
+});
+
+test('three-minute fragmented MP4 may start after timestamp zero', async () => {
+  const video = await readFile(new URL('./fixtures/short-fragmented-180s.mp4', import.meta.url));
+  assert.equal(await checkShortVideo(video), null);
 });

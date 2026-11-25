@@ -15,7 +15,10 @@ export async function checkShortVideo(file) {
   const input = new Input({formats: [MP4], source});
   try {
     if (await input.getPrimaryVideoTrack()) {
-      const seconds = await input.computeDuration();
+      // Some fragmented MP4s start on a positive timestamp. Encoder priming
+      // before zero is not part of the playable clip either.
+      const [first, end] = await Promise.all([input.getFirstTimestamp(), input.computeDuration()]);
+      const seconds = end - Math.max(0, first);
       if (Number.isFinite(seconds) && seconds > 0) {
         return seconds > maxShortSeconds ? {error: durationError, status: 422} : null;
       }
