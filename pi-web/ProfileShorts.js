@@ -2,10 +2,10 @@ import {ui as appText} from './interface-language.mjs';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Modal} from 'react-native';
 import {ShortVideoHome} from './ShortVideoHome';
-import {startProfileVideo} from './ShortMedia';
+import {shortsLookahead, startProfileVideo} from './ShortMedia';
 
 
-function ClipTile({source, label, onOpen, previews, suspended}) {
+function ClipTile({source, label, onOpen, previews, suspended, warm}) {
   const tile = useRef(null), host = useRef(null);
   const [visible, setVisible] = useState(false);
   const [image, setImage] = useState('');
@@ -18,15 +18,15 @@ function ClipTile({source, label, onOpen, previews, suspended}) {
   }, []);
 
   useEffect(() => {
-    if (!visible || suspended || captured.current) return;
+    if (!visible || suspended || (!warm && captured.current)) return;
     const video = document.createElement('video');
     video.defaultMuted = video.muted = true;
     video.playsInline = true;
-    video.preload = 'metadata';
+    video.preload = warm ? 'auto' : 'metadata';
     const pool = previews.current;
     pool.set(source,video);
     function seekCover() {
-      if (pool.get(source)===video && Number.isFinite(video.duration) && video.duration>0)
+      if (!warm && pool.get(source)===video && Number.isFinite(video.duration) && video.duration>0)
         video.currentTime=Math.min(.1,video.duration/2);
     }
     function capture() {
@@ -57,7 +57,7 @@ function ClipTile({source, label, onOpen, previews, suspended}) {
         video.pause();video.removeAttribute('src');video.load();video.remove();
       }
     };
-  }, [visible, source, previews, suspended]);
+  }, [visible, source, previews, suspended, warm]);
 
   return <button ref={tile} type="button" className="clipi-profile-tile" aria-label={label} onClick={()=>onOpen(image)}>
     <span ref={host} aria-hidden="true" style={image?{display:'none'}:undefined}/>
@@ -70,6 +70,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   const [canDelete,setCanDelete] = useState(false), [loading,setLoading] = useState(true);
   const [error,setError] = useState(''), [selected,setSelected] = useState(null);
   const previews = useRef(new Map());
+  const ahead = shortsLookahead();
   const life = useRef(0), loadingPage = useRef(null), more = useRef(null);
   const load = useCallback(async before => {
     const generation = life.current;
@@ -114,7 +115,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   const source = clip => endpoint + '/shorts/media/' + clip.id;
   function open(index,poster) {
     const chosen=clips[index], videos=new Map();
-    for (const clip of clips.slice(Math.max(0,index-1),index+2)) {
+    for (const clip of clips.slice(Math.max(0,index-1),index+ahead+1)) {
       const url=source(clip), video=previews.current.get(url);
       if (!video) continue;
       previews.current.delete(url);
@@ -128,7 +129,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   return <section className="clipi-profile-gallery">
     <h2>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</h2>
     <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
-      previews={previews} suspended={!!selected} source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>open(index,poster)}/>)}</div>
+      previews={previews} warm={index < (ahead===2 ? 3 : 1)} suspended={!!selected} source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>open(index,poster)}/>)}</div>
     {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
     {!loading && !!error && <><p role="alert">{appText(error)}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
     {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
