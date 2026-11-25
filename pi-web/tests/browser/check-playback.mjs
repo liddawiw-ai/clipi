@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {createRequire} from 'node:module';
 import {build} from 'esbuild';
+import {checkProfilePlayback} from './check-profile-playback.mjs';
 import {checkNavigation} from './check-navigation.mjs';
 
 const require=createRequire(import.meta.url);
@@ -15,7 +16,7 @@ const video=await readFile(new URL('../../assets/shorts/palace.mp4',import.meta.
 const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
 const server=createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
-  if(url.pathname==='/shorts/media/fixture'){
+  if(/^\/shorts\/media\/(fixture|one|two|three)$/.test(url.pathname)){
     const offset=Number(/^bytes=(\d+)-/.exec(req.headers.range||'')?.[1]||0);
     res.writeHead(req.headers.range?206:200,{'Content-Type':'video/mp4','Accept-Ranges':'bytes',
       ...(req.headers.range?{'Content-Range':`bytes ${offset}-${video.length-1}/${video.length}`}:{})});
@@ -32,6 +33,7 @@ const server=createServer((req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
+  await checkProfilePlayback(browser, 'http://127.0.0.1:'+server.address().port);
   for(const locale of ['ar','en'])for(const role of ['host','admin','user']){
     const page=await browser.newPage({viewport:{width:390,height:844}});
     const en=locale==='en',errors=[];
@@ -58,8 +60,6 @@ try{
       assert.equal(await original.evaluate(v=>v.paused),false);
       await surface.click();
       await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid="short-video-playback"]')).opacity==='1');
-      assert.equal(await original.evaluate(v=>v.paused),false);
-      await center.click();
       await page.waitForFunction(v=>v.paused,original);
       const frame=await original.evaluate(v=>v.currentTime);
       assert.equal(await center.getAttribute('aria-label'),'استئناف الفيديو');
@@ -80,12 +80,14 @@ try{
       assert.equal(await original.evaluate(v=>v.paused),false);
       await surface.click(point);
       await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid="short-video-playback"]')).opacity==='1');
-      assert.equal(await original.evaluate(v=>v.paused),false);
+      await page.waitForFunction(v=>v.paused,original);
+      await surface.click(point);
+      await page.waitForFunction(v=>!v.paused,original);
       await surface.dblclick(point);
       await page.getByRole('button',{name:'إلغاء الإعجاب',exact:true}).first().waitFor();
       await page.waitForTimeout(350);
       assert.equal(await original.evaluate(v=>v.paused),false);
-      console.log('PASS pause bars hide after three seconds, tap reveals during playback, center pauses, play arrow stays visible, independent mute and double-tap like');
+      console.log('PASS pause bars hide after three seconds, tap pauses and resumes, center resumes, play arrow stays visible, independent mute and double-tap like');
     }
     await button(en?'More':'المزيد').click();
     const sheet=page.locator('.clipi-video-settings .clipi-feed-sheet');

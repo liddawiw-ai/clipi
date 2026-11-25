@@ -1,5 +1,6 @@
 import React from 'react';
 import {createRoot} from 'react-dom/client';
+import ProfileShorts from '../../ProfileShorts';
 import {ShortVideoHome} from '../../ShortVideoHome';
 import {accountLabels} from '../../AccountLabels';
 import {configureInterface} from '../../interface-language.mjs';
@@ -10,6 +11,9 @@ configureInterface('',locale,null,accountLabels);
 const clip={id:'fixture',owner:'host',title:'حفظ',canDelete:uid==='host'};
 async function request(path,input){
   switch(input.op){
+    case 'shortProfileList':
+      if(input.owner!=='host'||uid!=='user') throw Error('Expected a visitor viewing the host');
+      return {clips:['one','two','three'].map(id=>({...clip,id,title:id})),canDelete:false,nextCursor:null};
     case 'shortList': return {clips:[clip]};
     case 'shortLike': return {liked:input.liked,likes:Number(input.liked)};
     case 'shortState': return {owner:'host',authorName:'إغلاق',canDelete:clip.canDelete,social:true,commentCount:1};
@@ -18,6 +22,7 @@ async function request(path,input){
   }
 }
 createRoot(document.getElementById('app')).render(
-  <ShortVideoHome viewer={{uid}} request={request} endpoint={location.origin} roomLabels={accountLabels[locale]}
+  params.has('profile') ? <ProfileShorts authorUid="host" request={request} endpoint={location.origin}
+    playerProps={{viewer:{uid},roomLabels:accountLabels[locale],gifts:[]}}/> : <ShortVideoHome viewer={{uid}} request={request} endpoint={location.origin} roomLabels={accountLabels[locale]}
     onReport={()=>{}} gifts={[]}/>
 );
