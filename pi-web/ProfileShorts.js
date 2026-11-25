@@ -5,40 +5,63 @@ import {ShortVideoHome} from './ShortVideoHome';
 import {startProfileVideo} from './ShortMedia';
 
 
-function ClipTile({source, label, onOpen}) {
-  const tile = useRef(null);
+function ClipTile({source, label, onOpen, previews, suspended}) {
+  const tile = useRef(null), host = useRef(null);
   const [visible, setVisible] = useState(false);
   const [image, setImage] = useState('');
+  const captured = useRef('');
   useEffect(() => {
     if (!window.IntersectionObserver) {setVisible(true); return;}
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) {setVisible(true); observer.disconnect();}
-    }, {rootMargin:'100px'});
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting), {rootMargin:'100px'});
     observer.observe(tile.current);
     return () => observer.disconnect();
   }, []);
 
-  function capture(event) {
-    const video = event.currentTarget;
-    if (video.seeking || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = 228; canvas.height = 342;
-    const context = canvas.getContext('2d');
-    if (!context) return;
-    const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
-    const w = video.videoWidth * scale, h = video.videoHeight * scale;
-    try {
-      context.drawImage(video, (canvas.width-w)/2, (canvas.height-h)/2, w, h);
-      setImage(canvas.toDataURL('image/jpeg', .76));
-    } catch { /* Keep the paused video frame when capture is unavailable. */ }
-  }
+  useEffect(() => {
+    if (!visible || suspended || captured.current) return;
+    const video = document.createElement('video');
+    video.defaultMuted = video.muted = true;
+    video.playsInline = true;
+    video.preload = 'metadata';
+    const pool = previews.current;
+    pool.set(source,video);
+    function seekCover() {
+      if (pool.get(source)===video && Number.isFinite(video.duration) && video.duration>0)
+        video.currentTime=Math.min(.1,video.duration/2);
+    }
+    function capture() {
+      if (pool.get(source)!==video || captured.current || video.seeking || video.readyState<2 || !video.videoWidth) return;
+      const canvas = document.createElement('canvas');
+      canvas.width=228; canvas.height=342;
+      const context=canvas.getContext('2d');
+      if (!context) return;
+      const scale=Math.max(canvas.width/video.videoWidth,canvas.height/video.videoHeight);
+      const w=video.videoWidth*scale, h=video.videoHeight*scale;
+      try {
+        context.drawImage(video,(canvas.width-w)/2,(canvas.height-h)/2,w,h);
+        captured.current=canvas.toDataURL('image/jpeg',.76);
+        setImage(captured.current);
+      } catch { /* The paused inline frame remains the cover. */ }
+    }
+    video.addEventListener('loadedmetadata',seekCover);
+    video.addEventListener('loadeddata',capture);
+    video.addEventListener('seeked',capture);
+    host.current.appendChild(video);
+    video.src=source;
+    return () => {
+      video.removeEventListener('loadedmetadata',seekCover);
+      video.removeEventListener('loadeddata',capture);
+      video.removeEventListener('seeked',capture);
+      if (pool.get(source)===video) {
+        pool.delete(source);
+        video.pause();video.removeAttribute('src');video.load();video.remove();
+      }
+    };
+  }, [visible, source, previews, suspended]);
 
   return <button ref={tile} type="button" className="clipi-profile-tile" aria-label={label} onClick={()=>onOpen(image)}>
-    {image ? <img alt="" src={image}/> : visible && <video aria-hidden="true" muted playsInline preload="metadata"
-      src={source + '#t=0.1'} onLoadedMetadata={e => {
-        const v=e.currentTarget;
-        if (Number.isFinite(v.duration) && v.duration>0) v.currentTime=Math.min(.6,v.duration/2);
-      }} onLoadedData={capture} onSeeked={capture}/>}
+    <span ref={host} aria-hidden="true" style={image?{display:'none'}:undefined}/>
+    {image && <img alt="" src={image}/>}
   </button>;
 }
 
@@ -46,6 +69,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   const [clips,setClips] = useState([]), [cursor,setCursor] = useState(null);
   const [canDelete,setCanDelete] = useState(false), [loading,setLoading] = useState(true);
   const [error,setError] = useState(''), [selected,setSelected] = useState(null);
+  const previews = useRef(new Map());
   const life = useRef(0), loadingPage = useRef(null), more = useRef(null);
   const load = useCallback(async before => {
     const generation = life.current;
@@ -76,7 +100,11 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     return () => observer.disconnect();
   },[load,cursor,loading,error]);
 
-  useEffect(() => () => { selected?.video.pause(); }, [selected]);
+  useEffect(() => () => {
+    for (const video of selected?.videos.values() || []) {
+      video.pause();video.removeAttribute('src');video.load();
+    }
+  }, [selected]);
 
   function removed(id) {
     setClips(current => current.filter(clip => clip.id !== id));
@@ -84,10 +112,23 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
   }
 
   const source = clip => endpoint + '/shorts/media/' + clip.id;
+  function open(index,poster) {
+    const chosen=clips[index], videos=new Map();
+    for (const clip of clips.slice(Math.max(0,index-1),index+2)) {
+      const url=source(clip), video=previews.current.get(url);
+      if (!video) continue;
+      previews.current.delete(url);
+      video.remove();
+      if (video.readyState>=1 && video.currentTime!==0) video.currentTime=0;
+      videos.set(clip.id,video);
+    }
+    videos.set(chosen.id,startProfileVideo(source(chosen),poster,playerProps?.playable!==false,videos.get(chosen.id)));
+    setSelected({id:chosen.id,videos});
+  }
   return <section className="clipi-profile-gallery">
     <h2>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</h2>
     <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
-      source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>setSelected({id:clip.id, video:startProfileVideo(source(clip),poster,playerProps?.playable!==false)})}/>)}</div>
+      previews={previews} suspended={!!selected} source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>open(index,poster)}/>)}</div>
     {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
     {!loading && !!error && <><p role="alert">{appText(error)}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}
     {!loading && !error && !clips.length && <p>{translate('لا توجد فيديوهات منشورة بعد')}</p>}
@@ -95,7 +136,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     {selected && <Modal visible animationType="none" onRequestClose={()=>setSelected(null)}>
       <ShortVideoHome {...playerProps} request={request} endpoint={endpoint} translate={translate}
         initialId={selected.id} onAuthor={()=>setSelected(null)}
-        profileFeed={{clips,canDelete,initialVideo:selected.video,onClose:()=>setSelected(null),onDeleted:removed,
+        profileFeed={{clips,canDelete,initialVideos:selected.videos,onClose:()=>setSelected(null),onDeleted:removed,
           onMore:()=>{if(cursor!=null&&!loading&&!error)load(cursor);}}}/>
     </Modal>}
   </section>;

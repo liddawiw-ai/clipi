@@ -1,3 +1,4 @@
+import {bucketPlayback} from './bucket-playback.mjs';
 import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
 import {authorState,profileSocial,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
 import {paidBalance} from './diamond-wallet.mjs';
@@ -143,10 +144,7 @@ export async function serveShort(request, bucket, q, id, json, videos) {
   if (!head) return json({error:'الفيديو غير موجود'},404);
   const spec = playback(request, head.size);
   if (spec instanceof Response) return spec;
-  const {status, headers, offset, length} = spec;
-  headers.set('Cache-Control', 'private, no-store');
-  const options = status === 206 ? {range: {offset, length}} : {};
-  const data = request.method === 'HEAD' ? null : await bucket.get(row.object_key, options);
-  if (request.method !== 'HEAD' && !data) return json({error:'الفيديو غير موجود'},404);
-  return new Response(data?.body || null, {status, headers});
+  spec.headers.set('Cache-Control', 'private, no-store');
+  const response = await bucketPlayback(request,bucket,row.object_key,head,spec);
+  return response || json({error:'الفيديو غير موجود'},404);
 }

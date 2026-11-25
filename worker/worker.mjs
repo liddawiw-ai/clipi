@@ -84,7 +84,17 @@ export default {
       return env.CLIPI_APP.fetch(request);
     }
     const shortFile=/^\/shorts\/media\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
-    if(shortFile && ['GET','HEAD'].includes(request.method))return serveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),shortFile[1],json,env.CLIP_MEDIA);
+    if (shortFile && ['GET','HEAD'].includes(request.method)) {
+      // A published clip already has a catalog row. Cold playback does not need room migrations.
+      const query = (sql,...args) => env.PI_GIFTS_DB.prepare(sql).bind(...args);
+      try {
+        return await serveShort(request,env.SHORT_VIDEOS,query,shortFile[1],json,env.CLIP_MEDIA);
+      } catch (error) {
+        if (/no such table: (?:main\.)?short_clip\b/i.test(error.message))
+          return json({error:'الفيديو غير موجود'},404);
+        throw error;
+      }
+    }
     if((path==='/account-number'&&request.method==='POST')||(shortFile&&request.method==='PUT')){
       const token=(request.headers.get('Authorization')||'').match(/^Bearer ([^ ]{1,8192})$/)?.[1];
       if(!token)return json({error:'سجل الدخول'},401);
