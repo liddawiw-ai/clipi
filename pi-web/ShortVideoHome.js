@@ -28,9 +28,6 @@ function SoundControl({playerRef,muted,setMuted}){
     const player=playerRef.current;
     if(!player)return;
     player.muted=next;
-    if(!next)Promise.resolve(player.play()).catch(()=>{
-      if(playerRef.current===player&&!player.muted)setMuted(true);
-    });
   }
   return <button type="button" className="clipi-audio" onClick={toggleSound}>
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
@@ -39,6 +36,15 @@ function SoundControl({playerRef,muted,setMuted}){
 function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
+  const [paused,setPaused]=useState(false);
+  function togglePlayback(){
+    if(!playable)return;
+    if(paused){
+      // Keep resume inside the press event for browsers that require a user gesture.
+      playerRef.current?.play().catch(()=>{});
+    }
+    setPaused(previous=>!previous);
+  }
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
@@ -144,13 +150,15 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} active={playable&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPaused(true)} active={playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
     {!showing&&<>
-    <VideoTapSurface clipId={item.id} onDoubleTap={confirm=>like(true,confirm)}/>
+    <VideoTapSurface clipId={item.id} paused={paused} onSingleTap={togglePlayback}
+      playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
+      onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
     <div className="clipi-action-stack">
       <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
@@ -209,7 +217,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     const timer=setTimeout(()=>setNotice(''),4000);
     return ()=>clearTimeout(timer);
   },[notice]);
-  const [muted,setMuted]=useState(false);
+  const [muted,setMuted]=useState(true);
   const windowHeight=useWindowDimensions().height;
   const [viewMode,setViewModeState]=useState('');
   const locked=useRef(''),openedHeight=useRef(0);
@@ -296,7 +304,7 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
 
 export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
-  const [muted,setMuted]=useState(false);
+  const [muted,setMuted]=useState(true);
   const playerRef=useRef(null);
   const [accepted,setAccepted]=useState(false),[policy,setPolicy]=useState(null);
   const job=useRef(null),lock=useRef(false),alive=useRef(true);
