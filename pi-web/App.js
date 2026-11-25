@@ -486,6 +486,18 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
   const [roomActionPending,setRoomActionPending]=useState(false);
+  const updatingCover=useRef(false);
+  async function editRoomCover(remove=false){
+    if(!isHost||updatingCover.current)return;
+    updatingCover.current=true;setRoomActionPending(true);
+    try{
+      const image=remove?null:await choosePhoto(720);
+      if(!remove&&!image)return;
+      await mediaRequest('/account-number',{op:'roomCover',room:room.id,image});
+      setRoomMenu(null);
+    }catch(error){Alert.alert(appText('تعذّر حفظ غلاف البث'),uiError(error))}
+    finally{updatingCover.current=false;setRoomActionPending(false)}
+  }
   const roomActionLock=useRef(false);
   const [roomMenu,setRoomMenu]=useState(null);
   const [shareOpen,setShareOpen]=useState(false),[shareStatus,setShareStatus]=useState('');
@@ -787,7 +799,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   }
   function goBackFromRoomMenu(){
     if(roomMenu==='terms'||roomMenu==='privacy')setRoomMenu(policyOrigin);
-    else if(roomMenu==='themes'||roomMenu==='filter'||roomMenu==='people'||roomMenu==='friends'||roomMenu==='admins')setRoomMenu('settings');
+    else if(roomMenu==='cover'||roomMenu==='themes'||roomMenu==='filter'||roomMenu==='people'||roomMenu==='friends'||roomMenu==='admins')setRoomMenu('settings');
     else closeRoomMenu();
   }
   const roomSettings=<Modal visible={roomMenu!==null&&!minimized} transparent animationType="fade" onRequestClose={goBackFromRoomMenu}>
@@ -797,11 +809,14 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
       <TouchableOpacity accessible={false} style={StyleSheet.absoluteFillObject} onPress={closeRoomMenu}/>
       <KeyboardAvoidingView style={S.roomMenuPanel} behavior={Platform.OS==='ios'?'padding':undefined}>
         <View style={S.hostSettingsHeading}>
-          <Text style={S.title}>{roomMenu==='admins'?appText('أدمن الغرفة'):roomMenu==='friends'?broadcast.invite:roomMenu==='filter'?ui('الكلمات المحظورة'):roomMenu==='people'?ui('المشاركون'):roomMenu==='themes'?ui("ثيمات الغرفة"):ui("إعدادات الغرفة")}</Text>
+          <Text style={S.title}>{roomMenu==='cover'?appText('غلاف البث'):roomMenu==='admins'?appText('أدمن الغرفة'):roomMenu==='friends'?broadcast.invite:roomMenu==='filter'?ui('الكلمات المحظورة'):roomMenu==='people'?ui('المشاركون'):roomMenu==='themes'?ui("ثيمات الغرفة"):ui("إعدادات الغرفة")}</Text>
           <WindowControl icon={['themes','filter','people','friends','admins'].includes(roomMenu)?'‹':'×'} label={['themes','filter','people','friends','admins'].includes(roomMenu)?ui("رجوع"):ui("إغلاق")} onPress={goBackFromRoomMenu}/>
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.roomMenuItems}>
-          {roomMenu==='admins'&&canApprove?<RoomAdmins act={membership.act}/>:roomMenu==='friends'&&canApprove?<FriendPicker act={membership.act} locale={locale}/>:roomMenu==='filter'&&canApprove?<>
+          {roomMenu==='admins'&&canApprove?<RoomAdmins act={membership.act}/>:roomMenu==='friends'&&canApprove?<FriendPicker act={membership.act} locale={locale}/>:roomMenu==='cover'&&isHost?<>
+            <RoomOption title={appText('اختيار غلاف البث')} disabled={roomActionPending} onPress={()=>editRoomCover()}/>
+            <RoomOption title={appText('إزالة الغلاف')} disabled={roomActionPending} onPress={()=>editRoomCover(true)}/>
+          </>:roomMenu==='filter'&&canApprove?<>
             <TextInput style={[S.input,{width:'100%'}]} multiline maxLength={820} value={filterDraft} onChangeText={setFilterDraft}
               accessibilityLabel={ui('الكلمات المحظورة')} placeholder={ui('اكتب كل كلمة في سطر')}/>
             <RoomOption title={ui('حفظ')} disabled={roomActionPending} onPress={()=>updateRoomSettings({words:filterDraft.split(/[,،\n]/).map(v=>v.trim()).filter(Boolean)},true)}/>
@@ -841,6 +856,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
               onPress={()=>updateRoomSettings({shield:!membership.state?.shield})}/>}
             {canApprove&&<>
               <RoomOption title={appText('تعيين أدمن')} onPress={()=>setRoomMenu('admins')}/>
+              {isHost&&<RoomOption title={appText('تغيير غلاف البث')} onPress={()=>setRoomMenu('cover')}/>}
               <RoomOption title={broadcast.invite} onPress={()=>setRoomMenu('friends')}/>
               {audio&&<MicFreedom label={broadcast.free} value={micFree} disabled={roomActionPending} onChange={value=>updateRoomSettings({micFree:value})}/>}
               <RoomOption title={ui('الكلمات المحظورة')} onPress={()=>{setFilterDraft((membership.state.words||[]).join('\n'));setRoomMenu('filter')}}/>
@@ -1186,6 +1202,19 @@ export default function App(){
   const creatingRoom=useRef(false);
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   useEffect(()=>setInviteAll(false),[page,discoveryFilter]);
+  const [draftCover,setDraftCover]=useState(null);
+  const coverPicker=useRef(false);
+  async function chooseDraftCover(){
+    if(coverPicker.current)return;
+    const uid=auth().currentUser?.uid;coverPicker.current=true;
+    try{const photo=await choosePhoto(720);if(photo&&uid&&auth().currentUser?.uid===uid)setDraftCover(photo)}
+    catch(error){Alert.alert(appText('غلاف البث'),uiError(error))}finally{coverPicker.current=false}
+  }
+  async function assignDraftCover(id){
+    if(!draftCover)return;
+    await mediaRequest('/account-number',{op:'roomCover',room:id,image:draftCover});
+    setDraftCover(null);
+  }
   const [tags,setTags]=useState({language:'',topic:'social'}),[searchTags,setSearchTags]=useState({language:'',topic:''});
   const [events,setEvents]=useState([]),[eventRevision,setEventRevision]=useState(0);
   const announced=useRef(new Set()),eventBusy=useRef(false);
@@ -1298,7 +1327,7 @@ export default function App(){
         clearTimeout(timerRef.current);
       }
       setUser(u);
-      setRooms([]);setActiveRoom(null);setBroadcastName('');setInviteAll(false);setInviteRoomId(null);setRoomProfileUid(null);
+      setDraftCover(null);setRooms([]);setActiveRoom(null);setBroadcastName('');setInviteAll(false);setInviteRoomId(null);setRoomProfileUid(null);
       if(u){
         // Account creation or SMS confirmation owns profile creation and navigation until it finishes.
         if(profileSetupRef.current)return;
@@ -1328,7 +1357,7 @@ export default function App(){
     if(!user?.uid)return;
     setRooms([]);setRoomError('');
     let candidates=[],live=new Set(),liveTags={},mounted=true,pending=false;
-    const display=()=>setRooms(candidates.filter(r=>r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id]})));
+    const display=()=>setRooms(candidates.filter(r=>r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id],coverUrl:liveTags[r.id]?.cover?MEDIA_ENDPOINT+'/room-covers/'+encodeURIComponent(r.id)+'/'+liveTags[r.id].cover+'.jpg':null})));
     async function refresh(){
       if(pending)return;
       pending=true;
@@ -1550,10 +1579,12 @@ export default function App(){
     try{
       if(previous){
         const room=await openPreviousBroadcast(firestore(),mediaRequest,previous,user.uid,host,firestore.FieldValue.serverTimestamp());
+        try{await assignDraftCover(room.id)}catch(error){Alert.alert(appText('تعذّر حفظ غلاف البث'),uiError(error))}
         setInviteRoomId(inviteAll?room.id:null);setInviteAll(false);setBroadcastName('');enterRoom(room);return;
       }
       const data={name:label,type:kind,ownerUid:user.uid,ownerName:host||name||user.displayName||'Clipi',createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
       const doc=await firestore().collection('rooms').add(data);
+      try{await assignDraftCover(doc.id)}catch(error){Alert.alert(appText('تعذّر حفظ غلاف البث'),uiError(error))}
       try{await mediaRequest('/account-number',{op:'roomTag',room:doc.id,...(event?{language:event.language,topic:event.topic}:myTags),event:event?.id});setEventRevision(v=>v+1)}
       catch(error){Alert.alert(appText('تعذر الاتصال'),uiError(error))}
 
@@ -1753,7 +1784,13 @@ export default function App(){
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={()=>crypto.randomUUID()} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
   if(page==='uploadShort')return <ShortUpload viewer={{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar}} key={user?.uid} endpoint={MEDIA_ENDPOINT} request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
     onClose={()=>go('home')} onDone={id=>{setInitialShort(id);go('home');}}/>;
-  const hostField=<View><ProgramOptions value={myTags} choose={setTags}/><EventEditor tags={myTags} request={mediaRequest} locale={locale} onCreated={()=>setEventRevision(v=>v+1)}/><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
+  const hostField=<View>
+    <TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel={appText('غلاف البث')} onPress={chooseDraftCover} style={{minHeight:44,flexDirection:'row',alignItems:'center',gap:10}}>
+      {!!draftCover&&<Image accessible={false} source={{uri:draftCover}} style={{width:76,height:47,borderRadius:8}} resizeMode="cover"/>}
+      <Text style={{color:theme.ink,fontWeight:'700'}}>{appText(draftCover?'تغيير غلاف البث':'اختيار غلاف البث')}</Text>
+    </TouchableOpacity>
+    {!!draftCover&&<ProgramButton disabled={busy} label={appText('إزالة الغلاف')} onPress={()=>setDraftCover(null)}/>}
+    <ProgramOptions value={myTags} choose={setTags}/><EventEditor tags={myTags} request={mediaRequest} locale={locale} onCreated={()=>setEventRevision(v=>v+1)}/><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
     <CircleChoice label={broadcastWords(locale).friends} checked={inviteAll} disabled={busy} onPress={()=>setInviteAll(value=>!value)}/></View>;
   if(page==='previousRooms')return <HubScreen title={menu.previousRooms} action={{label:menu.back,onPress:()=>go('rooms')}} dock={nav()}>
     <PreviousRooms db={firestore()} uid={user.uid} request={mediaRequest} hostField={hostField} menu={menu} locale={locale} busy={busy}
