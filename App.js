@@ -23,7 +23,7 @@ import ClipiCollection from './ClipiCollection';
 import {GiftRecipients, RoomAction, RoomGiftSheet, RoomOption} from './RoomControls';
 import {PolicySheet,PolicyModal} from './PolicySheet';
 import {RoomTermsNotice} from './RoomTermsNotice';
-import {AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
+import {normalizeRoomNumber,AccountPhoto, AccountHub, ClipiDock, HubRows, HubScreen, RoomDiscovery} from './ClipiHub';
 import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
@@ -533,6 +533,16 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
   const officialHelp=room.id===helpRoom.id;
+  const [publicRoomNumber,setPublicRoomNumber]=useState(null);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setPublicRoomNumber(null);
+    mediaRequest('/account-number',{op:'roomNumber',room:room.id},controller.signal)
+      .then(({number})=>{if(!controller.signal.aborted)setPublicRoomNumber(number)})
+      .catch(()=>{if(!controller.signal.aborted)setPublicRoomNumber('')});
+    return ()=>controller.abort();
+  },[room.id,userId]);
+
   const isHost=!officialHelp&&room.ownerUid===userId;
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
@@ -890,7 +900,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
             }}/>
           </>:<>
             <Text style={S.muted}>{appText(room.type==='video'?'معرّف البث':'معرّف الغرفة')}</Text>
-            <Text selectable style={S.muted}>{room.id}</Text>
+            <Text selectable style={S.muted}>{publicRoomNumber===null?appText('جارٍ تحميل الرقم…'):publicRoomNumber||appText('الرقم غير متاح حاليًا')}</Text>
             <RoomOption title={appText("مشاركة الغرفة")} onPress={()=>{
               closeRoomMenu();
               Share.share({message:room.name+'\n'+MEDIA_ENDPOINT+'/room?room='+encodeURIComponent(room.id)})
@@ -1788,10 +1798,11 @@ export default function App(){
     setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
   }
   async function enterRoomById(){
-    const id=roomSearch.trim();
-    if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))return;
+    const number=normalizeRoomNumber(roomSearch);
+    if(!/^\d{7,15}$/.test(number))return;
     const uid=user.uid;
     try{
+      const {room:id}=await mediaRequest('/account-number',{op:'findRoomNumber',number});
       const room=id===helpRoom.id?helpRoom:(await firestore().collection('rooms').doc(id).get()).data();
       if(auth().currentUser?.uid!==uid||pageRef.current!=='rooms')return;
       if(room?.status==='open'&&!blockedUsers.includes(room.ownerUid)){

@@ -38,6 +38,10 @@ export function HubScreen({title, action, children, dock, scrollable=true}) {
   </View>;
 }
 
+export function normalizeRoomNumber(value) {
+  return value.trim().replace(/[٠-٩۰-۹]/g,digit=>String(digit.charCodeAt(0)&15));
+}
+
 export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onSearchById, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
@@ -58,7 +62,7 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
     </TouchableOpacity>
     <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
       autoCorrect={false} value={search} onChangeText={onSearch}/>
-    {onSearchById&&/^[A-Za-z0-9_-]{1,128}$/.test(search.trim())&&
+    {onSearchById&&/^\d{7,15}$/.test(normalizeRoomNumber(search))&&
       <TouchableOpacity accessibilityRole="button" style={s.manage} onPress={onSearchById}>
         <Text style={s.manageText}>{appText('دخول بالمعرّف')}</Text>
       </TouchableOpacity>}
@@ -83,7 +87,6 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
             </View>
             <View style={s.cardText}>
               <Text numberOfLines={2} style={s.cardTitle}>{room.name||copy.untitled}</Text>
-              <Text numberOfLines={1} style={s.secondary}>{room.id}</Text>
               {!!(room.ownerName||room.host)&&<Text numberOfLines={1} style={s.secondary}>{room.ownerName||room.host}</Text>}
             </View>
           </TouchableOpacity>
