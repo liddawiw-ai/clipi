@@ -4,3 +4,6 @@ compatibility_date = "2025-10-01"
 keep_vars = true
 
 [previews]
+
+[build]
+command = "npm ci --prefix pi-web --no-audit --no-fund"
