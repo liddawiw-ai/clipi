@@ -24,10 +24,11 @@ def find_label(label, timeout=45):
         for node in tree.iter('node'):
             for key in ('text', 'content-desc'):
                 value = node.get(key, '').strip()
-                if value == label or value.startswith(label + ',') or value.startswith(label + ' '):
+                labels = label if isinstance(label, tuple) else (label,)
+                if any(value == item or value.startswith(item + ',') or value.startswith(item + ' ') for item in labels):
                     if bounds(node)[3] > bounds(node)[1]:
                         return node
-        if label in ('تغيير اللغة', 'Change language'):
+        if isinstance(label, tuple) or label in ('تغيير اللغة', 'Change language'):
             screen = next((n for n in tree.iter('node') if n.get('scrollable') == 'true'), None)
             if screen is not None:
                 left, top, right, bottom = bounds(screen)
@@ -35,6 +36,8 @@ def find_label(label, timeout=45):
                 adb('shell', 'input', 'swipe', x, str(top + height * 3 // 4),
                     x, str(top + height // 3), '380')
         time.sleep(0.6)
+    print([(n.get('package'), n.get('text'), n.get('content-desc')) for n in tree.iter('node') if n.get('text') or n.get('content-desc')], flush=True)
+    print(adb('logcat','-d','-s','ReactNativeJS:E','AndroidRuntime:E')[-8000:],flush=True)
     raise RuntimeError(f'Expected control {label!r} on {PACKAGE}')
 
 
@@ -49,6 +52,10 @@ def tap(label):
 
 
 launch()
+first = find_label(('تغيير اللغة','Change language'))
+if 'Change language' in (first.get('content-desc','')+first.get('text','')):
+    tap('Change language')
+    tap('العربية')
 field = bounds(find_label('تغيير اللغة'))
 tap('تغيير اللغة')
 # English is first and Arabic is second. Drag down to centre English.

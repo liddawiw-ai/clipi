@@ -1,0 +1,38 @@
+name: Clipi installed Android 44
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - review/clipi-android-44-internal
+    paths:
+      - .github/workflows/clipi-installed-44.yml
+      - scripts/check-installed-language.py
+permissions:
+  contents: read
+  actions: read
+env:
+  CLIPI_DISTRIBUTION: internal
+jobs:
+  installed-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: 45577229987
+          name: Clipi-Android-44
+      - name: Enable emulator acceleration
+        run: sudo chmod a+rw /dev/kvm
+      - name: Test the signed APK on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r Clipi-Android-44.apk
+            python3 scripts/check-installed-language.py
