@@ -2,6 +2,7 @@ import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,Alert,StyleSheet,AppState} from 'react-native';
+import auth from '@react-native-firebase/auth';
 import functions from '@react-native-firebase/functions';
 import * as LocalAuthentication from 'expo-local-authentication';
 import appCheck from '@react-native-firebase/app-check';
@@ -27,7 +28,7 @@ export default function EarningsWalletScreen({onBack,request}){
   setBusy(true);
   const epoch=requestEpochRef.current;
   try{const r=await call('getEarningsWallet')({});if(epoch===requestEpochRef.current&&!lockRef.current)setData(r.data)}
-  catch(e){Alert.alert(appText('تعذر تحميل المحفظة'),uiError(e))}
+  catch{if(epoch===requestEpochRef.current&&!lockRef.current)setData(null)}
   finally{setBusy(false)}
  }
  useEffect(()=>{
@@ -88,7 +89,7 @@ export default function EarningsWalletScreen({onBack,request}){
  return <ScrollView style={S.page} contentContainerStyle={S.body}>
   {btn('❮ رجوع',onBack)}
   <Text style={S.heading}>{appText("💼 محفظة ")}{data?.role==='owner'?appText('المالك'):data?.role==='agent'?appText('الوكيل'):appText('المضيف')}</Text>
-  <View style={S.panel}>
+  {data&&<View style={S.panel}>
    <Text style={S.number}>🪙 {data?data.availablePoints.toLocaleString(interfaceLocale()):'…'}{appText(" نقطة")}</Text>
    <Text style={S.value}>{appText("القيمة بالدولار: ")}{data?money(data.availableUsdMinor):'…'}</Text>
    <Text style={S.label}>{appText("نقاط معلقة: ")}{data?.pendingPoints||0} · {money(data?.pendingUsdMinor)}</Text>
@@ -96,16 +97,16 @@ export default function EarningsWalletScreen({onBack,request}){
    <Text style={S.label}>{appText("طلب سحب واحد كل 15 يومًا. وصول المال مستهدف خلال 5 أيام عمل بعد الموافقة، وليس مضمونًا.")}</Text>
    {data?.nextEligibleAt&&<Text style={S.label}>{appText("أقرب موعد طلب: ")}{new Date(data.nextEligibleAt).toLocaleDateString(interfaceLocale())}</Text>}
    {btn('تحديث المحفظة',load)}
-  </View>
-  <PayoutPicker request={request} call={call} data={data} reload={load}/>
-  <View style={S.panel}>
+  </View>}
+  <PayoutPicker verifyEmail={()=>auth().currentUser.sendEmailVerification()} request={request} call={call} data={data} reload={load}/>
+  {data&&<View style={S.panel}>
    <Text style={S.heading}>{appText("🔐 الرقم السري للمحفظة")}</Text>
    {data?.pinConfigured&&<TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={oldPin} onChangeText={setOldPin} placeholder={appText("الرقم الحالي")}/>}
    <TextInput style={S.input} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin} placeholder={appText("الرقم الجديد - 6 أرقام")}/>
    {btn(data?.pinConfigured?'تغيير الرقم السري':'إنشاء الرقم السري',savePin)}
    {btn('معاينة التحويل إلى ماسات',()=>preview('diamonds'))}
    <Text style={S.label}>{appText("يستخدم السحب النقاط المتاحة في محفظة الأرباح.")}</Text>
-  </View>
+  </View>}
  </ScrollView>
 }
 const S=StyleSheet.create({

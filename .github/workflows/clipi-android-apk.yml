@@ -8,6 +8,12 @@ on:
       - .github/workflows/clipi-android-apk.yml
       - App.js
       - ShortMedia.js
+      - ShortVideoHome.js
+      - ShortDraft.js
+      - EarningsWalletScreen.js
+      - PayoutPicker.js
+      - HelpCenter.js
+      - scripts/check-installed-video.py
       - app.config.js
       - scripts/check-syntax.cjs
       - scripts/check-release.cjs

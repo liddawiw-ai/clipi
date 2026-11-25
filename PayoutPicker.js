@@ -5,7 +5,7 @@ import {View,Text,TextInput,ScrollView,TouchableOpacity,StyleSheet,Alert,Linking
 import countries from './payout-countries.json';
 const normalize=v=>v.trim().toLowerCase().replace(/[أآإ]/g,'ا');
 const digits=v=>v.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace('٫','.');
-export default function PayoutPicker({data,call,reload,request}){
+export default function PayoutPicker({data,call,reload,request,verifyEmail}){
  const [open,setOpen]=useState(false),[search,filter]=useState(''),[country,choose]=useState(null);
  const [options,setOptions]=useState(null),[method,setMethod]=useState(null),[amount,setAmount]=useState(''),[pin,setPin]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[result,setResult]=useState(''),[retry,refresh]=useState(0);
@@ -14,9 +14,9 @@ export default function PayoutPicker({data,call,reload,request}){
  useEffect(()=>{
   let current=true;
   setOptions(null);setMethod(null);setError('');
-  if(country)call('getPayoutMethods')({country:country[0]}).then(r=>{if(current)setOptions(r.data.methods)}).catch(()=>{if(current)setError(appText('تعذّر تحميل طرق السحب المتاحة في هذه الدولة.'))});
+  if(country&&data?.payoutsEnabled)call('getPayoutMethods')({country:country[0]}).then(r=>{if(current)setOptions(r.data.methods)}).catch(()=>{if(current)setError(appText('تعذّر تحميل طرق السحب المتاحة في هذه الدولة.'))});
   return()=>{current=false};
- },[country,retry,call]);
+ },[country,retry,call,data?.payoutsEnabled]);
  const [preference,setPreference]=useState(null);
  useEffect(()=>{
    let mounted=true;
@@ -47,6 +47,22 @@ export default function PayoutPicker({data,call,reload,request}){
  const points=Math.round(Number(digits(amount))*100);
  const can=Boolean(data?.payoutsEnabled&&data?.canRequest&&method&&/^\d+(\.\d{1,2})?$/.test(digits(amount))&&points>=data.minimumPoints&&points<=data.availablePoints&&method.bands.some(b=>points>=Math.round(b.min*100)&&points<=Math.round(b.max*100)));
  const funded=data||preference?.funded;
+ const manual=!data?.payoutsEnabled;
+ const review=preference?.review;
+ const waiting=review&&(!review.reply||review.created*1000+15*86400000>Date.now());
+ const reviewable=!!(preference?.contact||preference?.walletAddress||preference?.method)&&!waiting&&
+   !funded?.activeWithdrawal&&funded?.withdrawal?.state!=='pending'&&!(preference?.funded?.nextEligibleAt>Date.now())&&
+   /^\d+(\.\d{1,2})?$/.test(digits(amount))&&points>=2000&&points<=preference?.funded?.availableUsdMinor;
+ async function reviewAction(send=false){
+   if(lock.current)return;
+   lock.current=true;setBusy(true);setError('');
+   try{
+     const next=await request(send?'requestWithdrawalReview':'hostEarnings',send?{points}:{});
+     if(alive.current){setPreference(next);if(send)setAmount('')}
+   }catch(e){if(alive.current)setError(uiError(e))}
+   finally{lock.current=false;if(alive.current)setBusy(false)}
+ }
+
  async function linkContact(){
    if(lock.current)return;
    lock.current=true;setBusy(true);
@@ -73,9 +89,24 @@ export default function PayoutPicker({data,call,reload,request}){
  {preference?.method&&<Text style={S.label}>{appText('وسيلة الاستلام المرتبطة')} · {preference.method.label} · {preference.method.country}</Text>}
  {preference?.walletAddress&&<Text style={S.label}>{appText('محفظة Pi المرتبطة')} · {preference.walletAddress.slice(0,6)}…{preference.walletAddress.slice(-6)}</Text>}
  {preference?.contact&&<Text style={S.label}>{appText('جهة الاستلام الموثقة')} · {preference.contact}</Text>}
+ {preference?.canVerifyEmail&&verifyEmail&&action(appText('تأكيد بريد الاستلام'),async()=>{
+   if(lock.current)return;
+   lock.current=true;setBusy(true);
+   try{await verifyEmail();if(alive.current)setResult('راجع بريدك ثم حدّث حالة الطلب لربط جهة الاستلام')}
+   catch(e){if(alive.current)setError(uiError(e))}
+   finally{lock.current=false;if(alive.current)setBusy(false)}
+ },busy)}
  {preference?.canLinkContact&&action(appText('ربط جهة الاستلام بحسابي'),linkContact,busy)}
+ {manual&&funded&&<Text style={S.label}>{appText('النقاط المتاحة')} · {funded.availableUsdMinor.toLocaleString(locale)} {appText('نقطة')}</Text>}
  {funded?.withdrawal&&<Text style={S.label}>{appText('حالة طلب السحب')} · {appText(({pending:'قيد المعالجة',issued:'صدر رابط الاستلام',canceled:'ملغى'})[funded.withdrawal.state]||'قيد المعالجة')} · ${(funded.withdrawal.points/100).toFixed(2)}</Text>}
  <Text style={S.label}>{appText("الرصيد المتاح للسحب ")}{funded?'$'+(funded.availableUsdMinor/100).toFixed(2):appText('تعذّر تأكيد الرصيد')}</Text>
+ {review&&<Text selectable style={S.label}>{appText('مراجعة سحب الأرباح')} · {review.detail} · {review.reply||appText('قيد المراجعة')}</Text>}
+ {manual?<View style={{gap:8}}>
+   <Text style={S.label}>{appText('يراجع المالك الطلب ويرسل الرد إلى صندوق الوارد. إرسال الطلب لا يحوّل المال.')}</Text>
+   <TextInput accessibilityLabel={appText('مبلغ السحب بالدولار')} keyboardType="decimal-pad" placeholder={appText('المبلغ بالدولار')} value={amount} onChangeText={setAmount} style={S.input}/>
+   {action(appText('إرسال طلب مراجعة السحب'),()=>reviewAction(true),busy||!reviewable)}
+   {action(appText('تحديث حالة الطلب'),()=>reviewAction(),busy)}
+ </View>:<>
  <TouchableOpacity accessibilityRole="button" accessibilityState={{expanded:open}} onPress={()=>setOpen(!open)} style={S.selection}><Text style={S.value}>{country?countryName(country):appText('اختر الدولة')}　{open?'▴':'▾'}</Text></TouchableOpacity>
  {open&&<View><TextInput accessibilityLabel={appText("البحث عن دولة")} placeholder={appText("ابحث باسم الدولة أو رمزها")} placeholderTextColor={theme.secondary} value={search} onChangeText={filter} style={S.input}/>
  <ScrollView nestedScrollEnabled style={{maxHeight:215}} keyboardShouldPersistTaps="handled">{countries.filter(([code,name])=>(normalize(name).includes(normalize(search))||normalize(countryName([code,name])).includes(normalize(search)))||code.includes(search.trim().toUpperCase())).map(c=><TouchableOpacity accessibilityRole="button" key={c[0]} onPress={()=>{choose(c);setOpen(false);filter('')}} style={S.row}><Text style={S.value}>{countryName(c)}</Text></TouchableOpacity>)}</ScrollView></View>}
@@ -89,6 +120,7 @@ export default function PayoutPicker({data,call,reload,request}){
  {method&&!data?.activeWithdrawal&&action(appText('طلب سحب'),()=>Alert.alert(appText('تأكيد السحب'),amount+' USD · '+countryName(country)+' · '+method.name,[{text:appText('إلغاء'),style:'cancel'},{text:appText('تأكيد'),onPress:()=>submit()}]),busy||!can||!/^\d{6}$/.test(digits(pin)))}
  {data?.activeWithdrawal&&action(appText('متابعة الطلب الحالي'),()=>submit(),busy||digits(pin).length!==6)}
  {data?.lastWithdrawal&&!data.activeWithdrawal&&action(appText('فتح آخر إيصال'),()=>submit(true),busy||digits(pin).length!==6)}
+ </>}
  {!!result&&<Text style={S.label}>{appText(result)}</Text>}
  {!!error&&<Text accessibilityLiveRegion="polite" style={S.error}>{appText(error)}</Text>}
  {error&&country&&!options&&action(appText('إعادة تحميل الطرق'),()=>refresh(n=>n+1))}
