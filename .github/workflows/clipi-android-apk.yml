@@ -9,6 +9,8 @@ on:
       - App.js
       - ShortMedia.js
       - app.config.js
+      - scripts/check-syntax.cjs
+      - scripts/check-release.cjs
       - greedy-clock.mjs
 permissions:
   contents: read
