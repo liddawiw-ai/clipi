@@ -1,3 +1,4 @@
+import {hostEarnings} from './host-earnings.mjs';
 import {saveCover,saveHelpCover,coverResponse} from './room-cover.mjs';
 import {liveProgram,tagRoom} from './live-program.mjs';
 import {deviceInstall} from './device-install.mjs';
@@ -100,7 +101,8 @@ export default {
       if(!token)return json({error:'سجل الدخول'},401);
       const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+firebaseWebApiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});
       if(!check.ok)return json({error:'تعذّر التحقق من الحساب'},check.status===400?401:502);
-      const uid=(await check.json()).users?.[0]?.localId;
+      const identity=(await check.json()).users?.[0];
+      const uid=identity?.localId;
       if(!uid)return json({error:'سجل الدخول'},401);
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
@@ -163,6 +165,8 @@ export default {
       if(['caseCreate','caseList','caseQueue','caseReviewed','caseReply'].includes(input?.op)){
         return supportCase(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       }
+      if(['hostEarnings','saveReceivingMethod','linkReceivingContact'].includes(input?.op))
+        return hostEarnings(await roomStore(env.PI_GIFTS_DB),uid,input,json,env,identity);
       if(input?.op==='wallet'||input?.op==='linkHostWallet'){
         const q=await roomStore(env.PI_GIFTS_DB);
         const linkedPiUid=uid.startsWith('pi:')?null:await linkedPi(await linkStore(env),uid);

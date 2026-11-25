@@ -13,7 +13,7 @@ async function payment(action,data){
   const response=await fetch('/pi-gifts/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
   if(!response.ok)throw Error(appText('تعذر تأكيد الدفعة. تحقق من المحفظة قبل إعادة المحاولة.'));
 }
-export function DiamondWallet({uid,onHelp}){
+export function DiamondWallet({uid,onHelp,onEarnings}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
   const [linkMessage,setLinkMessage]=useState('');
@@ -103,6 +103,7 @@ export function DiamondWallet({uid,onHelp}){
     <BalanceCard icon="♡" tone="rose" label={appText('الماس المستهدف')} value={(data?.receivedDiamonds??'…')+' 💎'}/>
     <p>{appText('كل ماسة يرسلها لك مستخدم في هدية تُضاف إلى هذا الإجمالي.')}</p>
     <BalanceCard icon="✦" tone="sand" label={appText('مكافآت المضيف')} value={(data?data.rewardPi:'…')+' PI'}/>
+    <button type="button" onClick={onEarnings}>{appText('محفظة المضيف')}</button>
     {paymentPiUid&&<>
       {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
       <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>

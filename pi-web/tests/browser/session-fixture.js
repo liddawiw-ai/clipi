@@ -36,3 +36,5 @@ export const Alert = { alert() {} };
 export const piSdk = () => ({}),
   piLogin = () => {},
   verifyEmailForPi = () => {};
+
+export const functions = () => ({httpsCallable: () => async () => ({data:{}})});

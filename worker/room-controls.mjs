@@ -1,3 +1,4 @@
+import {earningsPreferences} from './host-earnings.mjs';
 import {coverSchema} from './room-cover.mjs';
 import {programSchema} from './live-program.mjs';
 import {roomHistorySchema,rootFor,roomDiamonds,roomSupporters} from './room-history.mjs';
@@ -11,6 +12,8 @@ import {walletSchema,paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
+  earningsPreferences,
+  'CREATE TABLE IF NOT EXISTS host_receiving_contact(uid TEXT PRIMARY KEY,contact TEXT NOT NULL)',
   coverSchema,
   ...programSchema,
   appOwnerSchema,
