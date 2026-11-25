@@ -21,11 +21,11 @@ function ShortVideoPlayer({source, clipId, active = true, mountedSurface = true,
   const [rendered,setRendered]=useState(false),[playing,setPlaying]=useState(false);
   const player = useVideoPlayer(source, p => {
     p.loop = true;
-    p.muted = muted;
+    p.muted = true;
     p.bufferOptions = {preferredForwardBufferDuration: 6, minBufferForPlayback: 0.5, maxBufferBytes: 6 * 1024 * 1024};
   });
   useImperativeHandle(playerRef, () => player, [player]);
-  useLayoutEffect(() => {player.muted=muted;},[muted,player]);
+  useLayoutEffect(() => {player.muted = !active || muted;}, [active, muted, player]);
   useLayoutEffect(() => {
     const syncPlaying=isPlaying=>{setPlaying(isPlaying);onPlayingChange?.(isPlaying)};
     const subscription = player.addListener('playingChange', ({isPlaying}) => syncPlaying(isPlaying));
@@ -45,10 +45,12 @@ function ShortVideoPlayer({source, clipId, active = true, mountedSurface = true,
       if (status === 'readyToPlay') sync(AppState.currentState || 'active');
     });
     return () => {
-      // useVideoPlayer stops and releases its native player on unmount.
       listening = false;
       subscription.remove();
       ready.remove();
+      // Silence the outgoing clip before another player starts or native release runs.
+      player.muted = true;
+      player.pause();
     };
   }, [active, player]);
   if (!mountedSurface) return null;
