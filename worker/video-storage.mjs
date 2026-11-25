@@ -164,19 +164,3 @@ export function getVideo(namespace, key, request) {
   if (request.headers.has('Range')) headers.set('Range', request.headers.get('Range'));
   return namespace.getByName(key).fetch(internalUrl, {method: request.method, headers});
 }
-
-export async function starterVideo(assets, namespace, request) {
-  const url = new URL(request.url);
-  url.search = '';
-  const meta = await assets.fetch(new Request(url, {method: 'HEAD'}));
-  const version = meta.headers.get('ETag');
-  if (!meta.ok || !version) return assets.fetch(request);
-  const key = url.pathname + '/' + version;
-  const existing = await getVideo(namespace, key, request);
-  if (existing.status !== 404) return existing;
-  const original = await assets.fetch(new Request(url));
-  if (!original.ok) return original;
-  const stored = await putVideo(namespace, key, original);
-  if (!stored.ok) return stored;
-  return getVideo(namespace, key, request);
-}

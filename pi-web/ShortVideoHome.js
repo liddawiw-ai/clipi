@@ -8,13 +8,11 @@ import {FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimension
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
-import {Player,starters,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
+import {Player,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
-import {shortsLookahead, starterPoster} from './ShortMedia';
-const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
-const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
+import {shortsLookahead} from './ShortMedia';
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
 
 function Button({label,onPress,children,disabled=false,selected}){
@@ -74,7 +72,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     update();const timer=setInterval(update,150);return()=>clearInterval(timer);
   },[playable,stats?.cues]);
   const liveRoom=ownerUid&&liveRooms?.find(room=>room.ownerUid===ownerUid);
-  const canDelete=!starters[item.id] && (stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid));
+  const canDelete=stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid);
   function openDelete(){
     if(!canDelete)return;
     setMessage('');setDialog('delete');setViewMode('delete');
@@ -95,7 +93,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       if(alive.current)setBusyDelete(false);
     }
   }
-  const source=asVideo(item,endpoint);
+  const source=shortVideoUrl(endpoint,item.id);
   const progress=useRef(null);
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
   const {liked,likes,like,initialize}=useClipLike(
@@ -122,11 +120,10 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
   },[item.id,followRevision,isCurrent]);
-  const videoLink=shortVideoUrl(endpoint,item.id);
   function copyLink(){
     setDialog('');
     run(async()=>{
-      await copyShortLink(videoLink);
+      await copyShortLink(source);
       if(alive.current)setMessage(translate('تم نسخ رابط الفيديو'));
     });
   }
@@ -142,7 +139,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     catch(e){if(alive.current)setMessage(uiError(e,'تعذّرت المتابعة'));}finally{lock.current=false;}
   }
   const showing=dialog==='comments';
-  const official=!!starters[item.id],authorName=stats?.authorName||(official?'Clipi':appText('صاحب المقطع'));
+  const authorName=stats?.authorName||appText('صاحب المقطع');
   async function submit(kind,value,callback){
     if(lock.current || (kind==='shortGift' && confirmedClip!==item.id))return;
     lock.current=true;setMessage('');
@@ -172,7 +169,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPlaying(false)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} onPlayBlocked={()=>setPlaying(false)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
@@ -183,9 +180,9 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
     <div className="clipi-action-stack">
-      <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
+      <div className="clipi-author-badge"><button type="button" disabled={!ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}
         style={{border:0,padding:0,background:'transparent',borderRadius:'50%',color:'inherit',display:'inline-flex'}}
-        onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} official={official} size={40}/></button>
+        onClick={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} size={40}/></button>
         {liveRoom&&onVisitLive&&<button type="button" aria-label={appText('دخول البث المباشر')+' · '+authorName}
           style={{color:'#fff',background:'#992449',border:'1px solid white',borderRadius:15,minHeight:44,marginBottom:6,padding:'2px 7px',fontSize:12,cursor:'pointer'}}
           onClick={()=>onVisitLive(liveRoom)}>{appText('مباشر الآن')}</button>}
@@ -193,12 +190,12 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       <FeedAction icon="like" label={liked?appText('إلغاء الإعجاب'):appText('إعجاب')} selected={liked} count={likes} onClick={()=>like()}/>
       <FeedAction icon="comment" label={appText("التعليقات")} count={commentCount} onClick={openComments}/>
 
-      <FeedAction icon="share" label={appText("مشاركة الفيديو")} onClick={()=>run(()=>shareShort(videoLink))}/>
+      <FeedAction icon="share" label={appText("مشاركة الفيديو")} onClick={()=>run(()=>shareShort(source))}/>
       <FeedAction icon="download" label={appText("تنزيل الفيديو")} onClick={()=>run(()=>saveShort(item.id,source))}/>
       <FeedAction icon="more" label={translate('المزيد')} onClick={()=>setDialog('more')}/>
     </div>
     <div className="clipi-caption">{!!caption&&<span dir="auto" style={{alignSelf:"flex-start",background:"#111b",color:"white",padding:"2px 6px",whiteSpace:"pre-wrap"}}>{caption}</span>}
-      <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{official?appText(item.title):item.title}</p>}
+      <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{item.title}</p>}
       <div className="clipi-caption-meta">
 
         <SoundControl {...{playerRef,muted,setMuted}}/>
@@ -218,7 +215,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
-      recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
+      recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
       <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
@@ -265,9 +262,9 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
   const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
-  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState(null),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
-  const items=profileFeed?.clips ?? homeItems;
+  const items=profileFeed?.clips ?? homeItems ?? [];
   const removed=useRef(new Set()),list=useRef(null);
   useEffect(()=>{
     if(!notice)return;
@@ -291,7 +288,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
         const {clips}=await request('/account-number',{op:'shortList'});
         if(!current)return;
         page.current=clips.length===30?clips.at(-1).cursor:null;
-        const all=[...clips.filter(c=>!removed.current.has(c.id)),...samples];
+        const all=clips.filter(c=>!removed.current.has(c.id));
         const selected=all.find(c=>c.id===initialId);
         if(initialId&&!selected&&!removed.current.has(initialId)&&/^[0-9a-f-]{36}$/i.test(initialId)){
           const {clip}=await request('/account-number',{op:'shortLookup',clip:initialId});
@@ -335,9 +332,8 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   }
   const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
-  const poster=starterPoster(items[active]?.id);
   return <div className="clipi-feed-shell">
-    <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
+    <div className="clipi-ambient" aria-hidden="true"/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
     {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
@@ -345,6 +341,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
       renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+    {!fromProfile && homeItems?.length===0 && !error && <View pointerEvents="none" style={s.emptyFeed}><Text style={s.count}>{translate('لا توجد فيديوهات منشورة بعد')}</Text></View>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
@@ -457,6 +454,7 @@ const s=StyleSheet.create({
   button:{alignItems:'center',justifyContent:'center',minWidth:48,minHeight:46,paddingHorizontal:5},
   label:{fontSize:16,color:'white',fontWeight:'700',textShadowColor:'#202020',textShadowRadius:4},
   count:{fontSize:13,color:'white',textShadowColor:'#111',textShadowRadius:4},
+  emptyFeed:{...StyleSheet.absoluteFillObject,alignItems:'center',justifyContent:'center'},
   retry:{position:'absolute',left:12,bottom:4},panel:{backgroundColor:'#202428',maxHeight:'78%',padding:16,gap:6},lightTitle:{fontSize:20,fontWeight:'700',color:'white'},
   scrim:{flex:1,justifyContent:'flex-end',backgroundColor:'rgba(0,0,0,.55)'},
   input:{borderColor:'#71767a',borderWidth:1,borderRadius:8,padding:10,color:'white'}

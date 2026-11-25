@@ -6,7 +6,6 @@ import {interfaceCopy} from './interface-copy.mjs';
 import {invitationInbox} from './broadcast-access.mjs';
 import {reserveBroadcast,rootFor} from './room-history.mjs';
 export {ClipiVideo} from './video-storage.mjs';
-import {starterVideo} from './video-storage.mjs';
 import {profileTables} from './profile-tables.mjs';
 import {trialAccount} from './trial-diamonds.mjs';
 import {agencyAccount} from './agencies.mjs';
@@ -79,10 +78,6 @@ export default {
       const row=await q('SELECT image FROM room_theme WHERE room=? AND theme=?',parts[1],parts[2]).first();
       if(!row?.image)return json({error:'Not found'},404);
       return new Response(Uint8Array.from(atob(row.image.split(',')[1]),v=>v.charCodeAt(0)),{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,max-age=3600'}});
-    }
-    if (/^\/shorts\/starter\/(palace|aurora|dunes)\.(mp4|jpg)$/.test(path) && ['GET','HEAD'].includes(request.method) && env.CLIPI_APP) {
-      if (path.endsWith('.mp4') && env.CLIP_MEDIA) return starterVideo(env.CLIPI_APP, env.CLIP_MEDIA, request);
-      return env.CLIPI_APP.fetch(request);
     }
     const shortFile=/^\/shorts\/media\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
     if (shortFile && ['GET','HEAD'].includes(request.method)) {

@@ -10,8 +10,3 @@ const {readFile,mkdir,writeFile}=await import('node:fs/promises');
 const themes=JSON.parse(await readFile('theme-images.json','utf8'));
 await mkdir('dist/themes',{recursive:true});
 for(const [key,data] of Object.entries(themes))await writeFile('dist/themes/'+key+'.jpg',Buffer.from(data,'base64'));
-
-await mkdir('dist/shorts/starter',{recursive:true});
-for(const id of ['palace','aurora','dunes']){
-  for(const ext of ['mp4','jpg'])await copyFile('assets/shorts/'+id+'.'+ext,'dist/shorts/starter/'+id+'.'+ext);
-}

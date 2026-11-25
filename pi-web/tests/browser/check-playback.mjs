@@ -12,7 +12,7 @@ const entry=new URL('short-feed.jsx',import.meta.url).pathname;
 const output=await build({entryPoints:[entry],bundle:true,write:false,minify:true,outfile:'feed.js',
   alias:{'react-native':'react-native-web'},loader:{'.js':'jsx','.png':'dataurl','.jpg':'dataurl','.gif':'dataurl','.mp3':'dataurl'},
   define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
-const video=await readFile(new URL('../../assets/shorts/palace.mp4',import.meta.url));
+const video=await readFile(new URL('./feed-fixture.mp4',import.meta.url));
 const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
 const server=createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');

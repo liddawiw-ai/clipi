@@ -72,20 +72,11 @@ export async function checkNavigation(browser) {
           name.endsWith('.js') ? 'application/javascript' : 'text/css',
           Buffer.from(bundle.get(name))
         );
-      if (name.startsWith('/shorts/starter/'))
-        return send(
-          name.endsWith('.mp4') ? 'video/mp4' : 'image/jpeg',
-          readFileSync(
-            new URL(
-              '../../assets/shorts/' + path.basename(name),
-              import.meta.url
-            )
-          )
-        );
+      if(name==='/shorts/media/fixture')return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       const op = route.request().postDataJSON()?.op;
       const fixtures = {
-        shortList: { clips: [] },
+        shortList: { clips: [{id:'fixture',title:'Navigation fixture'}] },
         shortState: { social: true, likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
         roomInviteInbox: { invites: [] },

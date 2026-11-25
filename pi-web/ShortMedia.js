@@ -1,8 +1,6 @@
 import React,{useLayoutEffect,useImperativeHandle,useRef,useState} from 'react';
 import {checkShortVideo} from './short-upload-limits.mjs';
 
-export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
-export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
 export const shortsLookahead = () => 2;
 export const nonce=()=>crypto.randomUUID();
 export function startProfileVideo(source, poster, playable, preparedVideo) {
@@ -116,9 +114,7 @@ export async function uploadFile(url,draft,token){
   if(!response.ok)throw Error((await response.json().catch(()=>({}))).error||'تعذّر رفع الفيديو');
 }
 export function shortVideoUrl(endpoint,id) {
-  const path=Object.prototype.hasOwnProperty.call(starters,id)
-    ? '/shorts/starter/'+encodeURIComponent(id)+'.mp4' : '/shorts/media/'+encodeURIComponent(id);
-  return endpoint.replace(/\/+$/,'')+path;
+  return endpoint.replace(/\/+$/,'')+'/shorts/media/'+encodeURIComponent(id);
 }
 export async function copyShortLink(url) {
   if(navigator.clipboard?.writeText){

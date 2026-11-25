@@ -4,7 +4,6 @@ import {authorState,profileSocial,saveShortProfile,socialComments,socialSchema} 
 import {paidBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
-const starterIds = ['palace','aurora','dunes'];
 const publishedId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_clip(id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, object_key TEXT)',
@@ -57,18 +56,18 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     if(cues.length)await q('INSERT INTO short_captions VALUES(?,?)',id,JSON.stringify(cues.map(c=>({at:c.at,text:c.text.trim()})))).run();
     return json({id});
   }
-  const owner=starterIds.includes(clip)?'clipi:official':publishedId.test(clip)?(await q('SELECT owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first())?.owner:null;
+  const owner=publishedId.test(clip)?(await q('SELECT owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first())?.owner:null;
   if(!owner)return json({error:'الفيديو غير متاح'},404);
   if (op === 'shortLike' || op === 'shortState') {
     if (op === 'shortLike') {
       if (typeof input.liked !== 'boolean') return json({error:'اختيار غير صالح'},400);
-      if (input.liked) await q('INSERT OR IGNORE INTO short_like(clip,uid) SELECT ?,? WHERE ? OR EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)',clip,uid,starterIds.includes(clip)?1:0,clip).run();
+      if (input.liked) await q('INSERT OR IGNORE INTO short_like(clip,uid) SELECT ?,? WHERE EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)',clip,uid,clip).run();
       else await q('DELETE FROM short_like WHERE clip=? AND uid=?',clip,uid).run();
     }
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
     if(op==='shortLike' && input.likeOnly===true)return json({likes:state.likes,liked:Boolean(state.liked)});
     const captions=op==='shortState'?await q('SELECT cues FROM short_captions WHERE clip=?',clip).first():null;
-    return json({...state,...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid && !starterIds.includes(clip),liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
+    return json({...state,...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
   if (op === 'shortGift') {
@@ -76,8 +75,8 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     if (!gift || !publishedId.test(input.nonce)) return json({error:'هدية غير صالحة'},400);
     // Video support spends from the shared purchased ledger. The empty payee never earns rewards.
     const room='short/'+clip;
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${paidBalance})>=? AND (? OR EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL)) ON CONFLICT(sender,nonce) DO NOTHING`,
-      uid,input.nonce,room,input.gift,gift.cost,uid,uid,gift.cost,starterIds.includes(clip)?1:0,clip).run();
+    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${paidBalance})>=? AND EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL) ON CONFLICT(sender,nonce) DO NOTHING`,
+      uid,input.nonce,room,input.gift,gift.cost,uid,uid,gift.cost,clip).run();
     const receipt=await q('SELECT room,gift FROM paid_room_gift WHERE sender=? AND nonce=?',uid,input.nonce).first();
     if (receipt?.room!==room || receipt?.gift!==input.gift) return json({error:'تعذّر إرسال الهدية. تحقّق من رصيد الماس المشترى'},409);
     return json({sent:true});
