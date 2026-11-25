@@ -1718,7 +1718,13 @@ export default function App(){
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
   const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,followRevision,onFollowChange});
-  const shortPlayerProps={translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
+  function openShortAccount(uid,authorName,clip,own,authorAvatar){
+    setInitialShort(clip);
+    setRoomProfileUid(null);
+    if(own || uid===user.uid){go('profile');return;}
+    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
+  }
+  const shortPlayerProps={onAuthor:openShortAccount,translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
     const uid=user?.uid;
     if(!uid)return;
     if(activeRoom?.id===room.id){setMini(false);return}
@@ -1773,11 +1779,7 @@ export default function App(){
     <Btn title={appText(words.create)} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
     <Btn title={appText(words.back)} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
-  if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
-    setInitialShort(clip);
-    if(own || uid===user.uid){go('profile');return;}
-    setRoomProfileUid(null);setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
-  }} {...shortPlayerProps} translate={ui} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
+  if(page==='home')return <ShortVideoHome roomLabels={menu} {...shortPlayerProps} translate={ui} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onOpenLive={id=>{if(id)setInitialShort(id);go('liveOptions');}}/>;
   if(page==='liveOptions'){
     function openRooms(kind){

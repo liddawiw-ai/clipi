@@ -55,6 +55,8 @@ export async function checkNavigation(browser) {
     );
     const isOwner = width === 390;
     let assigned = false;
+    let releaseRandom;
+    let randomRequests = 0;
     const errors = [];
     p.on('pageerror', (e) => {
       errors.push(e.message);
@@ -74,7 +76,7 @@ export async function checkNavigation(browser) {
           name.endsWith('.js') ? 'application/javascript' : 'text/css',
           Buffer.from(bundle.get(name))
         );
-      if(name==='/shorts/media/fixture')return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
+      if(['/shorts/media/fixture','/shorts/media/random-fixture'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       const op = route.request().postDataJSON()?.op;
       if (op === 'lookupAppAdmin' || op === 'setAppAdmin') {
@@ -87,7 +89,18 @@ export async function checkNavigation(browser) {
         }
         return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
       }
+      if (op === 'shortRandom') {
+        randomRequests++;
+        assert.equal(route.request().postDataJSON().exclude, 'fixture');
+        await new Promise(resolve=>{releaseRandom=resolve;});
+        return route.fulfill({json:{clip:{id:'random-fixture',title:'Random fixture'}}});
+      }
+      const commentReplies=route.request().postDataJSON()?.parent!=null;
       const fixtures = {
+        shortComments:{social:true,comments:commentReplies
+          ?[{id:2,name:'Reply writer',uid:'layout-fixture',body:'reply'}]
+          :[{id:1,name:'Guest writer',uid:'guest-fixture',body:'comment',replyCount:1}]},
+
         shortList: { clips: [{id:'fixture',title:'Navigation fixture'}] },
         shortState: { social: true, likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
@@ -221,6 +234,29 @@ export async function checkNavigation(browser) {
     await p.locator('.clipi-feed-live').click();
     await root.getByRole('button').first().click();
     await pageFull('home');
+    if (isOwner) {
+      const client=await p.context().newCDPSession(p);
+      await p.getByText('Navigation fixture',{exact:true}).waitFor();
+      await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:130,y:185}]});
+      for (const y of [205,240,285,335]) await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:130,y}]});
+      await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await p.getByText('جارٍ تحميل الفيديوهات…',{exact:true}).waitFor();
+      assert.equal(randomRequests,1);
+      releaseRandom();
+      await p.getByText('Random fixture',{exact:true}).waitFor();
+      await p.waitForFunction(()=>[...document.querySelectorAll('.clipi-feed-stage video')].filter(v=>!v.paused).length===1&&
+        [...document.querySelectorAll('.clipi-feed-stage video')].some(v=>v.src.endsWith('/random-fixture')&&!v.paused&&v.currentTime>0.1));
+      await p.locator('.action-comment').click();
+      await p.getByRole('button',{name:'فتح حساب Guest writer',exact:true}).first().click();
+      await pageFull('shortAuthor');
+      await p.getByText('Guest writer',{exact:true}).first().waitFor();
+      await home();
+      await p.locator('.action-comment').click();
+      await p.getByRole('button',{name:'عرض الردود',exact:true}).click();
+      await p.getByRole('button',{name:'فتح حساب Reply writer',exact:true}).last().click();
+      await pageFull('profile');
+      await home();
+    }
     await checkLoginLanguages(p, lang);
     assert.deepEqual(errors, []);
     console.log(

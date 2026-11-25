@@ -15,8 +15,15 @@ test('author galleries include all published clips, paginate past 30, and keep d
     const gallery=(viewer,fields={})=>shortAccount(q,viewer,{op:'shortProfileList',...fields},json,true);
     const add=db.prepare('INSERT INTO short_clip(id,owner,title,object_key) VALUES(?,?,?,?)');
     const ids=Array.from({length:33},()=>crypto.randomUUID());
-    ids.forEach((id,i)=>add.run(id,'author','clip '+i,'shorts/'+id));
+    const random=async(viewer,exclude)=>(await shortAccount(q,viewer,{op:'shortRandom',exclude},json,true)).body.clip;
     add.run(crypto.randomUUID(),'author','draft',null);
+    assert.equal(await random('visitor',''),null);
+    add.run(ids[0],'author','clip 0','shorts/'+ids[0]);
+    assert.equal(await random('visitor',ids[0]),null);
+    assert.deepEqual(await random('visitor',''),{id:ids[0],owner:'author',title:'clip 0',canDelete:false});
+    add.run(ids[1],'author','clip 1','shorts/'+ids[1]);
+    assert.deepEqual(await random('author',ids[0]),{id:ids[1],owner:'author',title:'clip 1',canDelete:true});
+    for(let i=2;i<ids.length;i++)add.run(ids[i],'author','clip '+i,'shorts/'+ids[i]);
     add.run(crypto.randomUUID(),'someone-else','other','shorts/other');
     const own=(await gallery('author')).body;
     assert.equal(own.canDelete,true);

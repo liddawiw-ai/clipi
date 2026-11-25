@@ -1,5 +1,7 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "فتح حساب": "Open profile of",
+  "لا يوجد فيديو آخر منشور حاليًا": "No other published video is available right now",
   "تعيين أدمن للتطبيق": "Assign an app admin",
   "رقم حساب كليبي": "Clipi account ID",
   "بحث عن الحساب": "Find account",

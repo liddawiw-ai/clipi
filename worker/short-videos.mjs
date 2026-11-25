@@ -41,6 +41,14 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
     const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
     return json({clips: rows.results.map(row => ({...row,canDelete:row.owner === uid}))});
   }
+  if (op === 'shortRandom') {
+    const exclude=input.exclude??'';
+    if(typeof exclude!=='string'||(exclude&&!publishedId.test(exclude)))return json({error:'طلب غير صالح'},400);
+    const row=await q(`SELECT id,title,owner FROM short_clip WHERE rowid=(
+      SELECT rowid FROM short_clip WHERE object_key IS NOT NULL AND id<>? ORDER BY random() LIMIT 1
+    )`,exclude).first();
+    return json({clip:row?{...row,canDelete:row.owner===uid}:null});
+  }
   if (op === 'shortLookup') {
     const row = publishedId.test(clip) && await q('SELECT id,title,owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first();
     return json({clip: row ? {...row,canDelete:row.owner === uid} : null});

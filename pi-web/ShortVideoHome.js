@@ -1,10 +1,12 @@
 import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
+import {usePullDown} from './usePullDown';
+import {useRandomShort} from './useRandomShort';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
 import React,{useEffect,useRef,useState} from 'react';
-import {FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
+import {ActivityIndicator,FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
@@ -32,7 +34,7 @@ function SoundControl({playerRef,muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
   </button>;
 }
-function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
@@ -212,7 +214,10 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
         ...(onReport?[{icon:'flag',label:appText('إبلاغ عن الفيديو'),onClick:()=>{setDialog('');onReport(item.id);}}]:[])
       ]}/>}
     </>}
-    {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
+    {showing&&<ShortCommentsSheet onProfile={onCommentAuthor?row=>{
+      closeComments();
+      onCommentAuthor(row.uid,row.name||appText('مستخدم كليبي'),item.id,row.uid===viewer?.uid,row.avatar);
+    }:undefined} onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
@@ -246,7 +251,7 @@ function watchDeviceLaunch(store){
   return clear;
 }
 
-export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const target=deviceAccountTarget();
   const launchCleanup=useRef(null);
@@ -302,6 +307,8 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     })();
     return ()=>{current=false;mounted.current=false;};
   },[retry,initialId,fromProfile]);
+  const canRefresh=!fromProfile&&homeItems!==null&&active===0&&!viewMode&&playable;
+  const {refresh,refreshing}=useRandomShort({enabled:canRefresh,firstId:items[0]?.id,initialId,request,removed,setItems,setNotice});
   async function more(){
     if(fromProfile){profileFeed.onMore();return;}
     if(!page.current||loading.current)return;
@@ -330,17 +337,21 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     }
     if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
+  const pullStage=usePullDown(list,canRefresh,refresh);
   const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true"/>
-    <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
+    <div className="clipi-feed-stage" ref={pullStage}><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
     {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
-      showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
+      showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory',overscrollBehaviorY:'contain'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+    {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
+      <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
+    </View>}
     {!fromProfile && homeItems?.length===0 && !error && <View pointerEvents="none" style={s.emptyFeed}><Text style={s.count}>{translate('لا توجد فيديوهات منشورة بعد')}</Text></View>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
@@ -447,6 +458,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
 }
 
 const s=StyleSheet.create({
+  refreshStatus:{position:'absolute',top:74,alignSelf:'center',flexDirection:'row',alignItems:'center',gap:8,paddingVertical:7,paddingHorizontal:14,borderRadius:16,backgroundColor:'#172023',zIndex:4},
   back:{position:'absolute',top:12,left:8,width:48,height:48,alignItems:'center',justifyContent:'center'},
   backIcon:{color:'white',fontSize:38,lineHeight:42,textShadowColor:'#151515',textShadowRadius:4},
   compactVideo:{position:'absolute',top:0,left:0,right:0,backgroundColor:'#000'},
