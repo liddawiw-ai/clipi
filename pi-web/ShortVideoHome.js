@@ -11,7 +11,7 @@ import {Player,starters,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,p
 import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
-import {starterPoster} from './ShortMedia';
+import {shortsLookahead, starterPoster} from './ShortMedia';
 const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
 const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
@@ -261,6 +261,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     setNotice(roomLabels.deviceStoreNotice);
   },[]);
   const fromProfile=!!profileFeed;
+  const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
   const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
@@ -342,7 +343,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{Math.abs(index-active)<=1&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>

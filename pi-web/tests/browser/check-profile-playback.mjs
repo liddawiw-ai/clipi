@@ -28,9 +28,12 @@ export async function checkProfilePlayback(browser, origin) {
     await page.goto(origin+'/?lang=en&role=user&profile=1');
     const tiles = page.locator('.clipi-profile-tile');
     const firstPreview = await tiles.nth(0).locator('video').elementHandle();
+    const thirdPreview = await tiles.nth(2).locator('video').elementHandle();
     await tiles.nth(0).tap();
     await moving('one');
     assert.ok(await firstPreview.evaluate(v=>v.isConnected && !!v.closest('.clipi-feed-stage')));
+    // A rapid second swipe must reuse the third tile, even before the first swipe.
+    assert.ok(await thirdPreview.evaluate(v=>v.isConnected && !!v.closest('.clipi-feed-stage') && v.preload==='auto' && v.paused));
     const next = await media('two').elementHandle();
     await page.waitForFunction(v=>v && v.readyState>=2 && v.paused,next);
     await swipe();
@@ -45,6 +48,7 @@ export async function checkProfilePlayback(browser, origin) {
     await moving('two');
     await swipe();
     await moving('three');
+    assert.ok(await thirdPreview.evaluate(v=>!v.paused && v.isConnected));
     await swipe(true);
     await moving('two');
     await page.getByRole('button',{name:'Back',exact:true}).tap();
