@@ -132,18 +132,20 @@ export async function checkNavigation(browser) {
       }
     };
     await pageFull('home');
-    const accountButton=p.getByRole('link',{name:lang==='en'?'Open your account on your device':'افتح حسابك على جهازك',exact:true});
-    const launchHref=await accountButton.getAttribute('href');
-    if(lang==='en')assert.equal(launchHref,'clipi://account');
-    else{
-      assert.ok(launchHref.startsWith('intent://account/#Intent;scheme=clipi;package=com.walid.clipi;'));
-      assert.ok(decodeURIComponent(launchHref).includes('https://clipi.local/device-install/android;end'));
-    }
+    const downloadLabel=lang==='en'?'Download the app':'حمّل التطبيق';
+    const downloadButton=p.getByRole('button',{name:downloadLabel,exact:true});
+    await downloadButton.click();
+    const stores=p.getByRole('region',{name:downloadLabel});
+    assert.equal(await stores.getByRole('link').count(),2);
+    assert.equal(await stores.getByRole('link',{name:'Google Play'}).getAttribute('href'),'/device-install/android');
+    assert.equal(await stores.getByRole('link',{name:'App Store'}).getAttribute('href'),'/device-install/ios');
+    await stores.getByRole('button').click();
+    await stores.waitFor({state:'hidden'});
     const liveButton=p.locator('.clipi-feed-live');
-    const [accountBox,liveBox,stageBox]=await Promise.all([accountButton,liveButton,p.locator('.clipi-feed-stage')].map(el=>el.boundingBox()));
-    assert.ok(accountBox.x>=stageBox.x && accountBox.x+accountBox.width<=liveBox.x+0.5);
+    const [downloadBox,liveBox,stageBox]=await Promise.all([downloadButton,liveButton,p.locator('.clipi-feed-stage')].map(el=>el.boundingBox()));
+    assert.ok(downloadBox.x>=stageBox.x && downloadBox.x+downloadBox.width<=liveBox.x+0.5);
     assert.ok(Math.abs(stageBox.x+stageBox.width-liveBox.x-liveBox.width)<=12);
-    for(const button of [accountButton,liveButton])assert.equal(await button.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+    for(const button of [downloadButton,liveButton])assert.equal(await button.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
 
     await p.locator('.action-more').click();
     await p.waitForFunction(() => {

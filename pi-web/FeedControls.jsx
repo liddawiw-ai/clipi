@@ -49,9 +49,13 @@ export function FeedSheet({title, closeLabel, onClose, choices, note, busy=false
       <section className="clipi-feed-sheet" aria-label={title}>
         <header><h2>{title}</h2><button type="button" disabled={busy} onClick={onClose} aria-label={closeLabel}><FeedIcon name="close" size={19}/></button></header>
         {note&&<p className="clipi-sheet-note" role="status">{note}</p>}
-        {choices.map(({label,icon,onClick})=><button type="button" key={icon} disabled={busy} className={'clipi-sheet-choice choice-'+icon} onClick={onClick}>
-          <span className="clipi-choice-icon"><FeedIcon name={icon} size={24}/></span>{label}
-        </button>)}
+        {choices.map(({label,icon,onClick,href})=>{
+          const className='clipi-sheet-choice choice-'+icon;
+          const content=<><span className="clipi-choice-icon"><FeedIcon name={icon} size={24}/></span>{label}</>;
+          return href
+            ? <a key={href} href={href} className={className}>{content}</a>
+            : <button type="button" key={icon} disabled={busy} className={className} onClick={onClick}>{content}</button>;
+        })}
       </section>
     </div>
   </Modal>;
