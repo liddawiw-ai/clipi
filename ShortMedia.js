@@ -1,4 +1,4 @@
-import React, {useEffect, useImperativeHandle} from 'react';
+import React, {useLayoutEffect, useImperativeHandle} from 'react';
 import {AppState, Clipboard, Share, StyleSheet} from 'react-native';
 import {VideoView, useVideoPlayer} from 'expo-video';
 import {launchImageLibraryAsync} from 'expo-image-picker';
@@ -12,25 +12,39 @@ export const starters = {
   aurora: require('./assets/shorts/aurora.mp4'),
   dunes: require('./assets/shorts/dunes.mp4')
 };
-export function Player({source, active = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
+export function Player(props) {
+  return <ShortVideoPlayer key={props.source} {...props}/>;
+}
+
+function ShortVideoPlayer({source, active = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
   const player = useVideoPlayer(source, p => {p.loop=true;p.muted=muted;});
   useImperativeHandle(playerRef, () => player, [player]);
-  useEffect(() => {player.muted=muted;},[muted,player]);
-  useEffect(() => {
+  useLayoutEffect(() => {player.muted=muted;},[muted,player]);
+  useLayoutEffect(() => {
     if (!onPlayingChange) return;
     const subscription = player.addListener('playingChange', ({isPlaying}) => onPlayingChange(isPlaying));
     onPlayingChange(player.playing);
     return () => subscription.remove();
   }, [player, onPlayingChange]);
-  useEffect(() => {
-    function sync(state) { if (active && state==='active') player.play(); else player.pause(); }
+  useLayoutEffect(() => {
+    let listening = true;
+    function sync(state) {
+      if (!listening) return;
+      if (active && state === 'active') player.play();
+      else player.pause();
+    }
     sync(AppState.currentState || 'active');
-    const subscription=AppState.addEventListener('change',sync);
-      const ready=player.addListener('statusChange',({status})=>{
-        if(status==='readyToPlay')sync(AppState.currentState||'active');
-      });
-    return () => {subscription.remove();ready.remove();player.pause();};
-  },[active,player]);
+    const subscription = AppState.addEventListener('change', sync);
+    const ready = player.addListener('statusChange', ({status}) => {
+      if (status === 'readyToPlay') sync(AppState.currentState || 'active');
+    });
+    return () => {
+      // useVideoPlayer stops and releases its native player on unmount.
+      listening = false;
+      subscription.remove();
+      ready.remove();
+    };
+  }, [active, player]);
   return <VideoView style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
 }
 export async function pickShort() {
