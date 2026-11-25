@@ -1,4 +1,5 @@
 import React,{useEffect,useImperativeHandle,useRef} from 'react';
+import {checkShortVideo} from './short-upload-limits.mjs';
 
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
 export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
@@ -40,11 +41,16 @@ export function pickShort(){
     const input=document.createElement('input');
     input.type='file';input.accept='video/mp4,.mp4';
     input.oncancel=()=>resolve(null);
-    input.onchange=()=>{
+    input.onchange=async()=>{
       const file=input.files[0];
       if(!file)return resolve(null);
-      if(file.size>24*1024*1024)return reject(Error('اختر فيديو حجمه حتى ٢٤ ميغابايت'));
-      resolve({file,uri:URL.createObjectURL(file)});
+      try {
+        const problem = await checkShortVideo(file);
+        if (problem) throw new Error(problem.error);
+        resolve({file, uri:URL.createObjectURL(file)});
+      } catch (error) {
+        reject(error);
+      }
     };
     input.click();
   });

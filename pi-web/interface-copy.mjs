@@ -1,5 +1,9 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "MP4 · حتى ٣ دقائق و٥٠ ميغابايت": "MP4 · Up to 3 minutes and 50 MB",
+  "اختر فيديو حجمه حتى ٥٠ ميغابايت": "Choose a video no larger than 50 MB.",
+  "أقصى مدة للفيديو ثلاث دقائق. قصّر المقطع ثم حاول مجددًا.": "Videos can be up to 3 minutes long. Trim your clip and try again.",
+  "تعذّرت قراءة مدة الفيديو. اختر ملف MP4 صالحًا.": "Could not read the video duration. Choose a valid MP4 file.",
   "غلاف البث": "Broadcast cover",
   "اختيار غلاف البث": "Choose broadcast cover",
   "تغيير غلاف البث": "Change broadcast cover",
