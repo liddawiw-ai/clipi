@@ -1387,7 +1387,7 @@ export default function App(){
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Google profile sync:',profileError.message)}
-      setUser(signed.user);go('home');
+      setUser(signed.user);await openRoomInvitation(signed.user);
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
       const detail=e?.code==='10'?'تعذر التحقق من إعدادات Google لهذا الإصدار.':e?.message||'تعذر تسجيل الدخول باستخدام Google.';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Google'),uiError(detail))
     }}finally{setBusy(false)}
@@ -1418,7 +1418,7 @@ export default function App(){
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
-      setUser(signed.user);go('home');
+      setUser(signed.user);await openRoomInvitation(signed.user);
     }catch(e){if(e?.code!=='SIGN_IN_CANCELLED'&&e?.code!=='12501'){
       const detail=e?.message||'راجع Facebook App ID وإعداد Firebase';setAuthError(uiError(detail));Alert.alert(appText('فشل تسجيل Facebook'),uiError(detail))
     }}
@@ -1464,6 +1464,12 @@ export default function App(){
     const isCurrent=()=>isMounted()&&auth().currentUser?.uid===account.uid;
     if(!isCurrent())return;
     if(location.pathname==='/delete-account'){go('deleteAccount');return}
+    const target=new URL(location.href);
+    if(target.searchParams.get('open')==='account'){
+      target.searchParams.delete('open');
+      window.history.replaceState(window.history.state,'',target);
+      go('profile');return;
+    }
     const id=roomInvitationId(location);
     if(id){
       try{

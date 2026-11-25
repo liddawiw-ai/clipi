@@ -201,8 +201,42 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   </View>;
 }
 
+function deviceAccountTarget(){
+  const ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const store=new URL('/device-install/'+(ios?'ios':'android'),location.origin).href;
+  const href=ios?'clipi://account':'intent://account/#Intent;scheme=clipi;package=com.walid.clipi;S.browser_fallback_url='+encodeURIComponent(store)+';end';
+  return {href,store};
+}
+
+function watchDeviceLaunch(store){
+  let timer;
+  function clear(){
+    clearTimeout(timer);
+    window.removeEventListener('pagehide',clear);
+    document.removeEventListener('visibilitychange',hidden);
+  }
+  function hidden(){if(document.hidden)clear()}
+  window.addEventListener('pagehide',clear);
+  document.addEventListener('visibilitychange',hidden);
+  timer=setTimeout(()=>{
+    clear();
+    if(!document.hidden)location.assign(store);
+  },2100);
+  return clear;
+}
+
 export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
-  const goLiveLabel=interfaceLocale()==='en'?'go live':roomLabels?.startBroadcast||translate('ابدأ البث');
+  const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
+  const target=deviceAccountTarget();
+  const launchCleanup=useRef(null);
+  useEffect(()=>()=>launchCleanup.current?.(),[]);
+  useEffect(()=>{
+    const url=new URL(location.href);
+    if(url.searchParams.get('deviceStore')!=='unavailable')return;
+    url.searchParams.delete('deviceStore');
+    history.replaceState(history.state,'',url);
+    setNotice(roomLabels.deviceStoreNotice);
+  },[]);
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(samples),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
@@ -293,6 +327,10 @@ export function ShortVideoHome({roomLabels,onAuthor,followRevision,onFollowChang
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
+      <a className="clipi-device-account" href={target.href} onClick={()=>{
+        launchCleanup.current?.();
+        launchCleanup.current=watchDeviceLaunch(target.store);
+      }}><bdi>{roomLabels.otherAccount}</bdi></a>
       <button type="button" onClick={()=>onOpenLive(items[active]?.id)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{goLiveLabel}
       </button>
