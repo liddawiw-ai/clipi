@@ -38,7 +38,7 @@ export function HubScreen({title, action, children, dock, scrollable=true}) {
   </View>;
 }
 
-export function RoomDiscovery({helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
     <View accessibilityRole="tablist" style={s.filters}>
@@ -57,7 +57,7 @@ export function RoomDiscovery({helpRoom,helpImage,hostField,copy, userId, rooms,
       </View>
     </TouchableOpacity>
     <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
-      autoCorrect={false} value={search} onChangeText={onSearch}/>
+      autoCorrect={false} value={search} onChangeText={onSearch}/>{extraDiscovery}
     {helpRoom&&<TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(helpRoom)}
         style={{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:14,backgroundColor:theme.paper}}>
         <Image source={helpImage} resizeMode="contain" style={{width:56,height:56,borderRadius:12}}/>

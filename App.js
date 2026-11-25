@@ -868,6 +868,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
             <RoomOption title={chatVisible?appText('إخفاء الدردشة'):appText('إظهار الدردشة')} onPress={()=>{setChatVisible(v=>!v);closeRoomMenu()}}/>
             <RoomOption title={appText("تصغير الغرفة")} onPress={()=>{closeRoomMenu();onMinimize()}}/>
             {canApprove&&(audio||requests.length>0)&&<RoomOption title={(stagePanelVisible?appText('إخفاء طلبات المقاعد'):appText('طلبات المقاعد'))+' ('+requests.length+')'} onPress={()=>{closeRoomMenu();setStagePanelVisible(value=>!value)}}/>}
+            {canApprove&&<RoomOption title={appText(membership.state?.shield?'إيقاف وضع الحماية':'تفعيل وضع الحماية')} disabled={roomActionPending}
+              onPress={()=>updateRoomSettings({shield:!membership.state?.shield})}/>}
             {canApprove&&<>
               {!officialHelp&&<RoomOption title={appText('تعيين أدمن')} onPress={()=>setRoomMenu('admins')}/>}
               <RoomOption title={broadcast.invite} onPress={()=>setRoomMenu('friends')}/>
@@ -1140,6 +1142,61 @@ function LoginLanguageSheet({locale, menu, fieldRef, space, setSpace, onSelect, 
 }
 
 const accountLanguageFile = FileSystem.documentDirectory + 'clipi-language.txt';
+const programTopics={social:'دردشة',games:'ألعاب',music:'موسيقى',help:'مساعدة',other:'أخرى'};
+function ProgramButton({label,onPress,selected=false,disabled=false}){
+  return <TouchableOpacity accessibilityRole="button" accessibilityState={{selected,disabled}} disabled={disabled} onPress={onPress}
+    style={{paddingHorizontal:9,paddingVertical:8,minHeight:44,justifyContent:'center'}}><Text style={{color:theme.ink,fontWeight:selected?'800':'500'}}>{selected?'✓ ':''}{label}</Text></TouchableOpacity>;
+}
+function ProgramOptions({value,choose,all}){
+  const [expanded,setExpanded]=useState(false);
+  const [languagesOpen,setLanguagesOpen]=useState(false);
+  const languages=Object.keys(accountLabels);
+  const label=code=>accountLabels[code]?.languageName||code;
+  const fields={flexDirection:'row',flexWrap:'wrap',alignItems:'center'};
+  return <View>
+    <ProgramButton label={appText(all?'فلترة الغرف':'لغة البث وموضوعه')} selected={expanded} onPress={()=>setExpanded(!expanded)}/>
+    {expanded&&<View>
+      <ProgramButton label={appText('اللغة')+' · '+(value.language?label(value.language):appText('الكل'))} onPress={()=>setLanguagesOpen(!languagesOpen)}/>
+      {languagesOpen&&<View style={fields}>{(all?['',...languages]:languages).map(code=><ProgramButton key={code} label={code?label(code):appText('الكل')} selected={value.language===code} onPress={()=>{choose({...value,language:code});setLanguagesOpen(false)}}/>)}</View>}
+      <View style={fields}>{(all?['',...Object.keys(programTopics)]:Object.keys(programTopics)).map(key=><ProgramButton key={key} label={appText(programTopics[key]||'الكل')} selected={value.topic===key} onPress={()=>choose({...value,topic:key})}/>)}</View>
+    </View>}
+  </View>;
+}
+function EventEditor({tags,request,onCreated,locale}){
+  const [open,setOpen]=useState(false),[name,setName]=useState(''),[date,setDate]=useState(''),[time,setTime]=useState('20:00'),[type,setType]=useState('audio'),[error,setError]=useState('');
+  const lock=useRef(false);
+  function show(){
+    const now=new Date();now.setDate(now.getDate()+1);
+    setDate([now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-'));setError('');setOpen(!open);
+  }
+  async function save(){
+    if(lock.current)return;
+    const stamp=new Date(date+'T'+time+':00');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)||!Number.isFinite(stamp.getTime())||stamp.getDate()!==Number(date.slice(-2))||!name.trim()){setError(appText('تحقّق من الموعد والعنوان'));return}
+    lock.current=true;
+    try{await request('/account-number',{op:'eventCreate',...tags,name,starts:stamp.getTime(),type});setOpen(false);setName('');onCreated()}
+    catch(e){setError(uiError(e))}finally{lock.current=false}
+  }
+  const input={borderWidth:1,borderColor:theme.line,borderRadius:10,padding:8,color:theme.ink};
+  return <View><ProgramButton label={appText('جدولة بث')} selected={open} onPress={show}/>
+    {open&&<View style={{gap:6}}><TextInput accessibilityLabel={appText('اسم الغرفة')} placeholder={appText('اسم الغرفة')} style={input} value={name} maxLength={55} onChangeText={setName}/>
+      <Text>{appText('التاريخ والوقت المحلي')}</Text>
+      <TextInput accessibilityLabel={appText('التاريخ')} style={input} value={date} onChangeText={setDate} placeholder="YYYY-MM-DD"/>
+      <TextInput accessibilityLabel={appText('الوقت')} style={input} value={time} onChangeText={setTime} placeholder="HH:mm"/>
+      <View style={{flexDirection:'row'}}>{['audio','video'].map(t=><ProgramButton key={t} label={appText(t==='audio'?'غرفة صوتية':'بث فيديو')} selected={t===type} onPress={()=>setType(t)}/>)}</View>
+      <ProgramButton label={appText('حفظ')} onPress={save}/>{!!error&&<Text accessibilityLiveRegion="polite">{error}</Text>}</View>}
+  </View>;
+}
+function UpcomingRooms({events,uid,locale,onRemind,onStart,onCancel}){
+  if(!events.length)return null;
+  return <View><Text style={{fontWeight:'700',color:theme.ink}}>{appText('البث القادم')}</Text>
+    {events.map(e=><View key={e.id} style={{paddingVertical:7,borderBottomWidth:1,borderColor:theme.line}}>
+      <Text style={{color:theme.ink}}>{e.name}</Text><Text>{new Date(e.starts).toLocaleString(locale)}</Text>
+      {e.owner===uid?<View style={{flexDirection:'row'}}><ProgramButton label={appText('بدء البث')} onPress={()=>onStart(e)}/><ProgramButton label={appText('إلغاء الموعد')} onPress={()=>onCancel(e)}/></View>:
+      <ProgramButton label={appText(e.interested?'إلغاء التذكير':'ذكّرني')} selected={!!e.interested} onPress={()=>onRemind(e)}/>}
+    </View>)}</View>;
+}
+
 export default function App(){
   const [locale,setLocale] = useState('ar');
   const [loginLanguages,setLoginLanguages]=useState(false);
@@ -1179,6 +1236,7 @@ export default function App(){
   const [inviteAll,setInviteAll]=useState(false),[inviteRoomId,setInviteRoomId]=useState(null);
   const [broadcastName,setBroadcastName]=useState('');
   const [followRevision,setFollowRevision]=useState(0);
+  const [reportComment,setReportComment]=useState(null);
   const [initialShort,setInitialShort]=useState(null);
   const returnToAccount=useRef(false),returnToWallet=useRef(false),checkoutOrder=useRef(null);
   useEffect(()=>{
@@ -1289,7 +1347,46 @@ export default function App(){
   const [discoveryFilter,setDiscoveryFilter]=useState('all');
   useEffect(()=>setInviteAll(false),[page,discoveryFilter]);
   const [helpAvailable,setHelpAvailable]=useState(false);
+  const [tags,setTags]=useState({language:'',topic:'social'}),[searchTags,setSearchTags]=useState({language:'',topic:''});
+  const [events,setEvents]=useState([]),[eventRevision,setEventRevision]=useState(0);
+  const announced=useRef(new Set()),eventBusy=useRef(false);
+  const myTags={...tags,language:tags.language||locale};
+  useEffect(()=>{
+    if(!user?.uid){setEvents([]);announced.current.clear();return}
+    let active=true,loading=false;
+    async function refresh(){
+      if(loading)return;loading=true;
+      try{
+        const out=await mediaRequest('/account-number',{op:'eventList'});
+        if(!active)return;
+        setEvents(out.events||[]);
+        for(const e of out.alerts||[]){
+          if(announced.current.has(e.id))continue;
+          announced.current.add(e.id);
+          Alert.alert(appText('بدأ البث'),e.name,[
+            {text:appText('إغلاق'),onPress:()=>mediaRequest('/account-number',{op:'eventSeen',event:e.id}).catch(()=>{})},
+            {text:appText('دخول'),onPress:async()=>{
+              try{
+                if(auth().currentUser?.uid!==user.uid)return;
+                const snap=await firestore().collection('rooms').doc(e.room).get();
+                if(!snap.exists||snap.data()?.status!=='open'){Alert.alert(appText('انتهى البث'));return}
+                if(auth().currentUser?.uid!==user.uid)return;
+                if(activeRoomRef.current?.ownerUid===user.uid&&activeRoomRef.current.id!==e.room){Alert.alert(appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'));return}
+                enterRoom({...snap.data(),id:e.room});await mediaRequest('/account-number',{op:'eventSeen',event:e.id});
+              }catch(err){Alert.alert(appText('تعذر الاتصال'),uiError(err))}
+            }}]);break;
+        }
+      }catch{}finally{loading=false}
+    }
+    refresh();const timer=setInterval(refresh,20000);return()=>{active=false;clearInterval(timer)};
+  },[user?.uid,eventRevision]);
+  async function changeEvent(op,e,enabled){
+    if(eventBusy.current)return;eventBusy.current=true;
+    try{await mediaRequest('/account-number',{op,event:e.id,enabled});setEventRevision(v=>v+1)}
+    catch(err){Alert.alert(appText('تعذر الاتصال'),uiError(err))}finally{eventBusy.current=false}
+  }
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
+  const activeRoomRef=useRef(null);activeRoomRef.current=activeRoom;
   const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
@@ -1395,8 +1492,8 @@ export default function App(){
   useEffect(()=>{
     if(!user?.uid)return;
     setRooms([]);setRoomError('');setHelpAvailable(false);
-    let candidates=[],live=new Set(),mounted=true,pending=false;
-    const display=()=>setRooms(candidates.filter(r=>r.id!==helpRoom.id&&r.status==='open'&&live.has(r.id)));
+    let candidates=[],live=new Set(),liveTags={},mounted=true,pending=false;
+    const display=()=>setRooms(candidates.filter(r=>r.id!==helpRoom.id&&r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id]})));
     async function refresh(){
       if(pending)return;
       pending=true;
@@ -1404,7 +1501,7 @@ export default function App(){
         const response=await fetch(MEDIA_ENDPOINT+'/active-rooms');
         if(!response.ok)throw Error(appText('تعذر التحقق من الغرف المفتوحة'));
         const data=await response.json();
-        if(mounted){live=new Set(data.rooms);setHelpAvailable(data.supportRoom?.id===helpRoom.id);display();setRoomError('')}
+        if(mounted){live=new Set(data.rooms);liveTags=data.tags||{};setHelpAvailable(data.supportRoom?.id===helpRoom.id);display();setRoomError('')}
       }catch(e){if(mounted){live.clear();display();setRoomError(uiError(e))}}
       finally{pending=false}
     }
@@ -1611,11 +1708,11 @@ export default function App(){
     return {owner:old.owner-next.owner,welcome:old.welcome-next.welcome,purchased:old.purchased-next.purchased};
   }
 
-  async function createRoom(kind,title,previous=null){
+  async function createRoom(kind,title,previous=null,event=null){
     if(creatingRoom.current)return;
     if(!user?.uid)return Alert.alert(appText('الحساب'),appText('سجّل الدخول أولًا'));
     const host=broadcastName.trim().slice(0,35);
-    if(!host)return Alert.alert(menu.broadcasterName);
+    if(!host&&!event)return Alert.alert(menu.broadcasterName);
     const label=title.trim().slice(0,55);
     if(!label)return Alert.alert(appText('اسم الغرفة'),appText('أدخل الاسم'));
     creatingRoom.current=true;setBusy(true);
@@ -1624,8 +1721,11 @@ export default function App(){
         const room=await openPreviousBroadcast(firestore(),mediaRequest,previous,user.uid,host,firestore.FieldValue.serverTimestamp());
         setInviteRoomId(inviteAll?room.id:null);setInviteAll(false);setBroadcastName('');enterRoom(room);return;
       }
-      const data={name:label,type:kind,ownerUid:user.uid,ownerName:host,createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
+      const data={name:label,type:kind,ownerUid:user.uid,ownerName:host||name||user.displayName||'Clipi',createdAt:firestore.FieldValue.serverTimestamp(),status:'open'};
       const doc=await firestore().collection('rooms').add(data);
+      try{await mediaRequest('/account-number',{op:'roomTag',room:doc.id,...(event?{language:event.language,topic:event.topic}:myTags),event:event?.id});setEventRevision(v=>v+1)}
+      catch(error){Alert.alert(appText('تعذر الاتصال'),uiError(error))}
+
       setInviteRoomId(inviteAll?doc.id:null);setInviteAll(false);setBroadcastName('');enterRoom({id:doc.id,...data,host,owner:user.uid});
     }catch(e){Alert.alert(appText('تعذر إنشاء الغرفة'),uiError(e))}finally{creatingRoom.current=false;setBusy(false)}
   }
@@ -1703,11 +1803,22 @@ export default function App(){
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
   const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,followRevision,onFollowChange});
-  const shortPlayerProps={translate:appText,
+  const shortPlayerProps={translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
+    const uid=user?.uid;
+    if(!uid)return;
+    if(activeRoom?.id===room.id){setMini(false);return}
+    if(activeRoom?.ownerUid===uid){Alert.alert(appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'));return}
+    try{
+      const snap=await firestore().collection('rooms').doc(room.id).get();
+      if(auth().currentUser?.uid!==uid)return;
+      if(!snap.exists||snap.data()?.status!=='open'){Alert.alert(appText('انتهى البث'));return}
+      enterRoom({...snap.data(),id:room.id});
+    }catch(e){Alert.alert(appText('تعذر الاتصال'),uiError(e))}
+  },
     followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
     playable:!activeRoom,suppressAudio:uploadOpen&&previewingDraft,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
-    onReport:id=>{setInitialShort(id);go('reportShort');}
+    onReport:(id,comment=null)=>{setReportComment(comment);setInitialShort(id);go('reportShort');}
   };
   const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{appText(equipped.frame)}</Text><Text style={S.white}>{appText(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
 
@@ -1754,8 +1865,8 @@ export default function App(){
     setRoomProfileUid(null);setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
   }} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
-  if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind="video" initialSubject={MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
-  const hostField=<View><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
+  if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
+  const hostField=<View><ProgramOptions value={myTags} choose={setTags}/><EventEditor tags={myTags} request={mediaRequest} locale={locale} onCreated={()=>setEventRevision(v=>v+1)}/><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
     <CircleChoice label={broadcastWords(locale).friends} checked={inviteAll} disabled={busy} onPress={()=>setInviteAll(value=>!value)}/></View>;
   if(page==='previousRooms')return <HubScreen title={menu.previousRooms} action={{label:menu.back,onPress:()=>go('rooms')}} dock={nav()}>
     <PreviousRooms db={firestore()} uid={user.uid} request={mediaRequest} hostField={hostField} menu={menu} locale={locale} busy={busy}
@@ -1763,7 +1874,7 @@ export default function App(){
   </HubScreen>;
   if(page==='rooms'){
     const query=roomSearch.trim().toLowerCase();
-    const visibleRooms=rooms.filter(r=>r.status==='open'&&!blockedUsers.includes(r.ownerUid)
+    const visibleRooms=rooms.filter(r=>(!searchTags.language||searchTags.language===r.language)&&(!searchTags.topic||searchTags.topic===r.topic)&&r.status==='open'&&!blockedUsers.includes(r.ownerUid)
       &&(discoveryFilter==='all'||(r.type==='video'?'video':'audio')===discoveryFilter)
       &&(!query||r.name?.toLowerCase().includes(query)||r.id.toLowerCase().includes(query)));
     const copy={
@@ -1774,7 +1885,9 @@ export default function App(){
       welcome:'🎁 هدية ترحيبية',welcomeNote:'💎 ١٠٠ ماسة · 👑 إطار ملكي فاخر · 🏎️ سيارة فاخرة'
     };
     return <HubScreen title={appText("الغرف")} dock={nav()}>
-      <RoomDiscovery helpRoom={helpAvailable&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={require('./assets/clipi-icon.png')} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
+      <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
+        <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
+          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={helpAvailable&&(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={require('./assets/clipi-icon.png')} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}
