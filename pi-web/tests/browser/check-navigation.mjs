@@ -211,6 +211,11 @@ export async function checkNavigation(browser) {
         const help=root.getByRole('button',{name:/الإدارة/});
         if(i===0){
           await help.waitFor();
+          const search=root.getByRole('textbox',{name:'ابحث بالاسم أو معرّف الغرفة'});
+          await search.fill('no-room-matches-this-search');
+          assert.ok(await help.isVisible());
+          assert.equal(await help.evaluate(el=>el.compareDocumentPosition(el.ownerDocument.querySelector('[aria-label="ابحث بالاسم أو معرّف الغرفة"]')) & Node.DOCUMENT_POSITION_FOLLOWING),4);
+          await search.fill('');
           assert.ok((await help.innerText()).includes('٢٤ ساعة'));
           assert.equal(await help.locator('img').count(),1);
           assert.match(await help.locator('img').getAttribute('src'),/\/room-covers\/clipi-admin-help\/6f6e492b-b5ee-4db2-b76d-1d78e7e238d8\.jpg$/);
