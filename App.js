@@ -889,6 +889,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
               catch(e){Alert.alert(appText('ثيم الغرفة'),uiError(e))}
             }}/>
           </>:<>
+            <Text style={S.muted}>{appText(room.type==='video'?'معرّف البث':'معرّف الغرفة')}</Text>
+            <Text selectable style={S.muted}>{room.id}</Text>
             <RoomOption title={appText("مشاركة الغرفة")} onPress={()=>{
               closeRoomMenu();
               Share.share({message:room.name+'\n'+MEDIA_ENDPOINT+'/room?room='+encodeURIComponent(room.id)})
@@ -1785,6 +1787,24 @@ export default function App(){
     if(uid===user.uid){go('profile');return}
     setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
   }
+  async function enterRoomById(){
+    const id=roomSearch.trim();
+    if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))return;
+    const uid=user.uid;
+    try{
+      const room=id===helpRoom.id?helpRoom:(await firestore().collection('rooms').doc(id).get()).data();
+      if(auth().currentUser?.uid!==uid||pageRef.current!=='rooms')return;
+      if(room?.status==='open'&&!blockedUsers.includes(room.ownerUid)){
+        enterRoom({...room,id});
+        return;
+      }
+      Alert.alert(appText('معرّف الغرفة'),appText('الغرفة أو البث غير متاح الآن.'));
+    }catch(error){
+      if(auth().currentUser?.uid===uid&&pageRef.current==='rooms'){
+        Alert.alert(appText('تعذر البحث عن الغرفة'),uiError(error));
+      }
+    }
+  }
   function enterRoom(room){
     setRoomProfileUid(null);
     if(room.status==='closed')return Alert.alert(appText('غرفة مغلقة'),appText('هذه الغرفة مغلقة الآن'));
@@ -1945,7 +1965,7 @@ export default function App(){
       <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
         <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
           onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'أدمن كليبي','Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={require('./assets/clipi-icon.png')} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
-        filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
+        filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch} onSearchById={enterRoomById}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}
           createRoom(discoveryFilter,broadcastName);
