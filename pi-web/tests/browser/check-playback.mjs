@@ -42,25 +42,38 @@ try{
     const original=await page.locator('video').first().elementHandle();
     if(locale==='ar' && role==='user'){
       const point={position:{x:110,y:190}};
-      const surface=button('إيقاف الفيديو مؤقتًا').first();
+      const surface=page.getByTestId('short-video-gestures');
+      const center=page.getByTestId('short-video-playback');
       const sound=page.locator('.clipi-audio').first();
       assert.equal(await original.evaluate(v=>v.muted),true);
-      await surface.click(point);
+      assert.equal(await center.getAttribute('aria-label'),'إيقاف الفيديو مؤقتًا');
+      const videoBox=await original.boundingBox(),controlBox=await center.boundingBox();
+      assert.ok(controlBox.width>=44 && controlBox.height>=44);
+      for(const [axis,length] of [['x','width'],['y','height']]){
+        assert.ok(Math.abs(controlBox[axis]+controlBox[length]/2-videoBox[axis]-videoBox[length]/2)<2);
+      }
+      await center.click();
       await page.waitForFunction(v=>v.paused,original);
       const frame=await original.evaluate(v=>v.currentTime);
+      assert.equal(await center.getAttribute('aria-label'),'استئناف الفيديو');
+      assert.ok((await center.textContent()).includes('▶'));
       for(const muted of [false,true]){
         await sound.click();
         assert.equal(await original.evaluate(v=>v.muted),muted);
         await page.waitForTimeout(350);
         assert.deepEqual(await original.evaluate(v=>[v.paused,v.currentTime]),[true,frame]);
       }
-      await button('استئناف الفيديو').first().click(point);
+      await center.click();
       await page.waitForFunction(({v,t})=>!v.paused&&v.currentTime>t,{v:original,t:frame});
+      await surface.click(point);
+      await page.waitForFunction(v=>v.paused,original);
+      await surface.click(point);
+      await page.waitForFunction(v=>!v.paused,original);
       await surface.dblclick(point);
       await page.getByRole('button',{name:'إلغاء الإعجاب',exact:true}).first().waitFor();
       await page.waitForTimeout(350);
       assert.equal(await original.evaluate(v=>v.paused),false);
-      console.log('PASS muted autoplay, single tap pause/resume, stationary frame through both mute changes, double-tap like');
+      console.log('PASS autoplay, centered play/pause, frozen frame through mute changes, tap and double-tap');
     }
     await button(en?'More':'المزيد').click();
     const sheet=page.locator('.clipi-video-settings .clipi-feed-sheet');
@@ -79,5 +92,21 @@ try{
     assert.ok(await page.getByText('حفظ',{exact:true}).count()>=1);
     assert.deepEqual(errors,[]);await page.close();console.log('PASS',locale,role,'partial white sheet, decoded video frames and unchanged user text');
   }
+  const restricted=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  await restricted.addInitScript(()=>{
+    const play=HTMLMediaElement.prototype.play;
+    HTMLMediaElement.prototype.play=function(){
+      return navigator.userActivation.isActive ? play.call(this)
+        : Promise.reject(new DOMException('Gesture required','NotAllowedError'));
+    };
+  });
+  await restricted.goto(`http://127.0.0.1:${server.address().port}/?lang=ar&role=user`);
+  await restricted.getByRole('button',{name:'استئناف الفيديو',exact:true}).tap();
+  await restricted.waitForFunction(()=>{
+    const v=document.querySelector('video');
+    return v && !v.paused && v.muted && v.currentTime>0.1;
+  });
+  await restricted.close();
+  console.log('PASS white center play button starts video when autoplay is blocked without touching sound');
   await checkNavigation(browser);
 }finally{await browser.close();server.close();}

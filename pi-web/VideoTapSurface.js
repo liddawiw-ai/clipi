@@ -1,11 +1,11 @@
 import React, {useLayoutEffect, useRef, useState} from 'react';
-import {Image, Platform, StyleSheet, View} from 'react-native';
+import {Image, Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 
 const heartSize = 40;
 const nearby = (point, x, y, radius) => Math.hypot(point.x - x, point.y - y) <= radius;
 const activeHeart = require('./assets/actions/like-on.png');
 
-export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playbackLabel}) {
+export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playbackLabel, paused}) {
   const start = useRef(null);
   const firstTap = useRef(null);
   const generation = useRef(0);
@@ -94,19 +94,36 @@ export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playb
   };
 
   return (
-    <View {...handlers} accessible accessibilityRole="button" accessibilityLabel={playbackLabel}
-      accessibilityActions={[{name:'activate'}]} onAccessibilityAction={e=>{if(e.nativeEvent.actionName==='activate')onSingleTap?.()}}
-      onKeyDown={web?e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();onSingleTap?.()}}:undefined}
-      collapsable={false}
-      style={[StyleSheet.absoluteFill, styles.surface, web && styles.web]}>
-      {heart && <Image accessible={false} pointerEvents="none" source={activeHeart}
-        style={[styles.heart, heart]} />}
-    </View>
+    <>
+      <View {...handlers} testID="short-video-gestures" accessible={false} collapsable={false}
+        style={[StyleSheet.absoluteFill, styles.surface, web && styles.web]}>
+        {heart && <Image accessible={false} pointerEvents="none" source={activeHeart}
+          style={[styles.heart, heart]} />}
+      </View>
+      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.center]}>
+        <Pressable testID="short-video-playback" accessibilityRole="button" accessibilityLabel={playbackLabel}
+          onPress={onSingleTap} style={styles.playback}>
+          {paused
+            ? <Text accessible={false} allowFontScaling={false} style={styles.arrow}>{'▶︎'}</Text>
+            : <View pointerEvents="none" style={styles.pauseIcon}>
+                <View style={styles.bar}/><View style={styles.bar}/>
+              </View>}
+        </Pressable>
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   surface: {overflow: 'hidden'},
+  center: {alignItems: 'center', justifyContent: 'center'},
+  playback: {
+    width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.5)',
+    alignItems: 'center', justifyContent: 'center'
+  },
+  arrow: {color: '#fff', fontSize: 27, lineHeight: 32, includeFontPadding: false, writingDirection: 'ltr'},
+  pauseIcon: {flexDirection: 'row', gap: 5},
+  bar: {width: 5, height: 19, borderRadius: 1, backgroundColor: '#fff'},
   web: {touchAction: 'pan-y pinch-zoom', userSelect: 'none'},
   heart: {position: 'absolute', width: heartSize, height: heartSize}
 });

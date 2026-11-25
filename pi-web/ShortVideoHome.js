@@ -36,7 +36,15 @@ function SoundControl({playerRef,muted,setMuted}){
 function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
-    const [paused,setPaused]=useState(false);
+  const [paused,setPaused]=useState(false);
+  function togglePlayback(){
+    if(!playable)return;
+    if(paused){
+      // Keep resume inside the press event for browsers that require a user gesture.
+      playerRef.current?.play().catch(()=>{});
+    }
+    setPaused(previous=>!previous);
+  }
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
@@ -148,12 +156,9 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
     {!showing&&<>
-    <VideoTapSurface clipId={item.id} onSingleTap={()=>setPaused(p=>!p)}
-        playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')} onDoubleTap={confirm=>like(true,confirm)}/>
-      {paused&&<Pressable accessibilityRole="button" accessibilityLabel={translate('استئناف الفيديو')}
-        onPress={()=>{setPaused(false);const p=playerRef.current;if(p)Promise.resolve(p.play()).catch(()=>{});}}
-        style={{position:'absolute',left:'50%',top:'50%',marginLeft:-24,marginTop:-24,width:48,height:48,borderRadius:24,backgroundColor:'rgba(0,0,0,.6)',alignItems:'center',justifyContent:'center'}}>
-        <Text style={{color:'#fff',fontSize:23}}>▶</Text></Pressable>}
+    <VideoTapSurface clipId={item.id} paused={paused} onSingleTap={togglePlayback}
+      playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
+      onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
     <div className="clipi-action-stack">
       <div className="clipi-author-badge"><button type="button" disabled={official || !ownerUid} aria-label={translate('عرض الملف الشخصي')+' · '+authorName}

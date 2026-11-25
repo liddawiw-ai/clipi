@@ -27,8 +27,12 @@ export function Player({source,active=true,muted=true,playerRef,onMuteRequired,o
       video.addEventListener('canplay',sync);
       document.addEventListener('visibilitychange',sync);
       sync();
-      return ()=>{current=false;video.removeEventListener('canplay',sync);document.removeEventListener('visibilitychange',sync);video.pause();};
+      return ()=>{current=false;video.removeEventListener('canplay',sync);document.removeEventListener('visibilitychange',sync);};
     },[source,active]);
+    useEffect(()=>{
+      const video=ref.current;
+      return ()=>video.pause();
+    },[]);
     return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
 }
 export function pickShort(){
