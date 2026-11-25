@@ -82,3 +82,10 @@ button.clipi-profile-tile{position:relative;display:block;aspect-ratio:2 / 3;wid
 .clipi-video-settings .clipi-sheet-choice{min-height:44px;color:#172925;border-color:#dce4e0}
 .clipi-video-settings .clipi-choice-icon{background:transparent;color:#245649}
 .clipi-video-settings .choice-trash,.clipi-video-settings .choice-trash .clipi-choice-icon{color:#a12932}
+
+.clipi-feed-header{direction:ltr;left:max(8px,env(safe-area-inset-left));right:max(8px,env(safe-area-inset-right));justify-content:flex-end;align-items:center;gap:6px}
+.clipi-feed-header .clipi-feed-live,.clipi-feed-header .clipi-device-account{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;box-sizing:border-box;min-height:44px;padding:3px 12px;border:1px solid #fff;border-radius:999px;background:transparent;color:#fff;font-family:inherit;font-size:15px;font-weight:700;line-height:1.15;text-align:center;text-decoration:none;text-shadow:0 1px 4px #000}
+.clipi-feed-header .clipi-feed-live{flex:none}
+.clipi-feed-header .clipi-feed-live svg{color:#fff}
+.clipi-feed-header .clipi-device-account{min-width:0;max-width:65%;overflow-wrap:anywhere}
+.clipi-device-account:focus-visible{outline:2px solid #8ceecb;outline-offset:1px}

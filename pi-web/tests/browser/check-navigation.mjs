@@ -46,6 +46,7 @@ export async function checkNavigation(browser) {
       viewport: { width, height },
       locale: 'ar-JO',
       isMobile: true,
+      userAgent: lang==='en'?'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15':'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/131.0 Mobile Safari/537.36',
       hasTouch: true
     });
     p.setDefaultTimeout(12000);
@@ -130,6 +131,19 @@ export async function checkNavigation(browser) {
       }
     };
     await pageFull('home');
+    const accountButton=p.getByRole('link',{name:lang==='en'?'Open your account on your device':'افتح حسابك على جهازك',exact:true});
+    const launchHref=await accountButton.getAttribute('href');
+    if(lang==='en')assert.equal(launchHref,'clipi://account');
+    else{
+      assert.ok(launchHref.startsWith('intent://account/#Intent;scheme=clipi;package=com.walid.clipi;'));
+      assert.ok(decodeURIComponent(launchHref).includes('https://clipi.local/device-install/android;end'));
+    }
+    const liveButton=p.locator('.clipi-feed-live');
+    const [accountBox,liveBox,stageBox]=await Promise.all([accountButton,liveButton,p.locator('.clipi-feed-stage')].map(el=>el.boundingBox()));
+    assert.ok(accountBox.x>=stageBox.x && accountBox.x+accountBox.width<=liveBox.x+0.5);
+    assert.ok(Math.abs(stageBox.x+stageBox.width-liveBox.x-liveBox.width)<=12);
+    for(const button of [accountButton,liveButton])assert.equal(await button.evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+
     await p.locator('.action-more').click();
     await p.waitForFunction(() => {
       const v = document.querySelector('video');
