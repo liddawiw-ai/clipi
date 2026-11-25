@@ -45,6 +45,8 @@ try{
       const surface=page.getByTestId('short-video-gestures');
       const center=page.getByTestId('short-video-playback');
       const sound=page.locator('.clipi-audio').first();
+      const opacity=()=>center.evaluate(e=>getComputedStyle(e).opacity);
+      const hidden=()=>page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid="short-video-playback"]')).opacity==='0',null,{timeout:4200});
       assert.equal(await original.evaluate(v=>v.muted),true);
       assert.equal(await center.getAttribute('aria-label'),'إيقاف الفيديو مؤقتًا');
       const videoBox=await original.boundingBox(),controlBox=await center.boundingBox();
@@ -52,6 +54,11 @@ try{
       for(const [axis,length] of [['x','width'],['y','height']]){
         assert.ok(Math.abs(controlBox[axis]+controlBox[length]/2-videoBox[axis]-videoBox[length]/2)<2);
       }
+      await hidden();
+      assert.equal(await original.evaluate(v=>v.paused),false);
+      await surface.click();
+      await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid="short-video-playback"]')).opacity==='1');
+      assert.equal(await original.evaluate(v=>v.paused),false);
       await center.click();
       await page.waitForFunction(v=>v.paused,original);
       const frame=await original.evaluate(v=>v.currentTime);
@@ -63,17 +70,22 @@ try{
         await page.waitForTimeout(350);
         assert.deepEqual(await original.evaluate(v=>[v.paused,v.currentTime]),[true,frame]);
       }
+      await page.waitForTimeout(3100);
+      assert.equal(await opacity(),'1');
       await center.click();
       await page.waitForFunction(({v,t})=>!v.paused&&v.currentTime>t,{v:original,t:frame});
+      await page.waitForTimeout(2200);
+      assert.equal(await opacity(),'1');
+      await hidden();
+      assert.equal(await original.evaluate(v=>v.paused),false);
       await surface.click(point);
-      await page.waitForFunction(v=>v.paused,original);
-      await surface.click(point);
-      await page.waitForFunction(v=>!v.paused,original);
+      await page.waitForFunction(()=>getComputedStyle(document.querySelector('[data-testid="short-video-playback"]')).opacity==='1');
+      assert.equal(await original.evaluate(v=>v.paused),false);
       await surface.dblclick(point);
       await page.getByRole('button',{name:'إلغاء الإعجاب',exact:true}).first().waitFor();
       await page.waitForTimeout(350);
       assert.equal(await original.evaluate(v=>v.paused),false);
-      console.log('PASS autoplay, centered play/pause, frozen frame through mute changes, tap and double-tap');
+      console.log('PASS pause bars hide after three seconds, tap reveals during playback, center pauses, play arrow stays visible, independent mute and double-tap like');
     }
     await button(en?'More':'المزيد').click();
     const sheet=page.locator('.clipi-video-settings .clipi-feed-sheet');

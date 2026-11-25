@@ -3,7 +3,7 @@ import React,{useEffect,useImperativeHandle,useRef} from 'react';
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
 export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
 export const nonce=()=>crypto.randomUUID();
-export function Player({source,active=true,muted=true,playerRef,onMuteRequired,onPlayBlocked,poster,onTimeUpdate,fit='cover'}){
+export function Player({source,active=true,muted=true,playerRef,onMuteRequired,onPlayBlocked,poster,onTimeUpdate,onPlayingChange,fit='cover'}){
   const ref=useRef(null);
   useImperativeHandle(playerRef,()=>ref.current,[]);
   const callbacks=useRef({});
@@ -33,7 +33,7 @@ export function Player({source,active=true,muted=true,playerRef,onMuteRequired,o
       const video=ref.current;
       return ()=>video.pause();
     },[]);
-    return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
+    return <video ref={ref} src={source} poster={poster} onTimeUpdate={onTimeUpdate} onPlaying={()=>onPlayingChange?.(true)} onPause={()=>onPlayingChange?.(false)} muted={muted} loop playsInline preload="auto" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:fit}}/>;
 }
 export function pickShort(){
   return new Promise((resolve,reject)=>{

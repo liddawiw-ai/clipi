@@ -5,13 +5,29 @@ const heartSize = 40;
 const nearby = (point, x, y, radius) => Math.hypot(point.x - x, point.y - y) <= radius;
 const activeHeart = require('./assets/actions/like-on.png');
 
-export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playbackLabel, paused}) {
+export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, playbackLabel, paused, playing}) {
   const start = useRef(null);
   const firstTap = useRef(null);
   const generation = useRef(0);
   const timeout = useRef(null);
   const singleTimer = useRef(null);
   const [heart, setHeart] = useState(null);
+
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [revealCount, setRevealCount] = useState(0);
+  const mayHide = playing && !paused;
+  const visible = controlsVisible || !mayHide;
+
+  function revealControls() {
+    setRevealCount(count => count + 1);
+  }
+
+  useLayoutEffect(() => {
+    setControlsVisible(true);
+    if (!mayHide) return;
+    const timer = setTimeout(() => setControlsVisible(false), 3000);
+    return () => clearTimeout(timer);
+  }, [clipId, mayHide, revealCount]);
 
   function cancelGesture() {
     clearTimeout(singleTimer.current);
@@ -50,7 +66,7 @@ export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playb
       firstTap.current = {x, y, time: now};
       singleTimer.current = setTimeout(() => {
         firstTap.current = null;
-        onSingleTap?.();
+        revealControls();
       }, 320);
       return;
     }
@@ -100,9 +116,10 @@ export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playb
         {heart && <Image accessible={false} pointerEvents="none" source={activeHeart}
           style={[styles.heart, heart]} />}
       </View>
-      <View pointerEvents="box-none" style={[StyleSheet.absoluteFill, styles.center]}>
+      <View pointerEvents={visible ? "box-none" : "none"} style={[StyleSheet.absoluteFill, styles.center]}>
         <Pressable testID="short-video-playback" accessibilityRole="button" accessibilityLabel={playbackLabel}
-          onPress={onSingleTap} style={styles.playback}>
+          pointerEvents={visible ? "auto" : "none"} onFocus={revealControls} onPress={onPlaybackPress}
+          style={[styles.playback, !visible && styles.hidden]}>
           {paused
             ? <Text accessible={false} allowFontScaling={false} style={styles.arrow}>{'▶︎'}</Text>
             : <View pointerEvents="none" style={styles.pauseIcon}>
@@ -117,6 +134,7 @@ export default function VideoTapSurface({clipId, onDoubleTap, onSingleTap, playb
 const styles = StyleSheet.create({
   surface: {overflow: 'hidden'},
   center: {alignItems: 'center', justifyContent: 'center'},
+  hidden: {opacity: 0},
   playback: {
     width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center', justifyContent: 'center'

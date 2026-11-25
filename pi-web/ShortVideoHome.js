@@ -37,6 +37,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
+  const [playing,setPlaying]=useState(false);
   function togglePlayback(){
     if(!playable)return;
     if(paused){
@@ -150,13 +151,13 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPaused(true)} active={playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} poster={starterPoster(item.id)} onPlayBlocked={()=>setPaused(true)} active={playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
     {!showing&&<>
-    <VideoTapSurface clipId={item.id} paused={paused} onSingleTap={togglePlayback}
+    <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={togglePlayback}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
     <div aria-hidden="true" className="clipi-clip-shade"/>
