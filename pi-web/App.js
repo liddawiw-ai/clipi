@@ -38,6 +38,7 @@ import EarningsWalletScreen from './EarningsWalletScreen';
 import * as runtime from './media';
 const GOOGLE_WEB_CLIENT_ID='',FACEBOOK_CONFIGURED=false;
 function loadRoomMediaRuntime(){return runtime}
+const helpRoom=Object.freeze({id:'clipi-admin-help',type:'audio',status:'open',ownerUid:'',name:'غرفة أدمن كليبي',ownerName:'غرفة المساعدة الرسمية'});
 const MEDIA_ENDPOINT=location.origin, MEDIA_CONFIGURED=true;
 configureInterface(MEDIA_ENDPOINT,readLocale(()=>window.localStorage)||'en',null,accountLabels);
 const PINK=theme.peach,GOLD=theme.gold;
@@ -482,7 +483,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   },[gameVisible,pickerVisible]);
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
-  const isHost=room.ownerUid===userId;
+  const officialHelp=room.id===helpRoom.id;
+  const isHost=!officialHelp&&room.ownerUid===userId;
   const [message,setMessage]=useState(''),[sending,setSending]=useState(false);
   const [pin,setPin]=useState('');
   const [roomActionPending,setRoomActionPending]=useState(false);
@@ -684,7 +686,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     return options;
   }
   useEffect(()=>{
-    const unsub=roomRef.onSnapshot(d=>{
+    const unsub=officialHelp?()=>{}:roomRef.onSnapshot(d=>{
       roomClosedRef.current=!d.exists||d.data()?.status==='closed';
       if(roomClosedRef.current)exitRoomOnce();
     });
@@ -693,7 +695,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   },[room.id,userId]);
   const admitted=Boolean(membership.state);
   useEffect(()=>{
-    if(!admitted)return;
+    if(!admitted||officialHelp)return;
     return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
       setLegacyChat(snapshot.docs.map(d=>({...d.data(),id:d.id,legacy:true})));
     },()=>{});
@@ -1357,7 +1359,7 @@ export default function App(){
     if(!user?.uid)return;
     setRooms([]);setRoomError('');
     let candidates=[],live=new Set(),liveTags={},mounted=true,pending=false;
-    const display=()=>setRooms(candidates.filter(r=>r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id],coverUrl:liveTags[r.id]?.cover?MEDIA_ENDPOINT+'/room-covers/'+encodeURIComponent(r.id)+'/'+liveTags[r.id].cover+'.jpg':null})));
+    const display=()=>setRooms(candidates.filter(r=>r.id!==helpRoom.id&&r.status==='open'&&live.has(r.id)).map(r=>({...r,...liveTags[r.id],coverUrl:liveTags[r.id]?.cover?MEDIA_ENDPOINT+'/room-covers/'+encodeURIComponent(r.id)+'/'+liveTags[r.id].cover+'.jpg':null})));
     async function refresh(){
       if(pending)return;
       pending=true;
@@ -1811,7 +1813,7 @@ export default function App(){
     return <HubScreen title={ui('الغرف')} dock={nav()}>
       <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
         <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
-          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
+          onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={helpRoom} helpImage={brandIcon} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
         filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}
@@ -1978,6 +1980,7 @@ export default function App(){
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
       if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
+      if(id===helpRoom.id){enterRoom(helpRoom);return;}
       const doc=await firestore().collection('rooms').doc(id).get();
       if(auth().currentUser?.uid!==user.uid)throw Error(menu.retry);
       if(!doc.exists||doc.data()?.status!=='open')throw Error(ui('انتهى البث'));

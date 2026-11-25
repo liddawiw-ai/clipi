@@ -1,3 +1,4 @@
+import {isAppOwner} from './app-owners.mjs';
 import {rootFor} from './room-history.mjs';
 export const coverSchema='CREATE TABLE IF NOT EXISTS room_cover(root TEXT PRIMARY KEY,revision TEXT NOT NULL,image TEXT NOT NULL)';
 
@@ -9,8 +10,17 @@ function validCover(value){
 }
 export async function saveCover(q,room,owner,fields,image,json){
   if(!owner||fields?.ownerUid?.stringValue!==owner||fields?.status?.stringValue!=='open')return json({error:'غير مصرح'},403);
+  return writeCover(q,await rootFor(q,room),image,json);
+}
+
+export async function saveHelpCover(q,room,uid,configuredOwner,image,json){
+  const staff=await isAppOwner(q,uid,configuredOwner)||await q('SELECT 1 FROM clipi_app_admin WHERE uid=?',uid).first();
+  if(!staff)return json({error:'غير مصرح'},403);
+  return writeCover(q,room,image,json);
+}
+
+async function writeCover(q,root,image,json){
   if(image!==null&&!validCover(image))return json({error:'اختر صورة JPEG أصغر'},400);
-  const root=await rootFor(q,room);
   if(image===null){
     await q('DELETE FROM room_cover WHERE root=?',root).run();
     return json({cover:null});

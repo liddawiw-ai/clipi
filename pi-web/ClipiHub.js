@@ -34,7 +34,7 @@ export function HubScreen({title, action, children, dock}) {
   </View>;
 }
 
-export function RoomDiscovery({extraDiscovery,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
     <View accessibilityRole="tablist" style={s.filters}>
@@ -43,6 +43,12 @@ export function RoomDiscovery({extraDiscovery,hostField,copy, userId, rooms, err
         <Text style={[s.filterLabel,filter===id&&s.active]}>{title}</Text>
       </TouchableOpacity>)}
     </View>
+    {helpRoom&&<TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(helpRoom)}
+        style={{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:14,backgroundColor:theme.paper}}>
+        <Image source={helpImage} resizeMode="contain" style={{width:56,height:56,borderRadius:12}}/>
+        <View style={{flex:1}}><Text style={s.cardTitle}>{appText(helpRoom.name)}</Text>
+          <Text style={s.secondary}>{appText('غرفة المساعدة الرسمية · مفتوحة ٢٤ ساعة')}</Text></View>
+      </TouchableOpacity>}
     {hostField}
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText(copy.create)} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
       <Image accessible={false} resizeMode="cover" style={s.heroImage} source={require('./assets/live-studio.jpg')}/>
@@ -55,7 +61,7 @@ export function RoomDiscovery({extraDiscovery,hostField,copy, userId, rooms, err
     <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
       autoCorrect={false} value={search} onChangeText={onSearch}/>{extraDiscovery}
     {error?<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>
-      :rooms.length===0?<View style={s.empty}><Text style={s.emptyTitle}>{appText(copy.empty)}</Text></View>
+      :rooms.length===0?(helpRoom?null:<View style={s.empty}><Text style={s.emptyTitle}>{appText(copy.empty)}</Text></View>)
       :<View style={s.grid}>{rooms.map((room,index)=>{
         const video=room.type==='video';
         return <View key={room.id} style={s.roomCard}>

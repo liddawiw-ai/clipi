@@ -1,4 +1,4 @@
-import {saveCover,coverResponse} from './room-cover.mjs';
+import {saveCover,saveHelpCover,coverResponse} from './room-cover.mjs';
 import {liveProgram,tagRoom} from './live-program.mjs';
 import {deviceInstall} from './device-install.mjs';
 import {interfaceCopy} from './interface-copy.mjs';
@@ -14,7 +14,7 @@ import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
 import {readWallet} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
-import {roomStore,roomControls} from './room-controls.mjs';
+import {roomStore,roomControls,helpRoomId,helpRoomName} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
 import {linkStore,linkedPi,linkedEmail} from './pi-account-link.mjs';
 import { piGifts } from './pi-gifts.mjs';
@@ -63,7 +63,12 @@ export default {
     if(path==='/active-rooms'&&request.method==='GET'){
       const q=await roomStore(env.PI_GIFTS_DB);
       const rows=await q('SELECT h.room,l.language,l.topic,c.revision AS cover FROM room_host h LEFT JOIN room_continuation chain ON chain.session=h.room LEFT JOIN room_cover c ON c.root=COALESCE(chain.root,h.room) LEFT JOIN room_listing l ON l.room=h.room JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
-      return json({rooms:rows.results.map(row=>row.room),tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}]))});
+      const rooms=rows.results.map(row=>row.room).filter(id=>id!==helpRoomId);
+      const supportRoom=env.PI_GIFTS_NETWORK==='mainnet'?{
+        id:helpRoomId,type:'audio',name:helpRoomName,status:'open',
+        cover:(await q('SELECT revision FROM room_cover WHERE root=?',helpRoomId).first())?.revision??null
+      }:null;
+      return json({rooms,tags:Object.fromEntries(rows.results.filter(r=>r.language||r.cover).map(r=>[r.room,{language:r.language,topic:r.topic,cover:r.cover}])), ...(supportRoom?{supportRoom}:{})});
     }
     if(request.method==='GET'&&path.startsWith('/themes/')){
       if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
@@ -100,6 +105,30 @@ export default {
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
       if(['eventCreate','eventCancel','eventList','eventRemind','eventSeen'].includes(input?.op))return liveProgram(await roomStore(env.PI_GIFTS_DB),uid,input,json);
+      if(input?.op==='roomNumber'||input?.op==='findRoomNumber'){
+        if(input.op==='findRoomNumber'&&(typeof input.number!=='string'||!/^\d{7,15}$/.test(input.number)))return json({error:'معرّف غير صالح'},400);
+        const q=await roomStore(env.PI_GIFTS_DB);
+        const numberBase=1000000;
+        const room=input.op==='roomNumber'?input.room:
+          (await q('SELECT room FROM room_public_number WHERE number=?',Number(input.number)-numberBase).first())?.room;
+        if(typeof room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(room))return json({error:'الغرفة غير متاحة'},404);
+        if(room!==helpRoomId){
+          const target='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/rooms/'+room;
+          const doc=await fetch(target,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(8000)});
+          if(!doc.ok||(await doc.json()).fields?.status?.stringValue!=='open')return json({error:'الغرفة غير متاحة'},404);
+        }
+        if(input.op==='findRoomNumber')return json({room});
+        let entry=await q('SELECT number FROM room_public_number WHERE room=?',room).first();
+        if(!entry){
+          await q('INSERT INTO room_public_number(room) VALUES(?) ON CONFLICT(room) DO NOTHING',room).run();
+          entry=await q('SELECT number FROM room_public_number WHERE room=?',room).first();
+        }
+        return json({number:String(numberBase+entry.number)});
+      }
+      if(input?.op==='roomCover'&&input.room===helpRoomId){
+        if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'الغرفة غير متاحة'},404);
+        return saveHelpCover(await roomStore(env.PI_GIFTS_DB),helpRoomId,uid,env.CLIPI_OWNER_UID,input.image,json);
+      }
       if(input?.op==='roomTag'||input?.op==='roomCover'){
         if(typeof input.room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(input.room))return json({error:'طلب غير صالح'},400);
         const target='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/rooms/'+input.room;
@@ -196,22 +225,36 @@ export default {
 
     try {
       const project = env.FIREBASE_PROJECT_ID;
-      const roomResponse = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(project)}/databases/(default)/documents/rooms/${roomId}`,
-        { headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000) },
-      );
-      if ([401, 403].includes(roomResponse.status)) return json({ error: 'Unauthorized' }, 401);
-      if (roomResponse.status === 404) return json({ error: 'Room unavailable' }, 404);
-      if (!roomResponse.ok) return json({ error: 'Room lookup failed' }, 502);
-
-      // Read claims only after Firestore has validated the same Firebase ID token.
+      const official=roomId===helpRoomId;
+      let fields, verifiedUid;
+      if(official){
+        if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'Room unavailable'},404);
+        if(!['/token','/room-control'].includes(path))return json({error:'غرفة المساعدة دائمة'},403);
+        if(!input.session)return json({error:'جلسة غير صالحة'},403);
+        const lookup=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+firebaseWebApiKey,{
+          method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:match[1]}),signal:AbortSignal.timeout(8000)
+        });
+        if(!lookup.ok)return json({error:'تعذّر التحقق من الحساب'},[400,401,403].includes(lookup.status)?401:502);
+        verifiedUid=(await lookup.json()).users?.[0]?.localId;
+        if(!verifiedUid)return json({error:'Unauthorized'},401);
+        fields={type:{stringValue:'audio'},status:{stringValue:'open'},ownerUid:{stringValue:''},name:{stringValue:helpRoomName}};
+      }else{
+        const roomResponse = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(project)}/databases/(default)/documents/rooms/${roomId}`,
+          { headers: { Authorization: authorization }, signal: AbortSignal.timeout(8000) },
+        );
+        if ([401, 403].includes(roomResponse.status)) return json({ error: 'Unauthorized' }, 401);
+        if (roomResponse.status === 404) return json({ error: 'Room unavailable' }, 404);
+        if (!roomResponse.ok) return json({ error: 'Room lookup failed' }, 502);
+        fields=(await roomResponse.json()).fields;
+      }
+      // Both paths validate this Firebase ID token before trusting any of its claims.
       const part = match[1].split('.')[1].replaceAll('-', '+').replaceAll('_', '/');
       const claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(part), c => c.charCodeAt(0))));
-      if (claims.aud !== project || claims.iss !== `https://securetoken.google.com/${project}` ||
+      if ((official && verifiedUid!==claims.sub) || claims.aud !== project || claims.iss !== `https://securetoken.google.com/${project}` ||
           typeof claims.sub !== 'string' || !claims.sub || claims.sub.length > 128) {
         return json({ error: 'Unauthorized' }, 401);
       }
-      const { fields } = await roomResponse.json();
       const type = fields?.type?.stringValue;
       const status = fields?.status?.stringValue;
       if(path==='/room-control'&&env.PI_GIFTS_NETWORK==='mainnet'&&['resumeBroadcast','currentBroadcast'].includes(input.op)){
