@@ -882,6 +882,8 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
   const shareSheet=<Modal visible={shareOpen} transparent animationType="slide" onRequestClose={()=>setShareOpen(false)}>
     <View style={S.hostSettingsShade}><View style={S.hostSettingsPanel}>
       <Text style={S.title}>{ui("مشاركة الغرفة")}</Text>
+      <Text style={S.muted}>{ui(room.type==='video'?'معرّف البث':'معرّف الغرفة')}</Text>
+      <Text selectable style={S.muted}>{room.id}</Text>
       <TextInput ref={shareInput} accessibilityLabel={ui("رابط دعوة الغرفة")} value={inviteUrl}
         editable={false} selectTextOnFocus style={[S.input,{textAlign:'left',writingDirection:'ltr'}]}/>
       {!!shareStatus&&<Text accessibilityLiveRegion="polite" style={S.muted}>{shareStatus}</Text>}
@@ -1656,6 +1658,24 @@ export default function App(){
     if(uid===user.uid){go('profile');return}
     setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
   }
+  async function enterRoomById(){
+    const id=roomSearch.trim();
+    if(!/^[A-Za-z0-9_-]{1,128}$/.test(id))return;
+    const uid=user.uid;
+    try{
+      const room=id===helpRoom.id?helpRoom:(await firestore().collection('rooms').doc(id).get()).data();
+      if(auth().currentUser?.uid!==uid||pageRef.current!=='rooms')return;
+      if(room?.status==='open'&&!blockedUsers.includes(room.ownerUid)){
+        enterRoom({...room,id});
+        return;
+      }
+      Alert.alert(appText('معرّف الغرفة'),appText('الغرفة أو البث غير متاح الآن.'));
+    }catch(error){
+      if(auth().currentUser?.uid===uid&&pageRef.current==='rooms'){
+        Alert.alert(appText('تعذر البحث عن الغرفة'),uiError(error));
+      }
+    }
+  }
   function enterRoom(room){
     setRoomProfileUid(null);
     if(room.status==='closed')return Alert.alert(ui("غرفة مغلقة"),ui("هذه الغرفة مغلقة الآن"));
@@ -1842,7 +1862,7 @@ export default function App(){
       <RoomDiscovery extraDiscovery={<View><ProgramOptions all value={searchTags} choose={setSearchTags}/>
         <UpcomingRooms uid={user.uid} locale={locale} events={events.filter(e=>!blockedUsers.includes(e.owner)&&(discoveryFilter==='all'||e.type===discoveryFilter)&&(!searchTags.language||e.language===searchTags.language)&&(!searchTags.topic||e.topic===searchTags.topic)&&(!query||e.name.toLowerCase().includes(query)))}
           onRemind={e=>changeEvent('eventRemind',e,!e.interested)} onCancel={e=>changeEvent('eventCancel',e)} onStart={e=>createRoom(e.type,e.name,null,e)}/></View>} helpRoom={(!searchTags.topic||searchTags.topic==='help')&&(!searchTags.language||searchTags.language==='ar')&&discoveryFilter!=='video'&&(!query||[helpRoom.name,helpRoom.ownerName,helpRoom.id,'أدمن كليبي','Clipi Admin Support'].join(' ').toLowerCase().includes(query))?helpRoom:null} helpImage={brandIcon} hostField={discoveryFilter==='all'?null:hostField} copy={copy} userId={user?.uid} rooms={visibleRooms} error={roomError}
-        filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch}
+        filter={discoveryFilter} onFilter={setDiscoveryFilter} search={roomSearch} onSearch={setRoomSearch} onSearchById={enterRoomById}
         busy={busy} onCreate={()=>{
           if(discoveryFilter==='all'){go('create');return;}
           createRoom(discoveryFilter,broadcastName);

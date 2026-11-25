@@ -34,7 +34,7 @@ export function HubScreen({title, action, children, dock}) {
   </View>;
 }
 
-export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onSearchById, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
     <View accessibilityRole="tablist" style={s.filters}>
@@ -53,7 +53,12 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
       </View>
     </TouchableOpacity>
     <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
-      autoCorrect={false} value={search} onChangeText={onSearch}/>{extraDiscovery}
+      autoCorrect={false} value={search} onChangeText={onSearch}/>
+    {onSearchById&&/^[A-Za-z0-9_-]{1,128}$/.test(search.trim())&&
+      <TouchableOpacity accessibilityRole="button" style={s.manage} onPress={onSearchById}>
+        <Text style={s.manageText}>{appText('دخول بالمعرّف')}</Text>
+      </TouchableOpacity>}
+    {extraDiscovery}
     {helpRoom&&<TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(helpRoom)}
         style={{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:14,backgroundColor:theme.paper}}>
         <Image source={helpImage} resizeMode="contain" style={{width:56,height:56,borderRadius:12}}/>
@@ -74,6 +79,7 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
             </View>
             <View style={s.cardText}>
               <Text numberOfLines={2} style={s.cardTitle}>{room.name||copy.untitled}</Text>
+              <Text numberOfLines={1} style={s.secondary}>{room.id}</Text>
               {!!(room.ownerName||room.host)&&<Text numberOfLines={1} style={s.secondary}>{room.ownerName||room.host}</Text>}
             </View>
           </TouchableOpacity>
