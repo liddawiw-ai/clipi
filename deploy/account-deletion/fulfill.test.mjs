@@ -44,6 +44,8 @@ test('a confirmed request clears both stores and Auth, resumes after failure and
     q('INSERT INTO short_clip VALUES(?,?,?,?)',id,uid,'video',file).run();
     q('INSERT INTO short_comment VALUES(?,?,?,?)',sibling,uid,crypto.randomUUID(),'comment').run();
   }
+  q('INSERT INTO room_host(room,uid) VALUES(?,?)',room,me).run();
+  for(const uid of [me,other]) q('INSERT INTO room_chat(room,uid,name,text) VALUES(?,?,?,?)',room,uid,'name','comment').run();
   q('INSERT INTO room_cover VALUES(?,?,?)',room,crypto.randomUUID(),'photo').run();
   assert.equal((await call('start',{},'wrong')).status,404);
   assert.equal((await call('start',{ticket:crypto.randomUUID()})).status,404);
@@ -70,5 +72,7 @@ test('a confirmed request clears both stores and Auth, resumes after failure and
   assert.equal(q('SELECT 1 FROM short_comment WHERE uid=?',me).first(),undefined);
   assert.equal(q('SELECT COUNT(*) AS n FROM short_clip WHERE owner=?',other).first().n,1);
   assert.equal(q('SELECT COUNT(*) AS n FROM short_comment WHERE uid=?',other).first().n,1);
+  assert.equal(q('SELECT COUNT(*) AS n FROM room_chat WHERE uid=?',me).first().n,0);
+  assert.equal(q('SELECT COUNT(*) AS n FROM room_chat WHERE uid=?',other).first().n,1);
   assert.deepEqual([...media],['keep.mp4']);assert.notEqual(await piAccountUid(d1,me),me);
 });
