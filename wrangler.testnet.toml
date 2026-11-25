@@ -19,3 +19,6 @@ bucket_name = "clipi-testnet-shorts"
 
 [ai]
 binding = "AI"
+
+[build]
+command = "npm ci --prefix pi-web --no-audit --no-fund"
