@@ -1,0 +1,14 @@
+name: Update Clipi Android preview
+on:
+  workflow_dispatch: {}
+jobs:
+  publish_android:
+    name: Publish Android preview update
+    type: update
+    environment: preview
+    env:
+      CLIPI_DISTRIBUTION: internal
+    params:
+      platform: android
+      channel: preview
+      message: Stop outgoing short video audio when swiping on Android 45
