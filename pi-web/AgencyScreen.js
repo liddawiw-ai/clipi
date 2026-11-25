@@ -1,4 +1,5 @@
 import {ui as appText} from './interface-language.mjs';
+import {nonce} from './ShortMedia';
 import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {Clipboard,Modal,Platform,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
@@ -22,7 +23,7 @@ export default function AgencyScreen({request}){
   const [creating,setCreating]=useState(false),[editing,setEditing]=useState(false),[busy,setBusy]=useState(false);
   const [form,setForm]=useState({}),[number,setNumber]=useState('');
   const [confirming,setConfirming]=useState(false);
-  const gate=useRef(false),version=useRef(0);
+  const gate=useRef(false),version=useRef(0),application=useRef(null);
   const api=useCallback((op,more)=>request('/account-number',{op,...more}),[request]);
   const refresh=useCallback(async()=>{
     const ticket=++version.current;
@@ -45,9 +46,15 @@ export default function AgencyScreen({request}){
       if(ticket!==version.current)return;
       if(op==='agencyCreate'){go(result.id);return;}
       if(op==='agencyDelete'){go(null);return;}
+      if(op==='agencyApply'){setCreating(false);setForm({});application.current=null;}
       setEditing(false);setNumber('');await refresh();
     }catch(error){if(ticket===version.current)setIssue(error.message||appText('تعذّر حفظ التغيير'));}
     finally{gate.current=false;setBusy(false);}
+  }
+  function submitApplication(){
+    const name=form.name.trim();
+    if(application.current?.name!==name)application.current={name,requestKey:nonce()};
+    return mutate('agencyApply',application.current);
   }
   function update(key,value){setForm(f=>({...f,[key]:value}));}
   async function copy(){
@@ -62,12 +69,30 @@ export default function AgencyScreen({request}){
     {issue?<View><Text accessibilityRole="alert" style={s.error}>{appText(issue)}</Text><Action title={appText("إعادة المحاولة")} onPress={refresh}/></View>:null}
     {!data&&!issue?<Text style={s.label}>{appText("جارٍ تحميل الوكالات…")}</Text>:null}
     {data&&!id&&<>
+      {data.pendingRequests&&<View style={s.field}>
+        <Text accessibilityRole="header" style={s.heading}>{appText('طلبات إنشاء الوكالات')}</Text>
+        {!data.pendingRequests.length&&<Text style={s.label}>{appText('لا توجد طلبات بانتظار قرارك')}</Text>}
+        {data.pendingRequests.map(r=><View key={r.id} style={s.field}>
+          <Text style={s.label}>{r.name} · {appText('رقم الطلب')} {r.id}</Text>
+          {r.number!=null&&<Text selectable style={s.label}>{appText('رقم حساب المضيف')} · {r.number}</Text>}
+          <View style={s.row}><Action title={appText('موافقة')} disabled={busy} onPress={()=>mutate('agencyDecide',{requestId:r.id,decision:'approved'})}/>
+            <Action title={appText('رفض')} danger disabled={busy} onPress={()=>mutate('agencyDecide',{requestId:r.id,decision:'rejected'})}/></View>
+        </View>)}
+      </View>}
+      {data.myRequest&&<Text accessibilityLiveRegion="polite" style={s.label}>
+        {data.myRequest.name} · {appText({pending:'قيد المراجعة',approved:'تمت الموافقة على طلب الوكالة',rejected:'تم رفض طلب الوكالة'}[data.myRequest.status])}
+      </Text>}
+      {data.myRequest?.status==='approved'&&data.agencies.some(a=>a.id===data.myRequest.agency_id)&&
+        <Action title={appText('إدارة وكالتي')} onPress={()=>go(data.myRequest.agency_id)}/>}
+      {(data.pendingRequests||data.myRequest?.status==='pending')&&<Action title={appText('تحديث الطلبات')} disabled={busy} onPress={refresh}/>}
+      {(data.canCreate||data.canRequest)&&<Action title={creating?appText('إلغاء'):appText('إنشاء وكالة')} disabled={busy} onPress={()=>{setCreating(!creating);setForm({});}}/>}
+      {creating&&(data.canCreate||data.canRequest)&&<><Field label={labels.name} value={form.name||''} onChangeText={v=>update('name',v)}/>
+        {data.canCreate?<Field label="رقم حساب الوكيل (اختياري)" numeric value={form.agentNumber||''} onChangeText={v=>update('agentNumber',v)}/>:
+          <Text style={s.label}>{appText('يراجع مالك التطبيق طلبك قبل تفعيل الوكالة.')}</Text>}
+        <Action title={appText(data.canCreate?'إنشاء الوكالة':'إرسال الطلب')} disabled={busy||!form.name?.trim()||form.name.trim().length>65}
+          onPress={()=>data.canCreate?mutate('agencyCreate',form):submitApplication()}/></>}
       {data.agencies.map(a=><Action key={a.id} title={a.name+' · '+a.members+appText(' أعضاء')} onPress={()=>go(a.id)}/>)}
       {!data.agencies.length&&<Text style={s.label}>{appText("ما في وكالات مسجّلة حاليًا")}</Text>}
-      {data.canCreate&&<Action title={creating?appText('إلغاء'):appText('إضافة وكالة')} onPress={()=>{setCreating(!creating);setForm({});}}/>}
-      {creating&&<><Field label={appText(labels.name)} value={form.name||''} onChangeText={v=>update('name',v)}/>
-        <Field label={appText("رقم حساب الوكيل (اختياري)")} numeric value={form.agentNumber||''} onChangeText={v=>update('agentNumber',v)}/>
-        <Action title={appText("إنشاء الوكالة")} disabled={busy||!form.name?.trim()} onPress={()=>mutate('agencyCreate',form)}/></>}
     </>}
     {agency&&<>
       <Text style={s.heading}>{agency.name}</Text>

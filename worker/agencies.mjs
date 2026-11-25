@@ -13,6 +13,18 @@ export const agencySchema = [
     agent_points2 INTEGER NOT NULL, platform_points2 INTEGER NOT NULL, PRIMARY KEY(sender,nonce))`,
   'CREATE INDEX IF NOT EXISTS agency_month ON clipi_agency_statement(agency,month,host)',
   'CREATE TABLE IF NOT EXISTS clipi_agency_archive(id INTEGER PRIMARY KEY,name TEXT NOT NULL,agent TEXT NOT NULL)',
+  `CREATE TABLE IF NOT EXISTS clipi_agency_request(
+     id INTEGER PRIMARY KEY AUTOINCREMENT, applicant TEXT NOT NULL, name TEXT NOT NULL,
+     request_key TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+     reviewer TEXT, agency_id INTEGER, UNIQUE(applicant,request_key))`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS agency_pending_applicant ON clipi_agency_request(applicant) WHERE status='pending'",
+  'CREATE INDEX IF NOT EXISTS agency_request_queue ON clipi_agency_request(status,id)',
+  // The decision and assignment commit together, including when two owners decide simultaneously.
+  `CREATE TRIGGER IF NOT EXISTS create_approved_agency AFTER UPDATE OF status ON clipi_agency_request
+   WHEN OLD.status='pending' AND NEW.status='approved' BEGIN
+     INSERT INTO clipi_agency(name,agent) VALUES(NEW.name,NEW.applicant);
+     UPDATE clipi_agency_request SET agency_id=last_insert_rowid() WHERE id=NEW.id;
+   END`,
   // Keep the agency identity for historical statements while releasing its roster in the same transaction.
   `CREATE TRIGGER IF NOT EXISTS archive_deleted_agency AFTER DELETE ON clipi_agency BEGIN
      INSERT INTO clipi_agency_archive(id,name,agent) VALUES(OLD.id,OLD.name,OLD.agent);
@@ -38,7 +50,45 @@ export async function agencyAccount(q,uid,ownerUid,input,json){
   if(op==='agencyList'){
     const rows=await q(`SELECT a.id,a.name,a.area,COUNT(m.uid) AS members FROM clipi_agency a
       LEFT JOIN clipi_agency_member m ON m.agency=a.id GROUP BY a.id ORDER BY a.name,a.id`).all();
-    return json({agencies:rows.results,canCreate:owner});
+    const myRequest=await q('SELECT id,name,status,agency_id FROM clipi_agency_request WHERE applicant=? ORDER BY id DESC LIMIT 1',uid).first();
+    const manages=await q('SELECT 1 FROM clipi_agency WHERE agent=? LIMIT 1',uid).first();
+    const pending=owner?await q(`SELECT r.id,r.name,
+      COALESCE((SELECT number FROM selected_number WHERE uid=r.applicant),
+               (SELECT number FROM public_numbers WHERE uid=r.applicant AND cost=0)) AS number
+      FROM clipi_agency_request r WHERE status='pending' ORDER BY r.id`).all():null;
+    return json({agencies:rows.results,canCreate:owner,canRequest:!owner&&!manages&&myRequest?.status!=='pending',
+      myRequest:myRequest??null,...(owner?{pendingRequests:pending.results}:{})});
+  }
+  if(op==='agencyApply'){
+    const name=typeof input.name==='string'?input.name.trim():'';
+    const key=input.requestKey;
+    if(!name||name.length>65||typeof key!=='string'||!/^[a-zA-Z0-9-]{16,64}$/.test(key))return fail('تحقق من اسم الوكالة ثم أعد المحاولة');
+    if(owner)return fail('يمكن للمالك إنشاء وكالة مباشرة',403);
+    const inserted=await q(`INSERT INTO clipi_agency_request(applicant,name,request_key)
+      SELECT ?,?,? WHERE NOT EXISTS(SELECT 1 FROM clipi_agency WHERE name=? OR agent=?)
+      ON CONFLICT DO NOTHING RETURNING id`,uid,name,key,name,uid).first();
+    if(inserted)return json(inserted);
+    const existing=await q('SELECT id,name FROM clipi_agency_request WHERE applicant=? AND request_key=?',uid,key).first();
+    if(existing?.name===name)return json({id:existing.id});
+    if(await q("SELECT 1 FROM clipi_agency_request WHERE applicant=? AND status='pending'",uid).first())return fail('لديك طلب وكالة قيد المراجعة',409);
+    if(await q('SELECT 1 FROM clipi_agency WHERE agent=?',uid).first())return fail('لديك وكالة مفعّلة بالفعل',409);
+    return fail('اسم الوكالة مستخدم',409);
+  }
+  if(op==='agencyDecide'){
+    if(!owner)return fail('قرار طلب الوكالة متاح لمالك التطبيق فقط',403);
+    const {requestId,decision}=input;
+    if(!Number.isSafeInteger(requestId)||requestId<1||!['approved','rejected'].includes(decision))return fail('قرار الطلب غير صالح');
+    const changed=await q(`UPDATE clipi_agency_request SET status=?,reviewer=?
+      WHERE id=? AND status='pending' AND (?=? OR EXISTS(SELECT 1 FROM clipi_app_owner WHERE uid=?))
+        AND (?='rejected' OR NOT EXISTS(SELECT 1 FROM clipi_agency
+          WHERE name=clipi_agency_request.name OR agent=clipi_agency_request.applicant))`,
+      decision,uid,requestId,uid,ownerUid??null,uid,decision).run();
+    if(changed.meta.changes)return json({status:decision});
+    const request=await q('SELECT status FROM clipi_agency_request WHERE id=?',requestId).first();
+    if(!request)return fail('طلب الوكالة غير موجود',404);
+    if(request.status===decision)return json({status:decision});
+    if(request.status!=='pending')return fail('سبق اتخاذ قرار بشأن هذا الطلب',409);
+    return fail('تعذّرت الموافقة. اسم الوكالة مستخدم أو لصاحب الطلب وكالة مفعّلة.',409);
   }
   const findUser=async number=>/^\d{1,12}$/.test(String(number||''))?
     (await q('SELECT uid FROM public_numbers WHERE number=?',String(number)).first())?.uid:null;

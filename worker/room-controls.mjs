@@ -37,6 +37,7 @@ const tables = [
   'CREATE TABLE IF NOT EXISTS room_chat_filter(room TEXT PRIMARY KEY,words TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS room_chat_clock(room TEXT,uid TEXT,stamp INTEGER,token TEXT,PRIMARY KEY(room,uid))',
   "CREATE TABLE IF NOT EXISTS support_case(id TEXT PRIMARY KEY,uid TEXT NOT NULL,kind TEXT NOT NULL,subject TEXT NOT NULL,detail TEXT NOT NULL,created INTEGER NOT NULL,state TEXT NOT NULL DEFAULT 'open')",
+  "CREATE TABLE IF NOT EXISTS support_reply(case_id TEXT PRIMARY KEY, staff TEXT NOT NULL, body TEXT NOT NULL, created INTEGER NOT NULL)",
   "CREATE UNIQUE INDEX IF NOT EXISTS pending_account_deletion ON support_case(uid) WHERE kind='deletion' AND state='open'",
   'CREATE INDEX IF NOT EXISTS case_by_user ON support_case(uid,created)',
   'CREATE TABLE IF NOT EXISTS room_chat_activity(room TEXT PRIMARY KEY,revision INTEGER NOT NULL)',

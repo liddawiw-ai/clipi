@@ -3,13 +3,14 @@ import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
-export const caseLabels={comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
+export const caseLabels={help:'طلب مساعدة',comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
   function formatComment(value){
     try{const row=JSON.parse(value);return (row.body||appText('صورة التعليق'))+' · #'+row.id+' · '+row.clip}
     catch{return value}
   }
 export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubject='',reportedComment=null,onBack}){
  const t=appText;
+ const [replies,setReplies]=useState({});
  const [kind,choose]=useState(initialKind),[subject,setSubject]=useState(initialSubject),[detail,setDetail]=useState('');
  const [data,setData]=useState(null),[queue,setQueue]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const pending=useRef(false),alive=useRef(true),attempt=useRef(null),revision=useRef(0);
@@ -55,16 +56,24 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      {button(appText('إلغاء'),()=>choose(null),busy)}
    </View>:<View style={s.row}>{button(appText('مشكلة في عملية شراء'),()=>choose('purchase'))}{button(appText('طلب حذف الحساب'),()=>choose('deletion'))}</View>}
    {!!message&&<Text selectable accessibilityLiveRegion="polite" style={s.text}>{appText(message)}</Text>}
-   <View style={s.row}><Text style={s.title}>{t(queue?'طلبات بانتظار المراجعة':'طلباتي')}</Text>
+   <View style={s.row}><Text style={s.title}>{t(queue?'طلبات بانتظار المراجعة':'صندوق الوارد وطلباتي')}</Text>
      {button(appText('تحديث'),()=>refresh(queue!==null))}
      {data?.staff&&button(queue?appText('طلباتي'):appText('طلبات بانتظار المراجعة'),()=>refresh(queue===null))}
    </View>
    {(queue||data?.cases)?.map(item=><View key={item.id} style={s.card}>
-     <Text style={s.text}>{t(caseLabels[item.kind])} · {t(item.state==='open'?'جديد':item.state==='reviewed'?'تمت المراجعة':'تمت المعالجة')}</Text>
+     <Text style={s.text}>{t(caseLabels[item.kind])} · {t(item.reply?'رد الإدارة':item.state==='open'?'جديد':item.state==='reviewed'?'تمت المراجعة':'تمت المعالجة')}</Text>
      <Text selectable style={s.text}>{t('رقم الطلب')} · {item.id}</Text>
+     {!queue&&item.question&&<Text style={s.text}>{item.question}</Text>}
+     {!!item.reply&&<Text selectable style={s.text}>{t('رد الإدارة')} · {item.reply}</Text>}
      {queue&&<><Text selectable style={s.text}>{t('معرّف الحساب')} · {item.uid}</Text>
        {!!item.subject&&<Text selectable style={s.text}>{item.kind==='comment'?formatComment(item.subject):item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
-       {item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
+       {item.kind==='help'&&<>
+         <TextInput style={s.input} multiline maxLength={800} value={replies[item.id]||''} accessibilityLabel={t('رد الإدارة')} placeholder={t('رد الإدارة')} onChangeText={value=>setReplies(old=>({...old,[item.id]:value}))}/>
+         {button(t('إرسال الرد'),async()=>{if(pending.current)return;pending.current=true;setBusy(true);
+           try{await request('caseReply',{id:item.id,body:replies[item.id]});await refresh(true)}
+           catch(e){setMessage(uiError(e))}finally{pending.current=false;setBusy(false)}},busy||!replies[item.id]?.trim())}
+       </>}
+       {item.kind!=='help'&&item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
      </>}
    </View>)}
    {(queue||data?.cases)?.length===0&&<Text style={s.text}>{t('لا توجد طلبات')}</Text>}
