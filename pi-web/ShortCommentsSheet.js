@@ -37,14 +37,17 @@ function Media({value}) {
   const source=stickers[value]||{uri:value};
   return <Image accessibilityLabel={appText(stickerNames[value]||'صورة التعليق')} resizeMode="contain" style={stickers[value]?s.sticker:s.picture} source={source}/>;
 }
-function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
+function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open,onFlag}) {
   const author=row.name||appText('مستخدم كليبي');
   return <View style={[s.row,nested&&s.nested]}>
     <ShortAvatar name={author} avatar={row.avatar} size={nested?29:36}/>
     <View style={s.copy}>
       <Text style={s.author}>{author}{row.uid&&row.uid===owner?appText(' · المنشئ'):''}</Text>
-      {!!row.body&&<Text style={s.body}>{row.body}</Text>}
-      <Media value={row.media}/>
+      <Pressable disabled={!onFlag} onLongPress={onFlag}
+        accessibilityActions={onFlag?[{name:'longpress',label:appText('إبلاغ')}]:[]}
+        onAccessibilityAction={e=>{if(e.nativeEvent.actionName==='longpress')onFlag?.()}}>
+        {!!row.body&&<Text style={s.body}>{row.body}</Text>}<Media value={row.media}/>
+      </Pressable>
       <View style={s.meta}>{row.pending&&<Text accessibilityLiveRegion="polite" style={s.metaText}>{appText("جارٍ الإرسال…")}</Text>}{!!row.created&&<Text style={s.metaText}>{relativeTime(row.created)}</Text>}
         {social&&<Action label={appText('رد على ')+author} onPress={onReply} style={s.inline}><Text style={s.metaText}>{appText("رد")}</Text></Action>}
       </View>
@@ -60,7 +63,7 @@ function CommentRow({row,owner,nested,social,onReply,onLike,onToggle,open}) {
   </View>;
 }
 const emptyPage={rows:[],next:null};
-export default function ShortCommentsSheet({firstComments,invalidateComments,clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
+export default function ShortCommentsSheet({onReportComment,firstComments,invalidateComments,clip,owner,viewer,request,count,onCount,topHeight,expanded,onExpand,onClose,onVisibleHeight}) {
   const [outgoing,setOutgoing]=useState(null);
   const [main,setMain]=useState(emptyPage),[threads,setThreads]=useState({}),[open,setOpen]=useState({});
   const [draft,setDraft]=useState(''),[attachment,setAttachment]=useState(''),[reply,setReply]=useState(null);
@@ -153,7 +156,7 @@ export default function ShortCommentsSheet({firstComments,invalidateComments,cli
   }
   function startReply(row,root){setReply({id:root.id,name:row.name||appText('مستخدم كليبي')});setTools('');showKeyboard();}
   function rowView(row,root){
-    return <CommentRow row={row} owner={owner} social={social} nested={!!root} open={!!open[row.id]} onToggle={()=>toggle(row)} onReply={()=>startReply(row,root||row)} onLike={()=>like(row)}/>;
+    return <CommentRow row={row} onFlag={!row.pending&&onReportComment?()=>onReportComment(row):undefined} owner={owner} social={social} nested={!!root} open={!!open[row.id]} onToggle={()=>toggle(row)} onReply={()=>startReply(row,root||row)} onLike={()=>like(row)}/>;
   }
   const canSend=!!(draft.trim()||attachment)&&!sending;
   const names=[...new Set([...main.rows,...Object.values(threads).flatMap(t=>t.rows)].map(r=>r.name).filter(Boolean))].slice(0,10);

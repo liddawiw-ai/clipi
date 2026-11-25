@@ -1,3 +1,4 @@
+import {liveProgram,tagRoom} from './live-program.mjs';
 import {deviceInstall} from './device-install.mjs';
 import {interfaceCopy} from './interface-copy.mjs';
 import {invitationInbox} from './broadcast-access.mjs';
@@ -55,8 +56,8 @@ export default {
     if(path==='/external-checkout'&&request.method==='GET'&&env.CLIPI_APP)return env.CLIPI_APP.fetch(request);
     if(path==='/active-rooms'&&request.method==='GET'){
       const q=await roomStore(env.PI_GIFTS_DB);
-      const rows=await q('SELECT h.room FROM room_host h JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
-      return json({rooms:rows.results.map(row=>row.room)});
+      const rows=await q('SELECT h.room,l.language,l.topic FROM room_host h LEFT JOIN room_listing l ON l.room=h.room JOIN room_member m ON m.room=h.room AND m.uid=h.uid WHERE m.seen>=? ORDER BY m.seen DESC LIMIT 200',Math.floor(Date.now()/1000)-90).all();
+      return json({rooms:rows.results.map(row=>row.room),tags:Object.fromEntries(rows.results.filter(r=>r.language).map(r=>[r.room,{language:r.language,topic:r.topic}]))});
     }
     if(request.method==='GET'&&path.startsWith('/themes/')){
       if(/^\/themes\/(palace|aurora|dunes)\.jpg$/.test(path))return env.CLIPI_APP.fetch(request);
@@ -82,6 +83,16 @@ export default {
       if(!uid)return json({error:'سجل الدخول'},401);
       if(shortFile)return receiveShort(request,env.SHORT_VIDEOS,await roomStore(env.PI_GIFTS_DB),uid,shortFile[1],json,env.CLIP_MEDIA);
       const input=await request.json().catch(()=>null);
+      if(['eventCreate','eventCancel','eventList','eventRemind','eventSeen'].includes(input?.op))return liveProgram(await roomStore(env.PI_GIFTS_DB),uid,input,json);
+      if(input?.op==='roomTag'){
+        if(typeof input.room!=='string'||!/^[A-Za-z0-9_-]{1,128}$/.test(input.room))return json({error:'طلب غير صالح'},400);
+        const target='https://firestore.googleapis.com/v1/projects/'+encodeURIComponent(env.FIREBASE_PROJECT_ID)+'/databases/(default)/documents/rooms/'+input.room;
+        const doc=await fetch(target,{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(8000)});
+        if(!doc.ok)return json({error:'الغرفة غير متاحة'},doc.status===404?404:403);
+        const fields=(await doc.json()).fields;
+        if(fields?.ownerUid?.stringValue!==uid||fields.status?.stringValue!=='open')return json({error:'غير مصرح'},403);
+        return tagRoom(await roomStore(env.PI_GIFTS_DB),uid,input.room,input,json);
+      }
       if(['roomInviteInbox','dismissRoomInvite'].includes(input?.op))
         return invitationInbox(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(input?.op==='hostLevels'){

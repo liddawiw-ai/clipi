@@ -34,7 +34,7 @@ export function HubScreen({title, action, children, dock}) {
   </View>;
 }
 
-export function RoomDiscovery({hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
+export function RoomDiscovery({extraDiscovery,hostField,copy, userId, rooms, error, filter, onFilter, search, onSearch, onCreate, onEnter, onClose, showWelcome, busy=false}) {
   const tabs = [['all',copy.all],['audio',copy.voiceRooms],['video',copy.live]];
   return <>
     <View accessibilityRole="tablist" style={s.filters}>
@@ -53,7 +53,7 @@ export function RoomDiscovery({hostField,copy, userId, rooms, error, filter, onF
       </View>
     </TouchableOpacity>
     <TextInput accessibilityLabel={appText(copy.search)} style={s.search} placeholder={appText(copy.search)} placeholderTextColor={muted}
-      autoCorrect={false} value={search} onChangeText={onSearch}/>
+      autoCorrect={false} value={search} onChangeText={onSearch}/>{extraDiscovery}
     {error?<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>
       :rooms.length===0?<View style={s.empty}><Text style={s.emptyTitle}>{appText(copy.empty)}</Text></View>
       :<View style={s.grid}>{rooms.map((room,index)=>{

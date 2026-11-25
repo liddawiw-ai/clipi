@@ -3,8 +3,12 @@ import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
-export const caseLabels={video:'بلاغ عن مقطع أو تعليق',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
-export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubject='',onBack}){
+export const caseLabels={comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
+  function formatComment(value){
+    try{const row=JSON.parse(value);return (row.body||appText('صورة التعليق'))+' · #'+row.id+' · '+row.clip}
+    catch{return value}
+  }
+export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubject='',reportedComment=null,onBack}){
  const t=appText;
  const [kind,choose]=useState(initialKind),[subject,setSubject]=useState(initialSubject),[detail,setDetail]=useState('');
  const [data,setData]=useState(null),[queue,setQueue]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
@@ -24,7 +28,7 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
    const key=JSON.stringify([kind,subject,detail]);
    if(attempt.current?.key!==key)attempt.current={key,id:newId()};
    try{
-     const r=await request('caseCreate',{kind,id:attempt.current.id,subject:subject.trim(),detail:detail.trim()});
+     const r=await request('caseCreate',{kind,id:attempt.current.id,subject:subject.trim(),detail:detail.trim(),...(kind==='comment'?{commentId:reportedComment?.id}:{})});
      if(!alive.current)return;
      choose(null);setSubject('');setDetail('');attempt.current=null;
      setMessage(t('رقم الطلب')+' · '+r.id);await refresh();
@@ -39,8 +43,12 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
    <Text selectable style={s.text}>Liddawiw@gmail.com</Text>
    {kind?<View style={s.card}><Text style={s.title}>{t(caseLabels[kind])}</Text>
      {kind==='deletion'?<Text style={s.text}>{t('سيُرسل طلب حذف حسابك وبياناته المرتبطة إلى فريق كليبي للمراجعة.')}</Text>:<>
-       <Text style={s.text}>{t('لا ترسل كلمة مرور أو معلومات البطاقة.')}</Text>
-       <TextInput style={s.input} accessibilityLabel={t('رقم إيصال العملية')} placeholder={t('رقم إيصال العملية')} value={subject} onChangeText={setSubject} maxLength={128}/>
+       {kind==='purchase'&&<Text style={s.text}>{t('لا ترسل كلمة مرور أو معلومات البطاقة.')}</Text>}
+       {kind==='purchase'&&<TextInput style={s.input} accessibilityLabel={t('رقم إيصال العملية')} placeholder={t('رقم إيصال العملية')} value={subject} onChangeText={setSubject} maxLength={128}/>}
+       {(kind==='comment'||kind==='video')&&<>
+         {kind==='comment'&&<Text style={s.text} numberOfLines={3}>{reportedComment?.body||t('صورة التعليق')}</Text>}
+         <View style={s.row}>{['إساءة أو تهديد','سلامة طفل','محتوى غير مناسب'].map(reason=><TouchableOpacity key={reason} accessibilityRole="button" accessibilityState={{selected:detail===t(reason)}} style={s.button} onPress={()=>setDetail(t(reason))}><Text style={s.action}>{detail===t(reason)?'✓ ':''}{t(reason)}</Text></TouchableOpacity>)}</View>
+       </>}
        <TextInput style={s.input} accessibilityLabel={t('تفاصيل المشكلة')} placeholder={t('تفاصيل المشكلة')} multiline maxLength={400} value={detail} onChangeText={setDetail}/>
      </>}
      {button(kind==='deletion'?appText('تأكيد طلب الحذف'):appText('إرسال الطلب'),submit,busy||(kind!=='deletion'&&!detail.trim()))}
@@ -55,7 +63,7 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      <Text style={s.text}>{t(caseLabels[item.kind])} · {t(item.state==='open'?'جديد':item.state==='reviewed'?'تمت المراجعة':'تمت المعالجة')}</Text>
      <Text selectable style={s.text}>{t('رقم الطلب')} · {item.id}</Text>
      {queue&&<><Text selectable style={s.text}>{t('معرّف الحساب')} · {item.uid}</Text>
-       {!!item.subject&&<Text selectable style={s.text}>{item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
+       {!!item.subject&&<Text selectable style={s.text}>{item.kind==='comment'?formatComment(item.subject):item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
        {item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
      </>}
    </View>)}
