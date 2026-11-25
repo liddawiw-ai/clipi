@@ -3,7 +3,7 @@ import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
-export const caseLabels={help:'طلب مساعدة',comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
+export const caseLabels={'withdrawal-review':'مراجعة سحب الأرباح',help:'طلب مساعدة',comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
   function formatComment(value){
     try{const row=JSON.parse(value);return (row.body||appText('صورة التعليق'))+' · #'+row.id+' · '+row.clip}
     catch{return value}
@@ -67,13 +67,13 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
      {!!item.reply&&<Text selectable style={s.text}>{t('رد الإدارة')} · {item.reply}</Text>}
      {queue&&<><Text selectable style={s.text}>{t('معرّف الحساب')} · {item.uid}</Text>
        {!!item.subject&&<Text selectable style={s.text}>{item.kind==='comment'?formatComment(item.subject):item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
-       {item.kind==='help'&&<>
+       {['help','withdrawal-review'].includes(item.kind)&&<>
          <TextInput style={s.input} multiline maxLength={800} value={replies[item.id]||''} accessibilityLabel={t('رد الإدارة')} placeholder={t('رد الإدارة')} onChangeText={value=>setReplies(old=>({...old,[item.id]:value}))}/>
          {button(t('إرسال الرد'),async()=>{if(pending.current)return;pending.current=true;setBusy(true);
            try{await request('caseReply',{id:item.id,body:replies[item.id]});await refresh(true)}
            catch(e){setMessage(uiError(e))}finally{pending.current=false;setBusy(false)}},busy||!replies[item.id]?.trim())}
        </>}
-       {item.kind!=='help'&&item.kind!=='deletion'&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
+       {!['help','deletion','withdrawal-review'].includes(item.kind)&&button(appText('تأكيد المراجعة'),async()=>{try{await request('caseReviewed',{id:item.id});await refresh(true)}catch(e){setMessage(uiError(e))}})}
      </>}
    </View>)}
    {(queue||data?.cases)?.length===0&&<Text style={s.text}>{t('لا توجد طلبات')}</Text>}

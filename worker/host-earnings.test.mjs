@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {DatabaseSync} from 'node:sqlite';
 import {roomStore} from './room-controls.mjs';
-import {hostEarnings, fundedSnapshot} from './host-earnings.mjs';
+import {hostEarnings, fundedSnapshot, requestWithdrawalReview} from './host-earnings.mjs';
 import {supportCase} from './support-case.mjs';
 
 test('receiving choices, statement points and private help replies follow the signed-in account',async t=>{
@@ -32,6 +32,17 @@ test('receiving choices, statement points and private help replies follow the si
   for(let i=0;i<2;i++)assert.equal((await help('admin',{op:'caseReply',id,body:'Open the upload panel.'})).status,200);
   assert.equal((await help('host',{op:'caseList'})).body.cases[0].reply,'Open the upload panel.');
   assert.equal((await help('visitor',{op:'caseList'})).body.cases.length,0);
+  const funded={availableUsdMinor:2550};
+  assert.equal(await requestWithdrawalReview(q,'host',3500,funded,'verified contact'),false);
+  for(let i=0;i<2;i++)assert.equal(await requestWithdrawalReview(q,'host',2250,funded,'verified contact'),true);
+  assert.equal((await help('admin',{op:'caseQueue'})).body.cases.length,0);
+  const review=(await help('owner',{op:'caseQueue'})).body.cases[0];
+  assert.equal(review.kind,'withdrawal-review');
+  assert.equal((await help('admin',{op:'caseReply',id:review.id,body:'x'})).status,409);
+  assert.equal((await help('owner',{op:'caseReply',id:review.id,body:'Under review'})).status,200);
+  assert.equal((await wallet('host',{op:'hostEarnings'})).body.review.reply,'Under review');
+  assert.equal((await wallet('visitor',{op:'hostEarnings'})).body.review,null);
+
 });
 test('read the funded wallet and current withdrawal with a per-account field mask',async t=>{
   t.mock.method(globalThis,'fetch',async url=>{
@@ -41,5 +52,5 @@ test('read the funded wallet and current withdrawal with a per-account field mas
     return Response.json({fields:requested.pathname.endsWith('/one')?{state:{stringValue:'pending'},points:{integerValue:'2000'}}:
       {availablePoints:{integerValue:'350'},activeWithdrawal:{stringValue:'one'}}});
   });
-  assert.deepEqual(await fundedSnapshot({},'host','test'),{availableUsdMinor:350,withdrawal:{id:'one',points:2000,state:'pending'}});
+  assert.deepEqual(await fundedSnapshot({},'host','test'),{availableUsdMinor:350,nextEligibleAt:null,withdrawal:{id:'one',points:2000,state:'pending'}});
 });

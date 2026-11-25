@@ -1,6 +1,6 @@
 import React,{useEffect,useState} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView} from 'react-native';
-import {functions} from './services';
+import {auth,functions} from './services';
 import {ui,uiError} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import PayoutPicker from './PayoutPicker';
@@ -13,7 +13,7 @@ export default function EarningsWalletScreen({request,onBack}){
   useEffect(()=>{
     let active=true;
     call('getEarningsWallet')({}).then(r=>{if(active){setData(r.data);setError('')}})
-      .catch(()=>{if(active){setData(null);setError('تعذّر الوصول إلى خدمة السحب النقدي')}});
+      .catch(()=>{if(active){setData(null);setError('')}});
     return ()=>{active=false};
   },[revision]);
   const reload=()=>refresh(n=>n+1);
@@ -29,7 +29,7 @@ export default function EarningsWalletScreen({request,onBack}){
     {data&&<Text>{data.availablePoints} {ui('نقطة')} · ${(data.availableUsdMinor/100).toFixed(2)}</Text>}
     {!!error&&<Text accessibilityLiveRegion="polite">{ui(error)}</Text>}
     <TouchableOpacity accessibilityRole="button" onPress={reload} style={button}><Text>{ui('تحديث المحفظة')}</Text></TouchableOpacity>
-    <PayoutPicker request={request} call={call} data={data} reload={reload}/>
+    <PayoutPicker verifyEmail={()=>auth().currentUser.sendEmailVerification()} request={request} call={call} data={data} reload={reload}/>
     {data&&<View style={{gap:8}}>
       {data.pinConfigured&&<TextInput placeholder={ui('الرقم الحالي')} secureTextEntry keyboardType="number-pad" maxLength={6} value={currentPin} onChangeText={setCurrentPin}/>}
       <TextInput placeholder={ui('الرقم الجديد - 6 أرقام')} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin}/>

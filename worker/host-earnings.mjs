@@ -2,6 +2,19 @@ import {googleAccess} from './pi-login.mjs';
 
 // Receiving preferences contain a provider product identifier, never payout credentials.
 export const earningsPreferences = 'CREATE TABLE IF NOT EXISTS host_receiving_method(uid TEXT PRIMARY KEY, country TEXT NOT NULL, product TEXT NOT NULL, label TEXT NOT NULL)';
+// A review is a private question for the owner. Only the existing payout provider debits money.
+export async function requestWithdrawalReview(q,uid,points,funded,destination){
+  if(!funded || !destination || funded.withdrawal?.state==='pending' || funded.nextEligibleAt>Date.now() ||
+     !Number.isSafeInteger(points)||points<2000||points>funded.availableUsdMinor)return false;
+  const detail=(points/100).toFixed(2)+' USD · '+destination;
+  await q(`INSERT INTO support_case(id,uid,kind,subject,detail,created)
+    SELECT ?,?,'withdrawal-review','',?,? WHERE NOT EXISTS(
+      SELECT 1 FROM support_case c WHERE c.uid=? AND c.kind='withdrawal-review'
+        AND (c.created>? OR NOT EXISTS(SELECT 1 FROM support_reply WHERE case_id=c.id)))`,
+    crypto.randomUUID(),uid,detail,Math.floor(Date.now()/1000),uid,Math.floor(Date.now()/1000)-15*86400).run();
+  const saved=await q("SELECT detail FROM support_case WHERE uid=? AND kind='withdrawal-review' ORDER BY rowid DESC LIMIT 1",uid).first();
+  return saved?.detail===detail;
+}
 export async function hostEarnings(q, uid, input, json, env, identity) {
   if (input.op === 'linkReceivingContact') {
     const contact=identity.emailVerified && identity.email ? identity.email : identity.phoneNumber;
@@ -28,7 +41,16 @@ export async function hostEarnings(q, uid, input, json, env, identity) {
       if(token)funded=await fundedSnapshot(env,uid,token);
     }catch{ /* An unavailable ledger has no displayable balance. */ }
   }
-  return json({method:method || null, statementPoints:statement.units / 2, funded,
+  if(input.op==='requestWithdrawalReview'){
+    const destination=pi?.address?'Pi · '+pi.address.slice(0,6)+'…'+pi.address.slice(-6):contact?.contact||method?.label;
+    if(!await requestWithdrawalReview(q,uid,input.points,funded,destination))
+      return json({error:'تحقّق من وسيلة الاستلام والرصيد وموعد طلب السحب'},409);
+  }
+  const review=await q(`SELECT c.id,c.detail,c.created,r.body AS reply FROM support_case c
+    LEFT JOIN support_reply r ON r.case_id=c.id WHERE c.kind='withdrawal-review' AND c.uid=?
+    ORDER BY c.rowid DESC LIMIT 1`,uid).first();
+  return json({review:review||null,method:method || null, statementPoints:statement.units / 2, funded,
+    canVerifyEmail:Boolean(identity.email&&!identity.emailVerified&&!identity.phoneNumber),
     canLinkContact:Boolean(identity.emailVerified && identity.email || identity.phoneNumber),contact:contact?.contact||null,
     walletAddress:pi?.address||null});
 }
@@ -44,7 +66,7 @@ export async function fundedSnapshot(env, uid, token) {
     if(!response.ok)throw Error('wallet read unavailable');
     return (await response.json()).fields || {};
   }
-  const wallet=await read(root,['availablePoints','activeWithdrawal','lastWithdrawal']);
+  const wallet=await read(root,['availablePoints','activeWithdrawal','lastWithdrawal','lastPayoutRequestAt']);
   const points=Number(wallet.availablePoints?.integerValue || 0);
   if(!Number.isSafeInteger(points)||points<0)throw Error('invalid wallet balance');
   const id=wallet.activeWithdrawal?.stringValue || wallet.lastWithdrawal?.stringValue;
@@ -53,5 +75,6 @@ export async function fundedSnapshot(env, uid, token) {
     const order=await read(root+'/withdrawals/'+encodeURIComponent(id),['state','points']);
     if(order.state)withdrawal={id,state:order.state.stringValue,points:Number(order.points?.integerValue || 0)};
   }
-  return {availableUsdMinor:points,withdrawal};
+  const last=Date.parse(wallet.lastPayoutRequestAt?.timestampValue||'');
+  return {availableUsdMinor:points,withdrawal,nextEligibleAt:Number.isFinite(last)?last+15*86400000:null};
 }
