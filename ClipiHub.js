@@ -51,6 +51,12 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
         <Text style={[s.filterLabel,filter===id&&s.active]}>{title}</Text>
       </TouchableOpacity>)}
     </View>
+    {helpRoom&&<TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(helpRoom)}
+        style={{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:14,backgroundColor:theme.paper}}>
+        <Image source={helpImage} resizeMode="contain" style={{width:56,height:56,borderRadius:12}}/>
+        <View style={{flex:1}}><Text style={s.cardTitle}>{appText(helpRoom.name)}</Text>
+          <Text style={s.secondary}>{appText('غرفة المساعدة الرسمية · مفتوحة ٢٤ ساعة')}</Text></View>
+      </TouchableOpacity>}
     {hostField}
     <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText(copy.create)} aria-busy={busy} accessibilityState={{disabled:busy,busy}} disabled={busy} style={s.hero} onPress={onCreate}>
       <Image accessible={false} resizeMode="cover" style={s.heroImage} source={require('./assets/live-studio.jpg')}/>
@@ -67,12 +73,6 @@ export function RoomDiscovery({extraDiscovery,helpRoom,helpImage,hostField,copy,
         <Text style={s.manageText}>{appText('دخول بالمعرّف')}</Text>
       </TouchableOpacity>}
     {extraDiscovery}
-    {helpRoom&&<TouchableOpacity accessibilityRole="button" onPress={()=>onEnter(helpRoom)}
-        style={{flexDirection:'row',alignItems:'center',gap:12,padding:12,borderRadius:14,backgroundColor:theme.paper}}>
-        <Image source={helpImage} resizeMode="contain" style={{width:56,height:56,borderRadius:12}}/>
-        <View style={{flex:1}}><Text style={s.cardTitle}>{appText(helpRoom.name)}</Text>
-          <Text style={s.secondary}>{appText('غرفة المساعدة الرسمية · مفتوحة ٢٤ ساعة')}</Text></View>
-      </TouchableOpacity>}
       {error?<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>
       :rooms.length===0?(helpRoom?null:<View style={s.empty}><Text style={s.emptyTitle}>{appText(copy.empty)}</Text></View>)
       :<View style={s.grid}>{rooms.map((room,index)=>{
