@@ -891,7 +891,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
           </>:<>
             <RoomOption title={appText("مشاركة الغرفة")} onPress={()=>{
               closeRoomMenu();
-              Share.share({message:room.name+'\n'+MEDIA_ENDPOINT+'/#room='+encodeURIComponent(room.id)})
+              Share.share({message:room.name+'\n'+MEDIA_ENDPOINT+'/room?room='+encodeURIComponent(room.id)})
                 .catch(()=>Alert.alert(appText('تعذرت مشاركة الغرفة')));
             }}/>
             <RoomOption title={appText("شروط الخدمة")} onPress={()=>openRoomPolicy('terms')}/>
