@@ -1,13 +1,18 @@
-const user = new URLSearchParams(location.search).has('signedOut') ? null : {
+const params = new URLSearchParams(location.search);
+let onSessionChange;
+let user = params.has('signedOut') ? null : {
   uid: 'layout-fixture',
   displayName: 'Layout test',
+  getIdTokenResult: async () => ({signInProvider: params.has('emailSession') ? 'password' : 'custom'}),
   getIdToken: async () => 'fixture'
 };
 export const auth = () => ({
   currentUser: user,
+  async signOut() { user = null; onSessionChange?.(null); },
   onAuthStateChanged(fn) {
+    onSessionChange = fn;
     queueMicrotask(() => fn(user));
-    return () => {};
+    return () => { onSessionChange = null; };
   }
 });
 const query = {

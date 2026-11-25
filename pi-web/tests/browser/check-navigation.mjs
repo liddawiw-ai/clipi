@@ -106,7 +106,11 @@ export async function checkNavigation(browser) {
     await p.goto('https://clipi.local/room?signedOut=1&firstVisit=1');
     await p.getByRole('button', {name: /Change language.*English/}).waitFor();
     await p.getByRole('button', {name: 'Sign in with PI', exact: true}).waitFor();
-    console.log('PASS English before login on first visit with Arabic browser locale');
+    assert.equal(await p.getByRole('button', {name: 'Sign in with email', exact:true}).count(), 0);
+    await p.goto('https://clipi.local/room?emailSession=1&firstVisit=1');
+    await p.getByRole('button', {name: 'Sign in with PI', exact:true}).waitFor();
+    assert.equal(await p.locator('input[type=password]').count(), 0);
+    console.log('PASS signed-out and previously email-authenticated visitors use the Pi login page');
     await p.goto('https://clipi.local/room');
     const root = p.locator('[data-clipi-page]'),
       dock = p.locator('.clipi-dock'),

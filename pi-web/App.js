@@ -1167,9 +1167,6 @@ export default function App(){
   const numberAction=(op,n)=>numbers(op,n).catch(e=>Alert.alert(ui("أرقام كليبي"),uiError(e)));
 
   const [name,setName]=useState(''),[phone,setPhone]=useState(''),[country,setCountry]=useState(0),[countriesOpen,setCountriesOpen]=useState(false),[accepted,setAccepted]=useState(false);
-  const [loginMethod,setLoginMethod]=useState('email');
-  const [emailMode,setEmailMode]=useState('login');
-  const [email,setEmail]=useState(''),[password,setPassword]=useState('');
   const [confirmation,setConfirmation]=useState(null),[smsCode,setSmsCode]=useState(''),[busy,setBusy]=useState(false),[authError,setAuthError]=useState('');
   const [avatar,setAvatar]=useState('👤');
   const [policy,setPolicy]=useState(null);
@@ -1330,7 +1327,14 @@ export default function App(){
     let unsub;
     try{unsub=auth().onAuthStateChanged(async u=>{
       if(!active)return;
-      if(u&&u.isAnonymous){await auth().signOut();return;}
+      if(u){
+        // A Pi login uses a custom token, even when it opens an existing linked email UID.
+        let provider;
+        try{provider=(await u.getIdTokenResult()).signInProvider;}
+        catch(error){console.warn('Could not restore the Pi session',error.code);}
+        if(!active||auth().currentUser?.uid!==u.uid)return;
+        if(provider!=='custom'){await auth().signOut();return;}
+      }
       // Local demo data must never leak between Firebase accounts on the same device.
       if(currentSessionUidRef.current!==u?.uid){
         currentSessionUidRef.current=u?.uid;
@@ -1425,60 +1429,6 @@ export default function App(){
     if(!editing||selectedEmoji.current)update.avatar=selectedEmoji.current||avatar;
     await firestore().collection('users').doc(u.uid).set(update,{merge:true});
     if(auth().currentUser?.uid===u.uid)setName(displayName);
-  }
-  async function emailLogin(){
-    if(busy)return;
-    const address=email.trim();
-    const creating=emailMode==='signup';
-    const resetting=emailMode==='reset';
-    if(!/^\S+@[^\s@]+\.[^\s@]+$/.test(address))return Alert.alert(appText('البريد'),appText('أدخل بريدًا إلكترونيًا صحيحًا.'));
-    if(!resetting&&!accepted)return Alert.alert(appText('الشروط'),appText('وافق على الشروط أولاً.'));
-    if(!resetting&&(!password||(creating&&password.length<6)))return Alert.alert(appText('كلمة المرور'),appText('أدخل كلمة المرور. الحساب الجديد يحتاج إلى ستة أحرف على الأقل.'));
-    if(creating&&(!name.trim()||name.trim().length>35))return Alert.alert(ui("الاسم"),appText('أدخل اسمًا من 1 إلى 35 حرفًا.'));
-
-    Keyboard.dismiss();
-    setBusy(true);
-    setAuthError('');
-    profileSetupRef.current=creating;
-    try{
-      if(resetting){
-        await auth().sendPasswordResetEmail(address).catch(error=>{
-          if(error?.code!=='auth/user-not-found')throw error;
-        });
-        setEmailMode('login');
-        Alert.alert(appText('استعادة كلمة المرور'),appText('إذا كان البريد مرتبطًا بحساب، سيصلك رابط لتعيين كلمة مرور جديدة.'));
-        return;
-      }
-      if(!creating){
-        await auth().signInWithEmailAndPassword(address,password);
-        return;
-      }
-      const {user:created}=await auth().createUserWithEmailAndPassword(address,password);
-      const displayName=name.trim();
-      try{await created.updateProfile({displayName});}
-      catch(error){console.warn('Email profile update failed',error.code);}
-      try{await saveProfile(created,displayName);}
-      catch(error){console.warn('Email profile sync failed',error.code);}
-      setName(displayName);
-      await openRoomInvitation(created);
-    }catch(error){
-      const messages={
-        'auth/operation-not-allowed':'خدمة الدخول بالبريد غير مفعّلة حاليًا.',
-        'auth/email-already-in-use':'هذا البريد مسجّل بالفعل. جرّب تسجيل الدخول أو استعادة كلمة المرور.',
-        'auth/invalid-email':'أدخل بريدًا إلكترونيًا صحيحًا.',
-        'auth/weak-password':'اختر كلمة مرور أقوى.',
-        'auth/too-many-requests':'محاولات كثيرة. حاول مرة أخرى لاحقًا.',
-        'auth/network-request-failed':'تعذر الاتصال بالشبكة. تحقق من الإنترنت.',
-        'auth/user-disabled':'هذا الحساب معطّل.',
-      };
-      const message=messages[error?.code]||(resetting?'تعذر إرسال رابط الاستعادة. حاول مجددًا.':creating?'تعذر إنشاء الحساب. تحقق من البيانات وحاول مجددًا.':'تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.');
-      setAuthError(message);
-      Alert.alert(appText('الدخول بالبريد'),uiError(message));
-    }finally{
-      profileSetupRef.current=false;
-      setPassword('');
-      setBusy(false);
-    }
   }
   function phoneAuthMessage(e){
     if(/billing[-_ ]not/i.test(`${e?.code||''} ${e?.message||''}`)){
@@ -1764,16 +1714,6 @@ export default function App(){
       go(destination==='create'?'uploadShort':destination);
     }}/>;
   }
-  async function emailSession(create){
-    if(busy||(create&&!accepted))return;
-    setBusy(true);setAuthError('');
-    try{
-      const client=auth();
-      if(create)await client.createUserWithEmailAndPassword(email.trim(),password);
-      else await client.signInWithEmailAndPassword(email.trim(),password);
-      setPassword('');
-    }catch(error){setAuthError(uiError(error))}finally{setBusy(false)}
-  }
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="dark-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
@@ -1817,21 +1757,12 @@ export default function App(){
   function renderPage(){
   if(SHOW_UNRELEASED_DEMOS&&page==='earningsWallet')return <EarningsWalletScreen onBack={()=>go('profile')}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>Clipi · {appText(words.wait)}</Text></View>;
-  if((!user||page==='login')&&loginMethod!=='clipi-email')return signInFrame(<>
+  if(!user||page==='login')return signInFrame(<>
     <Text style={S.title}>{appText(words.intro)}</Text>
     <Btn color="#11685b" title={busy?words.wait:words.pi} disabled={busy||(!accepted&&location.pathname!=='/delete-account')} onPress={async()=>{
       setBusy(true);setAuthError('');
       try{await piLogin()}catch(error){setAuthError(uiError(error))}finally{setBusy(false)}
     }}/>
-    <Btn color={ORANGE} title={appText(words.emailLogin)} onPress={()=>{setAuthError('');setLoginMethod('clipi-email')}}/>
-  </>);
-  if(!user||page==='login')return signInFrame(<>
-    <Text style={S.title}>{appText(words.emailLogin)}</Text>
-    <TextInput style={S.input} accessibilityLabel={appText(words.email)} placeholder={appText(words.email)} value={email} onChangeText={setEmail} autoCapitalize="none"/>
-    <TextInput style={S.input} accessibilityLabel={appText(words.password)} placeholder={appText(words.password)} value={password} onChangeText={setPassword} secureTextEntry/>
-    <Btn title={appText(words.signIn)} disabled={busy} onPress={()=>emailSession(false)}/>
-    <Btn title={appText(words.create)} disabled={busy||!accepted} onPress={()=>emailSession(true)}/>
-    <Btn title={appText(words.back)} onPress={()=>{setLoginMethod('pi');setPassword('');setAuthError('')}}/>
   </>);
   if(page==='home')return <ShortVideoHome roomLabels={menu} onAuthor={(uid,authorName,clip,own,authorAvatar)=>{
     setInitialShort(clip);
