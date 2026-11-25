@@ -3,7 +3,10 @@ import firebase from 'firebase/compat/app';
 import 'firebase/compat/auth';
 import 'firebase/compat/firestore';
 import 'firebase/compat/functions';
-firebase.initializeApp({projectId:'clipi-f67c0',authDomain:'clipi-f67c0.firebaseapp.com',apiKey:'AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI'});
+import 'firebase/compat/app-check';
+firebase.initializeApp({appId:typeof CLIPI_WEB_APP_ID==='string'?CLIPI_WEB_APP_ID:undefined,projectId:'clipi-f67c0',authDomain:'clipi-f67c0.firebaseapp.com',apiKey:'AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI'});
+if(typeof CLIPI_WEB_APPCHECK_KEY==='string'&&CLIPI_WEB_APPCHECK_KEY&&typeof CLIPI_WEB_APP_ID==='string'&&CLIPI_WEB_APP_ID)
+  firebase.appCheck().activate(CLIPI_WEB_APPCHECK_KEY,true);
 export const auth=firebase.auth, firestore=firebase.firestore, functions=firebase.functions;
 export const Alert={alert(title,message='',buttons){
   if(!buttons?.length){window.alert([title,message].filter(Boolean).join('\n'));return}

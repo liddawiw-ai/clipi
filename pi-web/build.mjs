@@ -1,6 +1,6 @@
 import {build} from 'esbuild';
 import {copyFile} from 'node:fs/promises';
-await build({entryPoints:['main.jsx'],bundle:true,minify:true,outfile:'dist/clipi-app.js',loader:{'.js':'jsx','.mp3':'dataurl','.jpg':'dataurl','.png':'dataurl','.gif':'dataurl'},alias:{'react-native':'react-native-web'},define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
+await build({entryPoints:['main.jsx'],bundle:true,minify:true,outfile:'dist/clipi-app.js',loader:{'.js':'jsx','.mp3':'dataurl','.jpg':'dataurl','.png':'dataurl','.gif':'dataurl'},alias:{'react-native':'react-native-web'},define:{CLIPI_WEB_APP_ID:JSON.stringify(process.env.CLIPI_WEB_APP_ID||''),CLIPI_WEB_APPCHECK_KEY:JSON.stringify(process.env.CLIPI_WEB_APPCHECK_KEY||''),global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
 await build({entryPoints:['policy-links.mjs'],bundle:true,minify:true,outfile:'dist/clipi-policy-links.js'});
 await copyFile('index.html','dist/index.html');
 

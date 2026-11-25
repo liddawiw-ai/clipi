@@ -17,16 +17,21 @@ function loginToken(env,uid) {
     aud:'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',iat,exp:iat+300,uid});
 }
 
-// A Firebase custom token can create a missing account. Check that the linked password identity still exists before issuing one.
-async function emailAccountExists(env,emailUid) {
+export async function googleAccess(env,scope){
   const iat=Math.floor(Date.now()/1000);
-  const assertion=await signClaims(env,{iss:env.PI_FIREBASE_SIGNER_EMAIL,scope:'https://www.googleapis.com/auth/identitytoolkit',
+  const assertion=await signClaims(env,{iss:env.PI_FIREBASE_SIGNER_EMAIL,scope,
     aud:'https://oauth2.googleapis.com/token',iat,exp:iat+300});
   const grant=await fetch('https://oauth2.googleapis.com/token',{method:'POST',signal:AbortSignal.timeout(8000),
     body:new URLSearchParams({grant_type:'urn:ietf:params:oauth:grant-type:jwt-bearer',assertion})});
-  if(!grant.ok)return false;
+  if(!grant.ok)return null;
   const access=(await grant.json()).access_token;
-  if(typeof access!=='string'||!access)return false;
+  return typeof access==='string'&&access?access:null;
+}
+
+// A Firebase custom token can create a missing account. Check that the linked password identity still exists before issuing one.
+async function emailAccountExists(env,emailUid) {
+  const access=await googleAccess(env,'https://www.googleapis.com/auth/identitytoolkit');
+  if(!access)return false;
   const result=await fetch('https://identitytoolkit.googleapis.com/v1/projects/clipi-f67c0/accounts:lookup',{method:'POST',
     headers:{Authorization:'Bearer '+access,'Content-Type':'application/json'},body:JSON.stringify({localId:[emailUid]}),signal:AbortSignal.timeout(8000)});
   if(!result.ok)return false;

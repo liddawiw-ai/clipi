@@ -3,11 +3,7 @@ import {checkShortVideo} from './short-upload-limits.mjs';
 
 export const starters=Object.fromEntries(['palace','aurora','dunes'].map(id=>[id,'/shorts/starter/'+id+'.mp4']));
 export const starterPoster=id=>Object.hasOwn(starters,id)?'/shorts/starter/'+id+'.jpg':undefined;
-// Keep the next two players warm for fast consecutive swipes. Respect reduced-data connections.
-export function shortsLookahead() {
-  const connection = globalThis.navigator?.connection;
-  return connection?.saveData || ['slow-2g','2g'].includes(connection?.effectiveType) ? 1 : 2;
-}
+export const shortsLookahead = () => 2;
 export const nonce=()=>crypto.randomUUID();
 export function startProfileVideo(source, poster, playable, preparedVideo) {
   const video = preparedVideo || document.createElement('video');
