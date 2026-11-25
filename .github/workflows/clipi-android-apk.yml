@@ -6,6 +6,8 @@ on:
       - review/clipi-android-44-internal
     paths:
       - .github/workflows/clipi-android-apk.yml
+      - App.js
+      - greedy-clock.mjs
 permissions:
   contents: read
 env:

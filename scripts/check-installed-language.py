@@ -53,6 +53,7 @@ def tap(label):
 
 launch()
 first = find_label(('تغيير اللغة','Change language'))
+print('First login language control:', first.get('content-desc') or first.get('text'), flush=True)
 if 'Change language' in (first.get('content-desc','')+first.get('text','')):
     tap('Change language')
     tap('العربية')
