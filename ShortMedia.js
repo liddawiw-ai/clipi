@@ -12,10 +12,16 @@ export const starters = {
   aurora: require('./assets/shorts/aurora.mp4'),
   dunes: require('./assets/shorts/dunes.mp4')
 };
-export function Player({source, active = true, muted = true, playerRef, fit = 'cover'}) {
+export function Player({source, active = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
   const player = useVideoPlayer(source, p => {p.loop=true;p.muted=muted;});
   useImperativeHandle(playerRef, () => player, [player]);
   useEffect(() => {player.muted=muted;},[muted,player]);
+  useEffect(() => {
+    if (!onPlayingChange) return;
+    const subscription = player.addListener('playingChange', ({isPlaying}) => onPlayingChange(isPlaying));
+    onPlayingChange(player.playing);
+    return () => subscription.remove();
+  }, [player, onPlayingChange]);
   useEffect(() => {
     function sync(state) { if (active && state==='active') player.play(); else player.pause(); }
     sync(AppState.currentState || 'active');

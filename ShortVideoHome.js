@@ -60,6 +60,7 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
+  const [playing,setPlaying]=useState(false);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
@@ -164,9 +165,9 @@ function Clip({item,onAuthor,followRevision,onFollowChange,followLabels,endpoint
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} fit={showing?'contain':'cover'} active={playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} active={playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {!showing&&dialog!=='delete'&&<>
-    <VideoTapSurface clipId={item.id} paused={paused} onSingleTap={()=>setPaused(previous=>!previous)}
+    <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>
     <SoundControl {...{playerRef,muted,setMuted}}/>
