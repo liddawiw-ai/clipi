@@ -311,8 +311,12 @@ export async function checkNavigation(browser) {
           assert.equal(await tab('صور').getAttribute('aria-selected'),'true');
           await swipe(85,275,300);await btn('بدء التسجيل').waitFor();
           assert.equal(await tab('فيديو').getAttribute('aria-selected'),'true');
-          assert.equal(pickerEvents,0);p.off('filechooser',countChooser);await touch.detach();
-          await tab('صور').click();await addText.click();
+          assert.equal(pickerEvents,0);p.off('filechooser',countChooser);
+          const cancelVideo=p.waitForEvent('filechooser');await videos.click();
+          const videoPicker=await cancelVideo;
+          assert.match(await videoPicker.element().getAttribute('accept'),/video/);
+          await videoPicker.element().evaluate(el=>el.dispatchEvent(new Event('cancel')));
+          await swipe(275,85,circle.y+circle.height/2);await touch.detach();await addText.click();
           await p.getByRole('textbox',{name:'الكتابة على الشاشة'}).fill('من الكاميرا');await btn('تم').click();
           await btn('التقاط صورة').click();
           await p.getByText('من الكاميرا',{exact:true}).waitFor();
@@ -353,9 +357,8 @@ export async function checkNavigation(browser) {
           await p.getByText('فوق الفيديو',{exact:true}).waitFor();
           await p.getByText('نص اللقطة التجريبية',{exact:true}).waitFor();
           await dock.getByRole('tab').nth(2).click();
-          await tab('صور').click();
           const chooser=p.waitForEvent('filechooser');
-          await btn('رفع صور').click();
+          await tab('صور').click();
           await (await chooser).setFiles(['palace.jpg','aurora.jpg'].map(f=>new URL('../../assets/shorts/'+f,import.meta.url).pathname));
           const field=p.getByRole('textbox',{name:'النص على الصورة'});await addText.click();await field.fill('الصورة الأولى');await btn('تم').click();
           await btn('الصورة التالية').click();await addText.click();await field.fill('الصورة الثانية');await btn('تم').click();
@@ -469,6 +472,16 @@ export async function checkNavigation(browser) {
       assert.equal(await p.getByText('بطاقة تجريبية',{exact:true}).count(),0);
       await p.getByRole('button',{name:/💎 · 1 PI$/}).click();
       await p.getByText('تم شحن الماس',{exact:true}).waitFor();assert.ok(completed);
+      await button('رجوع').click();await pageFull('home');
+      await dock.getByRole('tab').nth(4).click();await pageFull('profile');
+      await button('مركز المضيف').click();await pageFull('hostCenter');
+      await button('المحفظة').click();await pageFull('wallet');
+      await button('رجوع').click();await pageFull('hostCenter');
+      await p.goBack();await pageFull('profile');
+      await p.goForward();await pageFull('hostCenter');
+      await button('رجوع').click();await pageFull('profile');
+      await button('المحفظة').click();await pageFull('wallet');
+      await button('رجوع').click();await pageFull('profile');
       await home();await openRose();await button('إرسال').click();
       await p.getByText('تم إرسال الهدية',{exact:true}).waitFor();
       assert.equal(sentGifts,1);assert.equal(giftDiamonds,990);
@@ -503,6 +516,9 @@ export async function checkNavigation(browser) {
 
 async function checkLoginLanguages(page, initialLanguage) {
   await page.goto('https://clipi.local/room?signedOut=1');
+  await page.locator('.clipi-language-trigger').waitFor();
+  assert.equal(await page.locator('input[type=email],input[type=password]').count(),0);
+  assert.equal(await page.getByRole('button',{name:/دخول بالبريد|تسجيل بالبريد|sign in with email/i}).count(),0);
   const trigger = page.locator('.clipi-language-trigger');
   const sheet = page.getByRole('dialog'), wheel = sheet.locator('.clipi-language-wheel');
   if (initialLanguage !== 'ar') {

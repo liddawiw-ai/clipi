@@ -1,3 +1,4 @@
+import {selectFile} from './select-file.mjs';
 import {createShortPlayback} from './short-playback.mjs';
 import React,{useLayoutEffect,useImperativeHandle,useRef,useState} from 'react';
 import {checkShortVideo} from './short-upload-limits.mjs';
@@ -115,24 +116,12 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
 
   return <span ref={container}/>;
 }
-export function pickShort(){
-  return new Promise((resolve,reject)=>{
-    const input=document.createElement('input');
-    input.type='file';input.accept='video/mp4,.mp4';
-    input.oncancel=()=>resolve(null);
-    input.onchange=async()=>{
-      const file=input.files[0];
-      if(!file)return resolve(null);
-      try {
-        const problem = await checkShortVideo(file);
-        if (problem) throw new Error(problem.error);
-        resolve({file, uri:URL.createObjectURL(file)});
-      } catch (error) {
-        reject(error);
-      }
-    };
-    input.click();
-  });
+export async function pickShort(){
+  const [file]=await selectFile('video/mp4,.mp4');
+  if(!file)return null;
+  const problem=await checkShortVideo(file);
+  if(problem)throw new Error(problem.error);
+  return {file,uri:URL.createObjectURL(file)};
 }
 export const releaseDraft=draft=>{if(draft.uri)URL.revokeObjectURL(draft.uri);};
 export async function uploadFile(url,draft,token){

@@ -6,7 +6,7 @@ import {nonce} from './ShortMedia';
 export function Overlay({text,timed=false}){
   return text?<View pointerEvents="none" style={[s.overlay,timed&&s.timed]}><Text style={s.words}>{text}</Text></View>:null;
 }
-export function Album({count,uri,notes,index,setIndex,onSeen}){
+export function Album({count,uri,notes,index,setIndex,onSeen,onDismiss}){
   const latest=useRef();latest.current={index,count,setIndex};
   const [width,setWidth]=useState(0);
   const swipe=useRef(PanResponder.create({
@@ -15,6 +15,7 @@ export function Album({count,uri,notes,index,setIndex,onSeen}){
   })).current;
   return <View style={[StyleSheet.absoluteFill,{touchAction:'pan-y'}]} {...swipe.panHandlers} onLayout={e=>setWidth(e.nativeEvent.layout.width)}>
     <Image key={uri} resizeMode="contain" source={{uri}} onLoad={()=>onSeen?.(index)} style={StyleSheet.absoluteFill} accessibilityLabel={ui('صورة')+' '+(index+1)}/>
+    {onDismiss&&<Pressable accessibilityRole="button" accessibilityLabel={ui('الرجوع من المعاينة')} style={StyleSheet.absoluteFillObject} onPress={onDismiss}/>}
     <Overlay text={notes?.[index]}/>
     {count>1&&<View style={[s.pager,{left:Math.max(8,(width-144)/2)}]}>
       <Pressable accessibilityRole="button" accessibilityLabel={ui('الصورة السابقة')} disabled={index===0} onPress={()=>setIndex(index-1)} style={s.arrow}><Text style={s.num}>‹</Text></Pressable>

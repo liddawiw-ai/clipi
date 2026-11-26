@@ -1,15 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {checkShortVideo} from './short-upload-limits.mjs';
 
-function selectFile(accept,multiple=false,capture){
-  return new Promise(resolve=>{
-    const input=document.createElement('input');
-    input.type='file';input.accept=accept;input.multiple=multiple;
-    if(capture)input.setAttribute('capture',capture);
-    input.onchange=()=>resolve(Array.from(input.files||[]));
-    input.oncancel=()=>resolve([]);input.click();
-  });
-}
+import {selectFile} from './select-file.mjs';
 async function preparedVideo(file){
   if(!file)return null;
   const error=await checkShortVideo(file);if(error)throw Error(error.error);

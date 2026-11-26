@@ -24,7 +24,7 @@ async function init(){
  const quote=await api('quote',{id});
  if(quote.state==='paid'){paid(quote.diamonds);return}
  if(quote.state==='open'&&Date.now()>=quote.expires){info.textContent='انتهى عرض السعر. ارجع إلى كليبي لطلب سعر جديد.';return}
- info.textContent=quote.diamonds+' ماسة مقابل '+quote.amount+' PI ('+quote.dollars+' USD) لحساب كليبي '+(quote.account||'الذي بدأ الطلب')+'.';
+ info.textContent=quote.diamonds+' ماسة مقابل '+quote.amount+' PI لحساب كليبي '+(quote.account||'الذي بدأ الطلب')+'.';
  if(!window.Pi){info.textContent+=' افتح هذا الرابط في Pi Browser.';return}
  Pi.init({version:'2.0',sandbox:false});
  btn.hidden=false;

@@ -71,6 +71,66 @@ async function settlePi(q,env,order,payment,txid){
   await credit(q,order,order.payment,txid);
   return true;
 }
+const cardReady=env=>/^sk_live_/.test(env.STRIPE_SECRET_KEY||'')&&/^whsec_/.test(env.STRIPE_WEBHOOK_SECRET||'');
+function stripe(env,path,options={}){
+  return remote('https://api.stripe.com/v1/'+path,{...options,headers:{
+    Authorization:'Bearer '+env.STRIPE_SECRET_KEY,...options.headers
+  }});
+}
+async function settleCard(q,order,session){
+  if(!session?.livemode||session.mode!=='payment'||session.status!=='complete'||session.payment_status!=='paid'||
+      !session.payment_intent||session.id!==order.payment||session.metadata?.order!==order.id||
+      session.client_reference_id!==order.id||session.currency!=='usd'||session.amount_total!==order.dollars*100)return false;
+  await credit(q,order,session.id,session.payment_intent);
+  return true;
+}
+async function createCard(q,env,uid,id,dollars,origin){
+  if(!cardReady(env))return json({error:'الدفع بالدولار غير مفعّل حاليًا'},503);
+  const diamonds=dollars*1000;
+  await q('INSERT OR IGNORE INTO native_checkout(id,uid,method,dollars,diamonds,amount,expires) VALUES(?,?,?,?,?,?,?)',
+    id,uid,'card',dollars,diamonds,String(dollars),Date.now()+86400000).run();
+  const order=await q('SELECT * FROM native_checkout WHERE id=?',id).first();
+  if(order.uid!==uid||order.dollars!==dollars||order.method!=='card'||Date.now()>=order.expires)return json({error:'اطلب عرضًا جديدًا'},409);
+  const params=new URLSearchParams({mode:'payment',client_reference_id:id,'metadata[order]':id,'payment_intent_data[metadata][order]':id,
+    'line_items[0][quantity]':'1','line_items[0][price_data][currency]':'usd','line_items[0][price_data][unit_amount]':String(dollars*100),
+    'line_items[0][price_data][product_data][name]':diamonds+' Clipi diamonds','payment_method_types[0]':'card',
+    success_url:origin+'/external-checkout/return',cancel_url:origin+'/external-checkout/return'});
+  const session=order.payment?await stripe(env,'checkout/sessions/'+encodeURIComponent(order.payment)):
+    await stripe(env,'checkout/sessions',{method:'POST',headers:{'Idempotency-Key':'clipi-'+id},body:params});
+  if(!session.livemode||session.status!=='open'||!session.url?.startsWith('https://checkout.stripe.com/'))return json({error:'اطلب عرضًا جديدًا'},409);
+  await q('UPDATE native_checkout SET payment=? WHERE id=? AND (payment IS NULL OR payment=?)',session.id,id,session.id).run();
+  return json({url:session.url});
+}
+async function stripeWebhook(request,env){
+  if(!cardReady(env))return json({},503);
+  const raw=await request.text(),parts=(request.headers.get('Stripe-Signature')||'').split(',');
+  const timestamp=parts.find(v=>v.startsWith('t='))?.slice(2);
+  if(!/^\d+$/.test(timestamp||'')||Math.abs(Date.now()/1000-Number(timestamp))>300)return json({},400);
+  const encoder=new TextEncoder(),key=await crypto.subtle.importKey('raw',encoder.encode(env.STRIPE_WEBHOOK_SECRET),{name:'HMAC',hash:'SHA-256'},false,['verify']);
+  const signed=encoder.encode(timestamp+'.'+raw);
+  const candidates=parts.filter(p=>/^v1=[0-9a-f]{64}$/i.test(p));
+  let valid=false;
+  for(const sig of candidates){
+    const bytes=Uint8Array.from(sig.slice(3).match(/../g),v=>parseInt(v,16));
+    if(await crypto.subtle.verify('HMAC',key,bytes,signed)){valid=true;break;}
+  }
+  if(!valid)return json({},400);
+  const event=JSON.parse(raw),obj=event.data?.object;
+  if(!event.livemode||!obj?.livemode||!['checkout.session.completed','charge.refunded'].includes(event.type)||!uuid.test(obj.metadata?.order||''))return json({ok:true});
+  const q=await store(env),order=await q("SELECT * FROM native_checkout WHERE id=? AND method='card'",obj.metadata.order).first();
+  if(!order?.payment)return json({},409);
+  if(event.type==='checkout.session.completed'){
+    if(!await settleCard(q,order,obj))return json({},409);
+  }else{
+    const session=await stripe(env,'checkout/sessions/'+encodeURIComponent(order.payment));
+    if(obj.payment_intent!==session.payment_intent||obj.currency!=='usd'||obj.amount!==order.dollars*100||
+       !Number.isInteger(obj.amount_refunded)||obj.amount_refunded<0||obj.amount_refunded>obj.amount)return json({},400);
+    const revoked=Math.round(order.diamonds*obj.amount_refunded/obj.amount);
+    await q('INSERT INTO native_purchase_reversal(payment,diamonds) VALUES(?,?) ON CONFLICT(payment) DO UPDATE SET diamonds=MAX(diamonds,excluded.diamonds)',
+      'native:card:'+order.payment,revoked).run();
+  }
+  return json({ok:true});
+}
 export async function accountCheckout(env,uid,input,origin){
  try{
   if(env.PI_GIFTS_NETWORK!=='mainnet')return json({error:'الدفع متاح على الشبكة الرئيسية فقط'},503);
@@ -85,6 +145,10 @@ export async function accountCheckout(env,uid,input,origin){
   }
   if(input.op==='externalOrders'){
     const pending="SELECT o.* FROM native_checkout o LEFT JOIN diamond_purchase d ON d.payment='native:'||o.method||':'||o.payment WHERE o.uid=? AND d.payment IS NULL AND o.payment IS NOT NULL";
+    if(cardReady(env)){
+      const orders=(await q(pending+" AND o.method='card' AND o.expires>? ORDER BY o.rowid DESC LIMIT 4",uid,Date.now()-86400000).all()).results;
+      await Promise.allSettled(orders.map(async order=>settleCard(q,order,await stripe(env,'checkout/sessions/'+encodeURIComponent(order.payment)))));
+    }
     if(env.PI_NETWORK_API_KEY){
       const piOrders=(await q(pending+" AND o.method='pi' AND o.payer IS NOT NULL ORDER BY (o.id=?) DESC,o.rowid DESC LIMIT 8",uid,uuid.test(input.order||'')?input.order:'').all()).results;
       for(const order of piOrders){
@@ -97,7 +161,8 @@ export async function accountCheckout(env,uid,input,origin){
     return json({ok:true});
   }
   const {method,dollars,id}=input;
-  if(input.op!=='externalCreate'||method!=='pi'||!multipliers.includes(dollars)||!uuid.test(id))return json({error:'باقة غير صالحة'},400);
+  if(input.op!=='externalCreate'||!['pi','card'].includes(method)||!multipliers.includes(dollars)||!uuid.test(id))return json({error:'باقة غير صالحة'},400);
+  if(method==='card')return await createCard(q,env,uid,id,dollars,origin);
   if(!env.PI_NETWORK_API_KEY)return json({error:'الدفع بعملة PI غير متاح'},503);
   const now=Date.now();
   let order=await q('SELECT * FROM native_checkout WHERE id=?',id).first();
@@ -112,8 +177,12 @@ export async function accountCheckout(env,uid,input,origin){
 }
 export async function externalPayment(request,env){
  try{
-  if(env.PI_GIFTS_NETWORK!=='mainnet'||request.method!=='POST')return json({},404);
+  if(env.PI_GIFTS_NETWORK!=='mainnet')return json({},404);
   const path=new URL(request.url).pathname;
+  if(request.method==='GET'&&path==='/external-checkout/availability')return json({usd:cardReady(env)});
+  if(request.method==='GET'&&path==='/external-checkout/return')return new Response('ارجع إلى محفظة كليبي. يظهر الرصيد بعد تأكيد الدفع.',{headers:{'Content-Type':'text/plain; charset=utf-8','Cache-Control':'no-store'}});
+  if(request.method!=='POST')return json({},404);
+  if(path==='/external-checkout/stripe-webhook')return await stripeWebhook(request,env);
   if(path==='/external-checkout/store-webhook'){
    const header=request.headers.get('Authorization')||'',secret=env.RC_WEBHOOK_SECRET;
    if(!secret||header.length!==secret.length+7||!header.startsWith('Bearer '))return json({},401);

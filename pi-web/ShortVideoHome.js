@@ -49,12 +49,12 @@ function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onV
   const showPlay=paused||!playing;
   useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
   function togglePlayback(){
-    if(!playable||!playback.isSelected(item.id))return;
+    if(!isCurrent||!playable||!playback.isSelected(item.id))return;
     const player=playerRef.current;
     if(!player)return;
     if(player.paused||paused){
       setPaused(false);
-      player.play().catch(()=>{if(playerRef.current===player&&player.paused)setPaused(true)});
+      player.play().catch(()=>{if(playback.isSelected(item.id)&&playerRef.current===player&&player.paused)setPaused(true)});
     }else{
       player.pause();
       setPaused(true);
