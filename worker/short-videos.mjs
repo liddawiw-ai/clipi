@@ -23,7 +23,7 @@ export const shortSchema = [
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
-  if(op==='shortProfileSocial'||op==='shortProfileFollow')return profileSocial(q,uid,input,json);
+  if(['shortProfileSocial','shortProfileFollow','shortProfilePeople','shortFriend'].includes(op))return profileSocial(q,uid,input,json);
   if (op === 'shortProfileList') {
     const owner = input.owner ?? uid;
     const before = input.before ?? Number.MAX_SAFE_INTEGER;

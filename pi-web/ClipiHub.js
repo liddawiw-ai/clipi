@@ -1,4 +1,5 @@
 import {ui as appText} from './interface-language.mjs';
+import {ProfilePeople} from './ProfilePeople';
 import {HostLevels} from './RoomHostCard';
 import {theme} from './ClipiTheme';
 import {FeedIcon} from './FeedControls';
@@ -111,36 +112,56 @@ function IdentityCard({name,avatar,number,onPhoto,photoLabel,followAction,childr
 function SocialAccountCard({socialProfile,labels,...identity}){
   const {request,owner,viewer,followRevision,onFollowChange}=socialProfile;
   const [state,setState]=useState(null),[error,setError]=useState(''),[saving,setSaving]=useState(false);
-  const [attempt,setAttempt]=useState(0);
+  const [attempt,setAttempt]=useState(0),[list,setList]=useState(null);
+  const {viewerName,viewerAvatar}=socialProfile;
   const generation=useRef(0),mounted=useRef(false),writing=useRef(false);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   useEffect(()=>{
     const version=++generation.current;
-    request('/account-number',{op:'shortProfileSocial',owner}).then(result=>{
+    request('/account-number',{op:'shortProfileSocial',owner,...(owner===viewer?{profile:{name:viewerName,avatar:viewerAvatar}}:{})}).then(result=>{
       if(mounted.current&&generation.current===version){setState(result);setError('');}
     }).catch(e=>{if(mounted.current&&generation.current===version)setError(e.message||labels.retry);});
     return ()=>{generation.current++;};
-  },[request,owner,viewer,followRevision,attempt,labels.retry]);
+  },[request,owner,viewer,followRevision,attempt,labels.retry,viewerName,viewerAvatar]);
 
-  async function toggle(){
+  async function change(action){
     if(!state||owner===viewer||writing.current)return;
     writing.current=true;generation.current++;setSaving(true);setError('');
     try{
-      const result=await request('/account-number',{op:'shortProfileFollow',owner,following:!state.following});
+      const profile={name:viewerName,avatar:viewerAvatar};
+      const body=action==='follow'?{op:'shortProfileFollow',following:!state.following}:{op:'shortFriend',action};
+      const result=await request('/account-number',{...body,owner,profile});
       if(mounted.current){generation.current++;setState(result);}
       onFollowChange();
     }catch(e){if(mounted.current)setError(e.message||labels.retry);}
     finally{writing.current=false;if(mounted.current)setSaving(false);}
   }
-  const followAction=owner!==viewer&&<TouchableOpacity accessibilityRole="button"
-    accessibilityState={{selected:!!state?.following,disabled:!state||saving}} disabled={!state||saving} onPress={toggle} style={s.followAction}>
+  const requestsTitle=appText('طلبات الصداقة');
+  const friends=state?.friendship;
+  function friendButton(label,action){
+    return <TouchableOpacity accessibilityRole="button" disabled={saving} onPress={()=>change(action)} style={s.followAction}>
+      <Text style={s.followText}>{appText(label)}</Text></TouchableOpacity>;
+  }
+  const followAction=owner!==viewer&&<><TouchableOpacity accessibilityRole="button"
+    accessibilityState={{selected:!!state?.following,disabled:!state||saving}} disabled={!state||saving} onPress={()=>change('follow')} style={s.followAction}>
     <Text style={s.followText}>{state?.following?labels.followed:labels.follow}</Text>
-  </TouchableOpacity>;
+  </TouchableOpacity>
+    {owner!=='clipi:official'&&!socialProfile.blocked.includes(owner)&&<>
+      {friends==='none'&&friendButton('إضافة صديق','request')}
+      {friends==='outgoing'&&<><Text style={s.socialLabel}>{appText('تم إرسال طلب الصداقة')}</Text>{friendButton('إلغاء الطلب','cancel')}</>}
+      {friends==='incoming'&&<>{friendButton('قبول طلب الصداقة','accept')}{friendButton('رفض الطلب','decline')}</>}
+      {friends==='friends'&&<Text style={s.socialLabel}>{appText('صديق')}</Text>}
+    </>}
+  </>;
   return <IdentityCard {...identity} number={identity.number??state?.number} followAction={followAction}>
-    <View style={s.socialCounts}>{['friends','followers','followingCount'].map(key=><View key={key} accessible
+    <View style={s.socialCounts}>{['friends','followers','followingCount'].map(key=><TouchableOpacity key={key} accessibilityRole="button" onPress={()=>setList(key)}
       accessibilityLabel={labels[key]+' '+(state?.[key]??'…')} style={s.socialCount}>
       <Text style={s.socialValue}>{state?.[key]??'…'}</Text><Text style={s.socialLabel}>{labels[key]}</Text>
-    </View>)}</View>
+    </TouchableOpacity>)}</View>
+    {owner===viewer&&<TouchableOpacity accessibilityRole="button" style={s.followAction} onPress={()=>setList('requests')}>
+      <Text style={s.followText}>{requestsTitle}{state?.pendingCount?' · '+state.pendingCount:''}</Text></TouchableOpacity>}
+    {!!list&&<ProfilePeople key={list} kind={list} title={list==='requests'?requestsTitle:labels[list]} owner={owner}
+      request={request} blocked={socialProfile.blocked} onOpen={socialProfile.openPerson} onClose={()=>setList(null)}/>}
     <HostLevels key={owner} owner={owner} request={request} locale={socialProfile.locale} initialOpen={socialProfile.fromRoom}/>
     {!!error&&<View><Text accessibilityRole="alert" style={s.socialLabel}>{appText(error)}</Text>
       <TouchableOpacity accessibilityRole="button" onPress={()=>setAttempt(n=>n+1)} style={s.followAction}><Text style={s.followText}>{appText(labels.retry)}</Text></TouchableOpacity>
@@ -178,7 +199,7 @@ export function HubRows({items}) {
 const s = StyleSheet.create({
   photoColumn:{alignItems:'center'},
   socialCounts:{flexDirection:'row',alignItems:'flex-start',marginTop:14},
-  socialCount:{flex:1,minWidth:0,alignItems:'center',paddingHorizontal:2},
+  socialCount:{flex:1,minHeight:44,minWidth:0,alignItems:'center',paddingHorizontal:2},
   socialValue:{color:ink,fontSize:20,fontWeight:'800',textAlign:'center'},
   socialLabel:{color:ink,fontSize:14,textAlign:'center'},
   followAction:{minHeight:44,minWidth:52,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},

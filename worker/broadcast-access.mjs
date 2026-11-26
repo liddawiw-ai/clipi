@@ -1,4 +1,4 @@
-const friends='FROM short_follow a JOIN short_follow b ON b.viewer=a.owner AND b.owner=a.viewer';
+const friends='FROM short_friends a';
 export const broadcastAccessSchema=[
   'CREATE TABLE IF NOT EXISTS clipi_app_admin(uid TEXT PRIMARY KEY)',
   'CREATE TABLE IF NOT EXISTS room_admin(room TEXT,uid TEXT,PRIMARY KEY(room,uid))',
@@ -6,7 +6,8 @@ export const broadcastAccessSchema=[
   'CREATE TABLE IF NOT EXISTS broadcast_invite(room TEXT,recipient TEXT,sender TEXT NOT NULL,title TEXT NOT NULL,created INTEGER NOT NULL,dismissed INTEGER DEFAULT 0,PRIMARY KEY(room,recipient))',
   'CREATE INDEX IF NOT EXISTS broadcast_invite_inbox ON broadcast_invite(recipient,dismissed,created DESC)',
   'CREATE TABLE IF NOT EXISTS broadcast_invite_start(room TEXT PRIMARY KEY,sender TEXT,title TEXT,created INTEGER)',
-  `CREATE TRIGGER IF NOT EXISTS invite_at_broadcast_start AFTER INSERT ON broadcast_invite_start BEGIN
+  'DROP TRIGGER IF EXISTS invite_at_broadcast_start',
+  `CREATE TRIGGER IF NOT EXISTS invite_at_broadcast_start_v2 AFTER INSERT ON broadcast_invite_start BEGIN
     INSERT OR IGNORE INTO broadcast_invite(room,recipient,sender,title,created)
     SELECT NEW.room,a.owner,NEW.sender,NEW.title,NEW.created ${friends} WHERE a.viewer=NEW.sender AND a.owner<>a.viewer; END`,
   `CREATE TRIGGER IF NOT EXISTS copy_mic_mode AFTER INSERT ON room_continuation BEGIN

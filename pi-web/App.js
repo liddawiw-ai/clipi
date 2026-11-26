@@ -1137,6 +1137,7 @@ export default function App(){
   const previousPage=useRef('home');
   const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
+  const peopleTrail=useRef([]);
   const [shortAuthor,setShortAuthor]=useState(null);
   const [roomProfileUid,setRoomProfileUid]=useState(null);
   const [inviteAll,setInviteAll]=useState(false),[inviteRoomId,setInviteRoomId]=useState(null);
@@ -1271,6 +1272,7 @@ export default function App(){
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;
+    if(p!=='shortAuthor')peopleTrail.current=[];
     if(pageRef.current!==p)stopShortPlayback();
     pageRef.current=p;setPage(p);
   };
@@ -1635,6 +1637,7 @@ export default function App(){
     if(isCurrent())go(['linkPiAccount','profile'].includes(pageRef.current)?'profile':'home');
   }
   function openHostProfile(uid,hostName,photo){
+    peopleTrail.current=[];
     setRoomProfileUid(uid);setMini(true);
     if(uid===user.uid){go('profile');return}
     setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
@@ -1721,8 +1724,19 @@ export default function App(){
   function layout(title,children,back){return <View style={S.page}><StatusBar barStyle="dark-content"/>{header(title,back)}<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>{children}</ScrollView>{nav()}</View>}
   const visibleNumber=identity?.uid===user?.uid?identity:null;
   const onFollowChange=()=>setFollowRevision(n=>n+1);
-  const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,followRevision,onFollowChange});
+  const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,viewerName:name||user?.displayName,viewerAvatar:avatar,blocked:blockedUsers,openPerson,followRevision,onFollowChange});
+  function openPerson(person){
+    if(person.uid===user.uid){setRoomProfileUid(null);go('profile');return;}
+    peopleTrail.current.push({page,author:shortAuthor,roomUid:roomProfileUid});
+    setRoomProfileUid(null);setShortAuthor({uid:person.uid,name:person.name,avatar:person.avatar});go('shortAuthor');
+  }
+  function backFromPerson(){
+    const previous=peopleTrail.current.pop();
+    if(previous){setShortAuthor(previous.author);setRoomProfileUid(previous.roomUid);go(previous.page);return;}
+    if(roomProfileUid&&activeRoom)setMini(false);else go('home');
+  }
   function openShortAccount(uid,authorName,clip,own,authorAvatar){
+    peopleTrail.current=[];
     setInitialShort(clip);
     setRoomProfileUid(null);
     if(own || uid===user.uid){go('profile');return;}
@@ -1906,7 +1920,7 @@ export default function App(){
       onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
-  if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:()=>roomProfileUid&&activeRoom?setMini(false):go('home')}} dock={nav()}>
+  if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:backFromPerson}} dock={nav()}>
     <AccountHub socialProfile={socialProfile(shortAuthor.uid)} name={shortAuthor.name} avatar={shortAuthor.avatar} copy={menu} photoLabel={shortAuthor.name}/>
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid} translate={ui}/>
   </HubScreen>;

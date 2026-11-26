@@ -82,3 +82,45 @@ test('profile totals and the video follow button share account relationships', a
     assert.equal((await api('walid','shortProfileFollow',{owner:'rania',following:'true'})).status,400);
   } finally {db.close();}
 });
+
+test('friend requests require the recipient, preserve follows, and yield private inboxes and paginated profiles',async()=>{
+  const db=new DatabaseSync(':memory:');
+  try{
+    for(const sql of shortSchema)db.exec(sql);
+    db.exec('CREATE TABLE public_numbers(number TEXT PRIMARY KEY,uid TEXT,cost INTEGER); CREATE TABLE selected_number(uid TEXT PRIMARY KEY,number TEXT)');
+    const q=(sql,...args)=>{
+      const stmt=db.prepare(sql);
+      return {first:()=>stmt.get(...args),run:()=>stmt.run(...args),all:()=>({results:stmt.all(...args)})};
+    };
+    const api=(uid,op,fields)=>shortAccount(q,uid,{op,...fields},(body,status=200)=>({body,status}),true);
+    const change=(uid,owner,action)=>api(uid,'shortFriend',{owner,action,profile:{name:uid.toUpperCase()}});
+    const people=(uid,owner,kind,after)=>api(uid,'shortProfilePeople',{owner,kind,after});
+    for(const [n,uid] of ['aya','walid','third'].entries())q('INSERT INTO public_numbers VALUES(?,?,0)',String(1111111+n),uid).run();
+    await change('aya','walid','request');await change('aya','walid','request');
+    assert.equal((await change('walid','aya','request')).body.friendship,'incoming');
+    assert.equal((await change('aya','walid','accept')).body.friendship,'outgoing');
+    assert.equal((await people('third','walid','requests')).status,403);
+    assert.equal((await people('third','walid',['requests'])).status,400);
+    assert.deepEqual((await people('walid','walid','requests')).body.people.map(p=>[p.uid,p.name]),[['aya','AYA']]);
+    assert.equal((await change('walid','aya','decline')).body.friendship,'none');
+    await change('aya','walid','request');await change('aya','walid','cancel');
+    assert.equal((await people('walid','walid','requests')).body.people.length,0);
+    await change('aya','walid','request');
+    const accepted=(await change('walid','aya','accept')).body;
+    assert.deepEqual([accepted.friends,accepted.followers,accepted.followingCount],[1,0,0]);
+    assert.equal((await change('walid','aya','accept')).body.friends,1);
+    assert.deepEqual((await people('third','aya','friends')).body.people.map(p=>p.uid),['walid']);
+    assert.equal((await people('walid','walid','requests')).body.people.length,0);
+    q('INSERT INTO short_follow VALUES(?,?)','aya','walid').run();
+    q('INSERT INTO short_follow VALUES(?,?)','walid','aya').run();
+    assert.equal((await people('aya','walid','friends')).body.people.length,1);
+    assert.equal((await change('aya','aya','request')).status,400);
+    assert.equal((await change('aya','missing','request')).status,404);
+    for(let i=0;i<32;i++)q('INSERT INTO short_follow VALUES(?,?)','f'+String(i).padStart(2,'0'),'walid').run();
+    const first=(await people('aya','walid','followers')).body,rest=(await people('aya','walid','followers',first.next)).body;
+    assert.equal(first.people.length,30);assert.equal(rest.next,null);
+    assert.equal(new Set([...first.people,...rest.people].map(p=>p.uid)).size,33);
+    assert.deepEqual((await people('aya','walid','followingCount')).body.people.map(p=>p.uid),['aya']);
+    assert.equal((await people('aya','walid','bad')).status,400);
+  }finally{db.close();}
+});
