@@ -18,9 +18,9 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     first:()=>sql.prepare(query).get(...args)
   }},query}},batch(statements){return Promise.resolve(statements.map(statement=>statement.all?statement.all():sql.exec(statement.query)))}};
   const visits=new Map(), kicks=[];
-  const call=async(user,op,extra={},path='/room-control',room='test',ownerUid='host',type='audio')=>{
+  const call=async(user,op,extra={},path='/room-control',room='test',ownerUid='host',type='audio',piOnly=false)=>{
     if(!visits.has(user))visits.set(user,crypto.randomUUID());
-    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room,user,ownerUid,host:user===ownerUid,type,path,
+    const result=await roomControls({env:{PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture',CLIPI_OWNER_UID:'host'},room,user,ownerUid,host:user===ownerUid,type,path,piOnly,
       input:{name:user,op,session:visits.get(user),...extra},json:(body,status=200)=>({status,...body}),disconnect:async uid=>kicks.push(uid)});
     return result;
   };
@@ -455,6 +455,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   assert.equal((await call('u11','token',{},'/token')).status,403);
   const q=await roomStore(db);
   const buyer='pi:buyer';
+  const browserGift=payload=>call(buyer,'paidGift',payload,'/room-control','test','host','audio',true);
   await call(buyer,'join');
   // A real payment is never submitted by this fixture.
   const txid='a'.repeat(64), id='test-pack';
@@ -473,21 +474,21 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
     dto.amount=1;assert.equal((await complete()).status,403);
     dto.amount=50;
     assert.equal((await complete('approve')).approved,true);
-    assert.equal((await readWallet(q,buyer)).pending.length,1);
+    assert.equal((await readWallet(q,buyer,undefined,true)).pending.length,1);
     dto.transaction={};
     assert.equal((await complete('restore')).status,409);
     dto.transaction={txid};
     assert.equal((await complete('restore')).completed,true);
     assert.equal((await complete('restore')).completed,true);
-    assert.equal((await readWallet(q,buyer)).pending.length,0);
-    assert.equal((await readWallet(q,buyer)).purchases.length,1);
+    assert.equal((await readWallet(q,buyer,undefined,true)).pending.length,0);
+    assert.equal((await readWallet(q,buyer,undefined,true)).purchases.length,1);
     assert.equal((await complete()).completed,true);
   }finally{globalThis.fetch=originalFetch}
-  assert.equal((await readWallet(q,buyer)).diamonds,500);
+  assert.equal((await readWallet(q,buyer,undefined,true)).diamonds,500);
   const support={gift:'خاتم',cost:500,nonce:crypto.randomUUID()};
-  assert.equal((await call(buyer,'paidGift',support)).status,200);
-  assert.equal((await call(buyer,'paidGift',support)).status,200);
-  assert.equal((await readWallet(q,buyer)).diamonds,0);
+  assert.equal((await browserGift(support)).status,200);
+  assert.equal((await browserGift(support)).status,200);
+  assert.equal((await readWallet(q,buyer,undefined,true)).diamonds,0);
   const hostWallet=await readWallet(q,'host');
   assert.equal(hostWallet.rewardPi,0);
   assert.equal(hostWallet.progress,500);
@@ -528,9 +529,9 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   assert.equal(ownerWallet.progress,10);
   assert.equal(ownerWallet.receivedDiamonds,20510);
   assert.equal(ownerWallet.ownerBox.sold,1500);
-  assert.equal((await readWallet(q,buyer)).diamonds,0);
-  assert.equal((await call(buyer,'paidGift',{...support,nonce:crypto.randomUUID()})).status,409);
-  const giftRoom=(uid,op,extra={})=>call(uid,op,extra,'/room-control','nine-gifts','gift-host');
+  assert.equal((await readWallet(q,buyer,undefined,true)).diamonds,0);
+  assert.equal((await browserGift({...support,nonce:crypto.randomUUID()})).status,409);
+  const giftRoom=(uid,op,extra={},piOnly=false)=>call(uid,op,extra,'/room-control','nine-gifts','gift-host','audio',piOnly);
   const photo='data:image/jpeg;base64,/9j/AAAA';
   await giftRoom('gift-host','join',{avatar:photo});
   await giftRoom(second,'join');
@@ -549,7 +550,7 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
   }
   assert.equal((await readWallet(q,second)).diamonds,890);
   assert.equal((await readWallet(q,'host')).receivedDiamonds,ownerWallet.receivedDiamonds);
-  const numbers=(uid,op,number)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}));
+  const numbers=(uid,op,number,piOnly=false)=>account(q,uid,{op,number},100,(data,status=200)=>({...data,status}),undefined,piOnly);
   const standard=await numbers('buyer','read');
   assert.match(standard.number,/^[1-9]\d{6}$/);
   assert.equal((await numbers('buyer','read')).number,standard.number);
@@ -581,20 +582,20 @@ test('audio seating, moderation, PIN, chat and visit expiry', async t=>{
       assert.equal((await complete()).completed,true);
       assert.equal((await complete()).completed,true);
     }finally{globalThis.fetch=fetchBeforePack}
-    assert.equal((await giftRoom(uid,'join')).supportBalance,16000);
+    assert.equal((await giftRoom(uid,'join',{},true)).supportBalance,16000);
     const before=await readWallet(q,recipient);
     assert.equal(before.receivedDiamonds,10);
     for(const [gift,cost,remaining,total,progress] of [
       ['مروحية الماس',9990,6010,10000,0],['خاتم',500,5510,10500,500]
     ]){
       const payload={recipient,gift,cost,nonce:crypto.randomUUID()};
-      const result=await giftRoom(uid,'paidGift',payload);
+      const result=await giftRoom(uid,'paidGift',payload,true);
       assert.equal(result.receipt.diamonds,cost);
       assert.equal(result.senderDiamonds,remaining);
-      assert.deepEqual(await giftRoom(uid,'paidGift',payload),result);
-      assert.equal((await numbers(uid,'read')).purchasedDiamonds,remaining);
-      assert.equal((await giftRoom(uid,'giftRecipient',{recipient})).senderDiamonds,remaining);
-      assert.equal((await readWallet(q,uid)).diamonds,remaining);
+      assert.deepEqual(await giftRoom(uid,'paidGift',payload,true),result);
+      assert.equal((await numbers(uid,'read',undefined,true)).purchasedDiamonds,remaining);
+      assert.equal((await giftRoom(uid,'giftRecipient',{recipient},true)).senderDiamonds,remaining);
+      assert.equal((await readWallet(q,uid,undefined,true)).diamonds,remaining);
       const credited=await readWallet(q,recipient);
       assert.equal(credited.receivedDiamonds,total);
       assert.equal(credited.progress,progress);

@@ -13,6 +13,13 @@ function piReceipt(row){
   return `((length(${row}.payment) BETWEEN 1 AND 128 AND ${row}.payment NOT GLOB '*[^a-zA-Z0-9_-]*') OR ${row}.payment GLOB 'native:pi:?*')
     AND length(${row}.txid)=64 AND ${row}.txid NOT GLOB '*[^a-fA-F0-9]*'`;
 }
+function browserReceipt(row){
+  return `(${piReceipt(row)}) AND instr(${row}.payment,':')=0`;
+}
+export const restrictedGift='لا يمكن استخدام هذا الماس لشراء الهدايا';
+export function giftTable(browser){
+  return browser?'browser_paid_gift':'paid_room_gift';
+}
 export const walletSchema=[
   'CREATE TABLE IF NOT EXISTS host_pi_wallet(uid TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS diamond_checkout(payment TEXT PRIMARY KEY,uid TEXT NOT NULL)',
@@ -35,6 +42,20 @@ export const walletSchema=[
       ON CONFLICT(uid) DO UPDATE SET remaining=remaining+excluded.remaining; END`,
   `CREATE TRIGGER IF NOT EXISTS spend_pi_funds AFTER INSERT ON paid_room_gift BEGIN
     UPDATE pi_gift_funds SET remaining=MAX(0,remaining-NEW.cost) WHERE uid=NEW.sender; END`,
+  'CREATE TABLE IF NOT EXISTS browser_diamonds(uid TEXT PRIMARY KEY,remaining INTEGER NOT NULL CHECK(remaining>=0))',
+  // Historic gifts have no platform tag. Reserve direct-browser credits up to the
+  // unspent account total so ambiguous legacy funds cannot escape to mobile.
+  `CREATE TRIGGER IF NOT EXISTS seed_browser_diamonds AFTER INSERT ON pi_funds_migration WHEN NEW.version=2 BEGIN
+    INSERT INTO browser_diamonds SELECT p.uid,MAX(0,MIN(SUM(p.diamonds),${allFunds('p.uid','p.uid')}))
+    FROM diamond_purchase p WHERE ${browserReceipt('p')} GROUP BY p.uid; END`,
+  'INSERT OR IGNORE INTO pi_funds_migration VALUES(2)',
+  `CREATE TRIGGER IF NOT EXISTS credit_browser_diamonds AFTER INSERT ON diamond_purchase WHEN ${browserReceipt('NEW')} BEGIN
+    INSERT INTO browser_diamonds VALUES(NEW.uid,NEW.diamonds) ON CONFLICT(uid) DO UPDATE SET remaining=remaining+excluded.remaining; END`,
+  'CREATE VIEW IF NOT EXISTS browser_paid_gift AS SELECT * FROM paid_room_gift',
+  `CREATE TRIGGER IF NOT EXISTS debit_browser_gift INSTEAD OF INSERT ON browser_paid_gift
+    WHEN NOT EXISTS(SELECT 1 FROM paid_room_gift WHERE sender=NEW.sender AND nonce=NEW.nonce) BEGIN
+    UPDATE browser_diamonds SET remaining=remaining-NEW.cost WHERE uid=NEW.sender;
+    INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) VALUES(NEW.sender,NEW.nonce,NEW.room,NEW.host,NEW.gift,NEW.cost,NEW.hostUnits); END`,
   `CREATE TRIGGER IF NOT EXISTS announce_paid_gift AFTER INSERT ON paid_room_gift BEGIN INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),'🎁 '||NEW.gift||' · '||NEW.cost||' 💎 → '||(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.host)); END`
 ];
 export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
@@ -68,18 +89,22 @@ function allFunds(buyer,giver){
     (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE sender=${giver})`;
 }
 export const paidBalance=allFunds('?','?');
-// Keep each channel's spend guard and displayed balance identical. A store refund can
-// reduce the common balance, even when there are still Pi receipts on the account.
-export function giftBalance(piOnly){
-  if(!piOnly)return paidBalance;
-  return `(SELECT MAX(0,MIN(COALESCE((SELECT remaining FROM pi_gift_funds WHERE uid=ids.buyer),0),
-    ${allFunds('ids.buyer','ids.giver')}))
-    FROM (SELECT ? AS buyer,? AS giver) ids)`;
+export function giftBalance(browser){
+  const total=allFunds('ids.buyer','ids.giver');
+  const reserved='COALESCE((SELECT remaining FROM browser_diamonds WHERE uid=ids.buyer),0)';
+  return `(SELECT MAX(0,${browser?reserved:`(${total})-${reserved}`}) FROM (SELECT ? AS buyer,? AS giver) ids)`;
+}
+export async function giftFailure(q,uid,browser,cost,fallback){
+  if(!browser){
+    const funds=await q(`SELECT ${giftBalance(false)} AS mobile,${giftBalance(true)} AS browser`,uid,uid,uid,uid).first();
+    if(funds.mobile<cost && funds.browser>0)return restrictedGift;
+  }
+  return fallback;
 }
 export async function readWallet(q,uid,ownerUid,piOnly=false){
   const totals=await q(`SELECT ${giftBalance(piOnly)} AS diamonds,(SELECT COALESCE(SUM(CAST(ROUND(hostUnits*100) AS INTEGER)),0)/100.0 FROM paid_room_gift WHERE host=?) AS earningsUnits,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=? AND hostUnits=0) AS collected,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=?) AS receivedDiamonds`,uid,uid,uid,uid,uid).first();
   const history=await q(`SELECT nonce AS receipt,gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
-  const purchases=await q(`SELECT p.payment,p.diamonds,COALESCE(r.diamonds,0) AS reversed FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE p.uid=? ${piOnly?'AND '+piReceipt('p'):''} ORDER BY p.rowid DESC LIMIT 30`,uid).all();
+  const purchases=await q(`SELECT p.payment,p.diamonds,COALESCE(r.diamonds,0) AS reversed FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE p.uid=? ${piOnly?'AND ('+browserReceipt('p')+')':'AND NOT ('+browserReceipt('p')+')'} ORDER BY p.rowid DESC LIMIT 30`,uid).all();
   const pending=await q('SELECT c.payment FROM diamond_checkout c LEFT JOIN diamond_purchase p ON p.payment=c.payment WHERE c.uid=? AND p.payment IS NULL ORDER BY c.rowid DESC LIMIT 30',uid).all();
   const owner=await isAppOwner(q,uid,ownerUid);
   const ownerBox=owner?await q(`SELECT

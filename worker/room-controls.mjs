@@ -9,7 +9,7 @@ import {tableSchema} from './profile-tables.mjs';
 import {trialSchema} from './trial-diamonds.mjs';
 import {agencySchema} from './agencies.mjs';
 import {shortSchema} from './short-videos.mjs';
-import {walletSchema,giftBalance} from './diamond-wallet.mjs';
+import {walletSchema,giftBalance,giftTable,giftFailure} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
@@ -337,14 +337,14 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const recipient=input.recipient??ownerUid;
     if(typeof recipient!=='string'||!recipient||(recipient===user&&!(piOnly&&host))||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,?
+    await q(`INSERT OR IGNORE INTO ${giftTable(piOnly)}(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,?
       WHERE (${paidBalance})>=?
       AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?)
       AND EXISTS(SELECT 1 FROM room_member WHERE room=? AND uid=? AND banned=0 AND seen>=?)
-      ON CONFLICT(sender,nonce) DO NOTHING`,
+      `,
       user,nonce,room,recipient,gift,cost,0,user,user,cost,room,recipient,cutoff,room,ownerUid,cutoff).run();
     const sent=await q(`SELECT room,host,gift,cost,nonce,${paidBalance} AS senderDiamonds FROM paid_room_gift WHERE sender=? AND nonce=?`,user,user,user,nonce).first();
-    if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==recipient)return json({error:'Purchased diamonds insufficient or host offline'},409);
+    if(sent?.gift!==gift||sent.cost!==cost||sent.room!==room||sent.host!==recipient)return json({error:await giftFailure(q,user,piOnly,cost,'Purchased diamonds insufficient or host offline')},409);
     return json({senderDiamonds:sent.senderDiamonds,receipt:{nonce:sent.nonce,recipient:sent.host,gift:sent.gift,diamonds:sent.cost}});
   }
   if(op==='supportGift'||op==='catalogGift')return json({error:'حدّث كليبي لإرسال الهدية من الماس المشترى'},409);

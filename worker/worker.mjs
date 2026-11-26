@@ -40,6 +40,11 @@ export function piBrowserFunds(request,uid,claims){
   return uid.startsWith('pi:') || request.headers.get('X-Clipi-Client')==='pi-browser' ||
     request.headers.get('Origin')===new URL(request.url).origin || request.headers.get('Sec-Fetch-Site')==='same-origin';
 }
+function browserGiftSession(request,claims){
+  const origin=new URL(request.url).origin;
+  const fromWeb=request.headers.get('Origin')===origin || request.headers.get('Sec-Fetch-Site')==='same-origin';
+  return fromWeb && claims?.firebase?.sign_in_provider==='custom';
+}
 function json(data, status = 200) {
   return Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
 }
@@ -116,6 +121,8 @@ export default {
       const payload=token.split('.')[1];
       const claims=payload?JSON.parse(atob(payload.replaceAll('-','+').replaceAll('_','/'))):null;
       const piOnly=piBrowserFunds(request,uid,claims);
+      if(piOnly && input?.op==='shortGift' && !browserGiftSession(request,claims))
+        return json({error:'سجّل الدخول من متصفح Pi لاستخدام ماس المتصفح'},403);
       if(piOnly&&['trialTopup','trialGift','externalStoreAccount','externalCreate'].includes(input?.op))
         return json({error:'اشحن الماس بعملة Pi من المحفظة'},403);
       if(['eventCreate','eventCancel','eventList','eventRemind','eventSeen'].includes(input?.op))return liveProgram(await roomStore(env.PI_GIFTS_DB),uid,input,json);
@@ -319,6 +326,8 @@ export default {
           const result=await fetch(origin+'/twirp/livekit.RoomService/RemoveParticipant',{method:'POST',headers:{Authorization:'Bearer '+admin,'Content-Type':'application/json'},body:JSON.stringify({room:liveRoom,identity}),signal:AbortSignal.timeout(8000)});
           if(!result.ok&&result.status!==404)throw Error('Removal failed');
         };
+        if(input.op==='paidGift' && piBrowserFunds(request,claims.sub,claims) && !browserGiftSession(request,claims))
+          return json({error:'سجّل الدخول من متصفح Pi لاستخدام ماس المتصفح'},403);
         admission=await roomControls({env,input,piOnly:piBrowserFunds(request,claims.sub,claims),room:roomId,user:claims.sub,host,ownerUid:fields.ownerUid?.stringValue,type,path,json,disconnect,mediaToken,roomTitle:fields.name?.stringValue||''});
         if(admission instanceof Response)return admission;
       }

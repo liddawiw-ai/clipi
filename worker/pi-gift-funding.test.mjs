@@ -29,7 +29,7 @@ test('historic funds, confirmed Pi top-ups and gifts stay consistent across both
   sql.prepare('INSERT INTO paid_room_gift VALUES(?,?,?,?,?,?,0)').run(buyer,'old',room,host,'old',50);
   const q=await roomStore(db),json=(body,status=200)=>({body,status});
   const balance=async(piOnly=true)=>(await readWallet(q,buyer,undefined,piOnly)).diamonds;
-  assert.equal(await balance(),0);assert.equal(await balance(false),80);
+  assert.equal(await balance(),30);assert.equal(await balance(false),50);
   const env={PI_GIFTS_DB:db,LIVEKIT_API_SECRET:'fixture'};
   const visits={[buyer]:crypto.randomUUID(),[host]:crypto.randomUUID()};
   const roomAction=(user,op,fields={},piOnly=true)=>roomControls({env,user,ownerUid:host,host:user===host,room,type:'audio',path:'/room-control',json,piOnly,
@@ -38,11 +38,14 @@ test('historic funds, confirmed Pi top-ups and gifts stay consistent across both
   const sendRoom=(nonce,piOnly=true)=>roomAction(buyer,'paidGift',{recipient:host,gift:'وردة حمراء',cost:10,nonce},piOnly);
   const clipGift=nonce=>shortAccount(q,buyer,{op:'shortGift',gift:'وردة حمراء',clip,nonce},json,true,true);
   await q('INSERT INTO short_clip VALUES(?,?,?,?)',clip,host,'Clip','saved').run();
+  for(let i=0;i<3;i++)assert.equal((await sendRoom(crypto.randomUUID())).status,200);
   const failedNonce=crypto.randomUUID();
   assert.equal((await sendRoom(failedNonce)).status,409);
   assert.equal((await clipGift(crypto.randomUUID())).status,409);
   assert.equal((await account(q,buyer,{op:'buy',number:'1234567'},1000,json,undefined,true)).status,403);
   const tx='b'.repeat(64);purchase('native:pi:order',20,tx);purchase('native:pi:order',20,tx);
+  assert.equal(await balance(false),70);assert.equal(await balance(),0);
+  purchase('direct',20,'e'.repeat(64));
   assert.equal(await balance(),20);
   assert.deepEqual((await shortAccount(q,buyer,{op:'shortGiftBalance',clip},json,true,true)).body,{clip,diamonds:20});
   sql.prepare('INSERT INTO diamond_purchase VALUES(?,?,?,?)').run('host-pi',host,10,'f'.repeat(64));
@@ -57,11 +60,17 @@ test('historic funds, confirmed Pi top-ups and gifts stay consistent across both
   assert.equal((await clipGift(crypto.randomUUID())).status,409);
   purchase('web-pi',10,'c'.repeat(64));
   assert.equal((await sendRoom(crypto.randomUUID(),false)).status,200);
-  assert.equal(await balance(),0);assert.equal(await balance(false),80);
+  assert.equal(await balance(),10);assert.equal(await balance(false),60);
   sql.exec('INSERT OR IGNORE INTO pi_funds_migration(version) VALUES(1)');
-  assert.deepEqual((await readWallet(q,buyer,undefined,true)).purchases.map(p=>p.payment),['web-pi','native:pi:order','historic-pi']);
-  assert.equal((await readWallet(q,host)).receivedDiamonds,80);
+  assert.deepEqual((await readWallet(q,buyer,undefined,true)).purchases.map(p=>p.payment),['web-pi','direct','historic-pi']);
+  assert.equal((await readWallet(q,host)).receivedDiamonds,110);
+  for(let i=0;i<6;i++)assert.equal((await sendRoom(crypto.randomUUID(),false)).status,200);
+  const rejected=await sendRoom(crypto.randomUUID(),false);
+  assert.equal(rejected.body.error,'لا يمكن استخدام هذا الماس لشراء الهدايا');
+  const phoneVideo=await shortAccount(q,buyer,{op:'shortGift',gift:'وردة حمراء',clip,nonce:crypto.randomUUID()},json,true,false);
+  assert.equal(phoneVideo.body.error,rejected.body.error);
+  assert.equal(await balance(),10);
   purchase('last-pi',20,'d'.repeat(64));
   sql.prepare('INSERT INTO native_purchase_reversal VALUES(?,?)').run('store:PLAY_STORE:historical',100);
-  assert.equal(await balance(),0);
+  assert.equal(await balance(),30);
 });

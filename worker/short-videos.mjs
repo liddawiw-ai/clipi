@@ -3,7 +3,7 @@ import {discoverySchema,discoveryQuery,watchAction} from './discovery.mjs';
 import {bucketPlayback} from './bucket-playback.mjs';
 import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
 import {authorState,profileSocial,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
-import {giftBalance} from './diamond-wallet.mjs';
+import {giftBalance,giftTable,giftFailure} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
 const publishedId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
@@ -123,10 +123,10 @@ export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false
     if (!gift || !publishedId.test(input.nonce)) return json({error:'هدية غير صالحة'},400);
     // Video support spends from the shared purchased ledger. The empty payee never earns rewards.
     const room='short/'+clip;
-    await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${giftBalance(piOnly)})>=? AND EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL) ON CONFLICT(sender,nonce) DO NOTHING`,
+    await q(`INSERT OR IGNORE INTO ${giftTable(piOnly)}(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,'',?,?,0 WHERE (${giftBalance(piOnly)})>=? AND EXISTS(SELECT 1 FROM short_clip WHERE id=? AND object_key IS NOT NULL) `,
       uid,input.nonce,room,input.gift,gift.cost,uid,uid,gift.cost,clip).run();
     const receipt=await q('SELECT room,gift FROM paid_room_gift WHERE sender=? AND nonce=?',uid,input.nonce).first();
-    if (receipt?.room!==room || receipt?.gift!==input.gift) return json({error:'تعذّر إرسال الهدية. تحقّق من رصيد الماس المشترى'},409);
+    if (receipt?.room!==room || receipt?.gift!==input.gift) return json({error:await giftFailure(q,uid,piOnly,gift.cost,'تعذّر إرسال الهدية. تحقّق من رصيد الماس المشترى')},409);
     return json({sent:true});
   }
   return json({error:'طلب غير صالح'},400);
