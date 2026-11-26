@@ -22,6 +22,8 @@ permissions:
   contents: read
 env:
   CLIPI_DISTRIBUTION: internal
+  EXPO_PUBLIC_FACEBOOK_APP_ID: "1141915368807928"
+  EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN: ${{ secrets.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN || vars.EXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN }}
 jobs:
   android-apk:
     runs-on: ubuntu-latest

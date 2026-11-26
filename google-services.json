@@ -12,7 +12,12 @@
           "package_name": "com.walid.clipi"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "108915209910-u6tpmokq90fff2pfoeo0200bavqm5d3v.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAjP8dTGO_XdWrtmNRZQS4fifNalGzI2wI"
