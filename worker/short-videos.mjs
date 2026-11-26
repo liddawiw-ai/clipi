@@ -1,3 +1,4 @@
+import {discoverySchema,discoveryQuery,watchAction} from './discovery.mjs';
 import {bucketPlayback} from './bucket-playback.mjs';
 import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
 import {authorState,profileSocial,saveShortProfile,socialComments,socialSchema} from './short-social.mjs';
@@ -14,6 +15,7 @@ export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_captions(clip TEXT PRIMARY KEY,cues TEXT NOT NULL)',
   'CREATE TRIGGER IF NOT EXISTS remove_clip_captions AFTER DELETE ON short_clip BEGIN DELETE FROM short_captions WHERE clip=OLD.id; END',
   ...socialSchema,
+  ...discoverySchema,
   `CREATE TRIGGER IF NOT EXISTS short_clip_cleanup AFTER DELETE ON short_clip BEGIN
     DELETE FROM short_comment_heart WHERE comment_id IN (SELECT rowid FROM short_comment WHERE clip=OLD.id);
     DELETE FROM short_comment_meta WHERE clip=OLD.id;
@@ -23,6 +25,18 @@ export const shortSchema = [
 ];
 export async function shortAccount(q, uid, input, json, hasStorage) {
   const {op,clip} = input;
+  if(op==='shortIndexProfile'){
+    const name=typeof input.name==='string'?input.name.trim().slice(0,35):'';
+    if(!name)return json({error:'طلب غير صالح'},400);
+    await q("INSERT INTO short_profile(uid,name,avatar) VALUES(?,?,'') ON CONFLICT(uid) DO UPDATE SET name=excluded.name WHERE short_profile.name<>excluded.name",uid,name).run();
+    return json({ok:true});
+  }
+  if(op==='shortSearchRoomId'){
+    if(typeof input.number!=='string'||!/^\d{7,15}$/.test(input.number))return json({error:'طلب غير صالح'},400);
+    const row=await q('SELECT room FROM room_public_number WHERE number=?',Number(input.number)-1000000).first();
+    return json({room:row?.room??null});
+  }
+  if(op==='shortSearch'||op==='shortHistory')return discoveryQuery(q,uid,input,json);
   if(['shortProfileSocial','shortProfileFollow','shortProfilePeople','shortFriend'].includes(op))return profileSocial(q,uid,input,json);
   if (op === 'shortProfileList') {
     const owner = input.owner ?? uid;
@@ -38,15 +52,15 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
   }
   if (op === 'shortList') {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
-    const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 30', before).all();
+    const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY rowid DESC LIMIT 30', before,uid).all();
     return json({clips: rows.results.map(row => ({...row,canDelete:row.owner === uid}))});
   }
   if (op === 'shortRandom') {
     const exclude=input.exclude??'';
     if(typeof exclude!=='string'||(exclude&&!publishedId.test(exclude)))return json({error:'طلب غير صالح'},400);
     const row=await q(`SELECT id,title,owner FROM short_clip WHERE rowid=(
-      SELECT rowid FROM short_clip WHERE object_key IS NOT NULL AND id<>? ORDER BY random() LIMIT 1
-    )`,exclude).first();
+      SELECT rowid FROM short_clip WHERE object_key IS NOT NULL AND id<>? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY random() LIMIT 1
+    )`,exclude,uid).first();
     return json({clip:row?{...row,canDelete:row.owner===uid}:null});
   }
   if (op === 'shortLookup') {
@@ -66,6 +80,7 @@ export async function shortAccount(q, uid, input, json, hasStorage) {
   }
   const owner=publishedId.test(clip)?(await q('SELECT owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first())?.owner:null;
   if(!owner)return json({error:'الفيديو غير متاح'},404);
+  if(['shortWatch','shortHide','shortInsights'].includes(op))return watchAction(q,uid,owner,input,json);
   if (op === 'shortLike' || op === 'shortState') {
     if (op === 'shortLike') {
       if (typeof input.liked !== 'boolean') return json({error:'اختيار غير صالح'},400);

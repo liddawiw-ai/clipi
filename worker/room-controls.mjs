@@ -1,3 +1,4 @@
+import {decisionSchema} from './decision-log.mjs';
 import {earningsPreferences} from './host-earnings.mjs';
 import {coverSchema} from './room-cover.mjs';
 import {programSchema} from './live-program.mjs';
@@ -61,6 +62,7 @@ const tables = [
   ...roomHistorySchema,
   ...broadcastAccessSchema,
   ...agencySchema,
+  ...decisionSchema,
   ...trialSchema,
   ...shortSchema,
   ...tableSchema,

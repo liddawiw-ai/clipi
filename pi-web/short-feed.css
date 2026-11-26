@@ -89,3 +89,5 @@ button.clipi-profile-tile{position:relative;display:block;aspect-ratio:2 / 3;wid
 .clipi-feed-header .clipi-feed-live svg{color:#fff}
 .clipi-feed-header .clipi-device-account{min-width:0;max-width:65%;overflow-wrap:anywhere}
 .clipi-device-account:focus-visible{outline:2px solid #8ceecb;outline-offset:1px}
+
+.clipi-feed-header [role=button]{pointer-events:auto;flex-shrink:0}

@@ -154,7 +154,7 @@ export default {
       }
       if(typeof input?.op==='string'&&input.op.startsWith('table'))return profileTables(await roomStore(env.PI_GIFTS_DB),uid,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('trial'))return trialAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
-      if(['lookupAppAdmin','setAppAdmin'].includes(input?.op))return manageAppAdmin(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
+      if(['lookupAppAdmin','setAppAdmin','adminDecisionLog'].includes(input?.op))return manageAppAdmin(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(input?.op==='shortDelete')return deleteShort(await roomStore(env.PI_GIFTS_DB),uid,input.clip,json,env.SHORT_VIDEOS,env.CLIP_MEDIA);
       if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.CLIP_MEDIA || env.SHORT_VIDEOS));

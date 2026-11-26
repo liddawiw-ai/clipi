@@ -4,6 +4,8 @@ import {Modal} from 'react-native';
 import './short-feed.css';
 
 const paths = {
+  hide:'M4 4l16 16 M3 12c3-4 5-6 9-6 4 0 7 3 9 6-1 2-2 3-4 4 M5 15c3 3 6 4 9 3',
+  stats:'M4 20h17 M7 16v-5 M12 16V4 M17 16V8',
   home: 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z',
   rooms: 'M3 5h13a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z M21 9v8a2 2 0 0 1-2 2h-2',
   create: 'M12 5v14 M5 12h14',

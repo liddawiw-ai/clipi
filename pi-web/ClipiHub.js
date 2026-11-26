@@ -178,7 +178,7 @@ export function AccountHub({children,onPhoto,photoLabel,name,avatar,number,balan
         <Text style={s.secondary}>{appText(copy.balance)}</Text>
         <Text style={s.balanceValue}>{unit} {balance??'…'}</Text>
       </View></IdentityCard>}
-    {!!shortcuts?.length&&<View style={[s.shortcuts, compactShortcuts && s.compactShortcuts]}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button"
+    {!!shortcuts?.length&&<View style={[s.shortcuts, compactShortcuts && s.compactShortcuts]}>{shortcuts.map(item=><TouchableOpacity key={item.label} accessibilityRole="button" accessibilityLabel={item.label}
       style={[s.shortcut, compactShortcuts && s.compactShortcut]} onPress={item.onPress}>
       <Text style={s.shortcutIcon}>{item.icon}</Text><Text style={s.shortcutLabel}>{item.label}</Text>
     </TouchableOpacity>)}</View>}

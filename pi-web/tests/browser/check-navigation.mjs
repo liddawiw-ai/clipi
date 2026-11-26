@@ -54,7 +54,8 @@ export async function checkNavigation(browser) {
       lang
     );
     const isOwner = width === 390;
-    let assigned = false;
+    let assigned = false,hidden=false;
+    const played=new Set(),finished=new Set();
     let releaseRandom;
     let randomRequests = 0;
     const errors = [];
@@ -89,6 +90,16 @@ export async function checkNavigation(browser) {
         }
         return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
       }
+      const body=route.request().postDataJSON()||{};
+      if(op==='shortWatch'){
+        played.add(body.clip);if(body.finished)finished.add(body.clip);
+        return route.fulfill({json:{ok:true}});
+      }
+      if(op==='shortSearch')return route.fulfill({json:{items:body.kind==='accounts'?[{uid:'guest-fixture',name:'Guest writer',number:'2222222'}]:[{id:'second',title:'Second clip'}],next:null}});
+      if(op==='shortHistory')return route.fulfill({json:{items:[{id:'fixture',title:'Navigation fixture'}],next:null}});
+      if(op==='shortHide'){hidden=true;return route.fulfill({json:{ok:true}});}
+      if(op==='shortInsights')return route.fulfill({json:{views:4,viewers:3,completed:2}});
+      if(op==='adminDecisionLog')return route.fulfill({json:{items:[{cursor:1,kind:'approved',actorName:'Walid',targetName:'Host',subject:'Test agency',stamp:1234567890000}],next:null}});
       if (op === 'shortRandom') {
         randomRequests++;
         assert.equal(route.request().postDataJSON().exclude, 'fixture');
@@ -101,8 +112,8 @@ export async function checkNavigation(browser) {
           ?[{id:2,name:'Reply writer',uid:'layout-fixture',body:'reply'}]
           :[{id:1,name:'Guest writer',uid:'guest-fixture',body:'comment',replyCount:1}]},
 
-        shortList: { clips: [{id:'fixture',title:'Navigation fixture'},{id:'second',title:'Second clip'},{id:'third',title:'Third clip'}] },
-        shortState: { social: true, likes: 0, commentCount: 0 },
+        shortList: { clips: [...hidden?[]:[{id:'fixture',title:'Navigation fixture'}],{id:'second',title:'Second clip',canDelete:true},{id:'third',title:'Third clip'}] },
+        shortState: { social: true, canDelete:body.clip==='second', likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
         roomInviteInbox: { invites: [] },
         read: { number: '1234567', canManageAppAdmins: isOwner },
@@ -283,6 +294,26 @@ export async function checkNavigation(browser) {
       await p.getByRole('button',{name:'فتح حساب Reply writer',exact:true}).last().click();
       await pageFull('profile');
       await home();
+    }
+    if(isOwner){
+      const button=label=>p.getByRole('button',{name:label,exact:true});
+      await home();
+      await p.waitForFunction(()=>{const v=document.querySelector('video');return v&&!v.paused&&v.currentTime>0.2;});
+      for(let i=0;i<65&&!finished.has('fixture');i++)await p.waitForTimeout(150);
+      assert.ok(played.has('fixture')&&finished.has('fixture'),'the foreground clip records a real view and completion');
+      await button('بحث في كليبي').click();await pageFull('clipiSearch');
+      const field=p.getByRole('textbox');
+      await field.fill('2222222');await p.getByText('Guest writer',{exact:true}).first().click();await pageFull('shortAuthor');
+      await button('رجوع').click();await pageFull('clipiSearch');
+      await button('غرف').click();await field.fill('Cover fixture');await p.getByText('Cover fixture audio',{exact:true}).waitFor();
+      await button('فيديوهات').click();await field.fill('Second');await p.getByText('Second clip',{exact:true}).click();await pageFull('home');
+      await p.locator('.action-more').click();await button('إحصاءات الفيديو').click();
+      await p.getByText('مشاهدون أكملوا الفيديو · 2',{exact:true}).waitFor();await button('إغلاق').click();
+      await dock.getByRole('tab').nth(4).click();await button('سجل قرارات الإدارة').click();
+      await p.getByText('قبول طلب وكالة',{exact:true}).waitFor();await p.getByText(/Test agency/).waitFor();await button('رجوع').click();
+      await button('سجل المشاهدة').click();await p.getByText('Navigation fixture',{exact:true}).click();await pageFull('home');
+      await p.locator('.action-more').click();await button('غير مهتم').click();await p.getByText('تم إخفاء الفيديو من الرئيسية',{exact:true}).waitFor();
+      assert.ok(hidden);await p.waitForFunction(()=>![...document.querySelectorAll('.clipi-feed-stage video')].some(v=>v.src.endsWith('/fixture')));
     }
     await checkLoginLanguages(p, lang);
     assert.deepEqual(errors, []);
