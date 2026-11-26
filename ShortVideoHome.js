@@ -144,7 +144,7 @@ function Clip({item,isCurrent,playback,liveRooms,onVisitLive,onAuthor,onCommentA
   async function follow(){
     if(lock.current||!stats?.social)return;
     lock.current=true;
-    try{const v=await api('shortFollow',{following:!stats.following});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
+    try{const v=await api('shortFollow',{following:!stats.following,profile:{name:viewer?.name,avatar:viewer?.avatar}});if(alive.current)setStats(prev=>({...prev,following:v.following}));onFollowChange?.();}
     catch(e){if(alive.current)setMessage(uiError(e,'تعذّرت المتابعة'));}finally{lock.current=false;}
   }
   const showing=dialog==='comments';

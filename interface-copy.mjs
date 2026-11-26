@@ -1,5 +1,15 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "إضافة صديق": "Add friend",
+  "تم إرسال طلب الصداقة": "Friend request sent",
+  "قبول طلب الصداقة": "Accept friend request",
+  "رفض الطلب": "Decline request",
+  "طلبات الصداقة": "Friend requests",
+  "صديق": "Friend",
+  "لا يوجد أشخاص في هذه القائمة بعد": "No people in this list yet",
+  "تعذر تحميل القائمة": "Could not load this list",
+  "تحميل المزيد": "Load more",
+  "جارٍ التحميل": "Loading",
   "فتح حساب": "Open profile of",
   "لا يوجد فيديو آخر منشور حاليًا": "No other published video is available right now",
   "تعيين أدمن للتطبيق": "Assign an app admin",

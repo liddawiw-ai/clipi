@@ -23,7 +23,7 @@ export const accountLabels = {
     "startBroadcast": "بدء البث",
     "roomStudioNote": "ابدأ غرفة صوتية أو بث مباشر",
     "friends": "أصدقاء",
-    "followers": "تابع",
+    "followers": "المتابعون",
     "followingCount": "يتابع",
     "follow": "متابعة",
     "followed": "متابَع",
