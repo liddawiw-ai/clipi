@@ -16,6 +16,7 @@ async function payment(action,data){
 export function DiamondWallet({uid,onHelp,onEarnings}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
+  const [manualAddress,setManualAddress]=useState('');
   const [linkMessage,setLinkMessage]=useState('');
   const lock=useRef(false);
   const revision=useRef(0);
@@ -36,25 +37,30 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     document.addEventListener('visibilitychange',sync);
     return ()=>{active=false;revision.current++;clearInterval(timer);document.removeEventListener('visibilitychange',sync)};
   },[uid]);
-  async function linkWallet(){
+  async function linkWallet(manual=false){
     if(lock.current)return;
     lock.current=true;setBusy(true);setLinkMessage('');
     try{
       const user=auth().currentUser;
       if(user?.uid!==uid)throw Error(appText('تغيّر الحساب المفتوح. أعد التحقق.'));
-      const session=await piSdk().authenticate(['wallet_address'],()=>{});
-      if(auth().currentUser?.uid!==uid||'pi:'+session.user.uid!==paymentPiUid)
-        throw Error(appText('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
+      let body={op:'setHostWalletAddress',walletAddress:manualAddress.trim()};
+      if(!manual){
+        const session=await piSdk().authenticate(['wallet_address'],()=>{});
+        if(auth().currentUser?.uid!==uid||'pi:'+session.user.uid!==paymentPiUid)
+          throw Error(appText('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
+        body={op:'linkHostWallet',accessToken:session.accessToken};
+      }
       const token=await user.getIdToken();
       const response=await fetch('/account-number',{method:'POST',
         headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken})});
+        body:JSON.stringify(body)});
       const result=await response.json();
       if(!response.ok)throw Error(uiError(result.error,'تعذّر ربط المحفظة. حاول مجددًا.'));
       if(auth().currentUser?.uid===uid){
         revision.current++;
         setData(previous=>({...previous,walletAddress:result.walletAddress}));
-        setLinkMessage(appText('تم ربط محفظتك.'));
+        setManualAddress('');
+        setLinkMessage(appText(manual?'تم حفظ عنوان محفظتك.':'تم ربط محفظتك.'));
       }
     }catch(error){setLinkMessage(uiError(error,'تعذّر ربط المحفظة. حاول مجددًا.'))}
     finally{lock.current=false;setBusy(false)}
@@ -106,7 +112,15 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     <button type="button" onClick={onEarnings}>{appText('محفظة المضيف')}</button>
     {paymentPiUid&&<>
       {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
-      <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
+      <button type="button" disabled={busy||!data} onClick={()=>linkWallet()}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
+      <form onSubmit={event=>{event.preventDefault();void linkWallet(true)}}>
+        <label htmlFor="pi-wallet-address">{appText('عنوان محفظة Pi العام')}</label>
+        <input id="pi-wallet-address" dir="ltr" type="text" value={manualAddress}
+          onChange={event=>setManualAddress(event.target.value)} placeholder="G…" maxLength={128}
+          autoCapitalize="characters" autoComplete="off" spellCheck={false}/>
+        <button type="submit" disabled={busy||!manualAddress.trim()}>{appText('حفظ العنوان')}</button>
+        <p>{appText('انسخ العنوان العام من محفظة Pi. لا تدخل عبارة المرور.')}</p>
+      </form>
       {linkMessage&&<p role="status">{linkMessage}</p>}
     </>}
     <p>{appText('التقدّم نحو المكافأة التالية')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>

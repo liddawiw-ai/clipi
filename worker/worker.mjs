@@ -14,7 +14,7 @@ import {agencyAccount} from './agencies.mjs';
 import {shortAccount,receiveShort,serveShort,deleteShort} from './short-videos.mjs';
 import {supportCase} from './support-case.mjs';
 import {accountCheckout,externalPayment} from './external-checkout.mjs';
-import {linkHostWallet,readWallet} from './diamond-wallet.mjs';
+import {linkHostWallet,readWallet,setHostWalletAddress} from './diamond-wallet.mjs';
 import {account} from './identity.mjs';
 import {roomStore,roomControls,helpRoomId,helpRoomName} from './room-controls.mjs';
 import { piLogin } from './pi-login.mjs';
@@ -193,11 +193,12 @@ export default {
       }
       if(['hostEarnings','saveReceivingMethod','linkReceivingContact','requestWithdrawalReview','requestRewardReview'].includes(input?.op))
         return hostEarnings(await roomStore(env.PI_GIFTS_DB),uid,input,json,env,identity);
-      if(input?.op==='wallet'||input?.op==='linkHostWallet'){
+      if(['wallet','linkHostWallet','setHostWalletAddress'].includes(input?.op)){
         const q=await roomStore(env.PI_GIFTS_DB);
         const linkedPiUid=uid.startsWith('pi:')?null:await linkedPi(await linkStore(env),uid);
-        if(input.op==='linkHostWallet')
-          return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json);
+        const piUid=uid.startsWith('pi:')?uid:linkedPiUid;
+        if(input.op==='linkHostWallet')return linkHostWallet(q,uid,piUid,input.accessToken,json);
+        if(input.op==='setHostWalletAddress')return setHostWalletAddress(q,uid,piUid,input.walletAddress,json);
         const wallet=await readWallet(q,uid,env.CLIPI_OWNER_UID,piOnly);
         return json({...wallet,linkedPiUid});
       }

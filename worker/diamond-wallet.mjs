@@ -58,6 +58,38 @@ export const walletSchema=[
     INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) VALUES(NEW.sender,NEW.nonce,NEW.room,NEW.host,NEW.gift,NEW.cost,NEW.hostUnits); END`,
   `CREATE TRIGGER IF NOT EXISTS announce_paid_gift AFTER INSERT ON paid_room_gift BEGIN INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),'🎁 '||NEW.gift||' · '||NEW.cost||' 💎 → '||(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.host)); END`
 ];
+const publicWalletPattern=/^G[A-Z2-7]{55}$/;
+function validPublicWallet(address){
+  if(!publicWalletPattern.test(address))return false;
+  const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bytes=[];
+  let bits=0,buffer=0;
+  for(const character of address){
+    buffer=(buffer<<5)|alphabet.indexOf(character);
+    bits+=5;
+    if(bits>=8){
+      bits-=8;
+      bytes.push((buffer>>>bits)&255);
+    }
+  }
+  let checksum=0;
+  for(const byte of bytes.slice(0,-2)){
+    checksum^=byte<<8;
+    for(let bit=0;bit<8;bit++)
+      checksum=((checksum<<1)^((checksum&0x8000)?0x1021:0))&0xffff;
+  }
+  return bytes[0]===48 && checksum===(bytes[33]|(bytes[34]<<8));
+}
+async function saveWalletAddress(q,uid,address,json){
+  await q('INSERT INTO host_pi_wallet(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address',uid,address).run();
+  return json({walletAddress:address});
+}
+export async function setHostWalletAddress(q,uid,piUid,input,json){
+  if(!piUid)return json({error:'ادخل بحساب PI نفسه'},403);
+  const address=typeof input==='string'&&input.length<=128?input.trim().toUpperCase():'';
+  if(!validPublicWallet(address))return json({error:'أدخل عنوان محفظة Pi العام الصحيح.'},422);
+  return saveWalletAddress(q,uid,address,json);
+}
 export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
   if (!piUid || typeof accessToken !== 'string' || !/^\S{1,4096}$/.test(accessToken))
     return json({error:'ادخل بحساب PI نفسه'}, 403);
@@ -77,10 +109,9 @@ export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
   if (typeof identity?.uid !== 'string' || 'pi:' + identity.uid !== piUid)
     return json({error:'حساب Pi المفتوح مختلف عن حساب التطبيق.'}, 409);
   const address = identity.wallet_address;
-  if (typeof address !== 'string' || !/^G[A-Z2-7]{55}$/.test(address))
+  if (typeof address !== 'string' || !publicWalletPattern.test(address))
     return json({error:'لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.'}, 422);
-  await q('INSERT INTO host_pi_wallet(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address', accountUid, address).run();
-  return json({walletAddress:address});
+  return saveWalletAddress(q,accountUid,address,json);
 }
 // Pi amounts in the ledger use twentieths of Pi (one half of a diamond).
 function allFunds(buyer,giver){

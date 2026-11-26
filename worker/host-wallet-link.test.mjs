@@ -38,5 +38,12 @@ test('wallet linking uses the verified Pi identity and keeps accounts separate',
   assert.equal(await status('second'),addresses.second);
   assert.equal(await status('first'),addresses.first);
   assert.equal((await request('unlinked-email','linkHostWallet',{accessToken:'first'})).status,403);
+  const manual='GAAACAQDAQCQMBYIBEFAWDANBYHRAEISCMKBKFQXDAMRUGY4DUPB7JZX';
+  const save=(uid,walletAddress)=>request(uid,'setHostWalletAddress',{walletAddress});
+  assert.equal((await save('unlinked-email',manual)).status,403);
+  assert.equal((await save('pi:second',manual.slice(0,-1)+'A')).status,422);
+  assert.equal((await save('pi:second','  '+manual.toLowerCase()+'  ')).status,200);
+  assert.equal(await status('second'),manual);
+  assert.equal(await status('first'),addresses.first);
   assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM host_pi_wallet').get().n,2);
 });
