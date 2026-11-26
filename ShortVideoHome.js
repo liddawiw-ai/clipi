@@ -56,11 +56,16 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     </View>
   </Modal>;
 }
-function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,isCurrent,onSettled,playback,onHide,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
+  useEffect(()=>{
+    if(!isCurrent||!playable||(!item.photoCount&&!playing))return;
+    const timer=setTimeout(()=>onSettled(item.id),1200);
+    return ()=>clearTimeout(timer);
+  },[item.id,item.photoCount,isCurrent,playable,playing,onSettled]);
   useWatchVisit({clip:item.id,viewer:viewer?.uid,active:!item.photoCount&&isCurrent&&playable,playing,playerRef,playback,request});
   async function hide(){
     if(lock.current)return;
@@ -125,7 +130,6 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
       if(!current)return;
       initialize(v);setStats(v);
       if(v.commentCount!=null)setCommentCount(previous=>previous??v.commentCount);
-      if(v.commentCount>0)firstComments();
     }).catch(()=>{});
     return ()=>{current=false;alive.current=false;};
   },[item.id,followRevision,isCurrent]);
@@ -295,6 +299,8 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
     return selected?[selected,...profileClips.filter(clip=>clip.id!==initialId)]:profileClips;
   },[profileClips,initialId,homeItems]);
   const playback=useShortPlayback(items[active]?.id,playable);
+  const [settledClip,setSettledClip]=useState(null);
+  const preloadNext=playable&&settledClip===items[active]?.id;
   const latestItems=useRef(items);
   latestItems.current=items;
   const setActive=useCallback(index=>{
@@ -388,7 +394,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
       refreshing={refreshing} onRefresh={!paging.manual&&canRefresh?refresh:undefined}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{(index===active||(preloadNext&&index===active+1))&&<Clip key={item.id} onSettled={setSettledClip} onHide={hideFromFeed} isCurrent={index===active} playback={playback} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}
