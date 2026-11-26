@@ -12,6 +12,7 @@
   "type": "commonjs",
   "dependencies": {
     "@livekit/components-react": "^2.9.26",
+    "@wasmpeg/cpu": "1.0.1",
     "esbuild": "^0.25.12",
     "firebase": "^11.10.0",
     "jose": "6.2.18",

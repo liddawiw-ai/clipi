@@ -1,4 +1,4 @@
-import {presentSilentShort} from './SilentShort';
+import {presentSilentShort,presentPortableShort} from './SilentShort';
 import {selectFile} from './select-file.mjs';
 import {createShortPlayback} from './short-playback.mjs';
 import React,{useLayoutEffect,useImperativeHandle,useRef,useState} from 'react';
@@ -70,7 +70,7 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
     host.appendChild(video);
     const playing = () => callbacks.current.onPlayingChange?.(true);
-    const paused = () => callbacks.current.onPlayingChange?.(false);
+    const paused = () => {if(!silent.current?.playing)callbacks.current.onPlayingChange?.(false);};
     const time = event => callbacks.current.onTimeUpdate?.(event);
     video.addEventListener('playing', playing);
     video.addEventListener('pause', paused);
@@ -107,20 +107,33 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
       const session=silent.current;
       if(!session)return;
       silent.current=null;session.close();
-      if(session.playing&&video.readyState>=1&&Number.isFinite(session.currentTime)){
+      if(session.playing&&video.readyState>=1&&Math.abs(video.currentTime-session.currentTime)>.025){
         video.currentTime=session.currentTime;
       }
     }
     function startSilent(){
       if(!allowed()||!video.paused||silent.current)return;
-      if(!window.VideoDecoder||window.matchMedia('(prefers-reduced-motion: reduce)').matches||navigator.connection?.saveData){
+      if(window.matchMedia('(prefers-reduced-motion: reduce)').matches||navigator.connection?.saveData){
         callbacks.current.onPlayBlocked?.();return;
       }
       let started=false;
-      silent.current=presentSilentShort(video,container.current,session=>{
+      function frame(session){
         if(!started){started=true;callbacks.current.onPlayingChange?.(true);}
         callbacks.current.onTimeUpdate?.({currentTarget:{currentTime:session.currentTime,duration:session.duration||video.duration}});
-      },()=>{stopSilent();callbacks.current.onPlayingChange?.(false);callbacks.current.onPlayBlocked?.();});
+      }
+      function blocked(){
+        stopSilent();callbacks.current.onPlayingChange?.(false);callbacks.current.onPlayBlocked?.();
+      }
+      function portableFrames(){
+        stopSilent();
+        if(!allowed()||!video.paused)return;
+        try{silent.current=presentPortableShort(video,container.current,frame,blocked);}
+        catch{blocked();}
+      }
+      if(window.VideoDecoder){
+        try{silent.current=presentSilentShort(video,container.current,frame,portableFrames);}
+        catch{portableFrames();}
+      }else portableFrames();
     }
     function stop(){
       clearTimeout(denialTimer);deniedWhenReady=false;inFlight=null;video.autoplay=false;

@@ -207,6 +207,7 @@ export default {
     if (env.CLIPI_APP && request.method === 'GET') {
       if (['/', '/room', '/room/', '/delete-account'].includes(path))return env.CLIPI_APP.fetch(new URL('/index.html', request.url));
       if (['/privacy','/terms'].includes(path)) return env.CLIPI_APP.fetch(new URL(path+'.html',request.url));
+      if (/^\/clipi-frames-v1\/(?:player\.js|gpu\.js|cpu\.(?:js|wasm)|LICENSE|NOTICE)$/.test(path))return env.CLIPI_APP.fetch(request);
       if (['/clipi-app.js','/clipi-app.css','/clipi-policy-links.js'].includes(path))return env.CLIPI_APP.fetch(request);
     }
     if (['/auth/pi','/auth/pi/original','/auth/pi/link-preview','/auth/pi/link-confirm'].includes(path)) return piLogin(request,env,json,firebaseWebApiKey);

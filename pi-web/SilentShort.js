@@ -52,3 +52,44 @@ export function presentSilentShort(video, host, onFrame, onFailure){
   run().catch(()=>{if(!closed)onFailure();});
   return state;
 }
+
+// A restricted WebView can keep its native video at time zero. Decode the
+// selected file in a worker; ownership cleanup also cancels its network reads.
+export function presentPortableShort(video,host,onFrame,onFailure){
+  const worker=new Worker('/clipi-frames-v1/player.js',{type:'module'});
+  const canvas=document.createElement('canvas');
+  canvas.setAttribute('aria-hidden','true');
+  canvas.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+  const context=canvas.getContext('2d',{alpha:false});
+  const buffer=document.createElement('canvas');
+  let closed=false;
+  const state={
+    canvas,playing:false,currentTime:video.currentTime||0,duration:video.duration,
+    close(){if(closed)return;closed=true;worker.terminate();canvas.remove();}
+  };
+  worker.onerror=onFailure;
+  worker.onmessage=({data})=>{
+    if(closed)return;
+    if(data.error||!context){onFailure();return;}
+    try{
+      const {pixels,width,height,rotation,time,duration}=data;
+      if(!state.playing){
+        const sideways=rotation===90||rotation===270;
+        canvas.width=sideways?height:width;canvas.height=sideways?width:height;
+        canvas.style.objectFit=video.style.objectFit;
+        if(rotation){buffer.width=width;buffer.height=height;}
+      }
+      const image=new ImageData(new Uint8ClampedArray(pixels),width,height);
+      if(rotation){
+        buffer.getContext('2d').putImageData(image,0,0);
+        context.save();context.translate(canvas.width/2,canvas.height/2);context.rotate(rotation*Math.PI/180);
+        context.drawImage(buffer,-width/2,-height/2);context.restore();
+      }else context.putImageData(image,0,0);
+      if(!canvas.isConnected)host.appendChild(canvas);
+      state.currentTime=time;state.duration=duration;state.playing=true;
+      onFrame(state);worker.postMessage('drawn');
+    }catch{onFailure();}
+  };
+  worker.postMessage({source:video.currentSrc||video.src,start:state.currentTime});
+  return state;
+}

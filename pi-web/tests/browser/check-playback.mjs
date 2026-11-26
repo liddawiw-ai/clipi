@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import path from 'node:path';
+import {buildFramePlayer} from '../../build-frame-player.mjs';
 import {createServer} from 'node:http';
 import {createRequire} from 'node:module';
 import {build} from 'esbuild';
+import {checkLegacyStart} from './check-legacy-start.mjs';
 import {checkFirstStart} from './check-first-start.mjs';
 import {checkProfilePlayback} from './check-profile-playback.mjs';
 import {checkNavigation} from './check-navigation.mjs';
@@ -15,7 +19,9 @@ const output=await build({entryPoints:[entry],bundle:true,write:false,minify:tru
   define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
 const video=await readFile(process.env.CLIPI_PLAYBACK_TEST_MP4||new URL('./feed-fixture.mp4',import.meta.url));
 const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
-const server=createServer((req,res)=>{
+const assets=await mkdtemp(path.join(tmpdir(),'clipi-player-'));
+await buildFramePlayer(assets);
+const server=createServer(async (req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(/^\/shorts\/play\/(fixture|one|two|three)$/.test(url.pathname)){
     const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||'');
@@ -23,6 +29,10 @@ const server=createServer((req,res)=>{
     res.writeHead(range?206:200,{'Content-Type':'video/mp4','Accept-Ranges':'bytes','Content-Length':end-offset+1,
       ...(range?{'Content-Range':`bytes ${offset}-${end}/${video.length}`}:{})});
     res.end(video.subarray(offset,end+1));return;
+  }
+  if(/^\/clipi-frames-v1\/(player\.js|gpu\.js|cpu\.(?:wasm|js))$/.test(url.pathname)){
+    res.setHeader('Content-Type',url.pathname.endsWith('.wasm')?'application/wasm':'application/javascript');
+    res.end(await readFile(path.join(assets,url.pathname)));return;
   }
   if(files.has(url.pathname)){
     res.setHeader('Content-Type',url.pathname.endsWith('.css')?'text/css':'application/javascript');
@@ -35,6 +45,7 @@ const server=createServer((req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
+  for(const mode of ['missing','unsupported'])await checkLegacyStart(browser,'http://127.0.0.1:'+server.address().port,mode);
   await checkFirstStart(browser,'http://127.0.0.1:'+server.address().port);
   await checkProfilePlayback(browser, 'http://127.0.0.1:'+server.address().port);
   for(const locale of ['ar','en'])for(const role of ['host','admin','user']){
@@ -137,4 +148,4 @@ try{
   await restricted.close();
   console.log('PASS decoded moving first video with native autoplay blocked and zero input, pause and gesture resume');
   await checkNavigation(browser);
-}finally{await browser.close();server.close();}
+}finally{await browser.close();server.close();await rm(assets,{recursive:true,force:true});}
