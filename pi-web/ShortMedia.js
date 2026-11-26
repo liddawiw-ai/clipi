@@ -15,9 +15,15 @@ function inlineVideo(video){
 }
 export function warmFeedVideo(endpoint,id) {
   if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||''))return null;
-  const video=inlineVideo(document.createElement('video'));
-  video.preload='metadata';
-  video.src=shortPlaybackUrl(endpoint,id);
+  const source=shortPlaybackUrl(endpoint,id);
+  const shared=document.getElementById('clipi-shared-video');
+  const reusable=shared&&shared.src===new URL(source,location.href).href;
+  const video=inlineVideo(reusable?shared:document.createElement('video'));
+  if(reusable){
+    video.removeAttribute('id');video.hidden=false;video.remove();
+  }else{
+    video.preload='metadata';video.src=source;
+  }
   return {id,video,adopted:false};
 }
 export function startProfileVideo(source, poster, playable, preparedVideo) {
@@ -26,7 +32,7 @@ export function startProfileVideo(source, poster, playable, preparedVideo) {
   video.playsInline = true;
   video.preload = 'auto';
   if (poster) video.poster = poster;
-  if (video.getAttribute('src') !== source) video.src = source;
+  if (video.src !== new URL(source,location.href).href) video.src = source;
   // Start inside the tile's tap, before the modal has measured its layout.
   if (playable && !document.hidden){
     const startup=createShortPlayback();
@@ -89,7 +95,7 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
   useLayoutEffect(() => {
     video.preload = preload;
     if (poster) video.poster = poster;
-    if (video.getAttribute('src') !== source) video.src = source;
+    if (video.src !== new URL(source,location.href).href) video.src = source;
   }, [video, preload, poster, source]);
 
   useLayoutEffect(() => {
@@ -125,7 +131,7 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     function start(){
       if(!allowed()){stop();return;}
       applyVolume();video.autoplay=true;
-      if(!video.paused||inFlight||deniedWhenReady||silent.current)return;
+      if(!video.paused||inFlight||deniedWhenReady)return;
       const attempt={};inFlight=attempt;
       clearTimeout(denialTimer);
       denialTimer=setTimeout(()=>{
@@ -145,7 +151,9 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
           deniedWhenReady=true;startSilent();
         }else{
           clearTimeout(denialTimer);
-          denialTimer=setTimeout(()=>{if(allowed()&&video.paused)startSilent();},1300);
+          // A slow metadata request is common on a cold mobile connection.
+          // Keep the native request alive and give loadeddata its normal start.
+          denialTimer=setTimeout(()=>{if(allowed()&&video.paused)startSilent();},6000);
         }
       }).finally(()=>{if(inFlight===attempt)inFlight=null;});
     }

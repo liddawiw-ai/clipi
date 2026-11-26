@@ -366,8 +366,8 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
   }
   function preloadFor(index){
     if(index<active)return 'metadata';
-    // Give the first visible video the connection until its first frames arrive.
-    if(index===active||feedStarted||fromProfile||items[active]?.photoCount)return 'auto';
+    // Prime the next clip while the current one waits for its first network response.
+    if(index<=active+1||feedStarted||fromProfile||items[active]?.photoCount)return 'auto';
     return 'none';
   }
   function initialPlayer(id){

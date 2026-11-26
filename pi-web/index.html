@@ -1,1 +1,15 @@
-<!doctype html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#F7F9F4"><title>Clipi · كليبي</title><link rel="stylesheet" href="/clipi-app.css"><style>html,body,#app{margin:0;height:100%;background:#F7F9F4}html,body,#app{width:100%;max-width:100%;overflow-x:clip}body{overflow-x:hidden}#app{overflow-x:hidden;display:flex;flex-direction:column}.room-gift-effect{position:absolute;inset:0;overflow:hidden;contain:strict;isolation:isolate;pointer-events:none;z-index:100;clip-path:inset(0)}body{color:#173e38;color-scheme:light}dialog{box-sizing:border-box;width:min(90vw,360px);border:1px solid #c7d8cd;border-radius:20px;background:#fffefa;color:#173e38;padding:18px;font:inherit}dialog::backdrop{background:rgba(27,57,49,.23)}dialog button{display:block;width:100%;min-height:44px;text-align:start;border:0;border-top:1px solid #c7d8cd;background:transparent;color:#173e38;font:inherit;padding:8px}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #086d60;outline-offset:2px}</style><script src="https://sdk.minepi.com/pi-sdk.js" defer></script></head><body><div id="app"></div><script type="module" src="/clipi-app.js"></script></body></html>
+<!doctype html><html lang="en" dir="ltr"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#F7F9F4"><title>Clipi · كليبي</title><link rel="stylesheet" href="/clipi-app.css"><style>html,body,#app{margin:0;height:100%;background:#F7F9F4}html,body,#app{width:100%;max-width:100%;overflow-x:clip}body{overflow-x:hidden}#app{overflow-x:hidden;display:flex;flex-direction:column}.room-gift-effect{position:absolute;inset:0;overflow:hidden;contain:strict;isolation:isolate;pointer-events:none;z-index:100;clip-path:inset(0)}body{color:#173e38;color-scheme:light}dialog{box-sizing:border-box;width:min(90vw,360px);border:1px solid #c7d8cd;border-radius:20px;background:#fffefa;color:#173e38;padding:18px;font:inherit}dialog::backdrop{background:rgba(27,57,49,.23)}dialog button{display:block;width:100%;min-height:44px;text-align:start;border:0;border-top:1px solid #c7d8cd;background:transparent;color:#173e38;font:inherit;padding:8px}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid #086d60;outline-offset:2px}</style><script src="https://sdk.minepi.com/pi-sdk.js" defer></script></head><body><div id="app"></div><script>
+// Start reading a shared public video's metadata while the app and Pi sign-in load.
+(()=>{
+  const id=new URLSearchParams(location.hash.slice(1)).get('short');
+  if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||'')||navigator.connection?.saveData)return;
+  const video=document.createElement('video');
+  video.id='clipi-shared-video';video.hidden=true;video.muted=true;video.playsInline=true;
+  video.preload='metadata';video.src='/shorts/play/'+id;
+  document.body.appendChild(video);
+  setTimeout(()=>{
+    if(video.id!=='clipi-shared-video')return;
+    video.removeAttribute('src');video.load();video.remove();
+  },30000);
+})();
+</script><script type="module" src="/clipi-app.js"></script></body></html>
