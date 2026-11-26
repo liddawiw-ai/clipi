@@ -1,5 +1,5 @@
 import {ui as appText} from './interface-language.mjs';
-import React, {useLayoutEffect, useImperativeHandle, useState} from 'react';
+import React, {useLayoutEffect, useImperativeHandle, useRef, useState} from 'react';
 import {AppState, Clipboard, Share, StyleSheet} from 'react-native';
 import {VideoView, useVideoPlayer} from 'expo-video';
 import {launchImageLibraryAsync} from 'expo-image-picker';
@@ -12,42 +12,57 @@ export function Player(props) {
   return <ShortVideoPlayer key={props.source} {...props}/>;
 }
 
-function ShortVideoPlayer({source, clipId, active = true, mountedSurface = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
+function ShortVideoPlayer({source, clipId, playback, active = true, mountedSurface = true, muted = true, playerRef, onPlayingChange, fit = 'cover'}) {
   const [rendered,setRendered]=useState(false),[playing,setPlaying]=useState(false);
   const player = useVideoPlayer(source, p => {
     p.loop = true;
     p.muted = true;
+    p.volume = 0;
     p.bufferOptions = {preferredForwardBufferDuration: 6, minBufferForPlayback: 0.5, maxBufferBytes: 6 * 1024 * 1024};
   });
   useImperativeHandle(playerRef, () => player, [player]);
-  useLayoutEffect(() => {player.muted = !active || muted;}, [active, muted, player]);
+  const audio=useRef(null), latest=useRef(null);
+  latest.current={muted,onPlayingChange};
   useLayoutEffect(() => {
-    const syncPlaying=isPlaying=>{setPlaying(isPlaying);onPlayingChange?.(isPlaying)};
-    const subscription = player.addListener('playingChange', ({isPlaying}) => syncPlaying(isPlaying));
-    syncPlaying(player.playing);
-    return () => subscription.remove();
-  }, [player, onPlayingChange]);
-  useLayoutEffect(() => {
-    let listening = true;
-    function sync(state) {
-      if (!listening) return;
-      if (active && state === 'active') player.play();
-      else player.pause();
-    }
-    sync(AppState.currentState || 'active');
-    const subscription = AppState.addEventListener('change', sync);
-    const ready = player.addListener('statusChange', ({status}) => {
-      if (status === 'readyToPlay') sync(AppState.currentState || 'active');
-    });
-    return () => {
-      listening = false;
-      subscription.remove();
-      ready.remove();
-      // Silence the outgoing clip before another player starts or native release runs.
-      player.muted = true;
+    let foreground=AppState.currentState!=='background'&&AppState.currentState!=='inactive';
+    function stop(){
+      player.muted=true;
+      player.volume=0;
       player.pause();
+    }
+    function applyVolume(){
+      const silent=!foreground||!playback.owns(control)||latest.current.muted;
+      player.muted=silent;
+      player.volume=silent?0:1;
+    }
+    const control={stop,start(){
+      if(!foreground||!playback.owns(control)){stop();return;}
+      applyVolume();
+      player.play();
+    }};
+    audio.current=applyVolume;
+    const changed=player.addListener('playingChange',({isPlaying})=>{
+      if(isPlaying&&(!foreground||!playback.owns(control))){stop();return;}
+      setPlaying(isPlaying);latest.current.onPlayingChange?.(isPlaying);
+    });
+    const ready=player.addListener('statusChange',({status})=>{
+      if(status==='readyToPlay'&&playback.owns(control))control.start();
+    });
+    const life=AppState.addEventListener('change',state=>{
+      foreground=state==='active';
+      if(foreground&&playback.owns(control))control.start();
+      else stop();
+    });
+    stop();
+    setPlaying(false);latest.current.onPlayingChange?.(false);
+    const detach=active?playback.attach(clipId??source,control):null;
+    return ()=>{
+      changed.remove();ready.remove();life.remove();
+      audio.current=null;
+      detach?.();
     };
-  }, [active, player]);
+  },[active,player,playback,clipId,source]);
+  useLayoutEffect(()=>{audio.current?.();},[muted]);
   if (!mountedSurface) return null;
   return <VideoView accessible={!!clipId} accessibilityLabel={clipId?appText('تشغيل الفيديو'):undefined} testID={clipId&&active&&rendered&&playing?'short-frame-'+clipId:undefined} onFirstFrameRender={()=>setRendered(true)} style={StyleSheet.absoluteFill} player={player} contentFit={fit} surfaceType="textureView" nativeControls={false}/>;
 }

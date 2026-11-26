@@ -1,10 +1,11 @@
+import {useShortPlayback} from './useShortPlayback';
 import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {useRandomShort} from './useRandomShort';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
-import React,{useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {AccessibilityInfo,ActivityIndicator,FlatList,Image,Linking,Modal,PanResponder,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
@@ -24,13 +25,10 @@ function Button({label,onPress,children,disabled=false,selected,onPaper=false}){
     {children||<Text style={onPaper?s.paperLabel:s.label}>{label}</Text>}
   </Pressable>;
 }
-function SoundControl({playerRef,muted,setMuted,belowHeader=false}){
+function SoundControl({muted,setMuted,belowHeader=false}){
   function toggleSound(){
     const next=!muted;
     setMuted(next);
-    const player=playerRef.current;
-    if(!player)return;
-    player.muted=next;
   }
   return <View style={[s.audio,belowHeader&&{top:76}]}><Button label={muted?appText('تشغيل الصوت'):appText('كتم الصوت')} onPress={toggleSound}><Image accessible={false} source={muted?soundOff:soundOn} style={s.soundIcon}/></Button></View>;
 }
@@ -57,7 +55,7 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     </View>
   </Modal>;
 }
-function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,isCurrent,playback,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
@@ -180,7 +178,7 @@ function Clip({item,isCurrent,liveRooms,onVisitLive,onAuthor,onCommentAuthor,fol
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {isCurrent&&!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
@@ -234,7 +232,7 @@ async function openPiAccount(openURL){
   }
 }
 
-function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull}){
+function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull,onLeavePage}){
   const [screenReader,setScreenReader]=useState(false);
   useEffect(()=>{
     if(Platform.OS!=='android')return;
@@ -246,7 +244,7 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull
   const manual=Platform.OS==='android'&&!screenReader;
   const startPage=useRef(0);
   const latest=useRef(null);
-  latest.current={active,height,count,manual,onPull};
+  latest.current={active,height,count,manual,onPull,onLeavePage};
   const responder=useMemo(()=>{
     function scroll(page,animated){
       const {height,count}=latest.current;
@@ -262,8 +260,11 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull
       },
       onPanResponderGrant:()=>{startPage.current=latest.current.active;},
       onPanResponderMove:(_,gesture)=>{
-        const {height}=latest.current;
-        if(height)scroll(startPage.current-gesture.dy/height,false);
+        const {height,count,onLeavePage}=latest.current;
+        if(!height)return;
+        const position=Math.max(0,Math.min(count-1,startPage.current-gesture.dy/height));
+        if(Math.abs(position-startPage.current)>=0.5)onLeavePage();
+        scroll(position,false);
       },
       onPanResponderRelease:(_,gesture)=>{
         const {height,count,onPull}=latest.current;
@@ -274,16 +275,16 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull
         setActive(page);scroll(page,true);
       },
       onPanResponderTerminationRequest:()=>false,
-      onPanResponderTerminate:()=>scroll(latest.current.active,true)
+      onPanResponderTerminate:()=>{setActive(latest.current.active);scroll(latest.current.active,true);}
     });
   },[list,locked,setActive]);
   return {manual,handlers:manual?responder.panHandlers:{}};
 }
 
-export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,suppressAudio=false,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
-  const [homeItems,setItems]=useState(null),[active,setActive]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState(null),[active,setActiveIndex]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const profileClips=profileFeed?.clips;
   const items=useMemo(()=>{
@@ -291,6 +292,13 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
     const selected=profileClips.find(clip=>clip.id===initialId);
     return selected?[selected,...profileClips.filter(clip=>clip.id!==initialId)]:profileClips;
   },[profileClips,initialId,homeItems]);
+  const playback=useShortPlayback(items[active]?.id,playable);
+  const latestItems=useRef(items);
+  latestItems.current=items;
+  const setActive=useCallback(index=>{
+    playback.select(latestItems.current[index]?.id);
+    setActiveIndex(index);
+  },[playback]);
   const removed=useRef(new Set()),list=useRef(null);
   useEffect(()=>{
     if(!notice)return;
@@ -329,7 +337,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
           else setNotice(translate('هذا الفيديو لم يعد متاحًا'));
         }
         else if(selected)all.unshift(...all.splice(all.indexOf(selected),1));
-        setActive(0);setItems(all.filter(c=>!removed.current.has(c.id)));setError('');
+        setActiveIndex(0);setItems(all.filter(c=>!removed.current.has(c.id)));setError('');
       }catch{if(current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     })();
     return ()=>{current=false;mounted.current=false;};
@@ -358,7 +366,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
     setItems(old=>old.filter(c=>c.id!==id));setNotice(translate('تم حذف الفيديو'));
     if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
-  const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked,onPull:canRefresh?refresh:null});
+  const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked,onLeavePage:()=>playback.select(null),onPull:canRefresh?refresh:null});
   const automaticVisibility=useRef(true);
   automaticVisibility.current=!paging.manual;
   const visible=useRef(({viewableItems})=>{
@@ -367,13 +375,13 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
   }).current;
   const visibility=useRef({itemVisiblePercentThreshold:55}).current;
   return <View style={s.screen}><View style={s.screen} {...paging.handlers} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode&&!paging.manual} extraData={[active,muted,suppressAudio,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} data={items} scrollEnabled={!viewMode&&!paging.manual} extraData={[active,muted,liveMenu,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={visible} viewabilityConfig={visibility}
       refreshing={refreshing} onRefresh={!paging.manual&&canRefresh?refresh:undefined}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted:muted||suppressAudio,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} playback={playback} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}
@@ -401,11 +409,12 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
   </View><View style={viewMode&&{opacity:0}} pointerEvents={viewMode?'none':'auto'}>{dock}</View></View>;
 }
 
-export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,viewer}){
+export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   const [cues,setCues]=useState([]),[cueText,setCueText]=useState(''),[editingCues,setEditingCues]=useState(false),[cueAt,setCueAt]=useState(0);
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [muted,setMuted]=useState(false);
   const playerRef=useRef(null);
+  const playback=useShortPlayback(draft?.uri,Boolean(draft));
   const [accepted,setAccepted]=useState(false),[policy,setPolicy]=useState(null);
   const job=useRef(null),lock=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
@@ -447,7 +456,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,
     finally{lock.current=false;if(alive.current)setBusy(false)}
   }
   async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);onPreview();setNotice('');}}
+    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
@@ -467,7 +476,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,onPreview,
   return <Panel onClose={onClose} closeLabel={appText('إغلاق')} busy={busy}>
     <Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Text style={s.paperLabel}>{appText("حتى ٣ دقائق و٥٠ ميغابايت · MP4")}</Text>
-    {draft&&<View style={s.preview}><Player source={draft.uri} fit="contain" muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{playerRef,muted,setMuted}}/></View>}
+    {draft&&<View style={s.preview}><Player playback={playback} source={draft.uri} fit="contain" muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{muted,setMuted}}/></View>}
     <Button onPaper label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>
     {draft&&<><Button onPaper label={appText('حفظ المسودة')} disabled={busy} onPress={keepDraft}/>
       <Button onPaper label={appText('حذف المسودة')} disabled={busy} onPress={discard}/></>}

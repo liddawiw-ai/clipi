@@ -1,3 +1,4 @@
+import {stopShortPlayback} from './short-playback.mjs';
 import AppAdminScreen from './AppAdminScreen';
 import {createRoundClock} from './greedy-clock.mjs';
 import {uiError,setInterfaceLanguage} from './interface-language.mjs';
@@ -1260,8 +1261,8 @@ export default function App(){
   const [loginLanguages,setLoginLanguages]=useState(false);
   const languageField=useRef(null);
   const [languageSpace,setLanguageSpace]=useState(0);
-  const [uploadOpen,setUploadOpen]=useState(false),[previewingDraft,setPreviewingDraft]=useState(false);
-  function closeUpload(){setUploadOpen(false);setPreviewingDraft(false)}
+  const [uploadOpen,setUploadOpen]=useState(false);
+  function closeUpload(){setUploadOpen(false)}
   useSyncExternalStore(subscribeInterface,interfaceRevision,interfaceRevision);
   const hasSelectedLanguage = useRef(false);
   useEffect(() => {
@@ -1468,7 +1469,10 @@ export default function App(){
     returnToAccount.current=false;
     return target;
   }
-  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
+  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;
+    if(pageRef.current!==p)stopShortPlayback();
+    pageRef.current=p;setPage(p);
+  };
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
@@ -1895,7 +1899,7 @@ export default function App(){
     const current=page==='profileEdit'||page==='accountSettings'||page==='accountLanguage'||page==='earningsWallet'?'profile':page;
     return <ClipiDock items={items} page={current} onNavigate={destination=>{
       if(destination==='home'||destination==='rooms'){setDiscoveryFilter('all');setRoomSearch('')}
-      if(destination==='create'){Keyboard.dismiss();setUploadOpen(true);return}
+      if(destination==='create'){stopShortPlayback();Keyboard.dismiss();setUploadOpen(true);return}
       go(destination);
     }}/>;
   }
@@ -1923,7 +1927,7 @@ export default function App(){
   },
     followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
-    playable:!activeRoom,suppressAudio:uploadOpen&&previewingDraft,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
+    playable:!activeRoom&&!uploadOpen,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
     onReport:(id,comment=null)=>{setReportComment(comment);setInitialShort(id);go('reportShort');}
   };
   const myProfile=<View style={S.card}><AccountPhoto avatar={avatar} onPress={pickAccountPhoto} label={appText("اختيار صورة من الاستوديو")}/><Text style={S.title}>{name||user?.displayName||appText('مستخدم')} {ownerDemo?'👑':''}</Text><Text style={S.gold}>{appText('معرّف الحساب')}: {visibleNumber?.number||'…'}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.big}>💎 {fmt(total)}</Text>}<Text style={S.white}>{appText(equipped.frame)}</Text><Text style={S.white}>{appText(equipped.ride)}</Text>{SHOW_UNRELEASED_DEMOS&&<Text style={S.muted}>{appText("دعم تجريبي تم إرساله: ")}{fmt(spent)}{appText(" ماسة")}</Text>}</View>;
@@ -2176,7 +2180,7 @@ export default function App(){
     {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu} fieldRef={languageField} space={languageSpace} setSpace={setLanguageSpace}
       onClose={()=>setLoginLanguages(false)} onSelect={selectLanguage}/>}
     {uploadOpen&&user?.uid&&<ShortUpload key={user.uid} viewer={shortPlayerProps.viewer} endpoint={MEDIA_ENDPOINT}
-      request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()} onPreview={()=>setPreviewingDraft(true)}
+      request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
       onClose={closeUpload} onDone={id=>{closeUpload();setInitialShort(id);go('home')}}/>}
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
     {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label={appText("الغرفة")} onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}

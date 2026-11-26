@@ -13,6 +13,7 @@ export function shortThumbnail(id,source,isCurrent){
     const player=createVideoPlayer(source);
     let frame,context,image;
     try{
+      player.muted=true;player.volume=0;
       const size={maxWidth:184,maxHeight:240};
       try { [frame]=await player.generateThumbnailsAsync(.6,size); }
       catch { [frame]=await player.generateThumbnailsAsync(0,size); }
