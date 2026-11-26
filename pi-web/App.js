@@ -59,37 +59,6 @@ const greedyStarCover=require('./assets/greedy-star.jpg');
 const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
 const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
 const AVATARS=['👤','😎','👩','👨','🧑','👸','🤴','🦁','🐼','🦊','🌸','⭐'];
-// Pricing preview: USD 1 = 1,000 diamonds; PI USD-equivalent 1 = 1,200 diamonds.
-// PI market quote is entered manually and is NOT a live price feed.
-
-// قنوات استقبال الأرباح المعروضة للمستخدم؛ لا توجد تحويلات حقيقية مفعلة.
-// القوائم إرشادية ويمكن تحديثها من الخادم عند إتاحة مزود دفع.
-const PAYOUT_COUNTRIES=[
-  ['JO','الأردن','JOD'],['EG','مصر','EGP'],
-  ['IQ','العراق','IQD'],['SA','السعودية','SAR'],
-  ['AE','الإمارات','AED'],['PS','فلسطين','ILS'],
-  ['LB','لبنان','USD'],['OTHER','دولة أخرى','USD']
-];
-const PAYOUT_WALLETS={
-  JO:[
-    'Zain Cash الأردن','Orange Money الأردن','UWallet الأردن',
-    'Dinarak','Alawneh Pay','GateToPay Wallet',
-    'MEPS National Wallet','Mad Pay'
-  ],
-  EG:[
-    'Vodafone Cash','Orange Cash','e& money / Etisalat Cash',
-    'WE Pay','الأهلي فون كاش','BM Wallet - بنك مصر',
-    'QNB Wallet','CIB Smart Wallet','ALEXBANK Wallet',
-    'محفظة بنك مصري أخرى'
-  ],
-  IQ:['ZainCash العراق','محفظة عراقية أخرى'],
-  SA:['stc pay / STC Bank','محفظة سعودية أخرى'],
-  AE:['e& money','محفظة إماراتية أخرى'],
-  PS:['محفظة فلسطينية محلية'],
-  LB:['محفظة لبنانية محلية'],
-  OTHER:['محفظة أخرى - اكتب اسمها']
-};
-
 const fmt=x=>Number(x||0).toLocaleString(interfaceLocale());
 
 function normalizeRoomPin(value){
@@ -1199,17 +1168,6 @@ export default function App(){
   const [inventory,setInventory]=useState(["👑 إطار فاخر","🏎️ دخول سيارة فاخرة"]);
   const [equipped,setEquipped]=useState({frame:'👑 إطار فاخر',ride:'🏎️ دخول سيارة فاخرة'});
   const [spent,setSpent]=useState(0),[received,setReceived]=useState(0),[supportLog,setSupportLog]=useState([]);
-  const [payoutCountry,setPayoutCountry]=useState('JO');
-  const [payoutOtherCountry,setPayoutOtherCountry]=useState('');
-  const [payoutMethod,setPayoutMethod]=useState('wallet');
-  const [payoutProvider,setPayoutProvider]=useState('Zain Cash الأردن');
-  const [payoutOtherProvider,setPayoutOtherProvider]=useState('');
-  const [payoutHolder,setPayoutHolder]=useState('');
-  const [payoutAccount,setPayoutAccount]=useState('');
-  const [payoutBankName,setPayoutBankName]=useState('');
-  const [payoutSwift,setPayoutSwift]=useState('');
-  const [payoutAmount,setPayoutAmount]=useState('');
-  const [payoutDrafts,setPayoutDrafts]=useState([]);
 
   const [blockedUsers,setBlockedUsers]=useState([]),[roomSearch,setRoomSearch]=useState(''),[roomError,setRoomError]=useState('');
   const creatingRoom=useRef(false);
@@ -1328,43 +1286,6 @@ export default function App(){
     window.addEventListener('popstate',onPop);
     return ()=>window.removeEventListener('popstate',onPop);
   },[]);
-  const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
-  const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
-  function choosePayoutCountry(code){
-    setPayoutCountry(code);
-    setPayoutProvider((PAYOUT_WALLETS[code]||PAYOUT_WALLETS.OTHER)[0]);
-    setPayoutAccount('');setPayoutBankName('');setPayoutSwift('');
-  }
-  function createPayoutDraft(){
-    // متعمد: لا يرسل بيانات بنكية لخادم ولا يسحب أموالًا.
-    const amount=Number(payoutAmount.replace(',','.'));
-    const provider=payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -')
-      ?payoutOtherProvider.trim():payoutProvider;
-    if(payoutCountry==='OTHER'&&!payoutOtherCountry.trim()){Alert.alert(appText('الدولة'),appText('اكتب اسم الدولة'));return;}
-    if(!payoutHolder.trim()||payoutHolder.trim().length<3){
-      Alert.alert(appText('اسم المستفيد'),appText('أدخل الاسم الحقيقي للمستفيد'));return;
-    }
-    if(!Number.isFinite(amount)||amount<=0){
-      Alert.alert(appText('المبلغ'),appText('أدخل مبلغًا موجبًا بالدولار للمعاينة'));return;
-    }
-    if(payoutMethod==='wallet'&&(!provider||payoutAccount.replace(/\D/g,'').length<7)){
-      Alert.alert(appText('بيانات المحفظة'),appText('اختر المحفظة وأدخل رقم هاتف صحيحًا'));return;
-    }
-    if(payoutMethod==='bank'&&(!payoutBankName.trim()||payoutAccount.trim().length<8)){
-      Alert.alert(appText('بيانات البنك'),appText('أدخل اسم البنك ورقم الحساب/IBAN'));return;
-    }
-    // حفظ مسودة محلية فقط. لا نخزن أرقام حسابات كاملة في سجل المسودات.
-    const masked=payoutAccount.length>4
-      ?'••••'+payoutAccount.slice(-4):'••••';
-    setPayoutDrafts(v=>[{
-      id:String(Date.now()),country:payoutCountry==='OTHER'?payoutOtherCountry.trim():payoutCountryInfo[1],
-      method:payoutMethod,provider:payoutMethod==='bank'?payoutBankName:provider,
-      amount,masked,status:'مسودة فقط - غير مرسلة'
-    },...v].slice(0,12));
-    setPayoutAccount('');setPayoutSwift('');
-    Alert.alert(appText('مسودة فقط'),appText('تم تجهيز معاينة طلب السحب، ولم يتم إرسال طلب أو تحويل أي مبلغ. الرصيد القابل للسحب حاليًا صفر.'));
-  }
-
   const setBalance=w=>{walletRef.current=w;setWallet(w)};
 
   useEffect(()=>{
@@ -1395,8 +1316,6 @@ export default function App(){
         setInventory(["👑 إطار فاخر","🏎️ دخول سيارة فاخرة"]);
         setEquipped({frame:'👑 إطار فاخر',ride:'🏎️ دخول سيارة فاخرة'});
         setSpent(0);setReceived(0);setSupportLog([]);
-        setPayoutDrafts([]);setPayoutAccount('');setPayoutHolder('');
-        setPayoutBankName('');setPayoutSwift('');setPayoutAmount('');
         setHistory([]);setBets({});betsRef.current={};
         phaseRef.current='betting';setPhase('betting');setSeconds(30);
         clearTimeout(timerRef.current);
@@ -1480,7 +1399,7 @@ export default function App(){
     if(auth().currentUser?.uid===u.uid){setName(displayName);indexPublicName(displayName);}
   }
   async function logout(){
-    try{await auth().signOut();if(FACEBOOK_CONFIGURED){try{({}).LoginManager.logOut()}catch(_e){}}setBalance({welcome:WELCOME,purchased:0,owner:0});setPayoutDrafts([]);setSupportLog([]);setReceived(0);setSpent(0);go('login')}
+    try{await auth().signOut();if(FACEBOOK_CONFIGURED){try{({}).LoginManager.logOut()}catch(_e){}}setBalance({welcome:WELCOME,purchased:0,owner:0});setSupportLog([]);setReceived(0);setSpent(0);go('login')}
     catch(e){Alert.alert(ui("تعذر الخروج"),uiError(e))}
   }
 
@@ -1745,9 +1664,6 @@ export default function App(){
   if(page==='earnings')return layout(appText('أرباح المضيف'),<><Btn title={appText("💼 فتح محفظة النقاط")} onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
       <Text style={S.title}>{appText("🎁 الدعم التجريبي: ")}{fmt(received)} 💎</Text>
-      <Text style={S.big}>{appText("💰 القابل للسحب: $0.00")}</Text>
-      <Text style={S.muted}>{appText("رصيد الهدايا لا يساوي أرباحًا ممولة. لن يكتمل السحب إلا بعد ربط خادم مالي، والتحقق من الهوية، ومزود تحويل معتمد.")}</Text>
-      <Btn title={appText("🌍 اختيار قناة السحب")} onPress={()=>go('payout')}/>
     </View>
     <Text style={S.title}>{appText("سجل الدعم داخل المعاينة")}</Text>
     {supportLog.map(x=><View key={x.id} style={S.panel}>
@@ -1755,54 +1671,6 @@ export default function App(){
       <Text style={S.muted}>{appText("المضيف: ")}{x.host}{appText(" · المصدر: ")}{x.source.owner?appText('رصيد مالك'):x.source.welcome?appText('ترحيبي'):appText('مدفوع')}</Text>
     </View>)}
   </>);
-
-  if(page==='payout')return layout(appText('قنوات سحب الأرباح'),<>
-    <View style={S.panel}>
-      <Text style={S.gold}>{appText("التحويل المالي غير مفعّل")}</Text>
-      <Text style={S.muted}>{appText("هذه شاشة اختيار وتجهيز طلب، لا تتم عبرها أي مدفوعات أو إيداعات. يجب التحقق من اعتماد المزود في دولة المستفيد أولًا.")}</Text>
-      <Text style={S.white}>{appText("الرصيد القابل للسحب: $0.00")}</Text>
-    </View>
-    <Text style={S.label}>{appText("الدولة / البلد")}</Text>
-    <View style={S.choiceWrap}>
-      {PAYOUT_COUNTRIES.map(c=><TouchableOpacity key={c[0]} onPress={()=>choosePayoutCountry(c[0])} style={[S.choice,payoutCountry===c[0]&&S.choiceActive]}>
-        <Text style={S.white}>{appText(c[1])}</Text>
-      </TouchableOpacity>)}
-    </View>
-    {payoutCountry==='OTHER'&&<TextInput style={S.input} placeholder={appText("اسم الدولة")} value={payoutOtherCountry} onChangeText={setPayoutOtherCountry}/>}
-    <Text style={S.muted}>{appText("البلد المختار: ")}{appText(payoutCountryInfo[1])}{appText(" · العملة المرجعية: ")}{payoutCountryInfo[2]}{appText(" (دون احتساب صرف فعلي)")}</Text>
-    <Text style={S.label}>{appText("طريقة الاستلام")}</Text>
-    <View style={S.row}>
-      <Btn title={appText("📱 محفظة هاتف")} color={payoutMethod==='wallet'?PINK:theme.sea} onPress={()=>setPayoutMethod('wallet')}/>
-      <Btn title={appText("🏦 بنك / IBAN")} color={payoutMethod==='bank'?PINK:theme.sea} onPress={()=>setPayoutMethod('bank')}/>
-    </View>
-    {payoutMethod==='wallet'?<>
-      <Text style={S.label}>{appText("المحفظة")}</Text>
-      <View style={S.choiceWrap}>{payoutOptions.map(option=><TouchableOpacity key={option} onPress={()=>setPayoutProvider(option)} style={[S.choice,payoutProvider===option&&S.choiceActive]}>
-        <Text style={S.white}>{appText(option)}</Text>
-      </TouchableOpacity>)}</View>
-      {(payoutProvider.includes('أخرى')||payoutProvider.includes('أخرى -'))&&<TextInput style={S.input} placeholder={appText("اسم المحفظة الأخرى")} value={payoutOtherProvider} onChangeText={setPayoutOtherProvider}/>}
-      <Text style={S.label}>{appText("رقم الهاتف المرتبط بالمحفظة (مع رمز الدولة)")}</Text>
-      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} keyboardType="phone-pad" placeholder={appText("مثال: +9627...")}/>
-    </>:<>
-      <Text style={S.label}>{appText("اسم البنك (أي بنك في الدولة المختارة)")}</Text>
-      <TextInput style={S.input} value={payoutBankName} onChangeText={setPayoutBankName} placeholder={appText("أدخل اسم البنك كما هو رسميًا")}/>
-      <Text style={S.label}>{appText("رقم الحساب / IBAN")}</Text>
-      <TextInput style={S.input} value={payoutAccount} onChangeText={setPayoutAccount} autoCapitalize="characters" placeholder={appText("IBAN أو رقم الحساب")}/>
-      <Text style={S.label}>{appText("SWIFT / BIC (اختياري في المعاينة)")}</Text>
-      <TextInput style={S.input} value={payoutSwift} onChangeText={setPayoutSwift} autoCapitalize="characters" placeholder={appText("رمز البنك")}/>
-    </>}
-    <Text style={S.label}>{appText("الاسم القانوني للمستفيد")}</Text>
-    <TextInput style={S.input} value={payoutHolder} onChangeText={setPayoutHolder} placeholder={appText("كما هو مسجل بالمحفظة أو البنك")}/>
-    <Text style={S.label}>{appText("المبلغ المطلوب بالدولار (تجريبي)")}</Text>
-    <TextInput style={S.input} keyboardType="decimal-pad" value={payoutAmount} onChangeText={setPayoutAmount} placeholder="0.00"/>
-    <Btn title={appText("حفظ مسودة طلب السحب فقط")} onPress={createPayoutDraft}/>
-    <Text style={S.muted}>{appText("لا تتاح الموافقة أو التحويل حتى يكون لديك رصيد مستحق تم تأكيده من الخادم، مع التحقق من الهوية والبلد والأهلية ورسوم التحويل.")}</Text>
-    {payoutDrafts.length>0&&<Text style={S.title}>{appText("مسودات الطلبات في هذه الجلسة")}</Text>}
-    {payoutDrafts.map(d=><View key={d.id} style={S.panel}>
-      <Text style={S.white}>{d.country} · {d.provider} · ${d.amount.toFixed(2)}</Text>
-      <Text style={S.muted}>{d.masked} · {d.status}</Text>
-    </View>)}
-  </>,back);
 
   if(page==='store')return <HubScreen title={ui("المتجر")} action={{label:ui("رجوع"),onPress:back}} dock={nav()}>
     <ClipiCollection copy={{store:ui("المتجر"),frame:ui("إطارات"),ride:ui("مؤثرات الدخول"),numbers:ui("أرقام مميزة"),owned:ui("مقتنياتي"),buy:ui("شراء"),equip:ui("تفعيل"),remove:ui("إزالة"),retry:ui("إعادة تحميل الأرقام"),translate:ui}}
@@ -1872,7 +1740,7 @@ export default function App(){
   if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>
-    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert(appText('قواعد اللعبة'),appText('محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.'))}>{appText("📜 قاعدة")}</Text><View style={S.starBrand}><Text style={S.starBrandText}>{appText("Greedy Star")}</Text></View><Text style={S.starRound}>{appText("جولة تجريبية")}</Text></View>
+    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert(appText('قواعد اللعبة'),appText('محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. اللعبة تجريبية ولا تمنح مكافآت.'))}>{appText("📜 قاعدة")}</Text><View style={S.starBrand}><Text style={S.starBrandText}>{appText("Greedy Star")}</Text></View><Text style={S.starRound}>{appText("جولة تجريبية")}</Text></View>
     <ScrollView contentContainerStyle={S.starScroll}>
       <View style={S.starWheel}>
         <View style={S.starWheelRing}/>

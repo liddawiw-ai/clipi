@@ -78,6 +78,7 @@ export async function checkNavigation(browser) {
         }
       };
     });
+    let submittedReward=null;
     let assigned = false,hidden=false;
     const played=new Set(),finished=new Set();
     let releaseRandom;
@@ -143,6 +144,10 @@ export async function checkNavigation(browser) {
       if(op==='shortGift'){
         assert.ok(completed&&giftDiamonds>=10);assert.equal(body.gift,'وردة حمراء');
         sentGifts++;giftDiamonds-=10;return route.fulfill({json:{sent:true}});
+      }
+      if(op==='hostEarnings'||op==='requestRewardReview'){
+        if(op==='requestRewardReview'){assert.equal(body.points,2250);submittedReward=body.points;}
+        return route.fulfill({json:{statementPoints:2500,contact:'••••1234',funded:{availablePoints:2500},review:submittedReward?{detail:'2250 نقطة · ••••1234',created:Date.now()/1000}:null}});
       }
       if(op==='shortWatch'){
         played.add(body.clip);if(body.finished)finished.add(body.clip);
@@ -473,6 +478,14 @@ export async function checkNavigation(browser) {
       assert.ok(!(await button('إرسال').isEnabled()));
       await button('شحن بعملة Pi').click();
       await pageFull('wallet');await p.getByText('شراء الماس بعملة Pi',{exact:true}).waitFor();
+      await button('محفظة المضيف').click();
+      await p.getByText('مكافآت المضيف',{exact:true}).waitFor();
+      const rewardField=p.getByRole('textbox',{name:'عدد نقاط المكافأة'}),sendReward=button('إرسال طلب مكافأة');
+      await rewardField.fill('٢٢٥٠');await sendReward.click();
+      await p.getByText(/قيد المراجعة/).first().waitFor();
+      assert.equal(submittedReward,2250);
+      assert.doesNotMatch(await p.locator('body').innerText(),/دولار|سحب|USD|\$/);
+      await button('رجوع').click();await pageFull('wallet');
       assert.equal(await p.getByText('بطاقة تجريبية',{exact:true}).count(),0);
       await p.getByRole('button',{name:/💎 · 1 PI$/}).click();
       await p.getByText('تم شحن الماس',{exact:true}).waitFor();assert.ok(completed);

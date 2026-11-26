@@ -1,9 +1,10 @@
+import {rewardDetail} from './reward-detail.mjs';
 import {uiError,ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useEffect,useRef,useState} from 'react';
 import {ScrollView,StyleSheet,Text,TextInput,TouchableOpacity,View} from 'react-native';
 
-export const caseLabels={'withdrawal-review':'مراجعة سحب الأرباح',help:'طلب مساعدة',comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
+export const caseLabels={'withdrawal-review':'طلب مكافأة',help:'طلب مساعدة',comment:'إبلاغ عن تعليق',video:'إبلاغ عن الفيديو',room:'بلاغ عن البث',participant:'بلاغ عن مشارك',message:'بلاغ عن رسالة',purchase:'مشكلة في عملية شراء',deletion:'طلب حذف الحساب'};
   function formatComment(value){
     try{const row=JSON.parse(value);return (row.body||appText('صورة التعليق'))+' · #'+row.id+' · '+row.clip}
     catch{return value}
@@ -63,10 +64,10 @@ export function HelpCenter({request,newId,lang='ar',initialKind=null,initialSubj
    {(queue||data?.cases)?.map(item=><View key={item.id} style={s.card}>
      <Text style={s.text}>{t(caseLabels[item.kind])} · {t(item.reply?'رد الإدارة':item.state==='open'?'جديد':item.state==='reviewed'?'تمت المراجعة':'تمت المعالجة')}</Text>
      <Text selectable style={s.text}>{t('رقم الطلب')} · {item.id}</Text>
-     {!queue&&item.question&&<Text style={s.text}>{item.question}</Text>}
+     {!queue&&item.question&&<Text style={s.text}>{item.kind==='withdrawal-review'?rewardDetail(item.question,t('نقطة'),document.documentElement.lang||'ar'):item.question}</Text>}
      {!!item.reply&&<Text selectable style={s.text}>{t('رد الإدارة')} · {item.reply}</Text>}
      {queue&&<><Text selectable style={s.text}>{t('معرّف الحساب')} · {item.uid}</Text>
-       {!!item.subject&&<Text selectable style={s.text}>{item.kind==='comment'?formatComment(item.subject):item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.detail}</Text>}
+       {!!item.subject&&<Text selectable style={s.text}>{item.kind==='comment'?formatComment(item.subject):item.subject}</Text>}{!!item.detail&&<Text selectable style={s.text}>{item.kind==='withdrawal-review'?rewardDetail(item.detail,t('نقطة'),document.documentElement.lang||'ar'):item.detail}</Text>}
        {['help','withdrawal-review'].includes(item.kind)&&<>
          <TextInput style={s.input} multiline maxLength={800} value={replies[item.id]||''} accessibilityLabel={t('رد الإدارة')} placeholder={t('رد الإدارة')} onChangeText={value=>setReplies(old=>({...old,[item.id]:value}))}/>
          {button(t('إرسال الرد'),async()=>{if(pending.current)return;pending.current=true;setBusy(true);

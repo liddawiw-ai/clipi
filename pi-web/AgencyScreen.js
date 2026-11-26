@@ -124,7 +124,7 @@ export default function AgencyScreen({request}){
         <Action title={appText("الشهر التالي")} disabled={month>=thisMonth()} onPress={()=>setMonth(stepMonth(month,1))}/></View>
       {totals?<><Text style={s.label}>{appText("الماس المستلم · ")}{totals.diamonds}</Text>
         {Object.entries({host:'المضيف',agent:'الوكيل',platform:'البرنامج'}).filter(([k])=>totals[k]!=null).map(([k,title])=>
-          <Text key={k} style={s.label}>{appText(title)+' · '+totals[k]+appText(' نقطة · ')+(totals[k]/100).toFixed(2)+appText(' دولار تقديري')}</Text>)}</>:
+          <Text key={k} style={s.label}>{appText(title)+' · '+totals[k]+' '+appText('نقطة')}</Text>)}</>:
         <Text style={s.label}>{appText("الكشف الخاص متاح لأعضاء الوكالة وإدارتها")}</Text>}
     </>}
     {!!id&&<Action title={appText("قائمة الوكالات")} onPress={()=>go(null)}/>}

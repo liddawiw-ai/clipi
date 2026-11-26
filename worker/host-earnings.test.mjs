@@ -32,7 +32,7 @@ test('receiving choices, statement points and private help replies follow the si
   for(let i=0;i<2;i++)assert.equal((await help('admin',{op:'caseReply',id,body:'Open the upload panel.'})).status,200);
   assert.equal((await help('host',{op:'caseList'})).body.cases[0].reply,'Open the upload panel.');
   assert.equal((await help('visitor',{op:'caseList'})).body.cases.length,0);
-  const funded={availableUsdMinor:2550};
+  const funded={availablePoints:2550};
   assert.equal(await requestWithdrawalReview(q,'host',3500,funded,'verified contact'),false);
   for(let i=0;i<2;i++)assert.equal(await requestWithdrawalReview(q,'host',2250,funded,'verified contact'),true);
   assert.equal((await help('admin',{op:'caseQueue'})).body.cases.length,0);
@@ -42,6 +42,8 @@ test('receiving choices, statement points and private help replies follow the si
   assert.equal((await help('owner',{op:'caseReply',id:review.id,body:'Under review'})).status,200);
   assert.equal((await wallet('host',{op:'hostEarnings'})).body.review.reply,'Under review');
   assert.equal((await wallet('visitor',{op:'hostEarnings'})).body.review,null);
+  assert.equal(await requestWithdrawalReview(q,'other-host',2250,funded,'verified contact',true),true);
+  assert.equal((await wallet('other-host',{op:'hostEarnings'})).body.review.detail,'2250 نقطة · verified contact');
 
 });
 test('read the funded wallet and current withdrawal with a per-account field mask',async t=>{
@@ -52,5 +54,5 @@ test('read the funded wallet and current withdrawal with a per-account field mas
     return Response.json({fields:requested.pathname.endsWith('/one')?{state:{stringValue:'pending'},points:{integerValue:'2000'}}:
       {availablePoints:{integerValue:'350'},activeWithdrawal:{stringValue:'one'}}});
   });
-  assert.deepEqual(await fundedSnapshot({},'host','test'),{availableUsdMinor:350,nextEligibleAt:null,withdrawal:{id:'one',points:2000,state:'pending'}});
+  assert.deepEqual(await fundedSnapshot({},'host','test'),{availablePoints:350,nextEligibleAt:null,withdrawal:{id:'one',points:2000,state:'pending'}});
 });

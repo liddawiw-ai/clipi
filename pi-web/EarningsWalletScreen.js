@@ -26,10 +26,9 @@ export default function EarningsWalletScreen({request,onBack}){
   return <ScrollView contentContainerStyle={{padding:18,gap:12,backgroundColor:theme.paper}}>
     <TouchableOpacity accessibilityRole="button" onPress={onBack} style={button}><Text>{ui('رجوع')}</Text></TouchableOpacity>
     <Text style={{fontSize:22,fontWeight:'bold'}}>{ui('محفظة المضيف')}</Text>
-    {data&&<Text>{data.availablePoints} {ui('نقطة')} · ${(data.availableUsdMinor/100).toFixed(2)}</Text>}
     {!!error&&<Text accessibilityLiveRegion="polite">{ui(error)}</Text>}
     <TouchableOpacity accessibilityRole="button" onPress={reload} style={button}><Text>{ui('تحديث المحفظة')}</Text></TouchableOpacity>
-    <PayoutPicker verifyEmail={()=>auth().currentUser.sendEmailVerification()} request={request} call={call} data={data} reload={reload}/>
+    <PayoutPicker verifyEmail={()=>auth().currentUser.sendEmailVerification()} request={request} data={data} revision={revision}/>
     {data&&<View style={{gap:8}}>
       {data.pinConfigured&&<TextInput placeholder={ui('الرقم الحالي')} secureTextEntry keyboardType="number-pad" maxLength={6} value={currentPin} onChangeText={setCurrentPin}/>}
       <TextInput placeholder={ui('الرقم الجديد - 6 أرقام')} secureTextEntry keyboardType="number-pad" maxLength={6} value={pin} onChangeText={setPin}/>

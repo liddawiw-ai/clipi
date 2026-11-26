@@ -1,5 +1,12 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "حالة طلب المكافأة": "Reward request status",
+  "طلب مكافأة": "Reward request",
+  "إرسال طلب مكافأة": "Submit reward request",
+  "عدد نقاط المكافأة": "Number of reward points",
+  "يراجع المالك طلب المكافأة ويرسل الرد إلى صندوق الوارد.": "The owner reviews your reward request and sends the reply to your inbox.",
+  "تحقّق من وسيلة الاستلام والنقاط المتاحة وموعد طلب المكافأة": "Check your receiving method, available points and reward request date.",
+
   "صور": "Photos",
   "التقاط صورة": "Take photo",
   "الكتابة على الشاشة": "Add text",
@@ -1280,7 +1287,7 @@ export const english = {
   "مثال: +9627...": "Example: +9627…",
   "مجموع الجولة": "Round total",
   "محاكاة شحن": "Simulate top-up",
-  "محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.": "Development simulation only. Choose up to six of eight spaces. No money or prizes can be withdrawn.",
+  "محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. اللعبة تجريبية ولا تمنح مكافآت.": "Development simulation only. Choose up to six of eight spaces. This game does not award rewards.",
   "محاولات كثيرة. انتظر قليلًا ثم أعد المحاولة.": "Too many attempts. Wait a moment and try again.",
   "محاولات كثيرة. حاول مرة أخرى لاحقًا.": "Too many attempts. Try again later.",
   "محفظة Clipi محمية": "Clipi wallet is protected",
