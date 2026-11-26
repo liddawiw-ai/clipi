@@ -122,6 +122,116 @@ function Btn({title,onPress,color=ORANGE,disabled=false}){
     <Text style={[S.white,color===ORANGE&&!disabled&&S.orangeInk]}>{title}</Text>
   </TouchableOpacity>;
 }
+async function facebookCredential(){
+  const {LoginManager,AccessToken,AuthenticationToken}=require('react-native-fbsdk-next');
+  if(Platform.OS==='ios'){
+    const rawNonce=Crypto.randomUUID();
+    const hashedNonce=await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,rawNonce);
+    const response=await LoginManager.logInWithPermissions(['public_profile','email'],'limited',hashedNonce);
+    if(response.isCancelled)return;
+    const token=await AuthenticationToken.getAuthenticationTokenIOS();
+    if(!token?.authenticationToken)throw new Error(appText('Facebook Limited Login لم يرجع رمزًا'));
+    return auth.FacebookAuthProvider.credential(token.authenticationToken,rawNonce);
+  }else{
+    const response=await LoginManager.logInWithPermissions(['public_profile','email']);
+    if(response.isCancelled)return;
+    const token=await AccessToken.getCurrentAccessToken();
+    if(!token?.accessToken)throw new Error(appText('Facebook لم يرجع Access Token'));
+    return auth.FacebookAuthProvider.credential(token.accessToken);
+  }
+}
+
+function AccountLinks({uid,locale}){
+  const [form,setForm]=useState('');
+  const [email,setEmail]=useState('');
+  const [password,setPassword]=useState('');
+  const [phone,setPhone]=useState('');
+  const [code,setCode]=useState('');
+  const [verification,setVerification]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+  const lock=useRef(false);
+  const mounted=useRef(true);
+  useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false}},[]);
+  const t=(ar,en)=>locale==='ar'?ar:appText(en);
+  const current=auth().currentUser;
+  const providers=new Set(current?.providerData?.map(provider=>provider.providerId));
+  function account(){
+    const active=auth().currentUser;
+    if(!mounted.current||active?.uid!==uid)throw Error(t('تغير الحساب. افتح الإعدادات من جديد.','Reopen settings for your current account.'));
+    return active;
+  }
+  async function run(action){
+    if(lock.current)return;
+    lock.current=true;setBusy(true);setMessage('');
+    try{account();await action()}
+    catch(error){
+      const used=['auth/credential-already-in-use','auth/email-already-in-use','auth/account-exists-with-different-credential'].includes(error.code);
+      if(mounted.current)setMessage(used?t('هذه الوسيلة مرتبطة بحساب آخر.','Already linked to another account.'):uiError(error));
+    }finally{lock.current=false;if(mounted.current)setBusy(false)}
+  }
+  function toggle(next){
+    setForm(form===next?'':next);setMessage('');setPassword('');setVerification(null);setCode('');
+  }
+  async function link(credential){
+    const result=await account().linkWithCredential(credential);
+    account();setForm('');setPassword('');setCode('');setVerification(null);
+    setMessage(t('تم الربط بحسابك.','Linked to your account.'));
+    return result.user;
+  }
+  async function verifyEmail(){
+    await account().sendEmailVerification();
+    setMessage(t('أرسلنا رابط التأكيد إلى بريدك.','Check your email for the verification link.'));
+  }
+  async function linkEmail(){
+    const linked=await link(auth.EmailAuthProvider.credential(email.trim(),password));
+    if(!linked.emailVerified){
+      try{await verifyEmail()}catch{setMessage(t('تم ربط البريد. أعد إرسال رابط التأكيد.','Email linked. Please resend the verification link.'))}
+    }
+  }
+  async function beginPhone(){
+    const number=phone.trim().replace(/[ ()-]/g,'');
+    if(!/^\+[1-9]\d{6,14}$/.test(number))throw Error(t('أدخل الرقم مع رمز الدولة مثل ‎+962.','Include your country code, for example +962.'));
+    const snapshot=await new Promise((resolve,reject)=>{
+      auth().verifyPhoneNumber(number).on('state_changed',event=>{
+        if(event.error)reject(event.error);
+        else if(event.state==='verified'||event.verificationId)resolve(event);
+      },reject);
+    });
+    account();
+    if(snapshot.state==='verified'){
+      await link(auth.PhoneAuthProvider.credential(snapshot.verificationId,snapshot.code));
+    }else{
+      setVerification(snapshot.verificationId);
+      setMessage(t('أدخل رمز التحقق المرسل إلى هاتفك.','Enter the code sent to your phone.'));
+    }
+  }
+  const button=(title,onPress,disabled=false)=><Btn title={title} onPress={onPress} disabled={busy||disabled}/>;
+  return <View style={S.panel}>
+    {button(providers.has('password')?t('البريد مرتبط','Email linked')+' · '+current.email:t('ربط البريد','Link email'),()=>toggle('email'),providers.has('password'))}
+    {providers.has('password')&&!current.emailVerified&&button(t('إعادة إرسال رابط التأكيد','Resend verification email'),()=>run(verifyEmail))}
+    {form==='email'&&<View>
+      <TextInput style={S.input} editable={!busy} placeholder={t('البريد الإلكتروني','Email address')} keyboardType="email-address" autoCapitalize="none" autoCorrect={false} value={email} onChangeText={setEmail}/>
+      <TextInput style={S.input} editable={!busy} placeholder={t('كلمة مرور للبريد في كليبي','Password for email sign-in to Clipi')} secureTextEntry value={password} onChangeText={setPassword}/>
+      {button(t('تأكيد ربط البريد','Confirm email linking'),()=>run(linkEmail),!email.trim()||!password)}
+    </View>}
+    {button(providers.has('facebook.com')?'Facebook linked':'Link Facebook',()=>run(async()=>{
+      if(!FACEBOOK_CONFIGURED)throw Error(t('ربط فيسبوك غير متاح في هذه النسخة.','Facebook linking is unavailable in this build.'));
+      const credential=await facebookCredential();
+      if(credential)await link(credential);
+    }),providers.has('facebook.com'))}
+    {button(providers.has('phone')?t('الهاتف مرتبط','Phone linked')+' · '+current.phoneNumber:t('ربط رقم الهاتف','Link phone number'),()=>toggle('phone'),providers.has('phone'))}
+    {form==='phone'&&<View>
+      <TextInput style={S.input} placeholder="+962…" editable={!busy&&!verification} keyboardType="phone-pad" value={phone} onChangeText={setPhone}/>
+      {verification?<><TextInput style={S.input} placeholder={t('رمز التحقق','Verification code')} keyboardType="number-pad" editable={!busy} value={code} onChangeText={setCode} maxLength={6}/>
+        {button(t('تأكيد رقم الهاتف','Confirm phone number'),()=>run(()=>link(auth.PhoneAuthProvider.credential(verification,code))),!/^\d{6}$/.test(code))}
+        {button(t('تغيير الرقم أو إعادة المحاولة','Change number or retry'),()=>{setVerification(null);setCode('');setMessage('')})}</>:
+        button(t('إرسال رمز التحقق','Send verification code'),()=>run(beginPhone),!phone.trim())}
+    </View>}
+    {!!message&&<Text accessibilityLiveRegion="polite" style={S.muted}>{message}</Text>}
+  </View>;
+}
+
 function Small({title,onPress,color=ORANGE,plain=false}){
   return <TouchableOpacity accessibilityRole="button" onPress={onPress} style={[S.small,S.compact,{backgroundColor:plain?'transparent':color}]}>
     <Text style={[S.white,color===ORANGE&&S.orangeInk]}>{title}</Text>
@@ -1798,23 +1908,8 @@ export default function App(){
     if(!FACEBOOK_CONFIGURED)return Alert.alert(appText('إعداد Facebook'),appText('أكمل EXPO_PUBLIC_FACEBOOK_APP_ID وEXPO_PUBLIC_FACEBOOK_CLIENT_TOKEN وإعداد مزود Facebook في Firebase قبل تسجيل الدخول'));
     setBusy(true);setAuthError('');
     try{
-      const {LoginManager,AccessToken,AuthenticationToken}=require('react-native-fbsdk-next');
-      let credential;
-      if(Platform.OS==='ios'){
-        const rawNonce=Crypto.randomUUID();
-        const hashedNonce=await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256,rawNonce);
-        const response=await LoginManager.logInWithPermissions(['public_profile','email'],'limited',hashedNonce);
-        if(response.isCancelled)return;
-        const token=await AuthenticationToken.getAuthenticationTokenIOS();
-        if(!token?.authenticationToken)throw new Error(appText('Facebook Limited Login لم يرجع رمزًا'));
-        credential=auth.FacebookAuthProvider.credential(token.authenticationToken,rawNonce);
-      }else{
-        const response=await LoginManager.logInWithPermissions(['public_profile','email']);
-        if(response.isCancelled)return;
-        const token=await AccessToken.getCurrentAccessToken();
-        if(!token?.accessToken)throw new Error(appText('Facebook لم يرجع Access Token'));
-        credential=auth.FacebookAuthProvider.credential(token.accessToken);
-      }
+      const credential=await facebookCredential();
+      if(!credential)return;
       const signed=await auth().signInWithCredential(credential);
       try{await saveProfile(signed.user,signed.user.displayName||name.trim())}
       catch(profileError){console.warn('Facebook profile sync:',profileError.message)}
@@ -2220,7 +2315,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),uiError(e))}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,back);
+  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<AccountLinks key={user.uid} uid={user.uid} locale={locale}/><Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),uiError(e))}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,back);
   if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>

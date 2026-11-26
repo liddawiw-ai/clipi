@@ -36,7 +36,7 @@ export const accountLabels = {
     "rooms": "الغرف",
     "host": "مركز المضيف",
     "settings": "الإعدادات",
-    "edit": "تعديل الملف الشخصي",
+    "edit": "تعديل بياناتي",
     "account": "حسابي",
     "back": "رجوع",
     "changeLanguage": "تغيير اللغة",
