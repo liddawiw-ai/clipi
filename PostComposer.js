@@ -2,6 +2,7 @@ import {useShortCaption} from './useShortCaption';
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import CaptureStudio from './CaptureStudio';
+import {CameraTool,CameraTextEditor} from './CaptureTools';
 import {Album,Overlay} from './Album';
 import {Player,releaseDraft,uploadFile} from './ShortMedia';
 import {useShortPlayback} from './useShortPlayback';
@@ -18,10 +19,11 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   const [draft,setDraft]=useState(null),[studio,setStudio]=useState(true),[ready,setReady]=useState(false);
   const [title,setTitle]=useState(''),[overlay,setOverlay]=useState(''),[notes,setNotes]=useState([]),[index,setIndex]=useState(0);
   const [cues,setCues]=useState([]),[cue,setCue]=useState(null),[accepted,setAccepted]=useState(false),[muted,setMuted]=useState(true);
+  const [writing,setWriting]=useState(false);
   const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[policy,setPolicy]=useState(null);
   const uid=viewer?.uid,life=useRef(true),job=useRef(null),cached=useRef(null),lock=useRef(false),player=useRef(null);
   const studioBack=useRef(null);
-  const photos=draft?.photos,editable=!busy&&!job.current,playback=useShortPlayback(draft?.uri,!!draft?.uri&&!studio&&!cue&&!policy);
+  const photos=draft?.photos,editable=!busy&&!job.current,playback=useShortPlayback(draft?.uri,!!draft?.uri&&!studio&&!cue&&!policy&&!writing);
   const timedText=useShortCaption(player,cues,!!draft?.uri&&!studio);
   useEffect(()=>()=>{if(draft?.uri)releaseDraft(draft);},[draft]);
   useEffect(()=>{
@@ -34,9 +36,14 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
     else setReady(true);
     return ()=>{current=false;life.current=false;};
   },[uid]);
-  function selectMedia(media){
-    job.current=null;cached.current=null;setDraft(media);setStudio(false);setTitle('');setOverlay('');setNotes(media.photos?.map(()=>'')||[]);
+  function selectMedia(media,initialText=''){
+    setWriting(false);
+    job.current=null;cached.current=null;setDraft(media);setStudio(false);setTitle('');setOverlay(media.photos?'':initialText);setNotes(media.photos?.map((_,i)=>i===0?initialText:'')||[]);
     setIndex(0);setCues([]);setCue(null);setAccepted(false);setNotice('');
+  }
+  function changeText(value){
+    if(photos)setNotes(prev=>prev.map((note,i)=>i===index?value:note));
+    else setOverlay(value);
   }
   function changeOrder(step){
     if(!editable)return;
@@ -83,13 +90,12 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   return <View style={s.screen}>
     <View style={s.preview}>{photos?<Album count={photos.length} uri={'data:image/jpeg;base64,'+photos[index]} notes={notes} index={index} setIndex={setIndex}/>:
       <><Player playback={playback} source={draft.uri} muted={muted} fit="contain" playerRef={player} onMuteRequired={setMuted}/><Overlay text={overlay}/><Overlay text={cue?.text||timedText} timed/>
-        <View style={s.audio}><Action label={muted?'تشغيل الصوت':'كتم الصوت'} onPress={()=>setMuted(!muted)}/></View></>}</View>
+        <View style={s.audio}><Action label={muted?'تشغيل الصوت':'كتم الصوت'} onPress={()=>setMuted(!muted)}/></View></>}
+      <View style={s.typeTool}><CameraTool icon="T" label="الكتابة على الشاشة" onPress={()=>setWriting(true)} disabled={!editable}/></View>
+    </View>
     <ScrollView style={s.panel} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
       {photos&&photos.length>1&&<View style={s.row}><Action label="تقديم الصورة" disabled={!editable||index===0} onPress={()=>changeOrder(-1)}/>
         <Action label="تأخير الصورة" disabled={!editable||index===photos.length-1} onPress={()=>changeOrder(1)}/><Action label="إزالة الصورة" disabled={!editable} onPress={removePhoto}/></View>}
-      <Text style={s.label}>{ui(photos?'النص على الصورة':'النص على الفيديو')}</Text>
-      <TextInput accessibilityLabel={ui(photos?'النص على الصورة':'النص على الفيديو')} placeholder={ui('اكتب هنا')} placeholderTextColor="#a4afa9" maxLength={160}
-        multiline editable={editable} style={s.field} value={photos?(notes[index]||''):overlay} onChangeText={t=>photos?setNotes(v=>v.map((x,i)=>i===index?t:x)):setOverlay(t)}/>
       {!photos&&<Action label="إضافة نص متزامن" disabled={!editable||!!cue||cues.length>=80} onPress={()=>{setCue({at:Math.round((player.current?.currentTime||0)*10)/10,text:''});}}/>}
       {cue&&<><TextInput accessibilityLabel={ui('نص اللقطة')} value={cue.text} style={s.field} maxLength={160} onChangeText={text=>setCue({...cue,text})}/>
         <Action label="تثبيت النص عند هذه اللقطة" disabled={!editable||!cue.text.trim()||cues.length>=80} onPress={()=>{setCues(withCue());setCue(null);}}/><Action label="إلغاء" onPress={()=>setCue(null)}/></>}
@@ -102,17 +108,20 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
       <View style={s.row}><Action label="حفظ المسودة" disabled={busy} onPress={()=>perform(async()=>{await save(false);if(life.current)setNotice(ui('تم حفظ المسودة على هذا الجهاز'));})}/>
         <Action label="حذف المسودة" disabled={busy} onPress={()=>perform(async()=>{await clearShortDraft(uid);if(life.current){job.current=null;cached.current=null;setDraft(null);setStudio(true);}})}/>
         <Action label="رجوع للكاميرا" disabled={busy} onPress={()=>setStudio(true)}/></View>
-    </ScrollView>{policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</View>;
+    </ScrollView>{writing&&<CameraTextEditor label={photos?'النص على الصورة':'النص على الفيديو'}
+      value={photos?(notes[index]||''):overlay} onChange={changeText} onDone={()=>setWriting(false)}/>}
+    {policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</View>;
   }
   return <Modal visible presentationStyle="fullScreen" animationType="slide" onRequestClose={()=>{
     if(lock.current)return;
-    if(policy)setPolicy(null);
+    if(writing)setWriting(false);
+    else if(policy)setPolicy(null);
     else if(studio)studioBack.current?.();
     else setStudio(true);
   }}>{content()}</Modal>;
 }
 const s=StyleSheet.create({screen:{flex:1,backgroundColor:'#141a1b'},preview:{flex:1,minHeight:115,backgroundColor:'#080a0b',overflow:'hidden'},
   panel:{flexGrow:0,maxHeight:'53%',backgroundColor:'#202828'},content:{padding:14,gap:7},label:{color:'#fff',fontSize:15,fontWeight:'600'},
-  audio:{position:'absolute',top:6,right:8},field:{backgroundColor:'#293333',color:'white',paddingHorizontal:12,paddingVertical:9,borderRadius:9,fontSize:16,minHeight:44},
+  typeTool:{position:'absolute',top:5,right:6},audio:{position:'absolute',top:6,left:8},field:{backgroundColor:'#293333',color:'white',paddingHorizontal:12,paddingVertical:9,borderRadius:9,fontSize:16,minHeight:44},
   row:{flexDirection:'row',flexWrap:'wrap',gap:5},action:{backgroundColor:'#35403f',minHeight:42,paddingHorizontal:12,paddingVertical:8,borderRadius:9,alignItems:'center',justifyContent:'center'},
   primary:{backgroundColor:'#ad355d'}});
