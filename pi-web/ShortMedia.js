@@ -1,3 +1,4 @@
+import {createShortPlayback} from './short-playback.mjs';
 import React,{useLayoutEffect,useImperativeHandle,useRef,useState} from 'react';
 import {checkShortVideo} from './short-upload-limits.mjs';
 
@@ -11,16 +12,24 @@ export function startProfileVideo(source, poster, playable, preparedVideo) {
   if (poster) video.poster = poster;
   if (video.getAttribute('src') !== source) video.src = source;
   // Start inside the tile's tap, before the modal has measured its layout.
-  if (playable && !document.hidden) video.play().catch(() => {});
+  if (playable && !document.hidden){
+    const startup=createShortPlayback();
+    startup.select(source);startup.focus();
+    startup.attach(source,{
+      start:()=>video.play().catch(()=>{}),
+      stop:()=>{video.muted=true;video.pause();}
+    });
+  }
   return video;
 }
 
-export function Player({source, initialVideo, active=true, muted=true, preload='auto', playerRef,
+export function Player({source, clipId, playback, initialVideo, active=true, muted=true, preload='auto', playerRef,
   onMuteRequired, onPlayBlocked, poster, onTimeUpdate, onPlayingChange, fit='cover'}) {
   const container = useRef(null);
   const [video] = useState(() => initialVideo || document.createElement('video'));
   const callbacks = useRef({});
-  callbacks.current = {onMuteRequired, onPlayBlocked, onPlayingChange, onTimeUpdate};
+  const audio=useRef(null);
+  callbacks.current = {muted,onMuteRequired, onPlayBlocked, onPlayingChange, onTimeUpdate};
   useImperativeHandle(playerRef, () => video, [video]);
 
   useLayoutEffect(() => {
@@ -48,7 +57,7 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
   }, [video]);
 
   useLayoutEffect(() => {video.style.objectFit = fit;}, [video, fit]);
-  useLayoutEffect(() => {video.defaultMuted = video.muted = muted;}, [video, muted]);
+
   useLayoutEffect(() => {
     video.preload = preload;
     if (poster) video.poster = poster;
@@ -56,36 +65,53 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
   }, [video, preload, poster, source]);
 
   useLayoutEffect(() => {
-    let current = true, gestureRequired = false;
-    video.autoplay = active;
-    function sync() {
-      if (!active || document.hidden) {video.pause(); return;}
-      if (!video.paused) return;
-      video.play().catch(error => {
-        if (!current || document.hidden || error.name !== 'NotAllowedError') return;
-        if (video.muted) {gestureRequired = true; callbacks.current.onPlayBlocked?.(); return;}
-        video.muted = true;
+    let gestureRequired=false, pageVisible=!document.hidden;
+    function selected(){return pageVisible&&!document.hidden&&playback.owns(control);}
+    function allowed(){return active&&selected();}
+    function stop(){video.autoplay=false;video.defaultMuted=video.muted=true;video.pause();}
+    function applyVolume(){video.defaultMuted=video.muted=!selected()||callbacks.current.muted;}
+    function start(){
+      if(!allowed()){stop();return;}
+      applyVolume();
+      if(!video.paused)return;
+      video.play().catch(error=>{
+        if(!allowed()||error.name!=='NotAllowedError')return;
+        if(video.muted){gestureRequired=true;callbacks.current.onPlayBlocked?.();return;}
+        video.defaultMuted=video.muted=true;
         callbacks.current.onMuteRequired?.(true);
-        video.play().catch(retry => {
-          if (current && !document.hidden && retry.name === 'NotAllowedError') {
-            gestureRequired = true; callbacks.current.onPlayBlocked?.();
-          }
+        video.play().catch(retry=>{
+          if(allowed()&&retry.name==='NotAllowedError'){gestureRequired=true;callbacks.current.onPlayBlocked?.();}
         });
       });
     }
-    // A denied autoplay must not consume a tap on the visible play button.
-    const ready = () => {if (!gestureRequired) sync();};
-    sync();
-    video.addEventListener('canplay', ready);
-    document.addEventListener('visibilitychange', sync);
-    return () => {
-      current = false;
-      video.autoplay = false;
-      video.removeEventListener('canplay', ready);
-      document.removeEventListener('visibilitychange', sync);
-      video.pause();
+    const control={start,stop};
+    const ready=()=>{if(allowed()&&!gestureRequired)start();};
+    const guard=()=>{if(!allowed())stop();};
+    const visibility=()=>{pageVisible=!document.hidden;if(allowed())start();else stop();};
+    const hide=()=>{pageVisible=false;stop();};
+    audio.current=applyVolume;
+    video.autoplay=false;
+    if(!active)stop();
+    const detach=playback.attach(clipId??source,control);
+    applyVolume();
+    video.addEventListener('play',guard);
+    video.addEventListener('playing',guard);
+    video.addEventListener('canplay',ready);
+    document.addEventListener('visibilitychange',visibility);
+    window.addEventListener('pagehide',hide);
+    window.addEventListener('pageshow',visibility);
+    return ()=>{
+      video.removeEventListener('play',guard);
+      video.removeEventListener('playing',guard);
+      video.removeEventListener('canplay',ready);
+      document.removeEventListener('visibilitychange',visibility);
+      window.removeEventListener('pagehide',hide);
+      window.removeEventListener('pageshow',visibility);
+      audio.current=null;
+      detach();
     };
-  }, [video, source, active]);
+  }, [video, source, active, playback, clipId]);
+  useLayoutEffect(()=>{audio.current?.();},[muted]);
 
   return <span ref={container}/>;
 }

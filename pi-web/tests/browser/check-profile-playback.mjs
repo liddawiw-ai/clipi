@@ -31,6 +31,8 @@ export async function checkProfilePlayback(browser, origin) {
     const thirdPreview = await tiles.nth(2).locator('video').elementHandle();
     await tiles.nth(0).tap();
     await moving('one');
+    await page.locator('.clipi-audio').click();
+    await page.waitForFunction(v=>!v.paused&&!v.muted,firstPreview);
     assert.ok(await firstPreview.evaluate(v=>v.isConnected && !!v.closest('.clipi-feed-stage')));
     // A rapid second swipe must reuse the third tile, even before the first swipe.
     assert.ok(await thirdPreview.evaluate(v=>v.isConnected && !!v.closest('.clipi-feed-stage') && v.preload==='auto' && v.paused));
@@ -38,7 +40,10 @@ export async function checkProfilePlayback(browser, origin) {
     await page.waitForFunction(v=>v && v.readyState>=2 && v.paused,next);
     await swipe();
     await moving('two');
-    assert.equal(await next.evaluate(v=>v.isConnected && !v.paused),true);
+    assert.equal(await next.evaluate(v=>v.isConnected && !v.paused && !v.muted),true);
+    assert.ok(await firstPreview.evaluate(v=>v.paused&&v.muted));
+    await firstPreview.evaluate(v=>v.dispatchEvent(new Event('canplay')));
+    assert.ok(await firstPreview.evaluate(v=>v.paused&&v.muted));
     // Wait for the native snap to finish: a touch during momentum stops scrolling.
     await page.waitForFunction(v=>Math.abs(v.getBoundingClientRect().top)<3,next);
     await page.waitForTimeout(150);
@@ -48,7 +53,8 @@ export async function checkProfilePlayback(browser, origin) {
     await moving('two');
     await swipe();
     await moving('three');
-    assert.ok(await thirdPreview.evaluate(v=>!v.paused && v.isConnected));
+    assert.ok(await thirdPreview.evaluate(v=>!v.paused && !v.muted && v.isConnected));
+    assert.ok(await next.evaluate(v=>v.paused&&v.muted));
     await swipe(true);
     await moving('two');
     await page.getByRole('button',{name:'Back',exact:true}).tap();

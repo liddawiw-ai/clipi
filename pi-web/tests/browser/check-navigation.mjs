@@ -76,7 +76,7 @@ export async function checkNavigation(browser) {
           name.endsWith('.js') ? 'application/javascript' : 'text/css',
           Buffer.from(bundle.get(name))
         );
-      if(['/shorts/media/fixture','/shorts/media/random-fixture'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
+      if(['/shorts/media/fixture','/shorts/media/random-fixture','/shorts/media/second','/shorts/media/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       const op = route.request().postDataJSON()?.op;
       if (op === 'lookupAppAdmin' || op === 'setAppAdmin') {
@@ -101,7 +101,7 @@ export async function checkNavigation(browser) {
           ?[{id:2,name:'Reply writer',uid:'layout-fixture',body:'reply'}]
           :[{id:1,name:'Guest writer',uid:'guest-fixture',body:'comment',replyCount:1}]},
 
-        shortList: { clips: [{id:'fixture',title:'Navigation fixture'}] },
+        shortList: { clips: [{id:'fixture',title:'Navigation fixture'},{id:'second',title:'Second clip'},{id:'third',title:'Third clip'}] },
         shortState: { social: true, likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
         roomInviteInbox: { invites: [] },
@@ -236,6 +236,33 @@ export async function checkNavigation(browser) {
     await pageFull('home');
     if (isOwner) {
       const client=await p.context().newCDPSession(p);
+      await p.getByText('Navigation fixture',{exact:true}).waitFor();
+      const first=await p.locator('.clipi-feed-stage video').first().elementHandle();
+      await p.locator('.clipi-audio').click();
+      await p.waitForFunction(v=>!v.paused&&!v.muted,first);
+      for(const id of ['second','third']){
+        await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:130,y:630}]});
+        for(let i=1;i<=9;i++){
+          await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:130,y:630-49*i}]});
+          await new Promise(resolve=>setTimeout(resolve,30));
+        }
+        await client.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await p.waitForFunction(id=>{
+          const videos=[...document.querySelectorAll('.clipi-feed-stage video')];
+          const audible=videos.filter(v=>!v.muted&&!v.paused);
+          return audible.length===1&&audible[0].src.endsWith('/'+id)&&Math.abs(audible[0].getBoundingClientRect().top)<3;
+        },id);
+        assert.ok(await first.evaluate(v=>v.paused&&v.muted));
+        await p.waitForTimeout(150);
+      }
+      const third=await p.locator('video[src$="/third"]').elementHandle();
+      await dock.getByRole('tab').nth(4).click();
+      await pageFull('profile');
+      assert.ok(await third.evaluate(v=>v.paused&&v.muted));
+      assert.ok(await first.evaluate(v=>v.paused&&v.muted));
+      await first.evaluate(v=>v.dispatchEvent(new Event('canplay')));
+      assert.ok(await first.evaluate(v=>v.paused&&v.muted));
+      await home();
       await p.getByText('Navigation fixture',{exact:true}).waitFor();
       await client.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:130,y:185}]});
       for (const y of [205,240,285,335]) await client.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:130,y}]});

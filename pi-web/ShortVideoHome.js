@@ -1,3 +1,4 @@
+import {useShortPlayback} from './useShortPlayback';
 import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {usePullDown} from './usePullDown';
@@ -5,7 +6,7 @@ import {useRandomShort} from './useRandomShort';
 import {useClipLike} from './useClipLike';
 import {shortProfile} from './photo';
 import {PolicyModal} from './PolicySheet';
-import React,{useEffect,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,FlatList,Platform,Pressable,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
@@ -22,19 +23,16 @@ function Button({label,onPress,children,disabled=false,selected}){
     {children||<Text style={s.label}>{label}</Text>}
   </Pressable>;
 }
-function SoundControl({playerRef,muted,setMuted}){
+function SoundControl({muted,setMuted}){
   function toggleSound(){
     const next=!muted;
     setMuted(next);
-    const player=playerRef.current;
-    if(!player)return;
-    player.muted=next;
   }
   return <button type="button" className="clipi-audio" onClick={toggleSound}>
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
   </button>;
 }
-function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,isCurrent,playback,preload,initialVideo,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
@@ -42,7 +40,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
   const showPlay=paused||!playing;
   useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
   function togglePlayback(){
-    if(!playable)return;
+    if(!playable||!playback.isSelected(item.id))return;
     const player=playerRef.current;
     if(!player)return;
     if(player.paused||paused){
@@ -171,7 +169,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} onPlayBlocked={()=>setPlaying(false)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player playback={playback} clipId={item.id} source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} onPlayBlocked={()=>setPlaying(false)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
@@ -200,7 +198,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{item.title}</p>}
       <div className="clipi-caption-meta">
 
-        <SoundControl {...{playerRef,muted,setMuted}}/>
+        <SoundControl {...{muted,setMuted}}/>
         
       </div>
       {!!message&&!dialog&&<p role="status">{appText(message)}</p>}
@@ -267,9 +265,16 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
   const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
   const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
-  const [homeItems,setItems]=useState(null),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState(null),[active,setActiveIndex]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const items=profileFeed?.clips ?? homeItems ?? [];
+  const playback=useShortPlayback(items[active]?.id,playable);
+  const latestItems=useRef(items);
+  latestItems.current=items;
+  const setActive=useCallback(index=>{
+    playback.select(latestItems.current[index]?.id);
+    setActiveIndex(index);
+  },[playback]);
   const removed=useRef(new Set()),list=useRef(null);
   useEffect(()=>{
     if(!notice)return;
@@ -302,7 +307,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
           else if(new URLSearchParams(location.hash.slice(1)).get('short')===initialId)setNotice(translate('هذا الفيديو لم يعد متاحًا'));
         }
         else if(selected)all.unshift(...all.splice(all.indexOf(selected),1));
-        setActive(0);setItems(all);setError('');
+        setActiveIndex(0);setItems(all);setError('');
       }catch{if(current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     })();
     return ()=>{current=false;mounted.current=false;};
@@ -349,7 +354,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} isCurrent={index===active} playback={playback} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}
@@ -376,6 +381,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
   const [muted,setMuted]=useState(true);
   const playerRef=useRef(null);
+  const playback=useShortPlayback(draft?.uri,Boolean(draft));
   const [accepted,setAccepted]=useState(false),[policy,setPolicy]=useState(null);
   const job=useRef(null),lock=useRef(false),alive=useRef(true);
   useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
@@ -434,7 +440,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     }catch(e){if(alive.current){setRetryUpload(true);setNotice(uiError(e,'تعذّر نشر الفيديو'));}}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
-  return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
+  return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player playback={playback} source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{muted,setMuted}}/></div></View>}
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Text style={s.label}>{appText("MP4 · حتى ٣ دقائق و٥٠ ميغابايت")}</Text>
     <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>

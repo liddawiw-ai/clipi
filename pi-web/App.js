@@ -1,3 +1,4 @@
+import {stopShortPlayback} from './short-playback.mjs';
 import AppAdminScreen from './AppAdminScreen';
 import {uiError,ui as appText,interfaceLocale,isRTL,subscribeInterface,interfaceRevision,configureInterface} from './interface-language.mjs';
 import {useStartInvites,broadcastWords,CircleChoice,RoomAdmins,FriendPicker,InviteInbox,MicFreedom} from './BroadcastFriends';
@@ -1269,7 +1270,10 @@ export default function App(){
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
-  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
+  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;
+    if(pageRef.current!==p)stopShortPlayback();
+    pageRef.current=p;setPage(p);
+  };
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
