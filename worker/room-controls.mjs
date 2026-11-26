@@ -9,7 +9,7 @@ import {tableSchema} from './profile-tables.mjs';
 import {trialSchema} from './trial-diamonds.mjs';
 import {agencySchema} from './agencies.mjs';
 import {shortSchema} from './short-videos.mjs';
-import {walletSchema,paidBalance} from './diamond-wallet.mjs';
+import {walletSchema,giftBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 // Room membership is scoped to a browser visit. Seat allocation is one atomic D1 statement.
 const tables = [
@@ -102,7 +102,8 @@ async function pinHash(secret,room,pin){
   const key=await crypto.subtle.importKey('raw',bytes.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
   return Array.from(new Uint8Array(await crypto.subtle.sign('HMAC',key,bytes.encode(JSON.stringify([room,pin])))),n=>n.toString(16).padStart(2,'0')).join('');
 }
-export async function roomControls({env,input,room,user,host,ownerUid,type,path,json,disconnect,mediaToken,roomTitle=''}){
+export async function roomControls({env,input,room,user,host,ownerUid,type,path,json,disconnect,mediaToken,roomTitle='',piOnly=false}){
+  const paidBalance=giftBalance(piOnly);
   const q=await roomStore(env.PI_GIFTS_DB);
   const now=Math.floor(Date.now()/1000), cutoff=now-90;
   const policy=await q('SELECT * FROM room_policy WHERE room=?',room).first();

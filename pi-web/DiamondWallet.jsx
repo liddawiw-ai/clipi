@@ -5,7 +5,7 @@ import {auth,piSdk} from './services';
 import {rewardDiamonds,packs,packPrice,diamondsPerPi} from '../worker/diamond-wallet.mjs';
 export async function walletRead(){
   const token=await auth().currentUser.getIdToken();
-  const response=await fetch('/account-number',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op:'wallet'})});
+  const response=await fetch('/account-number',{method:'POST',headers:{'X-Clipi-Client':'pi-browser',Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op:'wallet'})});
   if(!response.ok)throw Error(appText('تعذر تحديث المحفظة'));
   return response.json();
 }
@@ -99,7 +99,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     }catch(e){finish(e.message)}
   }
   return <section className="clipi-wallet-cards" dir="auto">
-    <BalanceCard icon="💎" tone="sky" label={appText('الماس المشترى')} value={data?.diamonds??'…'} action={appText('شحن')} onPress={()=>document.getElementById('clipi-packs')?.scrollIntoView({block:'start'})}/>
+    <BalanceCard icon="💎" tone="sky" label={appText('ماس الهدايا المشترى بعملة Pi')} value={data?.diamonds??'…'} action={appText('شحن بعملة Pi')} onPress={()=>document.getElementById('clipi-packs')?.scrollIntoView({block:'start'})}/>
     <BalanceCard icon="♡" tone="rose" label={appText('الماس المستهدف')} value={(data?.receivedDiamonds??'…')+' 💎'}/>
     <p>{appText('كل ماسة يرسلها لك مستخدم في هدية تُضاف إلى هذا الإجمالي.')}</p>
     <BalanceCard icon="✦" tone="sand" label={appText('مكافآت المضيف')} value={(data?data.rewardPi:'…')+' PI'}/>
@@ -111,8 +111,8 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     </>}
     <p>{appText('التقدّم نحو المكافأة التالية')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>
     <p>{appText('كل 10,000 ماسة هدايا تُسجّل للمضيف مكافأة قدرها 5 PI داخل كليبي.')}</p>
-    {data?.ownerBox&&<section aria-label={appText('صندوق ماس المالك')}>
-      <h3>{appText('صندوق ماس المالك')}</h3>
+    {data?.ownerBox&&<section aria-label={appText('صندوق ماس المالك · كل المنصات')}>
+      <h3>{appText('صندوق ماس المالك · كل المنصات')}</h3>
       <BalanceCard icon="💎" tone="sky" label={appText('الماس المشحون للمستخدمين')} value={data.ownerBox.sold}/>
       <BalanceCard icon="◇" tone="sand" label={appText('الماس المستخدم في الهدايا')} value={data.ownerBox.gifted}/>
     </section>}
@@ -122,7 +122,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     <h3>{appText('سجل شحن الماس')}</h3>
     {data?.purchases?.map(p=><p key={p.payment}>{p.diamonds} 💎 · {p.payment}{p.reversed?' · '+appText('ماس مسترد')+' '+p.reversed:''}</p>)}
     <button onClick={onHelp}>{appText('مشكلة في عملية شراء')}</button>
-    <h3 id="clipi-packs">{appText('شراء الماس')}</h3>
+    <h3 id="clipi-packs">{appText('شراء الماس بعملة Pi')}</h3>
     {paymentPiUid?packs.map(n=><button key={n} disabled={busy} style={{margin:4,padding:10}} onClick={()=>buy(n)}>{n.toLocaleString(interfaceLocale())} 💎 · {packPrice(n)} PI</button>):<p>{appText('ادخل بحساب PI لشراء الماس')}</p>}
     <p role="status">{appText(message)}</p><h3>{appText('آخر الهدايا المدفوعة')}</h3>
     {data?.history.map((g,i)=><p key={g.receipt?g.sender+g.receipt:i}>{uid===g.host?appText('واردة'):appText('مرسلة')} · {appText(g.gift)} · {g.cost} 💎 · {g.units?appText('رصيد سابق')+' '+g.units/20+' PI':appText('ماسات للمكافأة')+' '+rewardDiamonds(g.cost)} · {appText('غرفة')} {g.room} · {g.receipt}</p>)}

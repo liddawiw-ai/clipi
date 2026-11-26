@@ -68,7 +68,7 @@ function GiftPanel({recipientPicker, gifts, allLabel, translate, copy, recipient
   const sending=useRef(false);
   const categories=[allLabel,...new Set(gifts.map(gift=>gift[4]))];
   const insufficient=selected&&Number.isSafeInteger(balance)&&balance<selected[2];
-  const canSend=Boolean(selected && recipientReady && !pending);
+  const canSend=Boolean(selected && recipientReady && Number.isSafeInteger(balance) && !insufficient && !pending);
   async function send(){
     if(!canSend||sending.current)return;
     sending.current=true;
@@ -108,7 +108,7 @@ function GiftPanel({recipientPicker, gifts, allLabel, translate, copy, recipient
       )}
     </ScrollView>
     {children}
-    {insufficient&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد الماس المشترى غير كافٍ")}</Text>}
+    {insufficient&&<Text accessibilityLiveRegion="polite" style={s.sub}>{translate("رصيد ماس الهدايا غير كافٍ. اشحن بعملة Pi.")}</Text>}
     <View style={s.footer}>
       <TouchableOpacity accessibilityRole="button" disabled={pending} onPress={onWallet} style={s.edgeAction}>
         <Text style={s.walletText}>{appText(copy.wallet)}</Text>

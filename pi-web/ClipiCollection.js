@@ -4,17 +4,17 @@ import {theme} from './ClipiTheme';
 import React,{useState} from 'react';
 import {View,Text,TouchableOpacity,StyleSheet} from 'react-native';
 
-export default function ClipiCollection({copy,goods,identity,inventory,equipped,onBuy,onEquip,onEntranceStyle,onNumber,error}){
+export default function ClipiCollection({copy,goods,identity,inventory,equipped,onEquip,onEntranceStyle,onNumber,error}){
   const [tab,select]=useState('frame');
   const tabs=['frame','ride','numbers','owned'];
   const numbers=tab==='numbers';
-  const items=numbers?(identity?.offers||[]).map(o=>({key:o.number,icon:'#',name:o.number,detail:o.cost+' 💎',action:copy.buy,press:()=>onNumber('buy',o.number)})):
-    goods.filter(g=>tab==='owned'?inventory.includes(g[1]):g[3]===tab).map(g=>{
-      const owned=inventory.includes(g[1]),active=equipped[g[3]]===g[1];
-      return {key:g[1],icon:g[0],name:appText(g[1])+(g[3]==='ride'?' · '+appText(entranceNames[equippedEntrance({ride:g[1]})]):''),detail:g[2]+' 💎',action:owned?(active?copy.remove:copy.equip):copy.buy,press:()=>owned?onEquip(g):onBuy(g)};
-    });
+  const items=numbers?[]:goods.filter(g=>inventory.includes(g[1])&&(tab==='owned'||g[3]===tab)).map(g=>{
+    const active=equipped[g[3]]===g[1];
+    return {key:g[1],icon:g[0],name:appText(g[1])+(g[3]==='ride'?' · '+appText(entranceNames[equippedEntrance({ride:g[1]})]):''),
+      detail:copy.owned,action:active?copy.remove:copy.equip,press:()=>onEquip(g)};
+  });
   if(numbers||tab==='owned')for(const n of identity?.owned||[])items.push({key:'id-'+n,icon:'#',name:n,detail:copy.numbers,action:identity.number===n?'✓':copy.equip,press:()=>onNumber('equip',n)});
-  return <View><View style={s.strip}><Text style={s.title}>{appText(copy.store)}</Text>{numbers&&<Text style={s.light}>{copy.translate('رصيد متجر الأرقام')} · {identity?.balance??'…'}</Text>}</View>
+  return <View><View style={s.strip}><Text style={s.title}>{appText(copy.owned)}</Text></View>
     <View style={s.tabs}>{tabs.map(k=><TouchableOpacity key={k} accessibilityRole="tab" accessibilityState={{selected:k===tab}} onPress={()=>select(k)} style={[s.tab,k===tab&&s.selected]}><Text style={[s.label,k===tab&&s.light]}>{appText(copy[k])}</Text></TouchableOpacity>)}</View>
     {tab==='ride'&&!!equipped.ride&&<View><Text style={s.label}>{copy.translate('شكل دخولك')}</Text><View style={s.tabs}>
       {entranceOverrides.map(id=>{

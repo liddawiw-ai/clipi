@@ -28,7 +28,7 @@ const query = {
 };
 export const firestore = () => query;
 export const Alert = { alert() {} };
-export const piSdk = () => ({}),
+export const piSdk = () => window.Pi,
   piLogin = () => {},
   verifyEmailForPi = () => {};
 

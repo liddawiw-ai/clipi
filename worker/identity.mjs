@@ -1,5 +1,5 @@
 import {isAppOwner} from './app-owners.mjs';
-import {paidBalance} from './diamond-wallet.mjs';
+import {giftBalance} from './diamond-wallet.mjs';
 
 export const offers=['1234567','7777777','121212','345678','12221','12345','8888','1234','777','909','1122334','456789','67890','5656','787'];
 export function price(id){
@@ -8,7 +8,7 @@ export function price(id){
   return lengthPrice*rare;
 }
 export const spend='(SELECT COALESCE(SUM(cost),0) FROM support_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM diamond_gift WHERE sender=?) + (SELECT COALESCE(SUM(cost),0) FROM public_numbers WHERE uid=?)';
-export async function account(q,uid,input,allowance,json,ownerUid){
+export async function account(q,uid,input,allowance,json,ownerUid,piOnly=false){
   let normal=await q('SELECT number FROM public_numbers WHERE uid=? AND cost=0',uid).first();
   for(let i=0;!normal&&i<32;i++){
     const n=String(1000000+crypto.getRandomValues(new Uint32Array(1))[0]%9000000);
@@ -18,6 +18,7 @@ export async function account(q,uid,input,allowance,json,ownerUid){
   }
   if(!normal)return json({error:'تعذّر تخصيص رقم الآن'},503);
   if(input.op==='buy'){
+    if(piOnly)return json({error:'الماس المشترى بعملة Pi مخصّص للهدايا'},403);
     const id=input.number;
     if(!offers.includes(id))return json({error:'رقم غير متاح'},400);
     await q(`INSERT OR IGNORE INTO public_numbers(uid,number,cost) SELECT ?,?,? WHERE ? >= ? + ${spend}`,uid,id,price(id),allowance,price(id),uid,uid,uid).run();
@@ -32,6 +33,6 @@ export async function account(q,uid,input,allowance,json,ownerUid){
   const active=await q('SELECT number FROM selected_number WHERE uid=?',uid).first();
   const owned=(await q('SELECT number FROM public_numbers WHERE uid=?',uid).all()).results.map(r=>r.number);
   const available=(await q('SELECT number FROM public_numbers WHERE cost>0').all()).results.map(r=>r.number);
-  const balances=await q(`SELECT ? - (${spend}) AS balance, ${paidBalance} AS purchasedDiamonds`,allowance,uid,uid,uid,uid,uid).first();
-  return json({canManageAppAdmins:await isAppOwner(q,uid,ownerUid),number:active?.number||normal.number,owned,...balances,offers:offers.filter(n=>!available.includes(n)).map(number=>({number,cost:price(number)}))});
+  const balances=await q(`SELECT ? - (${spend}) AS balance, ${giftBalance(piOnly)} AS purchasedDiamonds`,allowance,uid,uid,uid,uid,uid).first();
+  return json({canManageAppAdmins:await isAppOwner(q,uid,ownerUid),number:active?.number||normal.number,owned,...balances,offers:piOnly?[]:offers.filter(n=>!available.includes(n)).map(number=>({number,cost:price(number)}))});
 }

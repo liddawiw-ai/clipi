@@ -54,6 +54,17 @@ export async function checkNavigation(browser) {
       lang
     );
     const isOwner = width === 390;
+    let giftDiamonds=0, approved=false, completed=false, sentGifts=0;
+    if(isOwner)await p.addInitScript(()=>{
+      window.Pi={
+        authenticate:async()=>({user:{uid:'funding-fixture'},accessToken:'fixture'}),
+        createPayment:async(pack,callbacks)=>{
+          if(pack.amount!==1||pack.metadata.kind!=='diamond_pack'||pack.metadata.diamonds!==1000)throw Error('Unexpected pack');
+          await callbacks.onReadyForServerApproval('fixture-receipt');
+          await callbacks.onReadyForServerCompletion('fixture-receipt','a'.repeat(64));
+        }
+      };
+    });
     let assigned = false,hidden=false;
     const played=new Set(),finished=new Set();
     let releaseRandom;
@@ -79,6 +90,14 @@ export async function checkNavigation(browser) {
         );
       if(['/shorts/media/fixture','/shorts/media/random-fixture','/shorts/media/second','/shorts/media/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
+      if(name.startsWith('/pi-gifts/')&&isOwner){
+        const data=route.request().postDataJSON();
+        assert.equal(data.kind,'diamond_pack');assert.equal(data.paymentId,'fixture-receipt');
+        if(name.endsWith('/approve'))approved=true;
+        else if(name.endsWith('/complete')){assert.ok(approved);completed=true;giftDiamonds=1000;}
+        else throw Error('Unexpected checkout operation');
+        return route.fulfill({json:{ok:true}});
+      }
       const op = route.request().postDataJSON()?.op;
       if (op === 'lookupAppAdmin' || op === 'setAppAdmin') {
         const body = route.request().postDataJSON();
@@ -91,6 +110,10 @@ export async function checkNavigation(browser) {
         return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
       }
       const body=route.request().postDataJSON()||{};
+      if(op==='shortGift'){
+        assert.ok(completed&&giftDiamonds>=10);assert.equal(body.gift,'وردة حمراء');
+        sentGifts++;giftDiamonds-=10;return route.fulfill({json:{sent:true}});
+      }
       if(op==='shortWatch'){
         played.add(body.clip);if(body.finished)finished.add(body.clip);
         return route.fulfill({json:{ok:true}});
@@ -116,8 +139,9 @@ export async function checkNavigation(browser) {
         shortState: { social: true, canDelete:body.clip==='second', likes: 0, commentCount: 0 },
         shortProfileList: { clips: [], nextCursor: null },
         roomInviteInbox: { invites: [] },
-        read: { number: '1234567', canManageAppAdmins: isOwner },
-        wallet: { diamonds: 0, history: [] },
+        read: { number: '1234567', owned:['1234567'], offers:[{number:'777',cost:100000}], canManageAppAdmins: isOwner },
+        trialRead: {sandbox:0,owner:null},
+        wallet: { diamonds: giftDiamonds, history: [], linkedPiUid:'pi:funding-fixture' },
         shortSocialStats: {},
         shortIdentity: {}
       };
@@ -212,6 +236,12 @@ export async function checkNavigation(browser) {
           assert.equal(await entry.count(), 0);
         }
       }
+      if(name==='store'&&isOwner){
+        await p.getByRole('tab',{name:'أرقام مميزة'}).click();
+        assert.equal(await p.getByText('777',{exact:true}).count(),0);
+        await p.getByText('1234567',{exact:true}).waitFor();
+        assert.equal(await p.getByRole('button',{name:'شراء',exact:true}).count(),0);
+      }
       if(name==='rooms'){
         for(const type of ['audio','video']){
           await p.getByText('Cover fixture '+type,{exact:true}).waitFor();
@@ -301,6 +331,21 @@ export async function checkNavigation(browser) {
       await p.waitForFunction(()=>{const v=document.querySelector('video');return v&&!v.paused&&v.currentTime>0.2;});
       for(let i=0;i<65&&!finished.has('fixture');i++)await p.waitForTimeout(150);
       assert.ok(played.has('fixture')&&finished.has('fixture'),'the foreground clip records a real view and completion');
+      const openRose=async()=>{
+        await p.locator('.action-more').click();
+        await button('إهداء الفيديو').click();
+        await p.getByRole('button',{name:/وردة حمراء/}).click();
+      };
+      await openRose();
+      assert.ok(!(await button('إرسال').isEnabled()));
+      await button('شحن بعملة Pi').click();
+      await pageFull('wallet');await p.getByText('شراء الماس بعملة Pi',{exact:true}).waitFor();
+      assert.equal(await p.getByText('بطاقة تجريبية',{exact:true}).count(),0);
+      await p.getByRole('button',{name:/💎 · 1 PI$/}).click();
+      await p.getByText('تم شحن الماس',{exact:true}).waitFor();assert.ok(completed);
+      await home();await openRose();await button('إرسال').click();
+      await p.getByText('تم إرسال الهدية',{exact:true}).waitFor();
+      assert.equal(sentGifts,1);assert.equal(giftDiamonds,990);
       await button('بحث في كليبي').click();await pageFull('clipiSearch');
       const field=p.getByRole('textbox');
       await field.fill('2222222');await p.getByText('Guest writer',{exact:true}).first().click();await pageFull('shortAuthor');

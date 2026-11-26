@@ -1,5 +1,14 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "ماس الهدايا المشترى بعملة Pi": "Gift diamonds bought with Pi",
+  "رصيد اللعب التجريبي": "Practice game balance",
+  "شحن بعملة Pi": "Top up with Pi",
+  "شراء الماس بعملة Pi": "Buy diamonds with Pi",
+  "رصيد ماس الهدايا غير كافٍ. اشحن بعملة Pi.": "Not enough gift diamonds. Top up with Pi.",
+  "دعم للمقطع من ماس اشتريته بعملة Pi. الهدية ما إلها عائد نقدي لصاحب الفيديو.": "Support this video with diamonds bought with Pi. The gift has no cash payout for the creator.",
+  "الماس المشترى بعملة Pi مخصّص للهدايا": "Diamonds purchased with Pi are for gifts.",
+  "اشحن الماس بعملة Pi من المحفظة": "Buy diamonds with Pi in your wallet.",
+  "صندوق ماس المالك · كل المنصات": "Owner diamond totals · All platforms",
   "بحث في كليبي": "Search Clipi",
   "حسابات": "Accounts",
   "غرف": "Rooms",

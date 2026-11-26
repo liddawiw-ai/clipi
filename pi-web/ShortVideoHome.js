@@ -18,7 +18,7 @@ import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
 import {shortsLookahead} from './ShortMedia';
-const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
+const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'ماس الهدايا المشترى بعملة Pi',wallet:'المحفظة',shop:'شحن بعملة Pi',send:'إرسال'};
 
 function Button({label,onPress,children,disabled=false,selected}){
   return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{disabled,selected}} disabled={disabled} onPress={onPress} style={s.button}>
@@ -163,6 +163,7 @@ function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onV
     finally{lock.current=false;}
   }
   function openGifts(){
+    setBalance(null);
     setDialog('gift');
     setMessage('');
   }
@@ -232,7 +233,7 @@ function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onV
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
-      <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
+      <Text style={s.label}>{message||appText('دعم للمقطع من ماس اشتريته بعملة Pi. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
   </View>;
 }

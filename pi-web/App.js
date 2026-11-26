@@ -61,8 +61,6 @@ const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','
 const AVATARS=['👤','😎','👩','👨','🧑','👸','🤴','🦁','🐼','🦊','🌸','⭐'];
 // Pricing preview: USD 1 = 1,000 diamonds; PI USD-equivalent 1 = 1,200 diamonds.
 // PI market quote is entered manually and is NOT a live price feed.
-const DIAMONDS_PER_USD=1000,DIAMONDS_PER_PI_USD=1200;
-const PACKS=[1000,2000,5000,10000,20000,50000];
 
 // قنوات استقبال الأرباح المعروضة للمستخدم؛ لا توجد تحويلات حقيقية مفعلة.
 // القوائم إرشادية ويمكن تحديثها من الخادم عند إتاحة مزود دفع.
@@ -278,7 +276,7 @@ async function mediaRequest(path,body,signal){
   const idToken=await user.getIdToken();
   const response=await fetch(MEDIA_ENDPOINT+path,{
     method:'POST',signal,
-    headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
+    headers:{'X-Clipi-Client':'pi-browser',Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
     body:JSON.stringify(body),
   });
   if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(ui(data.error)||ui("تعذر الاتصال بخدمة البث (")+response.status+')')}
@@ -998,7 +996,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     <RoomGiftSheet recipientPicker={<GiftRecipients people={giftPeople} target={recipientUid} userId={userId}
         act={membership.act} onSelect={openGifts}/>} visible={giftOpen&&!minimized} recipientReady={recipientReady}
       gifts={GIFTS} allLabel="الكل" translate={ui}
-      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("الماس المشترى"),wallet:ui("المحفظة"),send:ui("إرسال")}}
+      copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("ماس الهدايا المشترى بعملة Pi"),wallet:ui("شحن بعملة Pi"),send:ui("إرسال")}}
       recipient={selectedPerson?.name||ui("اختر مستلمًا للهدية")}
       balance={paidBalance}
       onWallet={()=>{setGiftOpen(false);onWallet()}}
@@ -1156,7 +1154,7 @@ export default function App(){
     const who=auth().currentUser;
     if(!who)return;
     const token=await who.getIdToken();
-    const res=await fetch(MEDIA_ENDPOINT+'/account-number',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op,number})});
+    const res=await fetch(MEDIA_ENDPOINT+'/account-number',{method:'POST',headers:{'X-Clipi-Client':'pi-browser',Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op,number})});
     const data=await res.json();
     if(!res.ok)throw Error(ui(data.error)||ui("تعذر فتح متجر الأرقام"));
     if(auth().currentUser?.uid===who.uid){setIdentity({...data,uid:who.uid});setNumberError('')}
@@ -1271,7 +1269,6 @@ export default function App(){
   }
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
   const activeRoomRef=useRef(null);activeRoomRef.current=activeRoom;
-  const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
   const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
@@ -1663,12 +1660,6 @@ export default function App(){
         catch(e){Alert.alert(ui("تعذر الإغلاق"),uiError(e))}
       }}]);
   }
-  function buyGood(g){if(inventory.includes(g[1]))return Alert.alert(ui("مملوكة"));if(!spend(g[2]))return Alert.alert(ui("رصيد غير كافٍ"));setInventory(v=>[...v,g[1]])}
-  function purchase(pack){
-    const usd=pack/DIAMONDS_PER_USD;
-    if(paymentMethod==='usd')Alert.alert(ui("معاينة شراء"),fmt(pack)+ui(' ماسة بسعر $')+usd+ui('. الدفع الحقيقي غير مربوط.'));
-    else{const rate=Number(piRate);if(!Number.isFinite(rate)||rate<=0)return Alert.alert(ui("سعر PI"),ui("أدخل سعر PI الحالي بالدولار"));Alert.alert(ui("معاينة PI"),fmt(Math.round(usd*DIAMONDS_PER_PI_USD))+ui(' ماسة مقابل ')+(usd/rate).toFixed(6)+ui(' PI وفق السعر المدخل. يتغير سعر PI من حين إلى آخر، ولا يتم تحصيل أي دفع.'))}
-  }
   function resetGame(){clearTimeout(timerRef.current);betsRef.current={};setBets({});setSeconds(30);setLit(-1);setGameResult(null);phaseRef.current='betting';setPhase('betting')}
   function placeBet(i){
     if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return Alert.alert(appText('غير متاح'),appText('اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.'));
@@ -1864,8 +1855,7 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='create')return <RoomStudio hostField={hostField} name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={()=>go('home')} busy={busy} copy={{close:ui("رجوع"),title:ui("إنشاء غرفة"),name:ui("اسم الغرفة"),mode:ui("نوع الغرفة"),audio:ui("🎙 صوت"),video:ui("📹 فيديو"),start:ui("فتح الغرفة"),note:ui("الغرفة عامة للمستخدمين المسجلين.")}}/>;
-  if(!SHOW_UNRELEASED_DEMOS&&['wallet','earningsWallet'].includes(page))return <HubScreen title={ui('المحفظة')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}><DiamondWallet key={user.uid} uid={user.uid} onEarnings={()=>go('earningsWallet')} onHelp={()=>go('help')}/>{page==='wallet'&&<TrialWallet key={user.uid} request={mediaRequest} nonce={()=>crypto.randomUUID()} gifts={GIFTS} Game={GlobalGreedyPreview}/>}</HubScreen>;
-  if(page==='wallet')return layout(ui("محفظة Clipi"),<><View style={S.card}><Text style={S.title}>{ui("💎 الرصيد التجريبي")}</Text><Text style={S.big}>{fmt(total)}</Text><Text style={S.white}>{ui("هدية الترحيب: ")}{fmt(wallet.welcome)}</Text><Text style={S.white}>{ui("المشتَرى: ")}{fmt(wallet.purchased)}</Text>{ownerDemo&&<Text style={S.gold}>{ui("معاينة المالك: ")}{fmt(wallet.owner)}</Text>}</View><Text style={S.title}>{ui("طريقة الشراء")}</Text><View style={S.row}><Btn title={ui("💵 دولار")} color={paymentMethod==='usd'?PINK:theme.sea} onPress={()=>setPaymentMethod('usd')}/><Btn title="🪙 PI" color={paymentMethod==='pi'?PINK:theme.sea} onPress={()=>setPaymentMethod('pi')}/></View>{paymentMethod==='pi'&&<><Text style={S.label}>{ui("سعر PI بالدولار (يدوي للمعاينة)")}</Text><TextInput style={S.input} keyboardType="decimal-pad" value={piRate} onChangeText={setPiRate} placeholder={ui("مثال: 0.50")}/></>}{PACKS.map(pack=><View key={pack} style={S.shop}><View style={{flex:1}}><Text style={S.gold}>💎 {fmt(paymentMethod==='pi'?Math.round((pack/DIAMONDS_PER_USD)*DIAMONDS_PER_PI_USD):pack)}</Text><Text style={S.white}>{paymentMethod==='usd'?`${(pack/DIAMONDS_PER_USD).toFixed(2)}`:Number(piRate)>0?`${((pack/DIAMONDS_PER_USD)/Number(piRate)).toFixed(6)} PI`:ui("أدخل سعر PI")}</Text></View><Small title={ui("شراء")} color={PINK} onPress={()=>purchase(pack)}/></View>)}<Text style={S.muted}>{ui("الأسعار المرجعية: 1 دولار = 1,000 ماسة، وما يعادل 1 دولار من PI = 1,200 ماسة. يتغير سعر PI صعودًا وهبوطًا من حين إلى آخر؛ أدخل سعر PI الحالي بالدولار للمعاينة، ولا يُحدَّث السعر تلقائيًا. زر شراء للمعاينة فقط ولا يتم خصم أي أموال. الربط بمتجر Apple / Google ومعالجة PI يحتاجان إعدادات دفع فعلية.")}</Text></>);
+  if(page==='wallet')return <HubScreen title={ui('المحفظة')} action={{label:ui('رجوع'),onPress:()=>go('profile')}} dock={nav()}><DiamondWallet key={user.uid} uid={user.uid} onEarnings={()=>go('earningsWallet')} onHelp={()=>go('help')}/><TrialWallet key={user.uid} request={mediaRequest} nonce={()=>crypto.randomUUID()} Game={GlobalGreedyPreview}/></HubScreen>;
   if(page==='earnings')return layout(appText('أرباح المضيف'),<><Btn title={appText("💼 فتح محفظة النقاط")} onPress={()=>go('earningsWallet')}/>
     <View style={S.card}>
       <Text style={S.title}>{appText("🎁 الدعم التجريبي: ")}{fmt(received)} 💎</Text>
@@ -1931,7 +1921,7 @@ export default function App(){
   if(page==='store')return <HubScreen title={ui("المتجر")} action={{label:ui("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
     <ClipiCollection copy={{store:ui("المتجر"),frame:ui("إطارات"),ride:ui("مؤثرات الدخول"),numbers:ui("أرقام مميزة"),owned:ui("مقتنياتي"),buy:ui("شراء"),equip:ui("تفعيل"),remove:ui("إزالة"),retry:ui("إعادة تحميل الأرقام"),translate:ui}}
       goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
-      onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
+      onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
   </HubScreen>;
   if(page==='gifts')return layout(ui("الهدايا"),<><Text style={S.muted}>{ui("الهدايا تُرسل من داخل غرفة صوت أو فيديو")}</Text><View style={S.giftGrid}>{GIFTS.map((g,i)=><View key={i} style={S.giftTile}><GiftMark gift={g} size={22}/><Text style={S.giftName}>{ui(g[1])}</Text><Text style={S.giftCost}>{g[2]} 💎</Text></View>)}</View><Btn title={ui("استعراض الغرف")} onPress={()=>go('rooms')}/></>);
   if(page==='shortAuthor' && shortAuthor)return <HubScreen title={shortAuthor.name} action={{label:ui('رجوع'),onPress:backFromPerson}} dock={nav()}>

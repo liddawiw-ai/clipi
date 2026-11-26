@@ -14,7 +14,7 @@ export function useRoomSession(roomId,username,equipped,onEntry,onExit,avatar){
   async function act(op,extra={}){
     const index=++sequence.current;
     const token=await auth().currentUser?.getIdToken();
-    const response=await fetch('/room-control',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op,roomId,session,...extra}),signal:AbortSignal.timeout(12000)});
+    const response=await fetch('/room-control',{method:'POST',headers:{'X-Clipi-Client':'pi-browser',Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op,roomId,session,...extra}),signal:AbortSignal.timeout(12000)});
     const data=await response.json();
     if(!response.ok){
       if(alive.current){
