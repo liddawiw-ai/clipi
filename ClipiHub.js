@@ -25,10 +25,11 @@ export function ClipiDock({items, page, onNavigate}) {
   </View>;
 }
 
-export function HubScreen({title, action, children, dock, scrollable=true}) {
+export function HubScreen({title, action, backAction, children, dock, scrollable=true}) {
   return <View style={s.screen}>
     <StatusBar barStyle="dark-content" backgroundColor="#f5f7f2"/>
     <View style={s.header}>
+      {backAction&&<TouchableOpacity accessibilityRole="button" accessibilityLabel={backAction.label} style={s.headerAction} onPress={backAction.onPress}><Text style={s.actionText}>‹</Text></TouchableOpacity>}
       <Text accessibilityRole="header" style={s.heading}>{title==="Clipi"?appText("Live Clipi"):title}</Text>
       {action&&<TouchableOpacity accessibilityRole="button" style={s.headerAction} onPress={action.onPress}>
         <Text style={s.actionText}>{action.label}</Text>
@@ -222,15 +223,15 @@ const s = StyleSheet.create({
   editGlyph:{color:theme.ink,fontWeight:'900',fontSize:13},
   screen:{flex:1,backgroundColor:theme.canvas},
   header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:20,paddingTop:14,paddingBottom:14},
-  heading:{fontFamily:'serif',fontSize:30,fontWeight:'700',color:theme.ink,flexShrink:1},
-  headerAction:{borderRadius:0,backgroundColor:'transparent',paddingHorizontal:3,paddingVertical:10,borderBottomWidth:1,borderBottomColor:theme.line},
+  heading:{fontSize:28,lineHeight:38,fontWeight:'700',color:theme.ink,flexShrink:1},
+  headerAction:{minHeight:44,minWidth:44,alignItems:'center',justifyContent:'center',borderRadius:0,backgroundColor:'transparent',paddingHorizontal:5,paddingVertical:8,borderBottomWidth:1,borderBottomColor:theme.line},
   actionText:{color:accent,fontWeight:'700'},
   content:{width:'100%',maxWidth:680,alignSelf:'center',paddingHorizontal:14,paddingTop:4,paddingBottom:20},
   hero:{backgroundColor:theme.mint,direction:'ltr',flexDirection:'row',alignItems:'center',borderRadius:24,padding:16,minHeight:148,overflow:'hidden',marginBottom:14,borderWidth:1,borderColor:theme.line},
   heroImage:{position:'absolute',left:0,top:0,bottom:0,right:0,width:'100%',height:'100%'},
   heroBody:{position:'absolute',top:8,bottom:8,right:'5%',width:'51%',alignItems:'flex-end',justifyContent:'center'},
   heroTitle:{color:theme.ink,fontSize:25,fontWeight:'800'},
-  heroNote:{color:theme.secondary,fontSize:13,marginTop:4},
+  heroNote:{color:theme.secondary,fontSize:14,lineHeight:21,marginTop:4},
   heroPlus:{borderWidth:1,borderColor:theme.line,color:theme.ink,backgroundColor:theme.paper,borderRadius:16,width:30,height:30,textAlign:'center',lineHeight:28,fontSize:23,marginTop:6},
   filters:{flexDirection:'row',flexWrap:'wrap',gap:6,marginBottom:9},
   filter:{borderWidth:1,borderColor:theme.line,borderRadius:20,paddingHorizontal:12,paddingVertical:9,backgroundColor:'transparent'},
@@ -250,14 +251,14 @@ const s = StyleSheet.create({
   coverLabel:{position:'absolute',bottom:7,left:8,color:theme.ink,backgroundColor:theme.paper,borderRadius:9,paddingHorizontal:8,paddingVertical:3,fontSize:11,fontWeight:'800'},
   cardText:{padding:10,minHeight:64},
   cardTitle:{fontSize:16,color:ink,fontWeight:'800'},
-  secondary:{fontSize:13,color:theme.secondary,marginTop:3},
+  secondary:{fontSize:14,lineHeight:21,color:theme.secondary,marginTop:3},
   manage:{borderTopWidth:1,borderColor:theme.line,padding:9},
   manageText:{color:theme.danger,fontSize:13,fontWeight:'700'},
   welcome:{marginTop:12,borderRadius:14,backgroundColor:theme.sand,padding:13},
   dock:{flexDirection:'row',backgroundColor:theme.paper,borderTopWidth:1,borderTopColor:theme.line,paddingTop:7,paddingBottom:9,paddingHorizontal:5},
   dockItem:{alignItems:'center',justifyContent:'center',flex:1,minHeight:48},
   dockIcon:{color:muted,fontSize:22,lineHeight:27,fontWeight:'700'},
-  dockLabel:{color:muted,fontWeight:'600',fontSize:10},
+  dockLabel:{color:muted,fontWeight:'600',fontSize:12,lineHeight:17},
   createIcon:{backgroundColor:theme.mint,color:theme.accent,borderRadius:11,minWidth:34,textAlign:'center'},
   profileName:{color:theme.ink,fontWeight:'800',fontSize:22},profileId:{color:theme.secondary,marginTop:3},account:{overflow:'hidden',backgroundColor:theme.paper,borderRadius:22,padding:19,marginBottom:12,minHeight:172},
   identity:{flexDirection:'row',alignItems:'center',gap:11},
@@ -270,7 +271,7 @@ const s = StyleSheet.create({
   compactShortcuts:{gap:4},
   compactShortcut:{flexBasis:'14.5%',minWidth:44,paddingHorizontal:2},
   shortcutIcon:{fontSize:20,color:accent,fontWeight:'800'},
-  shortcutLabel:{alignSelf:'stretch',color:ink,fontSize:11,fontWeight:'700',textAlign:'center'},
+  shortcutLabel:{alignSelf:'stretch',color:ink,fontSize:13,lineHeight:19,fontWeight:'700',textAlign:'center'},
   rows:{backgroundColor:'transparent',borderRadius:14,overflow:'hidden',marginBottom:12},
   row:{padding:13,borderBottomWidth:1,borderBottomColor:theme.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between',minHeight:51,backgroundColor:'transparent'},
   rowLabel:{color:ink,fontWeight:'700',flexShrink:1},

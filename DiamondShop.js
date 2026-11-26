@@ -1,6 +1,6 @@
 import {ui as appText,uiError,interfaceLocale} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
-import React,{useState,useRef} from 'react';
+import React,{useEffect,useState,useRef} from 'react';
 import {View,Text,TouchableOpacity,StyleSheet,Linking,Share,Platform} from 'react-native';
 import * as Crypto from 'expo-crypto';
 import {storeBilling} from './storeBilling';
@@ -11,6 +11,15 @@ export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurr
  const [storeMessage,setStoreMessage]=useState('');
  const [busy,setBusy]=useState(false),[error,setError]=useState(''),[fallback,setFallback]=useState('');
  const lock=useRef(false),attempt=useRef(null);
+ const [cardAvailable,setCardAvailable]=useState(false);
+ useEffect(()=>{
+  if(!externalAllowed)return;
+  const controller=new AbortController();
+  fetch(endpoint+'/external-checkout/availability',{signal:controller.signal}).then(r=>r.json()).then(data=>{
+   if(!controller.signal.aborted)setCardAvailable(data.usd===true);
+  }).catch(()=>{});
+  return ()=>controller.abort();
+ },[endpoint,externalAllowed]);
  const pi=method==='pi',nativeStore=!externalAllowed&&!pi;
  const storeName=Platform.OS==='ios'?'App Store':'Google Play';
  function reset(){setStoreMessage('');setOffer(null);setError('');setFallback('');attempt.current=null}
@@ -49,15 +58,16 @@ export default function DiamondShop({request,externalAllowed,endpoint,uid,isCurr
  }
  const selected=pi?1200:1000;
  return <View style={s.body}>
-  <View style={s.segment}>{(externalAllowed?[['pi','عملة PI']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{appText(label)}</Text></TouchableOpacity>)}</View>
-  <View style={s.summary}><Text style={s.eyebrow}>{pi?appText('الدفع من PI Browser'):storeName}</Text><Text style={s.amount}>💎 {fmt(count*selected)}</Text><Text style={s.desc}>{pi?appText('بقيمة ')+count+appText(' USD حسب سعر PI عند الطلب'):nativeStore?appText('السعر حسب بلد حسابك في ')+storeName:count+appText(' USD عبر Visa أو Google Pay عند توفره')}</Text></View>
+  <View style={s.segment}>{(externalAllowed?[['pi','عملة PI'],['card','USD']]:[['card',storeName]]).map(([key,label])=><TouchableOpacity key={key} disabled={busy} accessibilityRole="tab" accessibilityState={{selected:method===key}} onPress={()=>{methodTo(key);reset()}} style={[s.tab,method===key&&s.on]}><Text style={[s.tabText,method===key&&s.dark]}>{appText(label)}</Text></TouchableOpacity>)}</View>
+  <View style={s.summary}><Text style={s.eyebrow}>{pi?appText('الدفع من PI Browser'):nativeStore?storeName:'USD'}</Text><Text style={s.amount}>💎 {fmt(count*selected)}</Text><Text style={s.desc}>{pi?appText('بقيمة ')+count+appText(' USD حسب سعر PI عند الطلب'):nativeStore?appText('السعر حسب بلد حسابك في ')+storeName:count+appText(' USD عبر Visa أو Google Pay عند توفره')}</Text></View>
   <Text style={s.title}>{appText("اختر الباقة")}</Text>
-  <View style={s.grid}>{units.map(n=><TouchableOpacity key={n} disabled={busy} onPress={()=>{select(n);reset()}} accessibilityRole="button" accessibilityState={{selected:count===n}} style={[s.pack,count===n&&s.chosen]}><Text style={s.number}>{fmt(n*selected)} 💎</Text>{pi&&<Text style={s.price}>{n} USD</Text>}</TouchableOpacity>)}</View>
+  <View style={s.grid}>{units.map(n=><TouchableOpacity key={n} disabled={busy} onPress={()=>{select(n);reset()}} accessibilityRole="button" accessibilityState={{selected:count===n}} style={[s.pack,count===n&&s.chosen]}><Text style={s.number}>{fmt(n*selected)} 💎</Text>{!nativeStore&&<Text style={s.price}>{n} USD</Text>}</TouchableOpacity>)}</View>
   {offer&&pi&&<Text accessibilityLiveRegion="polite" style={s.desc}>{offer.amount}{appText(" PI · السعر صالح حتى ")}{new Date(offer.expires).toLocaleTimeString(interfaceLocale())}</Text>}
   {nativeStore&&offer&&<Text style={s.desc}>{storeName} · {offer.localPrice}</Text>}
   {!!storeMessage&&<Text style={s.desc}>{appText(storeMessage)}</Text>}
-  <TouchableOpacity accessibilityRole="button" disabled={busy||(pi&&!externalAllowed)} onPress={next} style={[s.cta,(busy||(pi&&!externalAllowed))&&{opacity:.55}]}><Text style={s.dark}>{busy?appText('جارٍ الاتصال…'):pi?(offer?appText('متابعة في PI Browser'):appText('عرض سعر PI الآن')):nativeStore?(offer?appText('الشراء عبر ')+storeName:appText('عرض سعر ')+storeName):appText('متابعة إلى الدفع')}</Text></TouchableOpacity>
+  <TouchableOpacity accessibilityRole="button" disabled={busy||(pi&&!externalAllowed)||(!pi&&externalAllowed&&!cardAvailable)} onPress={next} style={[s.cta,(busy||(pi&&!externalAllowed))&&{opacity:.55}]}><Text style={s.dark}>{busy?appText('جارٍ الاتصال…'):pi?(offer?appText('متابعة في PI Browser'):appText('عرض سعر PI الآن')):nativeStore?(offer?appText('الشراء عبر ')+storeName:appText('عرض سعر ')+storeName):appText('متابعة إلى الدفع')}</Text></TouchableOpacity>
   {pi&&!externalAllowed&&<Text style={s.desc}>{appText("الدفع بعملة PI متاح في نسخة أندرويد المباشرة.")}</Text>}
+  {!pi&&externalAllowed&&!cardAvailable&&<Text style={s.desc}>{appText('الدفع بالدولار غير مفعّل حاليًا')}</Text>}
   {!!error&&<Text accessibilityLiveRegion="polite" style={s.error}>{appText(error)}</Text>}
   {fallback&&<TouchableOpacity onPress={()=>Share.share({message:fallback})}><Text style={s.price}>{appText("نسخ أو مشاركة رابط الطلب لفتحه في Pi Browser")}</Text></TouchableOpacity>}
  </View>;

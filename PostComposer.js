@@ -99,8 +99,9 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   if(!ready)return <View style={s.screen}><ActivityIndicator color="#fff"/></View>;
   if(studio||!draft)return <CaptureStudio backAction={studioBack} onMedia={selectMedia} hasDraft={!!draft} onRestore={()=>setStudio(false)} onClose={onClose}/>;
   return <View style={s.screen}>
-    <View style={s.preview}>{photos?<Album count={photos.length} uri={'data:image/jpeg;base64,'+photos[index]} notes={notes} index={index} setIndex={setIndex}/>:
+    <View style={s.preview}>{photos?<Album count={photos.length} uri={'data:image/jpeg;base64,'+photos[index]} notes={notes} index={index} setIndex={setIndex} onDismiss={editable?()=>setStudio(true):undefined}/>:
       <><Player playback={playback} source={draft.uri} muted={muted} fit="contain" playerRef={player} onMuteRequired={setMuted}/><Overlay text={overlay}/><Overlay text={cue?.text||timedText} timed/>
+        {editable&&<Pressable accessibilityRole="button" accessibilityLabel={ui('الرجوع من المعاينة')} style={StyleSheet.absoluteFillObject} onPress={()=>setStudio(true)}/>}
         <View style={s.audio}><Action label={muted?'تشغيل الصوت':'كتم الصوت'} onPress={()=>setMuted(!muted)}/></View></>}
       <View style={s.typeTool}><CameraTool icon="T" label="الكتابة على الشاشة" onPress={()=>setWriting(true)} disabled={!editable}/></View>
     </View>

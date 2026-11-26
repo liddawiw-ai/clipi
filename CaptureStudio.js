@@ -31,11 +31,11 @@ export default function CaptureStudio({backAction,onMedia,onClose,hasDraft,onRes
     if(live.current)onMedia(media,text);
     else releaseDraft(media);
   }
-  async function gallery(){
+  async function gallery(nextMode=mode){
     if(lock.current||unavailable)return;
     lock.current=true;setLoading(true);setError('');
     try{
-      const media=await (mode==='photos'?pickPhotos():pickShort());
+      const media=await (nextMode==='photos'?pickPhotos():pickShort());
       if(media)deliver(media);
     }catch(e){if(live.current)setError(e.message);}
     finally{lock.current=false;if(live.current)setLoading(false);}
@@ -77,19 +77,19 @@ export default function CaptureStudio({backAction,onMedia,onClose,hasDraft,onRes
       {device.torch&&<CameraTool icon="flash" label="الفلاش" disabled={unavailable} selected={torch} onPress={()=>setTorch(v=>!v)}/>}
       {!photo&&<CameraTool icon={muted||!device.audio?'silent':'mic'} label={muted?'تشغيل الميكروفون':'كتم الميكروفون'} selected={muted} disabled={unavailable||!device.audio} onPress={()=>setMuted(v=>!v)}/>}
       <CameraTool icon="T" label="الكتابة على الشاشة" disabled={unavailable} selected={!!text} onPress={()=>setWriting(true)}/>
-      <CameraTool icon="gallery" label={photo?'رفع صور':'رفع فيديو'} disabled={unavailable} onPress={gallery}/>
+      <CameraTool icon="gallery" label={photo?'رفع صور':'رفع فيديو'} disabled={unavailable} onPress={()=>gallery()}/>
       {hasDraft&&<CameraTool icon="↩" label="متابعة المسودة" disabled={unavailable} onPress={onRestore}/>}
     </View>
     <View style={s.dock} pointerEvents="box-none">
       {(loading||device.processing)&&<ActivityIndicator color="#fff"/>}
       {!!error&&<Text accessibilityLiveRegion="polite" style={s.status}>{ui(error)}</Text>}
       <View style={s.selector}>
-        <Mode label="فيديو" active={!photo} disabled={unavailable} onPress={()=>changeMode('video')}/>
+        <Mode label="فيديو" active={!photo} disabled={unavailable} onPress={()=>{changeMode('video');void gallery('video');}}/>
         <Pressable accessibilityRole="button" accessibilityLabel={ui(device.recording?'إيقاف التسجيل':photo?'التقاط صورة':'بدء التسجيل')}
           disabled={loading||device.processing||device.starting||writing} style={s.ring} onPress={shutter}>
           <View style={[s.shutter,photo&&s.photo,device.recording&&s.stop]}/>
         </Pressable>
-        <Mode label="صور" active={photo} disabled={unavailable} onPress={()=>changeMode('photos')}/>
+        <Mode label="صور" active={photo} disabled={unavailable} onPress={()=>{changeMode('photos');void gallery('photos');}}/>
       </View>
     </View>
     {writing&&<CameraTextEditor value={text} onChange={setText} onDone={()=>setWriting(false)} label="الكتابة على الشاشة"/>}

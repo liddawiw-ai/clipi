@@ -15,6 +15,7 @@ export function CameraTool({icon,label,onPress,disabled=false,selected=false}){
 export function CameraTextEditor({value,onChange,onDone,label}){
   function done(){Keyboard.dismiss();onDone();}
   return <View style={s.sheet} accessibilityViewIsModal>
+    <Pressable accessibilityRole="button" accessibilityLabel={ui('رجوع')} style={StyleSheet.absoluteFillObject} onPress={done}/>
     <TextInput autoFocus multiline maxLength={160} value={value} onChangeText={onChange}
       accessibilityLabel={ui(label)} placeholder={ui('اكتب هنا')} placeholderTextColor="#e4e4e4" style={s.input}/>
     <View style={s.done}><CameraTool icon="✓" label="تم" onPress={done}/></View>

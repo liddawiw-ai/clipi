@@ -1295,7 +1295,7 @@ export default function App(){
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
   const searchMemory=useRef({});
-  const peopleTrail=useRef([]);
+
   const [shortAuthor,setShortAuthor]=useState(null);
   const [roomProfileUid,setRoomProfileUid]=useState(null);
   const [inviteAll,setInviteAll]=useState(false),[inviteRoomId,setInviteRoomId]=useState(null);
@@ -1330,18 +1330,21 @@ export default function App(){
   useEffect(()=>{
     if(!user?.uid||!['wallet','profile'].includes(page))return;
     let active=true,timer;
+    let readVersion=0;
     async function refresh(){
+      const version=++readVersion;
+      clearTimeout(timer);
       try{
         const data=await mediaRequest('/account-number',{op:'wallet'});
-        if(active&&auth().currentUser?.uid===user.uid){
+        if(active&&version===readVersion&&auth().currentUser?.uid===user.uid){
           setGiftWallet({uid:user.uid,data});setGiftWalletError('');
         }
-      }catch(error){if(active)setGiftWalletError(error.message)}
-      if(active&&page==='wallet')timer=setTimeout(refresh,15000);
+      }catch(error){if(active&&version===readVersion)setGiftWalletError(error.message)}
+      if(active&&version===readVersion&&page==='wallet')timer=setTimeout(refresh,15000);
     }
     setGiftWalletError('');
+    void refresh();
     if(page==='wallet')void mediaRequest('/account-number',{op:'externalOrders',order:checkoutOrder.current}).catch(()=>{}).then(()=>{if(active)void refresh()});
-    else void refresh();
     return ()=>{active=false;clearTimeout(timer)};
   },[user?.uid,page,walletRequest]);
   const [identity,setIdentity]=useState(null),[numberError,setNumberError]=useState('');
@@ -1475,11 +1478,56 @@ export default function App(){
     returnToAccount.current=false;
     return target;
   }
-  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;
-    if(p!=='shortAuthor')peopleTrail.current=[];
-    if(pageRef.current!==p)stopShortPlayback();
-    pageRef.current=p;setPage(p);
-  };
+  const itinerary=useRef({entries:[],index:-1,session:0});
+  const backAction=useRef(null);
+  const isEntry=p=>['loading','login','verify'].includes(p);
+  function snapshot(){
+    return {page:pageRef.current,author:shortAuthor,roomUid:roomProfileUid,short:initialShort,room:activeRoom?.id,mini};
+  }
+  function remember(){
+    const trail=itinerary.current;
+    if(trail.index>=0)trail.entries[trail.index]=snapshot();
+  }
+  function showPage(p){
+    stopShortPlayback();
+    pageRef.current=p;
+    setPage(p);
+  }
+  function restore(index){
+    const trail=itinerary.current,entry=trail.entries[index];
+    if(!entry)return false;
+    remember();
+    trail.index=index;
+    setShortAuthor(entry.author);setRoomProfileUid(entry.roomUid);setInitialShort(entry.short);
+    if(activeRoomRef.current?.id&&activeRoomRef.current.id===entry.room)setMini(entry.mini);
+    showPage(entry.page);
+    return true;
+  }
+  function go(p,newEntry=false){
+    if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;
+    const trail=itinerary.current;
+    if(pageRef.current===p&&!newEntry&&trail.index>=0)return;
+    remember();
+    const reset=isEntry(p)||isEntry(pageRef.current)||trail.index<0;
+    if(reset){trail.entries=[];trail.index=-1;trail.session=Date.now()+Math.random();}
+    trail.entries.splice(trail.index+1);
+    trail.entries.push({...snapshot(),page:p});
+    trail.index++;
+
+    showPage(p);
+  }
+  function back(){
+    const trail=itinerary.current;
+    if(trail.index>0){restore(trail.index-1);return true;}
+    if(!isEntry(pageRef.current)&&pageRef.current!=='home'&&user){go('home');return true;}
+    return false;
+  }
+
+  backAction.current=()=>{if(uploadOpen||policy||(activeRoom&&!mini))return false;return back();};
+  useEffect(()=>{
+    const handler=BackHandler.addEventListener('hardwareBackPress',()=>backAction.current?.()||false);
+    return ()=>handler.remove();
+  },[]);
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
@@ -1531,6 +1579,7 @@ export default function App(){
       if(!active)return;
       // Local demo data must never leak between Firebase accounts on the same device.
       if(currentSessionUidRef.current!==u?.uid){
+        itinerary.current={entries:[],index:-1,session:0};
         currentSessionUidRef.current=u?.uid;
         closeUpload();setLoginLanguages(false);
         selectedEmoji.current=null;setAvatar('👤');
@@ -1822,10 +1871,9 @@ export default function App(){
     }catch(e){Alert.alert(appText('تعذر إنشاء الغرفة'),uiError(e))}finally{creatingRoom.current=false;setBusy(false)}
   }
   function openHostProfile(uid,hostName,photo){
-    peopleTrail.current=[];
     setRoomProfileUid(uid);setMini(true);
     if(uid===user.uid){go('profile');return}
-    setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor');
+    setShortAuthor({uid,name:hostName,avatar:photo});go('shortAuthor',true);
   }
   async function enterRoomById(){
     const number=normalizeRoomNumber(roomSearch);
@@ -1895,7 +1943,7 @@ export default function App(){
     if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
     resetGame();go('games');
   }
-  function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>{appText("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text><TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{funded?'💎 '+fmt(funded.diamonds):appText('المحفظة')}</Text></TouchableOpacity></View>}
+  function header(title,onBack=back){return <View style={S.header}><TouchableOpacity accessibilityRole="button" onPress={onBack}><Text style={S.white}>{appText("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text>{page!=='wallet'&&<TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{funded?'💎 '+fmt(funded.diamonds):appText('المحفظة')}</Text></TouchableOpacity>}</View>}
   function nav(){
     const items=[
       {id:'home',icon:'⌂',label:appText('الرئيسية')},
@@ -1917,20 +1965,14 @@ export default function App(){
   const socialProfile=owner=>({request:mediaRequest,locale,fromRoom:!!activeRoom&&mini&&roomProfileUid===owner,owner,viewer:user?.uid,viewerName:name||user?.displayName,viewerAvatar:avatar,blocked:blockedUsers,openPerson,followRevision,onFollowChange});
   function openPerson(person){
     if(person.uid===user.uid){setRoomProfileUid(null);go('profile');return;}
-    peopleTrail.current.push({page,author:shortAuthor,roomUid:roomProfileUid});
-    setRoomProfileUid(null);setShortAuthor({uid:person.uid,name:person.name,avatar:person.avatar});go('shortAuthor');
+    setRoomProfileUid(null);setShortAuthor({uid:person.uid,name:person.name,avatar:person.avatar});go('shortAuthor',true);
   }
-  function backFromPerson(){
-    const previous=peopleTrail.current.pop();
-    if(previous){setShortAuthor(previous.author);setRoomProfileUid(previous.roomUid);go(previous.page);return;}
-    if(roomProfileUid&&activeRoom)setMini(false);else go('home');
-  }
+  function backFromPerson(){back();}
   function openShortAccount(uid,authorName,clip,own,authorAvatar){
-    peopleTrail.current=[];
     setInitialShort(clip);
     setRoomProfileUid(null);
     if(own || uid===user.uid){go('profile');return;}
-    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor');
+    setShortAuthor({uid,name:authorName,avatar:authorAvatar});go('shortAuthor',true);
   }
   const shortPlayerProps={onAuthor:openShortAccount,translate:appText,liveRooms:rooms.filter(r=>!blockedUsers.includes(r.ownerUid)),onVisitLive:async room=>{
     const uid=user?.uid;
@@ -1959,8 +2001,8 @@ export default function App(){
     <Text style={S.languageFocus}>{menu.changeLanguage} · {menu.languageName}  ⌃</Text>
     </TouchableOpacity></View>;
   function renderPage(){
-  if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,()=>go('wallet'));
-  if(page==='earningsWallet')return <EarningsWalletScreen request={supportRequest} onBack={()=>go('wallet')}/>;
+  if(page==='diamondShop')return layout(appText('شراء الماس'),<DiamondShop uid={user.uid} isCurrentUser={uid=>auth().currentUser?.uid===uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} externalAllowed={Constants.expoConfig?.extra?.directCheckout===true&&(Platform.OS==='android'||(Platform.OS==='ios'&&Constants.expoConfig?.extra?.internalIosCheckout===true))}/>,back);
+  if(page==='earningsWallet')return <EarningsWalletScreen request={supportRequest} onBack={back}/>;
   if(page==='loading')return <View style={[S.page,{justifyContent:'center',alignItems:'center'}]}><Text style={S.title}>{appText("Clipi · تحميل الحساب...")}</Text></View>;
   if(page==='login'||page==='verify')return <View style={{flex:1,backgroundColor:theme.canvas}}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.content}>
     <LoginCover image={require('./assets/clipi-icon.png')}/>{page==='verify'&&languageButton}<View style={{backgroundColor:theme.paper,borderRadius:24,padding:18}}>
@@ -1991,15 +2033,15 @@ export default function App(){
     </>}
   </View></ScrollView></View>;
   function playFoundVideo(id){setInitialShort(id);go('home');}
-  if(page==='clipiSearch')return <HubScreen title={appText('بحث في كليبي')} action={{label:menu.back,onPress:()=>go('home')}} dock={nav()}>
+  if(page==='clipiSearch')return <HubScreen title={appText('بحث في كليبي')} action={{label:menu.back,onPress:back}} dock={nav()}>
     <ClipiSearch memory={searchMemory} request={mediaRequest} rooms={[helpRoom,...rooms.filter(r=>r.id!==helpRoom.id&&r.status==='open')]}
       blocked={blockedUsers} openPerson={openPerson} openVideo={playFoundVideo}
       openRoom={shortPlayerProps.onVisitLive}/></HubScreen>;
   if(page==='watchHistory'||page==='adminDecisions'&&visibleNumber?.canManageAppAdmins)return <HubScreen title={appText(page==='watchHistory'?'سجل المشاهدة':'سجل قرارات الإدارة')}
-    action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ActivityList key={page} audit={page==='adminDecisions'} request={mediaRequest} openVideo={playFoundVideo}/></HubScreen>;
+    action={{label:menu.back,onPress:back}} dock={nav()}><ActivityList key={page} audit={page==='adminDecisions'} request={mediaRequest} openVideo={playFoundVideo}/></HubScreen>;
   if(page==='home')return <ShortVideoHome onSearch={()=>{searchMemory.current={};go('clipiSearch');}} roomLabels={menu} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
-  if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
+  if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={back}/>;
   const hostField=<View>
     <TouchableOpacity disabled={busy} accessibilityRole="button" accessibilityLabel={appText('غلاف البث')} onPress={chooseDraftCover} style={{minHeight:44,flexDirection:'row',alignItems:'center',gap:10}}>
       {!!draftCover&&<Image accessible={false} source={{uri:draftCover}} style={{width:76,height:47,borderRadius:8}} resizeMode="cover"/>}
@@ -2008,7 +2050,7 @@ export default function App(){
     {!!draftCover&&<ProgramButton disabled={busy} label={appText('إزالة الغلاف')} onPress={()=>setDraftCover(null)}/>}
     <ProgramOptions value={myTags} choose={setTags}/><EventEditor tags={myTags} request={mediaRequest} locale={locale} onCreated={()=>setEventRevision(v=>v+1)}/><BroadcastName label={menu.broadcasterName} value={broadcastName} onChange={setBroadcastName} disabled={busy}/>
     <CircleChoice label={broadcastWords(locale).friends} checked={inviteAll} disabled={busy} onPress={()=>setInviteAll(value=>!value)}/></View>;
-  if(page==='previousRooms')return <HubScreen title={menu.previousRooms} action={{label:menu.back,onPress:()=>go('rooms')}} dock={nav()}>
+  if(page==='previousRooms')return <HubScreen title={menu.previousRooms} action={{label:menu.back,onPress:back}} dock={nav()}>
     <PreviousRooms db={firestore()} uid={user.uid} request={mediaRequest} hostField={hostField} menu={menu} locale={locale} busy={busy}
       onResume={room=>createRoom(room.type,room.name,room)}/>
   </HubScreen>;
@@ -2036,7 +2078,7 @@ export default function App(){
       <HubRows items={[{label:menu.previousRooms,onPress:()=>go('previousRooms')}]}/>
     </HubScreen>;
   }
-  if(page==='create')return <RoomStudio hostField={hostField} name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={()=>go('home')} busy={busy} copy={{close:"رجوع",title:appText("إنشاء غرفة"),name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:appText("الغرفة عامة للمستخدمين المسجلين.")}}/>;
+  if(page==='create')return <RoomStudio hostField={hostField} name={roomName} setName={setRoomName} kind={roomType} setKind={setRoomType} onStart={()=>createRoom(roomType,roomName)} onClose={back} busy={busy} copy={{close:"رجوع",title:appText("إنشاء غرفة"),name:"اسم الغرفة",mode:"نوع الغرفة",audio:"🎙 صوت",video:"📹 فيديو",start:"فتح الغرفة",note:appText("الغرفة عامة للمستخدمين المسجلين.")}}/>;
   if(page==='wallet')return layout(appText('محفظة كليبي'),<>
     <TrialWallet key={user.uid} request={mediaRequest} nonce={Crypto.randomUUID} gifts={GIFTS} Game={GlobalGreedyPreview}/>
     <BalanceCard icon="💎" tone="sky" label={appText("الماس المشترى")} value={funded?fmt(funded.diamonds):'…'} action="شراء الماس" onPress={()=>go('diamondShop')}/>
@@ -2113,9 +2155,9 @@ export default function App(){
       <Text style={S.white}>{d.country} · {d.provider} · ${d.amount.toFixed(2)}</Text>
       <Text style={S.muted}>{d.masked} · {d.status}</Text>
     </View>)}
-  </>,()=>go('earnings'));
+  </>,back);
 
-  if(page==='store')return <HubScreen title={appText("المتجر")} action={{label:appText("رجوع"),onPress:()=>go('profile')}} dock={nav()}>
+  if(page==='store')return <HubScreen title={appText("المتجر")} action={{label:appText("رجوع"),onPress:back}} dock={nav()}>
     <ClipiCollection copy={{store:"المتجر",frame:"إطارات",ride:"مؤثرات الدخول",numbers:"أرقام مميزة",owned:"مقتنياتي",buy:"شراء",equip:"تفعيل",remove:"إزالة",retry:"إعادة تحميل الأرقام",translate:appText}}
       goods={GOODS} identity={visibleNumber} inventory={inventory} equipped={equipped} error={numberError}
       onEntranceStyle={entryStyle=>setEquipped(v=>({...v,entryStyle}))} onNumber={numberAction} onBuy={buyGood} onEquip={g=>setEquipped(v=>({...v,...(g[3]==='ride'?{entryStyle:0}:{}),[g[3]]:v[g[3]]===g[1]?'':g[1]}))}/>
@@ -2124,13 +2166,13 @@ export default function App(){
   if(page==='shortAuthor' && shortAuthor)return <HubScreen scrollable={false} title={shortAuthor.name} action={{label:appText('رجوع'),onPress:backFromPerson}} dock={nav()}>
     <ProfileShorts header={<AccountHub socialProfile={socialProfile(shortAuthor.uid)} name={shortAuthor.name} avatar={shortAuthor.avatar} copy={menu} photoLabel={shortAuthor.name}/>} playerProps={shortPlayerProps} key={user.uid+'|'+shortAuthor.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} authorUid={shortAuthor.uid}/>
   </HubScreen>;
-  if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
-  if(page==='appAdmins' && visibleNumber?.canManageAppAdmins)return <HubScreen title={appText('تعيين أدمن للتطبيق')} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+  if(page==='profileGames')return <HubScreen title={menu.games} action={{label:menu.back,onPress:back}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
+  if(page==='appAdmins' && visibleNumber?.canManageAppAdmins)return <HubScreen title={appText('تعيين أدمن للتطبيق')} action={{label:menu.back,onPress:back}} dock={nav()}>
     <AppAdminScreen key={user.uid} request={mediaRequest}/>
   </HubScreen>;
-  if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
+  if(page==='agencies')return <HubScreen title={menu.agencies} action={{label:menu.back,onPress:back}} dock={nav()}><AgencyScreen key={user.uid} request={mediaRequest}/></HubScreen>;
   if(page==='profile'||page==='appAdmins')return <HubScreen scrollable={false} title={menu.account}
-    action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
+    backAction={itinerary.current.index>0?{label:menu.back,onPress:back}:null} action={{label:menu.settings,onPress:()=>go('accountSettings')}} dock={nav()}>
     <ProfileShorts playerProps={shortPlayerProps} key={user.uid} request={mediaRequest} endpoint={MEDIA_ENDPOINT} header={<AccountHub onPhoto={pickAccountPhoto} photoLabel={appText("اختيار صورة من الاستوديو")} name={name||user?.displayName||'مستخدم'} avatar={avatar} number={visibleNumber?.number}
       socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
@@ -2143,25 +2185,23 @@ export default function App(){
         {icon:'♫',label:menu.rooms,onPress:()=>go('rooms')},
         {icon:'✦',label:menu.host,onPress:()=>go('hostCenter')},
         {icon:'🎮',label:menu.games,onPress:()=>go('profileGames')},
-        {icon:'💎',label:menu.buy,onPress:()=>go('diamondShop')},
-        {icon:'↗',label:menu.earnings,onPress:()=>go('earningsWallet')},
       ]}/>} />
   </HubScreen>;
-  if(page==='hostCenter')return <HubScreen title={menu.host} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+  if(page==='hostCenter')return <HubScreen title={menu.host} action={{label:menu.back,onPress:back}} dock={nav()}>
     <AccountHub onPhoto={pickAccountPhoto} photoLabel={appText("اختيار صورة من الاستوديو")} name={name||user?.displayName||appText('مستخدم')} avatar={avatar} number={visibleNumber?.number}
       balance={rooms.filter(r=>r.status==='open'&&r.ownerUid===user?.uid).length} copy={{balance:appText('غرفي المفتوحة'),photo:appText('الصورة الشخصية')}} unit="♫"
       shortcuts={[{icon:'＋',label:appText("إنشاء غرفة"),onPress:()=>go('create')},{icon:'◇',label:appText("المحفظة"),onPress:()=>go('wallet')}]}
       settings={[{label:appText("استعراض الغرف"),onPress:()=>go('rooms')},{label:appText("الإعدادات"),onPress:()=>go('accountSettings')}]}/>
   </HubScreen>;
   if(page==='help'||page==='deleteAccount')return <HelpCenter key={user.uid+page} request={supportRequest}
-    newId={Crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={()=>go('accountSettings')}/>;
-  if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:()=>go(user?'accountSettings':'login')}} dock={user?nav():null}>
+    newId={Crypto.randomUUID} lang={locale} initialKind={page==='deleteAccount'?'deletion':null} onBack={back}/>;
+  if(page==='accountLanguage')return <HubScreen title={menu.changeLanguage} action={{label:menu.back,onPress:back}} dock={user?nav():null}>
     <HubRows items={Object.entries(accountLabels).map(([code,labels])=>({
       label:(code===locale?'✓ ':'')+labels.languageName,onPress:()=>selectLanguage(code)
     }))}/>
   </HubScreen>;
   if(page==='accountSettings'){
-    return <HubScreen title={menu.settings} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}>
+    return <HubScreen title={menu.settings} action={{label:menu.back,onPress:back}} dock={nav()}>
 
       <HubRows items={[
         {label:menu.edit,onPress:()=>go('profileEdit')},
@@ -2180,7 +2220,7 @@ export default function App(){
       ]}/>
     </HubScreen>;
   }
-  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),uiError(e))}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
+  if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Btn color={ORANGE} title={appText("💼 محفظة النقاط والأرباح")} onPress={()=>go('earningsWallet')}/><Text style={S.label}>{appText("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{appText("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={appText("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(appText('أدخل الاسم'));await saveProfile(user,name.trim(),true);Alert.alert(appText('تم الحفظ'))}catch(e){Alert.alert(appText('خطأ'),uiError(e))}}}/>{__DEV__&&<View style={S.panel}><Text style={S.title}>{appText("👑 معاينة المالك فقط")}</Text><Text style={S.muted}>{appText("زر غير محمي ويجب إزالته قبل النشر. لا يجوز منح رصيد مالي من التطبيق.")}</Text><Btn title={ownerDemo?appText('إيقاف معاينة المالك'):appText('تفعيل 100,000,000 تجريبية')} color="#946e2c" onPress={toggleOwnerDemo}/></View>}<View style={S.panel}><Text style={S.title}>{appText("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{appText("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{appText("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={appText("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{appText("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={appText("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={appText("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,back);
   if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
   if(page==='game')return <View style={S.starPage}>
     <StatusBar barStyle="dark-content"/>
