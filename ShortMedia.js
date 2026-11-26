@@ -85,7 +85,8 @@ export function shortVideoUrl(endpoint,id) {
 }
 export const copyShortLink=url=>Clipboard.setString(url);
 export const shareShort=url=>Share.share({message:url});
-export async function saveShort(id,source) {
+export async function saveShort(id,source,photo=false) {
+  const ext=photo?'.jpg':'.mp4';
   const access=await FS.StorageAccessFramework.requestDirectoryPermissionsAsync();
   if(!access.granted)return;
   let local,temp;
@@ -94,13 +95,13 @@ export async function saveShort(id,source) {
       const asset=await Asset.fromModule(source).downloadAsync();
       local=asset.localUri;
     }else{
-      temp=FS.cacheDirectory+'clipi-'+nonce()+'.mp4';
+      temp=FS.cacheDirectory+'clipi-'+nonce()+ext;
       const res=await FS.downloadAsync(source,temp);
       if(res.status!==200)throw Error('تعذّر تنزيل الفيديو');
       local=res.uri;
     }
     const data=await FS.readAsStringAsync(local,{encoding:FS.EncodingType.Base64});
-    const dest=await FS.StorageAccessFramework.createFileAsync(access.directoryUri,'Clipi-'+id+'.mp4','video/mp4');
+    const dest=await FS.StorageAccessFramework.createFileAsync(access.directoryUri,'Clipi-'+id+ext,photo?'image/jpeg':'video/mp4');
     await FS.writeAsStringAsync(dest,data,{encoding:FS.EncodingType.Base64});
   }finally{if(temp)await FS.deleteAsync(temp,{idempotent:true});}
 }

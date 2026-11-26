@@ -14,10 +14,11 @@ function Tile({clip,index,endpoint,onOpen,translate}){
   const [failed,setFailed]=useState(false);
   useEffect(()=>{
     let current=true;setUri(null);setFailed(false);
+    if(clip.photoCount){setUri(endpoint+'/shorts/media/'+clip.id);return;}
     shortThumbnail(clip.id,endpoint+'/shorts/media/'+clip.id,()=>current)
       .then(value=>{if(current)setUri(value);}).catch(()=>{if(current)setFailed(true);});
     return ()=>{current=false;};
-  },[clip.id,endpoint]);
+  },[clip.id,clip.photoCount,endpoint]);
   return <Pressable accessibilityRole="button" accessibilityLabel={translate('تشغيل الفيديو')+' '+(clip.title||index+1)}
     style={s.tile} onPress={()=>onOpen(clip)}>
     {uri?<Image accessible={false} source={{uri}} resizeMode="cover" style={StyleSheet.absoluteFill}/>:failed&&<Text numberOfLines={2} style={s.tileLabel}>{clip.title||'▶'}</Text>}

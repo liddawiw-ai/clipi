@@ -312,7 +312,7 @@ async function mediaRequest(path,body,signal){
   const response=await fetch(MEDIA_ENDPOINT+path,{
     method:'POST',signal,
     headers:{Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
-    body:JSON.stringify(body),
+    body:JSON.stringify(body?.op?.startsWith('short')?{...body,includePhotos:true}:body),
   });
   if(!response.ok){const detail=await response.json().catch(()=>({}));throw Object.assign(new Error(appText(detail.error)||appText('تعذّر الاتصال بالخدمة (')+response.status+')'),{status:response.status})}
   return response.json();

@@ -1,18 +1,16 @@
+import {PublishedAlbum,Overlay} from './Album';
 import {SearchButton,VideoInsights} from './DiscoveryScreens';
 import {useWatchVisit} from './useWatchVisit';
 import {useShortPlayback} from './useShortPlayback';
-import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
 import {useRandomShort} from './useRandomShort';
 import {useClipLike} from './useClipLike';
-import {shortProfile} from './photo';
-import {PolicyModal} from './PolicySheet';
 import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {AccessibilityInfo,ActivityIndicator,FlatList,Image,Linking,Modal,PanResponder,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,useWindowDimensions,View} from 'react-native';
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
-import {Player,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce,pickShort,uploadFile,releaseDraft} from './ShortMedia';
+import {Player,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
 const redHeart=require('./assets/actions/like-on.png');
@@ -62,7 +60,7 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
-  useWatchVisit({clip:item.id,viewer:viewer?.uid,active:isCurrent&&playable,playing,playerRef,playback,request});
+  useWatchVisit({clip:item.id,viewer:viewer?.uid,active:!item.photoCount&&isCurrent&&playable,playing,playerRef,playback,request});
   async function hide(){
     if(lock.current)return;
     lock.current=true;
@@ -114,6 +112,8 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
     }
   }
   const source=shortVideoUrl(endpoint,item.id);
+  const [slide,setSlide]=useState(0);
+  const shareUrl=item.photoCount?endpoint+'/#short='+encodeURIComponent(item.id):source;
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
   const {liked,likes,like,initialize}=useClipLike(
     wanted=>api('shortLike',{liked:wanted,likeOnly:true}),
@@ -142,7 +142,7 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
   function copyLink(){
     setDialog('');
     run(async()=>{
-      await copyShortLink(source);
+      await copyShortLink(shareUrl);
       if(alive.current)setMessage(translate('تم نسخ رابط الفيديو'));
     });
   }
@@ -188,12 +188,12 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused&&dialog!=='insights'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused&&dialog!=='insights'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><Overlay text={stats?.overlay}/></>}</View>
     {isCurrent&&!showing&&dialog!=='delete'&&<>
-    <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
+    {!item.photoCount&&<VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
-      onDoubleTap={confirm=>like(true,confirm)}/>
-    <SoundControl belowHeader {...{playerRef,muted,setMuted}}/>
+      onDoubleTap={confirm=>like(true,confirm)}/>}
+    {!item.photoCount&&<SoundControl belowHeader {...{playerRef,muted,setMuted}}/>}
     <View style={s.rail}>
       <View style={s.authorBadge}><Pressable accessibilityRole="button" accessibilityLabel={translate('عرض الملف الشخصي')+' · '+authorName}
         disabled={!ownerUid} onPress={()=>onAuthor(ownerUid,authorName,item.id,canDelete,stats?.authorAvatar)}><ShortAvatar name={authorName} avatar={stats?.authorAvatar} size={40}/></Pressable>
@@ -205,8 +205,8 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
         {liked?<Image source={redHeart} style={s.heart}/>:<Text style={s.icon}>♥</Text>}{likes!=null&&<Text style={s.count}>{likes}</Text>}
       </Button>
       <Button label={appText("التعليقات")} onPress={openComments}><Image source={commentIcon} style={s.commentIcon}/>{commentCount!=null&&<Text style={s.count}>{commentCount}</Text>}</Button>
-      <Button label={appText("مشاركة الفيديو")} onPress={()=>run(()=>shareShort(source))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>{appText("مشاركة")}</Text></Button>
-      <Button label={appText("تنزيل الفيديو")} onPress={()=>run(()=>saveShort(item.id,source))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
+      <Button label={appText("مشاركة الفيديو")} onPress={()=>run(()=>shareShort(shareUrl))}><Image source={require('./assets/actions/share-left.png')} style={s.soundIcon}/><Text style={s.count}>{appText("مشاركة")}</Text></Button>
+      <Button label={appText("تنزيل الفيديو")} onPress={()=>run(()=>saveShort(item.id,item.photoCount?source+'?photo='+slide:source,!!item.photoCount))}><Image source={require('./assets/actions/download.png')} style={s.soundIcon}/></Button>
       <Button label={appText("المزيد")} onPress={()=>setDialog('more')}><Text style={s.label}>•••</Text></Button>
     </View>
     <View pointerEvents="box-none" style={s.caption}>{!!caption&&<Text style={{alignSelf:"flex-start",backgroundColor:"rgba(0,0,0,.7)",color:"white",paddingHorizontal:6}}>{caption}</Text>}<Text style={s.label}>{authorName}</Text>{!!item.title&&<Text style={s.count}>{item.title}</Text>}
@@ -427,94 +427,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
   </View><View style={viewMode&&{opacity:0}} pointerEvents={viewMode?'none':'auto'}>{dock}</View></View>;
 }
 
-export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
-  const [cues,setCues]=useState([]),[cueText,setCueText]=useState(''),[editingCues,setEditingCues]=useState(false),[cueAt,setCueAt]=useState(0);
-  const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
-  const [muted,setMuted]=useState(false);
-  const playerRef=useRef(null);
-  const playback=useShortPlayback(draft?.uri,Boolean(draft));
-  const [accepted,setAccepted]=useState(false),[policy,setPolicy]=useState(null);
-  const job=useRef(null),lock=useRef(false),alive=useRef(true);
-  useEffect(()=>{alive.current=true;return ()=>{alive.current=false;};},[]);
-  useEffect(()=>()=>{if(draft)releaseDraft(draft);},[draft]);
-  const [restoring,setRestoring]=useState(true),[retryUpload,setRetryUpload]=useState(false);
-  const cached=useRef(null);
-  const uid=viewer?.uid;
-  useEffect(()=>{
-    let current=true;
-    if(!uid){setRestoring(false);return}
-    readShortDraft(uid).then(value=>{
-      if(!current){if(value?.draft)releaseDraft(value.draft);return;}
-      if(value){
-        cached.current=value.draft;setDraft(value.draft);setTitle(value.title||'');setCues(value.cues||[]);
-        job.current=value.job||null;setAccepted(!!value.accepted);setRetryUpload(!!value.attempted);
-        setNotice(appText('تم استرجاع مسودتك'));
-      }
-    }).catch(()=>{if(current)setNotice(appText('تعذّرت قراءة المسودة المحلية'))}).finally(()=>{if(current)setRestoring(false)});
-    return ()=>{current=false};
-  },[uid]);
-  async function persist(attempted){
-    const media=await saveShortDraft(uid,cached.current||draft,{title,cues,accepted,job:job.current,attempted});
-    cached.current=media;
-  }
-  async function keepDraft(){
-    if(lock.current||!draft||!uid)return;
-    lock.current=true;setBusy(true);
-    try{await persist(false);if(alive.current)setNotice(appText('تم حفظ المسودة على هذا الجهاز'))}
-    catch(e){if(alive.current)setNotice(uiError(e,'تعذّر حفظ المسودة'))}
-    finally{lock.current=false;if(alive.current)setBusy(false)}
-  }
-  async function discard(){
-    if(lock.current||!uid)return;
-    lock.current=true;setBusy(true);
-    try{
-      await clearShortDraft(uid);
-      if(alive.current){cached.current=null;job.current=null;setDraft(null);setTitle('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setRetryUpload(false);setNotice('');}
-    }catch(e){if(alive.current)setNotice(uiError(e))}
-    finally{lock.current=false;if(alive.current)setBusy(false)}
-  }
-  async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
-    catch(e){if(alive.current)setNotice(uiError(e));}
-  }
-  async function publish(){
-    if(lock.current||!draft||!accepted||!uid)return;
-    lock.current=true;setBusy(true);setNotice('');
-    try{
-      await persist(true);
-      const token=await getToken();
-      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,profile:await shortProfile(viewer)})).id;
-      await persist(true);
-      await uploadFile(endpoint+'/shorts/media/'+job.current,cached.current||draft,token);
-      await clearShortDraft(uid);
-      if(alive.current)onDone(job.current);
-    }catch(e){if(alive.current){setRetryUpload(true);setNotice(uiError(e,'تعذّر نشر الفيديو'));}}
-    finally{lock.current=false;if(alive.current)setBusy(false);}
-  }
-  return <Panel onClose={onClose} closeLabel={appText('إغلاق')} busy={busy}>
-    <Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
-    <Text style={s.paperLabel}>{appText("حتى ٣ دقائق و٥٠ ميغابايت · MP4")}</Text>
-    {draft&&<View style={s.preview}><Player playback={playback} source={draft.uri} fit="contain" muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><SoundControl {...{muted,setMuted}}/></View>}
-    <Button onPaper label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>
-    {draft&&<><Button onPaper label={appText('حفظ المسودة')} disabled={busy} onPress={keepDraft}/>
-      <Button onPaper label={appText('حذف المسودة')} disabled={busy} onPress={discard}/></>}
-    {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#52645f" placeholder={appText("عنوان الفيديو")}/>
-      <Button label={appText('إضافة نص متزامن')} disabled={busy||!!job.current} onPress={()=>{
-        setEditingCues(!editingCues);setCueAt(Math.round((playerRef.current?.currentTime||0)*10)/10);
-        if(!editingCues)playerRef.current?.pause?.();else playerRef.current?.play?.();
-      }}/>
-      {editingCues&&<View><TextInput accessible accessibilityLabel={appText('نص اللقطة')} placeholder={appText('نص اللقطة')} value={cueText} maxLength={160} onChangeText={setCueText} style={s.input}/>
-        <Button label={appText('تثبيت النص عند هذه اللقطة')+' · '+cueAt+'s'} disabled={!cueText.trim()||cues.length>=80||busy||!!job.current} onPress={()=>{
-          setCues(old=>[...old.filter(c=>c.at!==cueAt),{at:cueAt,text:cueText.trim()}].sort((a,b)=>a.at-b.at));
-          setCueText('');setEditingCues(false);playerRef.current?.play?.();
-        }}/>
-        {cues.map(c=><Button key={c.at} disabled={busy||!!job.current} label={appText('حذف')+' · '+c.at+'s · '+c.text} onPress={()=>setCues(old=>old.filter(x=>x.at!==c.at))}/>)}</View>}
-      <View style={{flexDirection:'row-reverse',justifyContent:'space-around'}}><Button onPaper label={appText("شروط الخدمة")} onPress={()=>setPolicy('terms')}/><Button onPaper label={appText("سياسة الخصوصية")} onPress={()=>setPolicy('privacy')}/></View>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{checked:accepted}} disabled={busy} onPress={()=>setAccepted(v=>!v)} style={s.button}><Text style={s.paperLabel}>{accepted?'☑':'☐'}{appText(" أوافق على شروط نشر المقطع وإتاحة مشاركته وتنزيله")}</Text></Pressable>
-      <Button onPaper label={busy?appText('جارٍ النشر…'):appText(retryUpload?'إعادة رفع الفيديو':'نشر الفيديو')} disabled={busy||!accepted} onPress={publish}/></>}
-    {!!notice&&<Text accessibilityLiveRegion="polite" style={s.paperLabel}>{appText(notice)}</Text>}
-    {policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</Panel>;
-}
+export {default as ShortUpload} from './PostComposer';
 
 const s=StyleSheet.create({
   refreshStatus:{position:'absolute',top:74,alignSelf:'center',flexDirection:'row',alignItems:'center',gap:8,paddingVertical:7,paddingHorizontal:14,borderRadius:16,backgroundColor:'#172023',zIndex:4},
