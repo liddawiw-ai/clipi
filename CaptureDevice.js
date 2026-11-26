@@ -23,27 +23,38 @@ export async function pickPhotos(){
 }
 export function CaptureDevice({control,mode='video',facing,muted,torch,onState,onReady,onError}){
   const cam=useRef(null),alive=useRef(true),recording=useRef(false),takingPhoto=useRef(false),ready=useRef(null),latest=useRef({});
-  const [permission,askCamera]=useCameraPermissions(),[mic,askMic]=useMicrophonePermissions();
+  const [permission,askCamera,getCamera]=useCameraPermissions({get:false});
+  const [mic,askMic,getMic]=useMicrophonePermissions({get:false});
+  const [permissionsChecked,setPermissionsChecked]=useState(false);
   const [active,setActive]=useState(AppState.currentState!=='background');
   const cameraKey=facing+'/'+mode;
   latest.current={onState,onReady,onError,permission,mic};
   useEffect(()=>{
     alive.current=true;
+    let current=true;
     async function enable(){
       try{
-        const p=await askCamera();if(!alive.current)return;
+        let p=await getCamera();
+        if(!current)return;
+        if(!p.granted&&p.canAskAgain)p=await askCamera();
+        if(!current)return;
         if(!p.granted){latest.current.onError('اسمح بالكاميرا من إعدادات الجهاز أو اختر ملفًا');return;}
-        const m=await askMic();if(alive.current)latest.current.onState({audio:m.granted});
-      }catch{if(alive.current)latest.current.onError('تعذّر فتح الكاميرا');}
+        let m=await getMic();
+        if(!current)return;
+        if(!m.granted&&m.canAskAgain)m=await askMic();
+        if(current)latest.current.onState({audio:m.granted});
+      }catch{if(current)latest.current.onError('تعذّر فتح الكاميرا');}
+      finally{if(current)setPermissionsChecked(true);}
     }
     void enable();
     const sub=AppState.addEventListener('change',s=>{if(s==='background'){if(recording.current)cam.current?.stopRecording();ready.current=false;setActive(false);}else if(s==='active')setActive(true);});
-    return ()=>{alive.current=false;sub.remove();if(recording.current)cam.current?.stopRecording();};
-  },[]);
+    return ()=>{current=false;alive.current=false;sub.remove();if(recording.current)cam.current?.stopRecording();};
+  },[getCamera,askCamera,getMic,askMic]);
   useEffect(()=>{onState({torch:facing==='environment'});},[facing]);
   useEffect(()=>{
     control.current=async()=>{
       if(recording.current){cam.current?.stopRecording();return;}
+      if(!permissionsChecked)return;
       if(!latest.current.permission?.granted){const p=await askCamera();if(!p.granted)throw Error('اسمح بالكاميرا من إعدادات الجهاز أو اختر ملفًا');return;}
       if(ready.current!==cameraKey||!cam.current)throw Error('انتظر حتى تفتح الكاميرا');
       if(mode==='photos'){
@@ -64,8 +75,8 @@ export function CaptureDevice({control,mode='video',facing,muted,torch,onState,o
       }finally{recording.current=false;if(alive.current)latest.current.onState({recording:false});}
     };
     return ()=>{control.current=null;};
-  },[control,askCamera,cameraKey,mode]);
-  return permission?.granted&&active?<CameraView key={cameraKey} ref={cam} style={StyleSheet.absoluteFill} mode={mode==='photos'?'picture':'video'} facing={facing==='user'?'front':'back'}
+  },[control,askCamera,cameraKey,mode,permissionsChecked]);
+  return permissionsChecked&&permission?.granted&&active?<CameraView key={cameraKey} ref={cam} style={StyleSheet.absoluteFill} mode={mode==='photos'?'picture':'video'} facing={facing==='user'?'front':'back'}
     enableTorch={torch&&facing==='environment'} mute={muted||!mic?.granted} videoQuality="720p" videoBitrate={1650000}
     onCameraReady={()=>{ready.current=cameraKey;}} onMountError={()=>latest.current.onError('تعذّر فتح الكاميرا')}/>:null;
 }

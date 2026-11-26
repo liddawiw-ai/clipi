@@ -1,6 +1,6 @@
 import {useShortCaption} from './useShortCaption';
 import React,{useEffect,useRef,useState} from 'react';
-import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {ActivityIndicator,BackHandler,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import CaptureStudio from './CaptureStudio';
 import {CameraTool,CameraTextEditor} from './CaptureTools';
 import {Album,Overlay} from './Album';
@@ -84,7 +84,18 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
       await clearShortDraft(uid);if(life.current)onDone(job.current);
     });
   }
-  function content(){
+  useEffect(()=>{
+    const back=BackHandler.addEventListener('hardwareBackPress',()=>{
+      if(!lock.current){
+        if(writing)setWriting(false);
+        else if(policy)setPolicy(null);
+        else if(studio)studioBack.current?.();
+        else setStudio(true);
+      }
+      return true;
+    });
+    return ()=>back.remove();
+  },[writing,policy,studio]);
   if(!ready)return <View style={s.screen}><ActivityIndicator color="#fff"/></View>;
   if(studio||!draft)return <CaptureStudio backAction={studioBack} onMedia={selectMedia} hasDraft={!!draft} onRestore={()=>setStudio(false)} onClose={onClose}/>;
   return <View style={s.screen}>
@@ -111,14 +122,7 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
     </ScrollView>{writing&&<CameraTextEditor label={photos?'النص على الصورة':'النص على الفيديو'}
       value={photos?(notes[index]||''):overlay} onChange={changeText} onDone={()=>setWriting(false)}/>}
     {policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</View>;
-  }
-  return <Modal visible presentationStyle="fullScreen" animationType="slide" onRequestClose={()=>{
-    if(lock.current)return;
-    if(writing)setWriting(false);
-    else if(policy)setPolicy(null);
-    else if(studio)studioBack.current?.();
-    else setStudio(true);
-  }}>{content()}</Modal>;
+
 }
 const s=StyleSheet.create({screen:{flex:1,backgroundColor:'#141a1b'},preview:{flex:1,minHeight:115,backgroundColor:'#080a0b',overflow:'hidden'},
   panel:{flexGrow:0,maxHeight:'53%',backgroundColor:'#202828'},content:{padding:14,gap:7},label:{color:'#fff',fontSize:15,fontWeight:'600'},

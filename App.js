@@ -2205,24 +2205,31 @@ export default function App(){
   </View>;
   return <View style={S.page}><Btn title={appText("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
-  return <View style={{flex:1}}><StatusBar barStyle="dark-content" backgroundColor={theme.canvas}/>{renderPage()}
-    {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu} fieldRef={languageField} space={languageSpace} setSpace={setLanguageSpace}
-      onClose={()=>setLoginLanguages(false)} onSelect={selectLanguage}/>}
-    {uploadOpen&&user?.uid&&<ShortUpload key={user.uid} viewer={shortPlayerProps.viewer} endpoint={MEDIA_ENDPOINT}
-      request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
-      onClose={closeUpload} onDone={id=>{closeUpload();setInitialShort(id);go('home')}}/>}
-    <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
-    {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label={appText("الغرفة")} onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
-      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
-    {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
-      if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
-      if(id===helpRoom.id){enterRoom(helpRoom);return;}
-      const doc=await firestore().collection('rooms').doc(id).get();
-      if(auth().currentUser?.uid!==user.uid)throw Error(menu.retry);
-      if(!doc.exists||doc.data()?.status!=='open')throw Error(appText('انتهى البث'));
-      enterRoom({...doc.data(),id});
-    }}/>}
-    {mini&&activeRoom&&<WindowControl label={appText("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:72}} onPress={()=>setMini(false)}/>}
+  const captureVisible=uploadOpen&&!!user?.uid;
+  return <View style={{flex:1}}><StatusBar barStyle={captureVisible?'light-content':'dark-content'} backgroundColor={captureVisible?'#101415':theme.canvas}/>
+    <View style={[{flex:1},captureVisible&&{opacity:0}]} pointerEvents={captureVisible?'none':'auto'}
+      importantForAccessibility={captureVisible?'no-hide-descendants':'auto'} accessibilityElementsHidden={captureVisible}>
+      {renderPage()}
+      {loginLanguages&&(page==='login'||page==='verify')&&<LoginLanguageSheet locale={locale} menu={menu} fieldRef={languageField} space={languageSpace} setSpace={setLanguageSpace}
+        onClose={()=>setLoginLanguages(false)} onSelect={selectLanguage}/>}
+      <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
+      {activeRoom?.id&&user?.uid&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><RoomFailureBoundary key={activeRoom.id} label={appText("الغرفة")} onExit={()=>{setActiveRoom(null);setMini(false)}}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onShop={()=>{setMini(true);go('diamondShop')}} onWallet={()=>{setMini(true);go('wallet')}} onBet={spend}
+        onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></RoomFailureBoundary></View>}
+      {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
+        if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
+        if(id===helpRoom.id){enterRoom(helpRoom);return;}
+        const doc=await firestore().collection('rooms').doc(id).get();
+        if(auth().currentUser?.uid!==user.uid)throw Error(menu.retry);
+        if(!doc.exists||doc.data()?.status!=='open')throw Error(appText('انتهى البث'));
+        enterRoom({...doc.data(),id});
+      }}/>}
+      {mini&&activeRoom&&<WindowControl label={appText("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:72}} onPress={()=>setMini(false)}/>}
+    </View>
+    {captureVisible&&<View style={[StyleSheet.absoluteFill,{backgroundColor:'#101415'}]} accessibilityViewIsModal>
+      <ShortUpload key={user.uid} viewer={shortPlayerProps.viewer} endpoint={MEDIA_ENDPOINT}
+        request={mediaRequest} getToken={()=>auth().currentUser.getIdToken()}
+        onClose={closeUpload} onDone={id=>{closeUpload();setInitialShort(id);go('home')}}/>
+    </View>}
   </View>;
 }
 

@@ -178,7 +178,7 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused&&dialog!=='insights'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><Overlay text={stats?.overlay}/></>}</View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent&&playable} active={isCurrent&&playable&&!paused&&dialog!=='insights'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><Overlay text={stats?.overlay}/></>}</View>
     {isCurrent&&!showing&&dialog!=='delete'&&<>
     {!item.photoCount&&<VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
