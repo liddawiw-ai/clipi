@@ -40,44 +40,78 @@ export function CaptureDevice({control,facing,muted,torch,onState,onReady,onErro
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const host=useRef(null),stream=useRef(null),rec=useRef(null),actions=useRef(null),stopTimer=useRef(null);
+  const camera=useRef(null),filePicker=useRef(false);
   const [available,setAvailable]=useState(false);
   actions.current={onState,onReady,onError,muted};
   useEffect(()=>{
-    let live=true,local;
-    const stop=()=>{if(rec.current?.state==='recording')rec.current.stop();};
-    function visibility(){if(document.hidden){stop();local?.getTracks().forEach(t=>t.stop());setAvailable(false);}else if(live)void connect();}
+    let live=true,generation=0,local;
+    function release(){
+      generation++;
+      if(rec.current?.state==='recording')rec.current.stop();
+      local?.getTracks().forEach(t=>t.stop());
+      local=null;stream.current=null;
+      if(host.current)host.current.srcObject=null;
+    }
+    function visibility(){
+      if(document.hidden){release();setAvailable(false);}
+      else if(live&&!filePicker.current)void connect();
+    }
     async function connect(){
-      let next;actions.current.onState({starting:true});
+      if(document.hidden||filePicker.current)return;
+      const token=++generation;
+      let next;
+      const current=()=>live&&generation===token&&!document.hidden&&!filePicker.current;
+      actions.current.onState({starting:true});
       try{
         if(!navigator.mediaDevices?.getUserMedia)throw Error();
         const video={facingMode:{ideal:facing},width:{ideal:720},height:{ideal:1280}};
         try{next=await navigator.mediaDevices.getUserMedia({video,audio:true});}
-        catch{if(!live)return;next=await navigator.mediaDevices.getUserMedia({video,audio:false});}
-        if(!live||document.hidden){next.getTracks().forEach(t=>t.stop());return;}
+        catch{if(!current())return;next=await navigator.mediaDevices.getUserMedia({video,audio:false});}
+        if(!current()){next.getTracks().forEach(t=>t.stop());return;}
         local?.getTracks().forEach(t=>t.stop());local=stream.current=next;
         next.getAudioTracks().forEach(t=>{t.enabled=!actions.current.muted});
-        host.current.srcObject=next;await host.current.play();if(!live)return;
+        host.current.srcObject=next;await host.current.play();
+        if(!current())return;
         setAvailable(true);actions.current.onState({starting:false,torch:!!next.getVideoTracks()[0]?.getCapabilities?.().torch,audio:!!next.getAudioTracks().length});
-      }catch{if(live){setAvailable(false);actions.current.onState({starting:false});actions.current.onError('الكاميرا غير متاحة. يمكنك التصوير بكاميرا الجهاز أو اختيار ملف.');}}
+      }catch{
+        next?.getTracks().forEach(t=>t.stop());
+        if(!current())return;
+        release();setAvailable(false);actions.current.onState({starting:false,torch:false,audio:false});
+        actions.current.onError('الكاميرا غير متاحة. يمكنك التصوير بكاميرا الجهاز أو اختيار ملف.');
+      }
     }
+    camera.current={release,connect};
     void connect();document.addEventListener('visibilitychange',visibility);
-    return ()=>{live=false;clearTimeout(stopTimer.current);document.removeEventListener('visibilitychange',visibility);stop();local?.getTracks().forEach(t=>t.stop());stream.current=null;};
+    return ()=>{live=false;clearTimeout(stopTimer.current);document.removeEventListener('visibilitychange',visibility);release();camera.current=null;};
   },[facing]);
   useEffect(()=>{stream.current?.getAudioTracks().forEach(t=>{t.enabled=!muted;});},[muted,available]);
   useEffect(()=>{const track=stream.current?.getVideoTracks()[0];if(track?.getCapabilities?.().torch)track.applyConstraints({advanced:[{torch}]}).catch(()=>actions.current.onError('تعذّر تشغيل الفلاش'));},[torch,available]);
   useEffect(()=>{
-    let live=true;
     control.current=async()=>{
+      if(filePicker.current)return;
       if(rec.current?.state==='recording'){rec.current.stop();return;}
       const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'].find(t=>globalThis.MediaRecorder?.isTypeSupported(t));
       if(!available||!mime){
-        const [file]=await selectFile('video/*',false,facing);
-        const result=await preparedVideo(file);if(live&&result)actions.current.onReady(result);else if(result)URL.revokeObjectURL(result.uri);
+        filePicker.current=true;camera.current?.release();setAvailable(false);
+        actions.current.onState({processing:true});
+        let selected=false;
+        try{
+          const [file]=await selectFile('video/*',false,facing);
+          const result=await preparedVideo(file);
+          if(result&&mounted.current){selected=true;actions.current.onReady(result);}
+          else if(result)URL.revokeObjectURL(result.uri);
+        }finally{
+          filePicker.current=false;
+          if(mounted.current){
+            actions.current.onState({processing:false});
+            if(!selected)void camera.current?.connect();
+          }
+        }
         return;
       }
       const parts=[],recorder=new MediaRecorder(stream.current,{mimeType:mime,videoBitsPerSecond:1650000,audioBitsPerSecond:96000});rec.current=recorder;
       recorder.ondataavailable=e=>{if(e.data.size)parts.push(e.data);};
-      recorder.onerror=()=>{if(live)actions.current.onError('تعذّر تسجيل الفيديو');};
+      recorder.onerror=()=>{if(mounted.current)actions.current.onError('تعذّر تسجيل الفيديو');};
       recorder.onstop=async()=>{
         clearTimeout(stopTimer.current);rec.current=null;
         if(!mounted.current)return;
@@ -91,7 +125,7 @@ export function CaptureDevice({control,facing,muted,torch,onState,onReady,onErro
       recorder.start(400);actions.current.onState({recording:true});
       stopTimer.current=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},179750);
     };
-    return ()=>{live=false;control.current=null;};
+    return ()=>{control.current=null;};
   },[available,control,facing]);
   return <video ref={host} autoPlay muted playsInline style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',transform:facing==='user'?'scaleX(-1)':undefined}}/>;
 }

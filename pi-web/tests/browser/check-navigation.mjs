@@ -55,7 +55,8 @@ export async function checkNavigation(browser) {
     );
     const isOwner = width === 390;
     const albumId='d1fce192-0bc3-40eb-93ca-38eeb1be1a12';
-    let preparedAlbum,albumPhotos;
+    const annotatedId='cdff438f-7658-4373-a317-e54f18d6c24b';
+    let preparedAlbum,albumPhotos,videoPost,albumUploads=0,albumJobs=0;
     if(isOwner)await p.addInitScript(()=>{
       const canvas=document.createElement('canvas');canvas.width=96;canvas.height=128;
       const ctx=canvas.getContext('2d');
@@ -102,8 +103,14 @@ export async function checkNavigation(browser) {
         );
       if(['/shorts/media/fixture','/shorts/media/random-fixture','/shorts/media/second','/shorts/media/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name==='/shorts/media/'+albumId){
-        if(route.request().method()==='PUT'){albumPhotos=route.request().postDataJSON();return route.fulfill({json:{id:albumId}});}
+        if(route.request().method()==='PUT'){
+          if(++albumUploads===1)return route.abort('internetdisconnected');
+          albumPhotos=route.request().postDataJSON();return route.fulfill({json:{id:albumId}});}
         return send('image/jpeg',Buffer.from(albumPhotos[Number(url.searchParams.get('photo')||0)],'base64'));
+      }
+      if(name==='/shorts/media/'+annotatedId){
+        if(route.request().method()==='PUT')return route.fulfill({json:{id:annotatedId}});
+        return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       }
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       if(name.startsWith('/pi-gifts/')&&isOwner){
@@ -126,9 +133,12 @@ export async function checkNavigation(browser) {
         return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
       }
       const body=route.request().postDataJSON()||{};
-      if(op==='shortPrepare'&&body.photos){preparedAlbum=body;return route.fulfill({json:{id:albumId}});}
+      if(op==='shortPrepare'&&body.photos){albumJobs++;preparedAlbum=body;return route.fulfill({json:{id:albumId}});}
       if(op==='shortLookup'&&body.clip===albumId)return route.fulfill({json:{clip:{id:albumId,photoCount:2,title:'Album'}}});
       if(op==='shortState'&&body.clip===albumId)return route.fulfill({json:{photos:preparedAlbum.photos,likes:0,social:true}});
+      if(op==='shortPrepare'&&!body.photos){videoPost=body;return route.fulfill({json:{id:annotatedId}});}
+      if(op==='shortLookup'&&body.clip===annotatedId)return route.fulfill({json:{clip:{id:annotatedId,title:'Timed text'}}});
+      if(op==='shortState'&&body.clip===annotatedId)return route.fulfill({json:{cues:videoPost.cues,overlay:videoPost.overlay,likes:0,social:true}});
       if(op==='shortGift'){
         assert.ok(completed&&giftDiamonds>=10);assert.equal(body.gift,'وردة حمراء');
         sentGifts++;giftDiamonds-=10;return route.fulfill({json:{sent:true}});
@@ -282,6 +292,31 @@ export async function checkNavigation(browser) {
             assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
             await btn('رجوع للكاميرا').click();
           }
+          // Handing off to the device camera backgrounds some WebViews.
+          await p.waitForFunction(()=>document.querySelector('video')?.srcObject?.active);
+          await p.evaluate(()=>{window.MediaRecorder=undefined;});
+          const cameraChooser=p.waitForEvent('filechooser');await btn('بدء التسجيل').click();
+          const systemCamera=await cameraChooser;
+          await p.evaluate(()=>{
+            Object.defineProperty(document,'hidden',{configurable:true,value:true});
+            document.dispatchEvent(new Event('visibilitychange'));
+          });
+          assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
+          await p.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
+          await systemCamera.setFiles(new URL('./feed-fixture.mp4',import.meta.url).pathname);
+          await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فوق الفيديو');
+          await btn('إضافة نص متزامن').click();
+          const cueField=p.getByRole('textbox',{name:'نص اللقطة'});await cueField.fill('نص اللقطة التجريبية');
+          await p.getByText('نص اللقطة التجريبية',{exact:true}).first().waitFor();
+          await btn('حفظ المسودة').click();await p.getByText('تم حفظ المسودة على هذا الجهاز',{exact:true}).waitFor();
+          await btn('رجوع للكاميرا').click();await btn('رجوع').click();
+          await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();
+          assert.equal(await cueField.inputValue(),'نص اللقطة التجريبية');
+          await p.getByRole('checkbox').click();await btn('نشر').click();await pageFull('home');
+          assert.equal(videoPost.cues.length,1);assert.equal(videoPost.cues[0].text,'نص اللقطة التجريبية');
+          await p.getByText('فوق الفيديو',{exact:true}).waitFor();
+          await p.getByText('نص اللقطة التجريبية',{exact:true}).waitFor();
+          await dock.getByRole('tab').nth(2).click();
           const chooser=p.waitForEvent('filechooser');
           await btn('رفع صور').click();
           await (await chooser).setFiles(['palace.jpg','aurora.jpg'].map(f=>new URL('../../assets/shorts/'+f,import.meta.url).pathname));
@@ -292,7 +327,10 @@ export async function checkNavigation(browser) {
           await btn('رجوع للكاميرا').click();await btn('رجوع').click();
           await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();
           assert.equal(await field.inputValue(),'الصورة الثانية');
-          await p.getByRole('checkbox').click();await btn('نشر').click();await pageFull('home');
+          await p.getByRole('checkbox').click();await btn('نشر').click();
+          await btn('إعادة المحاولة').waitFor();await btn('رجوع للكاميرا').click();await btn('رجوع').click();
+          await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();await btn('إعادة المحاولة').click();await pageFull('home');
+          assert.equal(albumJobs,1);assert.equal(albumUploads,2);
           await p.getByText('الصورة الثانية',{exact:true}).waitFor();
           await btn('الصورة التالية').click();await p.getByText('الصورة الأولى',{exact:true}).waitFor();
           assert.deepEqual(preparedAlbum.photos,['الصورة الثانية','الصورة الأولى']);assert.equal(albumPhotos.length,2);
