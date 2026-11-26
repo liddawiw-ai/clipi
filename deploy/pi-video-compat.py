@@ -5,17 +5,18 @@ from urllib.error import HTTPError
 
 origin = 'https://clipi-mainnet.liddawiw.workers.dev'
 api = origin + '/internal/browser-renditions'
+agent = 'Clipi-Media-Publisher/1.0 (+https://github.com/liddawiw-ai/clipi)'
 def authorized(url, method='GET', body=None):
     token_url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&audience=clipi-pi-mainnet-video-renditions'
     with urlopen(Request(token_url, headers={'Authorization':'Bearer '+os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}),timeout=30) as reply:
         token=json.load(reply)['value']
-    headers={'Authorization':'Bearer '+token, 'Content-Type':'video/mp4'}
+    headers={'Authorization':'Bearer '+token, 'Content-Type':'video/mp4','User-Agent':agent}
     with urlopen(Request(url,method=method,data=body,headers=headers),timeout=120) as reply:
         return json.load(reply)
 
 def process(clip, folder):
     original, browser=folder/'original.mp4',folder/'browser.mp4'
-    with urlopen(origin+'/shorts/media/'+clip,timeout=90) as reply, original.open('wb') as dest:
+    with urlopen(Request(origin+'/shorts/media/'+clip,headers={'User-Agent':agent}),timeout=90) as reply, original.open('wb') as dest:
         while chunk:=reply.read(1024*1024):dest.write(chunk)
     info=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-of','json',original]))
     video=next(s for s in info['streams'] if s['codec_type']=='video')
