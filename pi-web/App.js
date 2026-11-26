@@ -565,16 +565,15 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
     Keyboard.dismiss();
     setGiftIssue('');
     setGiftNotice('');
-    setGiftTarget(uid&&uid!==userId?uid:null);
+    setGiftTarget(uid||null);
     setGiftOpen(true);
   }
   const giftPeople=people.filter(person=>!blocked.includes(person.uid))
     .map(person=>person.uid===userId?{...person,avatar}:person)
     .sort((a,b)=>Number(b.uid===room.ownerUid)-Number(a.uid===room.ownerUid));
-  const defaultRecipient=room.ownerUid!==userId?room.ownerUid:null;
-  const recipientUid=giftTarget||defaultRecipient;
+  const recipientUid=giftTarget||room.ownerUid;
   const selectedPerson=giftPeople.find(person=>person.uid===recipientUid);
-  const recipientReady=giftOpen&&!minimized&&!!selectedPerson&&recipientUid!==userId;
+  const recipientReady=giftOpen&&!minimized&&!!selectedPerson&&(recipientUid!==userId||isHost);
   useEffect(()=>{
     if(!giftNotice)return;
     const timer=setTimeout(()=>setGiftNotice(''),6500);
@@ -644,7 +643,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
         {text:ui('إنزال'),onPress:()=>act('demote',{uid})},
         {text:ui('طرد'),onPress:()=>act('eject',{uid})});
     }
-    options.push({text:ui('إرسال هدية'),onPress:()=>openGifts(uid===userId?null:uid)});
+    options.push({text:ui('إرسال هدية'),onPress:()=>openGifts(uid===userId&&!isHost?null:uid)});
     if(canApprove){
       if(!uid&&!menuLocked){
         for(const person of requests)options.push({text:ui('صعود')+' · '+person.name,key:person.uid,
@@ -962,7 +961,7 @@ function Room({room,inviteFriends,locale,onHostProfile,userId,username,avatar,eq
       </TouchableOpacity>}
     {chatVisible&&membership.state.slow>0&&<Text style={S.tiny}>{ui('مهلة الدردشة')} · {membership.state.slow} {ui('ثانية')}</Text>}
     {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
-    <RoomGiftSheet recipientPicker={<GiftRecipients people={giftPeople} target={recipientUid} userId={userId}
+    <RoomGiftSheet recipientPicker={<GiftRecipients people={giftPeople} target={recipientUid} userId={isHost?null:userId}
         act={membership.act} onSelect={openGifts}/>} visible={giftOpen&&!minimized} recipientReady={recipientReady}
       gifts={GIFTS} allLabel="الكل" translate={ui}
       copy={{title:ui("صندوق الهدايا"),close:ui("إغلاق"),balance:ui("ماس الهدايا المشترى بعملة Pi"),wallet:ui("شحن بعملة Pi"),send:ui("إرسال")}}

@@ -198,7 +198,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
     const target=await q(`SELECT m.uid,m.name,COALESCE(NULLIF(a.avatar,''),p.avatar) AS avatar
       FROM room_member m LEFT JOIN gift_avatar a ON a.uid=m.uid LEFT JOIN short_profile p ON p.uid=m.uid
       WHERE m.room=? AND m.uid=? AND m.banned=0 AND m.seen>=?`,room,input.recipient,cutoff).first();
-    if(!target||target.uid===user)return json({error:'المستلم غير متاح'},409);
+    if(!target||(target.uid===user&&!(piOnly&&host)))return json({error:'المستلم غير متاح'},409);
     const balance=await q('SELECT '+paidBalance+' AS diamonds',user,user).first();
     return json({recipient:target,senderDiamonds:balance.diamonds});
   }
@@ -335,7 +335,7 @@ export async function roomControls({env,input,room,user,host,ownerUid,type,path,
   if(op==='paidGift'){
     const {gift,cost,nonce}=input;
     const recipient=input.recipient??ownerUid;
-    if(typeof recipient!=='string'||!recipient||recipient===user||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
+    if(typeof recipient!=='string'||!recipient||(recipient===user&&!(piOnly&&host))||diamondGifts.get(gift)?.cost!==cost||!Number.isSafeInteger(cost)||typeof nonce!=='string'||!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(nonce))return json({error:'Invalid support gift'},400);
     // New gifts contribute to cumulative rewards. Existing per-gift credits stay in hostUnits.
     await q(`INSERT INTO paid_room_gift(sender,nonce,room,host,gift,cost,hostUnits) SELECT ?,?,?,?,?,?,?
       WHERE (${paidBalance})>=?

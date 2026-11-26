@@ -67,6 +67,7 @@ export async function checkNavigation(browser) {
         return stream;
       }});
     });
+    let failGiftRead=true;
     let giftDiamonds=0, approved=false, completed=false, sentGifts=0;
     if(isOwner)await p.addInitScript(()=>{
       window.Pi={
@@ -141,6 +142,8 @@ export async function checkNavigation(browser) {
       if(op==='shortPrepare'&&!body.photos){videoPost=body;return route.fulfill({json:{id:annotatedId}});}
       if(op==='shortLookup'&&body.clip===annotatedId)return route.fulfill({json:{clip:{id:annotatedId,title:'Timed text'}}});
       if(op==='shortState'&&body.clip===annotatedId)return route.fulfill({json:{cues:videoPost.cues,overlay:videoPost.overlay,likes:0,social:true}});
+      if(op==='shortGiftBalance'&&isOwner&&failGiftRead){failGiftRead=false;return route.fulfill({status:503,json:{error:'temporary'}});}
+      if(op==='shortGiftBalance')return route.fulfill({json:{diamonds:giftDiamonds,clip:body.clip}});
       if(op==='shortGift'){
         assert.ok(completed&&giftDiamonds>=10);assert.equal(body.gift,'وردة حمراء');
         sentGifts++;giftDiamonds-=10;return route.fulfill({json:{sent:true}});
@@ -475,6 +478,8 @@ export async function checkNavigation(browser) {
         await p.getByRole('button',{name:/وردة حمراء/}).click();
       };
       await openRose();
+      await p.getByRole('button',{name:/إعادة المحاولة/}).click();
+      await p.getByText('رصيد ماس الهدايا غير كافٍ. اشحن بعملة Pi.',{exact:true}).waitFor();
       assert.ok(!(await button('إرسال').isEnabled()));
       await button('شحن بعملة Pi').click();
       await pageFull('wallet');await p.getByText('شراء الماس بعملة Pi',{exact:true}).waitFor();

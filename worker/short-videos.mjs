@@ -114,6 +114,10 @@ export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false
     return json({...state,...(design?{overlay:design.overlay,photos:JSON.parse(design.photos)}:{}),...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
+  if (op === 'shortGiftBalance') {
+    const funds=await q('SELECT '+giftBalance(piOnly)+' AS diamonds',uid,uid).first();
+    return json({clip,diamonds:funds.diamonds});
+  }
   if (op === 'shortGift') {
     const gift=diamondGifts.get(input.gift);
     if (!gift || !publishedId.test(input.nonce)) return json({error:'هدية غير صالحة'},400);

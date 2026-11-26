@@ -66,6 +66,8 @@ function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVide
   const [commentCount,setCommentCount]=useState(null);
   const [confirmedClip,setConfirmedClip]=useState(null);
   const [balance,setBalance]=useState(null);
+  const [giftAttempt,retryGift]=useState(0);
+  const [giftReadFailed,setGiftReadFailed]=useState(false);
   const alive=useRef(true),lock=useRef(false),pending=useRef(null);
   const deleting=useRef(false);
   const [busyDelete,setBusyDelete]=useState(false);
@@ -163,14 +165,14 @@ function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVide
     if(dialog!=='gift')return;
     let current=true;
     setConfirmedClip(null);
-    api('shortState').then(()=>{
-      if(current)setConfirmedClip(item.id);
-    }).catch(()=>{if(current)setMessage(appText('تعذّر التحقق من المقطع'));});
-    request('/account-number',{op:'wallet'}).then(v=>{
-      if(current)setBalance(v.diamonds);
-    }).catch(()=>{if(current)setBalance(null);});
+    setGiftReadFailed(false);
+    setBalance(null);
+    api('shortGiftBalance').then(data=>{
+      if(data.clip!==item.id||!Number.isSafeInteger(data.diamonds))throw Error();
+      if(current){setBalance(data.diamonds);setConfirmedClip(item.id);}
+    }).catch(()=>{if(current)setGiftReadFailed(true);});
     return ()=>{current=false;};
-  },[dialog,item.id]);
+  },[dialog,item.id,giftAttempt]);
   return <View style={s.fill}>
     <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={shortPlaybackUrl(endpoint,item.id)} initialVideo={initialVideo} preload={preload} onPlayingChange={playbackChanged} fit={showing?'contain':'cover'} onPlayBlocked={()=>setBlocked(true)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/><Overlay text={stats?.overlay}/></>}
@@ -225,6 +227,9 @@ function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVide
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
       recipient={item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
       onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
+      {giftReadFailed&&<Pressable accessibilityRole="button" onPress={()=>retryGift(n=>n+1)}>
+        <Text style={s.label}>{appText('تعذر تحديث المحفظة')} · {appText('إعادة المحاولة')}</Text>
+      </Pressable>}
       <Text style={s.label}>{message||appText('دعم للمقطع من ماس اشتريته بعملة Pi. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
   </View>;
