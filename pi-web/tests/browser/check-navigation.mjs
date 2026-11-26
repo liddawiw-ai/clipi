@@ -91,6 +91,7 @@ export async function checkNavigation(browser) {
         name = url.pathname;
       const send = (contentType, body) => route.fulfill({ contentType, body });
       if (url.hostname !== 'clipi.local' && url.hostname !== 'clipi-mainnet.liddawiw.workers.dev') return route.abort();
+      if(name.startsWith('/device-install/'))return send('application/json',JSON.stringify({platform:name.split('/').pop(),url:null}));
       if (name === '/room')
         return send(
           'text/html',
@@ -204,13 +205,16 @@ export async function checkNavigation(browser) {
       }
     };
     await pageFull('home');
-    const accountButton=p.getByRole('link',{name:lang==='en'?'Open your account on your device':'افتح حسابك على جهازك',exact:true});
-    const launchHref=await accountButton.getAttribute('href');
-    if(lang==='en')assert.equal(launchHref,'clipi://account');
-    else{
-      assert.ok(launchHref.startsWith('intent://account/#Intent;scheme=clipi;package=com.walid.clipi;'));
-      assert.ok(decodeURIComponent(launchHref).includes('https://clipi.local/device-install/android;end'));
+    const accountButton=p.getByRole('button',{name:lang==='en'?'Download the app':'حمّل التطبيق',exact:true});
+    await accountButton.click();
+    for(const [name,platform] of [['Google Play','android'],['App Store','ios']]){
+      const store=p.getByRole('link',{name,exact:true});
+      assert.equal(await store.getAttribute('href'),'/device-install/'+platform);
+      await store.click();
+      await p.getByRole('status').filter({hasText:name}).waitFor();
+      assert.equal(new URL(p.url()).pathname,'/room');
     }
+    await p.getByRole('button',{name:lang==='en'?'Close':'إغلاق',exact:true}).click();
     const liveButton=p.locator('.clipi-feed-live');
     const [accountBox,liveBox,stageBox]=await Promise.all([accountButton,liveButton,p.locator('.clipi-feed-stage')].map(el=>el.boundingBox()));
     assert.ok(accountBox.x>=stageBox.x && accountBox.x+accountBox.width<=liveBox.x+0.5);

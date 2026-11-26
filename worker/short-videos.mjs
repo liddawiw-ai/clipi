@@ -62,7 +62,14 @@ export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false
   if (op === 'shortList') {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
     const rows = await q(`SELECT rowid AS cursor,id,title,owner,object_key FROM short_clip WHERE ${visible} AND rowid<? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY rowid DESC LIMIT 30`, before,uid).all();
-    return json({clips: rows.results.map(row => ({...feedItem(row),canDelete:row.owner === uid}))});
+    const clips=rows.results.map(row=>({...feedItem(row),canDelete:row.owner===uid}));
+    if(!publishedId.test(input.initialId||''))return json({clips});
+    let linkedClip=clips.find(item=>item.id===input.initialId)??null;
+    if(!linkedClip){
+      const row=await q(`SELECT id,title,owner,object_key FROM short_clip WHERE id=? AND ${visible}`,input.initialId).first();
+      if(row)linkedClip={...feedItem(row),canDelete:row.owner===uid};
+    }
+    return json({clips,linkedClip});
   }
   if (op === 'shortRandom') {
     const exclude=input.exclude??'';
@@ -179,6 +186,13 @@ export async function serveShort(request, bucket, q, id, json, videos, browser=f
     const index=Number(new URL(request.url).searchParams.get('photo')||0),count=Number(row.object_key.split('/')[1]);
     if(!videos||!Number.isInteger(index)||index<0||index>=count)return json({error:'الصورة غير موجودة'},404);
     return albumCall(videos,id,request,count,index);
+  }
+  // Keep media elements, explicit downloads and byte-range clients on the file.
+  // A shared link opened as a page gets the same player as the home feed.
+  const url=new URL(request.url),dest=request.headers.get('Sec-Fetch-Dest');
+  const navigation=dest==='document'||(!dest&&(request.headers.get('Sec-Fetch-Mode')==='navigate'||/text\/html/i.test(request.headers.get('Accept')||'')));
+  if(!browser&&request.method==='GET'&&navigation&&!request.headers.has('Range')&&!url.searchParams.has('download')&&!url.searchParams.has('photo')){
+    return new Response(null,{status:302,headers:{Location:new URL('/room#short='+id,url).href,'Cache-Control':'private, no-store',Vary:'Accept, Sec-Fetch-Dest, Sec-Fetch-Mode, Range'}});
   }
   if (row.object_key.startsWith('cloud/')) {
     if (!videos) return json({error:'التخزين غير متاح'},503);

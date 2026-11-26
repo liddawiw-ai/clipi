@@ -173,6 +173,12 @@ export default {
       if(['lookupAppAdmin','setAppAdmin','adminDecisionLog'].includes(input?.op))return manageAppAdmin(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(typeof input?.op==='string'&&input.op.startsWith('agency'))return agencyAccount(await roomStore(env.PI_GIFTS_DB),uid,env.CLIPI_OWNER_UID,input,json);
       if(input?.op==='shortDelete')return deleteShort(await roomStore(env.PI_GIFTS_DB),uid,input.clip,json,env.SHORT_VIDEOS,env.CLIP_MEDIA);
+      if(input?.op==='shortList'){
+        // The signed-in home feed only needs existing shorts tables on a cold worker.
+        const query=(sql,...args)=>env.PI_GIFTS_DB.prepare(sql).bind(...args);
+        try{return await shortAccount(query,uid,input,json,Boolean(env.CLIP_MEDIA||env.SHORT_VIDEOS),piOnly,Boolean(env.CLIP_MEDIA));}
+        catch(error){if(!/no such table: (?:main\.)?short_(?:clip|hidden)\b/i.test(error.message))throw error;}
+      }
       if(typeof input?.op==='string'&&input.op.startsWith('short'))return shortAccount(await roomStore(env.PI_GIFTS_DB),uid,input,json,Boolean(env.CLIP_MEDIA || env.SHORT_VIDEOS),piOnly,Boolean(env.CLIP_MEDIA));
       if(['externalCreate','externalOrders','externalStoreAccount'].includes(input?.op))return accountCheckout(env,uid,input,new URL(request.url).origin);
       if(['caseCreate','caseList','caseQueue','caseReviewed','caseReply'].includes(input?.op)){

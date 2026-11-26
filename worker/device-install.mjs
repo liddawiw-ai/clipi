@@ -18,5 +18,8 @@ export async function deviceInstall(request,platform,lookup=fetch){
       }
     }
   }catch{}
+  if(new URL(request.url).searchParams.get('availability')==='1'){
+    return Response.json({platform,url:destination||null},{headers:{'Cache-Control':'no-store'}});
+  }
   return new Response(null,{status:302,headers:{Location:destination||new URL('/room?deviceStore=unavailable',request.url).href,'Cache-Control':'no-store'}});
 }

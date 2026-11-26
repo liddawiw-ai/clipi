@@ -16,7 +16,7 @@ import {Player,shareShort,shortPlaybackUrl,shortVideoUrl,copyShortLink,saveShort
 import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
-import {shortsLookahead} from './ShortMedia';
+import {shortsLookahead,warmFeedVideo} from './ShortMedia';
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'ماس الهدايا المشترى بعملة Pi',wallet:'المحفظة',shop:'شحن بعملة Pi',send:'إرسال'};
 
 function Button({label,onPress,children,disabled=false,selected}){
@@ -24,9 +24,10 @@ function Button({label,onPress,children,disabled=false,selected}){
     {children||<Text style={s.label}>{label}</Text>}
   </Pressable>;
 }
-function SoundControl({muted,setMuted}){
+function SoundControl({muted,setMuted,onEnable}){
   function toggleSound(){
     const next=!muted;
+    if(!next)onEnable?.();
     setMuted(next);
   }
   return <button type="button" className="clipi-audio" onClick={toggleSound}>
@@ -200,7 +201,7 @@ function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVide
       <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{item.title}</p>}
       <div className="clipi-caption-meta">
 
-        {!item.photoCount&&<SoundControl {...{muted,setMuted}}/>}
+        {!item.photoCount&&<SoundControl {...{muted,setMuted}} onEnable={()=>playerRef.current?.enableSound()}/>}
         
       </div>
       {!!message&&!dialog&&<p role="status">{appText(message)}</p>}
@@ -229,35 +230,26 @@ function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVide
   </View>;
 }
 
-function deviceAccountTarget(){
-  const ios=/iPad|iPhone|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-  const store=new URL('/device-install/'+(ios?'ios':'android'),location.origin).href;
-  const href=ios?'clipi://account':'intent://account/#Intent;scheme=clipi;package=com.walid.clipi;S.browser_fallback_url='+encodeURIComponent(store)+';end';
-  return {href,store};
-}
-
-function watchDeviceLaunch(store){
-  let timer;
-  function clear(){
-    clearTimeout(timer);
-    window.removeEventListener('pagehide',clear);
-    document.removeEventListener('visibilitychange',hidden);
-  }
-  function hidden(){if(document.hidden)clear()}
-  window.addEventListener('pagehide',clear);
-  document.addEventListener('visibilitychange',hidden);
-  timer=setTimeout(()=>{
-    clear();
-    if(!document.hidden)location.assign(store);
-  },2100);
-  return clear;
-}
-
 export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
-  const target=deviceAccountTarget();
-  const launchCleanup=useRef(null);
-  useEffect(()=>()=>launchCleanup.current?.(),[]);
+  const [stores,setStores]=useState(false);
+  const [storeNotice,setStoreNotice]=useState('');
+  const [destinations,setDestinations]=useState({});
+  const storeRequests=useRef({});
+  useEffect(()=>{
+    if(!stores)return;
+    const controller=new AbortController();
+    for(const platform of ['android','ios']){
+      storeRequests.current[platform]=fetch('/device-install/'+platform+'?availability=1',{signal:controller.signal})
+        .then(response=>response.ok?response.json():Promise.reject())
+        .then(data=>{
+          if(data.platform!==platform)throw Error('Unexpected store response');
+          if(!controller.signal.aborted)setDestinations(old=>({...old,[platform]:data.url}));
+          return data.url;
+        }).catch(()=>undefined);
+    }
+    return ()=>{controller.abort();storeRequests.current={};};
+  },[stores]);
   useEffect(()=>{
     const url=new URL(location.href);
     if(url.searchParams.get('deviceStore')!=='unavailable')return;
@@ -294,29 +286,49 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
     locked.current=mode;setViewModeState(mode);
   }
   const topHeight=Math.round(openedHeight.current*(viewMode==='expanded'?.30:.5));
+  const warm=useRef(null);
   const page=useRef(null),loading=useRef(false),mounted=useRef(true);
   useEffect(()=>{
     if(fromProfile)return;
     let current=true;mounted.current=true;
+    const cacheKey=viewer?.uid?'clipi.firstVideo.'+viewer.uid:null;
+    let candidate=initialId;
+    try{if(!candidate&&cacheKey)candidate=sessionStorage.getItem(cacheKey);}catch{}
+    const prepared=warmFeedVideo(endpoint,candidate);
+    warm.current=prepared;
+    function releaseUnused(){
+      if(prepared&&!prepared.adopted){
+        prepared.video.removeAttribute('src');prepared.video.load();
+        if(warm.current===prepared)warm.current=null;
+      }
+    }
     (async()=>{
       try{
-        const {clips}=await request('/account-number',{op:'shortList'});
+        const {clips,linkedClip}=await request('/account-number',{op:'shortList',initialId});
         if(!current)return;
         page.current=clips.length===30?clips.at(-1).cursor:null;
         const all=clips.filter(c=>!removed.current.has(c.id));
         const selected=all.find(c=>c.id===initialId);
         if(initialId&&!selected&&!removed.current.has(initialId)&&/^[0-9a-f-]{36}$/i.test(initialId)){
-          const {clip}=await request('/account-number',{op:'shortLookup',clip:initialId});
+          const clip=linkedClip===undefined?(await request('/account-number',{op:'shortLookup',clip:initialId})).clip:linkedClip;
           if(!current)return;
           if(clip&&!removed.current.has(clip.id))all.unshift(clip);
           else if(new URLSearchParams(location.hash.slice(1)).get('short')===initialId)setNotice(translate('هذا الفيديو لم يعد متاحًا'));
         }
         else if(selected)all.unshift(...all.splice(all.indexOf(selected),1));
+        const first=all[0];
+        if(!first||first.photoCount||prepared?.id!==first.id)releaseUnused();
+        try{
+          if(cacheKey&&!initialId){
+            if(first&&!first.photoCount)sessionStorage.setItem(cacheKey,first.id);
+            else sessionStorage.removeItem(cacheKey);
+          }
+        }catch{}
         setActiveIndex(0);setItems(all);setError('');
-      }catch{if(current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
+      }catch{releaseUnused();if(current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     })();
-    return ()=>{current=false;mounted.current=false;};
-  },[retry,initialId,fromProfile]);
+    return ()=>{current=false;mounted.current=false;releaseUnused();};
+  },[retry,initialId,fromProfile,endpoint,viewer?.uid]);
   const canRefresh=!fromProfile&&homeItems!==null&&active===0&&!viewMode&&playable;
   const {refresh,refreshing}=useRandomShort({enabled:canRefresh,firstId:items[0]?.id,initialId,request,removed,setItems,setNotice});
   async function more(){
@@ -354,9 +366,13 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
   }
   function preloadFor(index){
     if(index<active)return 'metadata';
-    // Prime the next swipe during the network round trip for the first clip.
-    if(index<=active+1||feedStarted||fromProfile||items[active]?.photoCount)return 'auto';
+    // Give the first visible video the connection until its first frames arrive.
+    if(index===active||feedStarted||fromProfile||items[active]?.photoCount)return 'auto';
     return 'none';
+  }
+  function initialPlayer(id){
+    if(fromProfile)return profileFeed.initialVideos?.get(id);
+    if(warm.current?.id===id){warm.current.adopted=true;return warm.current.video;}
   }
   const pullStage=usePullDown(list,canRefresh,refresh);
   const visible=useRef(({viewableItems})=>{const i=viewableItems.find(v=>v.isViewable)?.index;if(!locked.current&&i!=null)setActive(i);}).current;
@@ -370,7 +386,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} onFirstPlaying={()=>setFeedStarted(true)} preload={preloadFor(index)} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} onFirstPlaying={()=>setFeedStarted(true)} preload={preloadFor(index)} initialVideo={initialPlayer(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}
@@ -378,16 +394,28 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
-      <a className="clipi-device-account" href={target.href} onClick={()=>{
-        launchCleanup.current?.();
-        launchCleanup.current=watchDeviceLaunch(target.store);
-      }}><bdi>{roomLabels.otherAccount}</bdi></a>
+      <button type="button" className="clipi-device-account" aria-haspopup="dialog" onClick={()=>{
+        setStoreNotice('');setDestinations({});setStores(true);
+      }}><FeedIcon name="download" size={17}/><bdi>{roomLabels.downloadApp}</bdi></button>
       {onSearch&&<SearchButton onPress={onSearch}/>}
       <button type="button" onClick={()=>onOpenLive(items[active]?.id)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{goLiveLabel}
       </button>
     </div>
     )}
+    {stores&&<FeedSheet title={roomLabels.downloadApp} closeLabel={translate('إغلاق')} onClose={()=>setStores(false)} note={storeNotice}
+      choices={['android','ios'].map(platform=>{
+        const label=platform==='android'?'Google Play':'App Store';
+        return {icon:'download',label,href:destinations[platform]||'/device-install/'+platform,onClick:async event=>{
+          if(destinations[platform])return;
+          event.preventDefault();
+          const request=storeRequests.current[platform];
+          const url=await request;
+          if(request!==storeRequests.current[platform])return;
+          if(url)location.assign(url);
+          else setStoreNotice(label+' · '+(url===null?roomLabels.deviceStoreNotice:roomLabels.retry));
+        }};
+      })}/>}
     {!!notice&&<div className="clipi-feed-notice" role="status">{appText(notice)}</div>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{appText(error)}{appText(" · إعادة المحاولة")}</Text></Pressable>}
   </View><div style={viewMode?{visibility:'hidden'}:undefined}>{dock}</div></div></div>;

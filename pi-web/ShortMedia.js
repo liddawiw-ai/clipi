@@ -1,3 +1,4 @@
+import {presentSilentShort} from './SilentShort';
 import {selectFile} from './select-file.mjs';
 import {createShortPlayback} from './short-playback.mjs';
 import React,{useLayoutEffect,useImperativeHandle,useRef,useState} from 'react';
@@ -11,6 +12,13 @@ function inlineVideo(video){
   video.setAttribute('webkit-playsinline','');
   video.defaultMuted=video.muted=true;
   return video;
+}
+export function warmFeedVideo(endpoint,id) {
+  if(!/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id||''))return null;
+  const video=inlineVideo(document.createElement('video'));
+  video.preload='metadata';
+  video.src=shortPlaybackUrl(endpoint,id);
+  return {id,video,adopted:false};
 }
 export function startProfileVideo(source, poster, playable, preparedVideo) {
   const video = inlineVideo(preparedVideo || document.createElement('video'));
@@ -38,7 +46,16 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
   const callbacks = useRef({});
   const audio=useRef(null);
   callbacks.current = {muted,onMuteRequired, onPlayBlocked, onPlayingChange, onTimeUpdate};
-  useImperativeHandle(playerRef, () => video, [video]);
+  const silent=useRef(null);
+  const handoff=useRef(null);
+  useImperativeHandle(playerRef, () => ({
+    get currentTime(){return silent.current?.playing?silent.current.currentTime:video.currentTime;},
+    get duration(){return silent.current?.duration||video.duration;},
+    get paused(){return !silent.current?.playing&&video.paused;},
+    pause(){video.pause();},
+    play(){return video.play();},
+    enableSound(){handoff.current?.();}
+  }), [video]);
 
   useLayoutEffect(() => {
     const host = container.current;
@@ -64,7 +81,10 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     };
   }, [video]);
 
-  useLayoutEffect(() => {video.style.objectFit = fit;}, [video, fit]);
+  useLayoutEffect(() => {
+    video.style.objectFit=fit;
+    if(silent.current)silent.current.canvas.style.objectFit=fit;
+  },[video,fit]);
 
   useLayoutEffect(() => {
     video.preload = preload;
@@ -77,31 +97,55 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     let deniedWhenReady=false, denialTimer;
     function selected(){return !disposed&&pageVisible&&!document.hidden&&playback.owns(control);}
     function allowed(){return active&&selected();}
+    function stopSilent(){
+      const session=silent.current;
+      if(!session)return;
+      silent.current=null;session.close();
+      if(session.playing&&video.readyState>=1&&Number.isFinite(session.currentTime)){
+        video.currentTime=session.currentTime;
+      }
+    }
+    function startSilent(){
+      if(!allowed()||!video.paused||silent.current)return;
+      if(!window.VideoDecoder||window.matchMedia('(prefers-reduced-motion: reduce)').matches||navigator.connection?.saveData){
+        callbacks.current.onPlayBlocked?.();return;
+      }
+      let started=false;
+      silent.current=presentSilentShort(video,container.current,session=>{
+        if(!started){started=true;callbacks.current.onPlayingChange?.(true);}
+        callbacks.current.onTimeUpdate?.({currentTarget:{currentTime:session.currentTime,duration:session.duration||video.duration}});
+      },()=>{stopSilent();callbacks.current.onPlayingChange?.(false);callbacks.current.onPlayBlocked?.();});
+    }
     function stop(){
       clearTimeout(denialTimer);deniedWhenReady=false;inFlight=null;video.autoplay=false;
-      video.defaultMuted=video.muted=true;video.pause();
+      if(silent.current?.playing)callbacks.current.onPlayingChange?.(false);
+      stopSilent();video.defaultMuted=video.muted=true;video.pause();
     }
     function applyVolume(){video.defaultMuted=video.muted=!selected()||mutedFallback||callbacks.current.muted;}
     function start(){
       if(!allowed()){stop();return;}
       applyVolume();video.autoplay=true;
-      if(!video.paused||inFlight||deniedWhenReady)return;
+      if(!video.paused||inFlight||deniedWhenReady||silent.current)return;
       const attempt={};inFlight=attempt;
+      clearTimeout(denialTimer);
+      denialTimer=setTimeout(()=>{
+        // Some embedded players leave play() pending even when metadata is ready.
+        if(inFlight===attempt&&allowed()&&video.paused&&video.readyState>=1)startSilent();
+      },1800);
       video.play().then(()=>{if(!disposed&&!allowed())stop();},error=>{
         if(inFlight!==attempt||!allowed())return;
         inFlight=null;
-        if(error.name!=='NotAllowedError')return;
+        if(error.name!=='NotAllowedError'&&error.name!=='NotSupportedError')return;
         if(!video.muted){
           mutedFallback=true;callbacks.current.onMuteRequired?.(true);
           start();return;
         }
         const rect=video.getBoundingClientRect();
         if(video.readyState>=2&&rect.bottom>0&&rect.top<window.innerHeight&&rect.height>0){
-          deniedWhenReady=true;
-          callbacks.current.onPlayBlocked?.();
+          deniedWhenReady=true;startSilent();
         }else{
           clearTimeout(denialTimer);
-          denialTimer=setTimeout(()=>{if(allowed()&&video.paused)callbacks.current.onPlayBlocked?.();},1300);
+          denialTimer=setTimeout(()=>{if(allowed()&&video.paused)startSilent();},1300);
         }
       }).finally(()=>{if(inFlight===attempt)inFlight=null;});
     }
@@ -114,12 +158,19 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     const visibility=()=>{deniedWhenReady=false;pageVisible=!document.hidden;if(allowed())start();else stop();};
     const hide=()=>{pageVisible=false;stop();};
     audio.current=()=>{mutedFallback=false;applyVolume();};
+    handoff.current=()=>{
+      if(!allowed()||!silent.current)return;
+      mutedFallback=false;
+      video.defaultMuted=video.muted=false;
+      video.play().catch(()=>{if(allowed()){video.defaultMuted=video.muted=true;callbacks.current.onMuteRequired?.(true);}});
+    };
+    const nativePlaying=()=>{clearTimeout(denialTimer);if(allowed())stopSilent();else stop();};
     video.autoplay=false;
     if(!active)stop();
     const detach=playback.attach(clipId??source,control);
     applyVolume();
     video.addEventListener('play',guard);
-    video.addEventListener('playing',guard);
+    video.addEventListener('playing',nativePlaying);
     visibilityObserver?.observe(video);
     video.addEventListener('loadeddata',ready);
     video.addEventListener('canplay',ready);
@@ -128,7 +179,7 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     window.addEventListener('pageshow',visibility);
     return ()=>{
       video.removeEventListener('play',guard);
-      video.removeEventListener('playing',guard);
+      video.removeEventListener('playing',nativePlaying);
       disposed=true;clearTimeout(denialTimer);
       visibilityObserver?.disconnect();
       video.removeEventListener('loadeddata',ready);
@@ -136,7 +187,7 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
       document.removeEventListener('visibilitychange',visibility);
       window.removeEventListener('pagehide',hide);
       window.removeEventListener('pageshow',visibility);
-      audio.current=null;
+      audio.current=null;handoff.current=null;stopSilent();
       detach();
     };
   }, [video, source, active, playback, clipId]);
@@ -179,4 +230,4 @@ export async function shareShort(url){
   if(navigator.share)await navigator.share({url});
   else await copyShortLink(url);
 }
-export function saveShort(id,url,photo=false){const a=document.createElement('a');a.href=url;a.download='Clipi-'+id+(photo?'.jpg':'.mp4');document.body.appendChild(a);a.click();a.remove();}
+export function saveShort(id,url,photo=false){const a=document.createElement('a');const target=new URL(url,location.href);target.searchParams.set('download','1');a.href=target.href;a.download='Clipi-'+id+(photo?'.jpg':'.mp4');document.body.appendChild(a);a.click();a.remove();}

@@ -91,3 +91,6 @@ button.clipi-profile-tile{position:relative;display:block;aspect-ratio:2 / 3;wid
 .clipi-device-account:focus-visible{outline:2px solid #8ceecb;outline-offset:1px}
 
 .clipi-feed-header [role=button]{pointer-events:auto;flex-shrink:0}
+
+.clipi-feed-sheet a.clipi-sheet-choice{text-decoration:none}
+.clipi-video-settings .clipi-sheet-note{color:#34504a}

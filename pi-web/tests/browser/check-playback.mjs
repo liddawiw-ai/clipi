@@ -18,10 +18,11 @@ const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop()
 const server=createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
   if(/^\/shorts\/play\/(fixture|one|two|three)$/.test(url.pathname)){
-    const offset=Number(/^bytes=(\d+)-/.exec(req.headers.range||'')?.[1]||0);
-    res.writeHead(req.headers.range?206:200,{'Content-Type':'video/mp4','Accept-Ranges':'bytes',
-      ...(req.headers.range?{'Content-Range':`bytes ${offset}-${video.length-1}/${video.length}`}:{})});
-    res.end(video.subarray(offset));return;
+    const range=/^bytes=(\d+)-(\d*)$/.exec(req.headers.range||'');
+    const offset=range?Number(range[1]):0,end=range?.[2]?Math.min(video.length-1,Number(range[2])):video.length-1;
+    res.writeHead(range?206:200,{'Content-Type':'video/mp4','Accept-Ranges':'bytes','Content-Length':end-offset+1,
+      ...(range?{'Content-Range':`bytes ${offset}-${end}/${video.length}`}:{})});
+    res.end(video.subarray(offset,end+1));return;
   }
   if(files.has(url.pathname)){
     res.setHeader('Content-Type',url.pathname.endsWith('.css')?'text/css':'application/javascript');
@@ -121,13 +122,19 @@ try{
         : Promise.reject(new DOMException('Gesture required','NotAllowedError'));
     };
   });
-  await restricted.goto(`http://127.0.0.1:${server.address().port}/?lang=ar&role=user`);
-  await restricted.getByRole('button',{name:'استئناف الفيديو',exact:true}).tap();
-  await restricted.waitForFunction(()=>{
-    const v=document.querySelector('video');
-    return v && !v.paused && v.muted && v.currentTime>0.1;
-  });
+  await restricted.goto(`http://127.0.0.1:${server.address().port}/?lang=ar&role=user&pair=1`);
+  // Confirm that actual decoded image pixels change, with no pointer input.
+  const image=()=>restricted.locator('.clipi-feed-stage canvas').first().evaluate(canvas=>canvas.toDataURL());
+  const canvas=restricted.locator('.clipi-feed-stage canvas').first();
+  await canvas.waitFor({timeout:10000});
+  const firstFrame=await image();
+  await restricted.waitForFunction(previous=>document.querySelector('.clipi-feed-stage canvas')?.toDataURL()!==previous,firstFrame);
+  assert.equal(await restricted.locator('video').first().evaluate(v=>v.paused&&v.muted),true);
+  await restricted.getByTestId('short-video-playback').first().tap();
+  await canvas.waitFor({state:'detached'});
+  await restricted.getByRole('button',{name:'استئناف الفيديو',exact:true}).first().tap();
+  await restricted.waitForFunction(()=>{const v=document.querySelector('video');return v&&!v.paused&&v.muted&&v.currentTime>.1;});
   await restricted.close();
-  console.log('PASS white center play button starts video when autoplay is blocked without touching sound');
+  console.log('PASS decoded moving first video with native autoplay blocked and zero input, pause and gesture resume');
   await checkNavigation(browser);
 }finally{await browser.close();server.close();}
