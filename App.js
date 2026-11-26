@@ -1,3 +1,4 @@
+import {ClipiSearch,ActivityList} from './DiscoveryScreens';
 import {stopShortPlayback} from './short-playback.mjs';
 import AppAdminScreen from './AppAdminScreen';
 import {createRoundClock} from './greedy-clock.mjs';
@@ -300,6 +301,9 @@ function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onShop,onRe
   </Modal>;
 }
 
+function indexPublicName(name){
+  if(name)void mediaRequest('/account-number',{op:'shortIndexProfile',name}).catch(()=>{});
+}
 async function mediaRequest(path,body,signal){
   if(!MEDIA_CONFIGURED)throw new Error(appText('عنوان خدمة البث غير مضبوط'));
   const user=auth().currentUser;
@@ -1290,6 +1294,7 @@ export default function App(){
   const menu = accountLabels[locale];
   const previousPage=useRef('home');const [mini,setMini]=useState(false);
   const [page,setPage]=useState('loading');
+  const searchMemory=useRef({});
   const peopleTrail=useRef([]);
   const [shortAuthor,setShortAuthor]=useState(null);
   const [roomProfileUid,setRoomProfileUid]=useState(null);
@@ -1554,8 +1559,8 @@ export default function App(){
           if(doc.exists){
             const d=doc.data()||{};
             setName(d.displayName||u.displayName||'مستخدم');
-            setAvatar(d.avatar||'👤');
-          }else if(u.displayName)setName(u.displayName);
+            setAvatar(d.avatar||'👤');indexPublicName(d.displayName||u.displayName);
+          }else if(u.displayName){setName(u.displayName);indexPublicName(u.displayName);}
         }catch(e){console.warn('Profile load failed',e.message)}
 
       }else{
@@ -1621,7 +1626,7 @@ export default function App(){
     const update={displayName,updatedAt:firestore.FieldValue.serverTimestamp()};
     if(!editing||selectedEmoji.current)update.avatar=selectedEmoji.current||avatar;
     await firestore().collection('users').doc(u.uid).set(update,{merge:true});
-    if(auth().currentUser?.uid===u.uid)setName(displayName);
+    if(auth().currentUser?.uid===u.uid){setName(displayName);indexPublicName(displayName);}
   }
   async function emailLogin(){
     if(busy)return;
@@ -1932,6 +1937,7 @@ export default function App(){
     if(!uid)return;
     if(activeRoom?.id===room.id){setMini(false);return}
     if(activeRoom?.ownerUid===uid){Alert.alert(appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'));return}
+    if(room.id===helpRoom.id){enterRoom(helpRoom);return;}
     try{
       const snap=await firestore().collection('rooms').doc(room.id).get();
       if(auth().currentUser?.uid!==uid)return;
@@ -1939,6 +1945,7 @@ export default function App(){
       enterRoom({...snap.data(),id:room.id});
     }catch(e){Alert.alert(appText('تعذر الاتصال'),uiError(e))}
   },
+    onHiddenClip:id=>setInitialShort(current=>current===id?null:current),
     followRevision,onFollowChange,followLabels:menu,
     viewer:{uid:user?.uid,name:name||user?.displayName||'مستخدم كليبي',avatar},
     playable:!activeRoom&&!uploadOpen,gifts:GIFTS,onWallet:()=>go('wallet'),onShop:()=>go('diamondShop'),
@@ -1983,7 +1990,14 @@ export default function App(){
       {authError?<Text style={{color:theme.danger}}>{uiError(authError)}</Text>:null}
     </>}
   </View></ScrollView></View>;
-  if(page==='home')return <ShortVideoHome roomLabels={menu} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
+  function playFoundVideo(id){setInitialShort(id);go('home');}
+  if(page==='clipiSearch')return <HubScreen title={appText('بحث في كليبي')} action={{label:menu.back,onPress:()=>go('home')}} dock={nav()}>
+    <ClipiSearch memory={searchMemory} request={mediaRequest} rooms={[helpRoom,...rooms.filter(r=>r.id!==helpRoom.id&&r.status==='open')]}
+      blocked={blockedUsers} openPerson={openPerson} openVideo={playFoundVideo}
+      openRoom={shortPlayerProps.onVisitLive}/></HubScreen>;
+  if(page==='watchHistory'||page==='adminDecisions'&&visibleNumber?.canManageAppAdmins)return <HubScreen title={appText(page==='watchHistory'?'سجل المشاهدة':'سجل قرارات الإدارة')}
+    action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ActivityList key={page} audit={page==='adminDecisions'} request={mediaRequest} openVideo={playFoundVideo}/></HubScreen>;
+  if(page==='home')return <ShortVideoHome onSearch={()=>{searchMemory.current={};go('clipiSearch');}} roomLabels={menu} {...shortPlayerProps} key={user?.uid} dock={nav()} initialId={initialShort} request={mediaRequest} endpoint={MEDIA_ENDPOINT}
     onRooms={kind=>{setDiscoveryFilter(kind);setRoomSearch('');go('rooms');}}/>;
   if(page==='reportShort')return <HelpCenter key={user.uid+'report'+initialShort} request={supportRequest} newId={Crypto.randomUUID} initialKind={reportComment?'comment':'video'} reportedComment={reportComment} initialSubject={reportComment?initialShort:MEDIA_ENDPOINT+'/#short='+initialShort} onBack={()=>go('home')}/>;
   const hostField=<View>
@@ -2121,7 +2135,8 @@ export default function App(){
       socialProfile={socialProfile(user.uid)} copy={menu}
       compactShortcuts
       shortcuts={[
-        ...(visibleNumber?.canManageAppAdmins?[{icon:'♔',label:appText('تعيين أدمن للتطبيق'),onPress:()=>go('appAdmins')}]:[]),
+        ...(visibleNumber?.canManageAppAdmins?[{icon:'♔',label:appText('تعيين أدمن للتطبيق'),onPress:()=>go('appAdmins')},{icon:'≡',label:appText('سجل قرارات الإدارة'),onPress:()=>go('adminDecisions')}]:[]),
+        {icon:'◷',label:appText('سجل المشاهدة'),onPress:()=>go('watchHistory')},
         {icon:'♧',label:menu.agencies,onPress:()=>go('agencies')},
         {icon:'◇',label:menu.wallet,onPress:()=>go('wallet')},
         {icon:'#',label:menu.shop,onPress:()=>go('store')},

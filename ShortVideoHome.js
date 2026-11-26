@@ -1,3 +1,5 @@
+import {SearchButton,VideoInsights} from './DiscoveryScreens';
+import {useWatchVisit} from './useWatchVisit';
 import {useShortPlayback} from './useShortPlayback';
 import {readShortDraft,saveShortDraft,clearShortDraft} from './ShortDraft';
 import {uiError,ui as appText,interfaceLocale} from './interface-language.mjs';
@@ -55,11 +57,19 @@ function Panel({onClose,children,closeLabel='إغلاق',busy=false}){
     </View>
   </Modal>;
 }
-function Clip({item,isCurrent,playback,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
+function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
+  useWatchVisit({clip:item.id,viewer:viewer?.uid,active:isCurrent&&playable,playing,playerRef,playback,request});
+  async function hide(){
+    if(lock.current)return;
+    lock.current=true;
+    try{await request('/account-number',{op:'shortHide',clip:item.id});if(alive.current){setDialog('');onHide(item.id);}}
+    catch(e){if(alive.current){setDialog('');setMessage(uiError(e));}}
+    finally{lock.current=false;}
+  }
   useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
   const [visibleVideoHeight,setVisibleVideoHeight]=useState(null);
   const [commentCount,setCommentCount]=useState(null);
@@ -178,7 +188,7 @@ function Clip({item,isCurrent,playback,liveRooms,onVisitLive,onAuthor,onCommentA
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}><Player playback={playback} clipId={item.id} source={source} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} mountedSurface={isCurrent} active={isCurrent&&playable&&!paused&&dialog!=='insights'} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/></View>
     {isCurrent&&!showing&&dialog!=='delete'&&<>
     <VideoTapSurface clipId={item.id} paused={paused} playing={playing} onPlaybackPress={()=>setPaused(previous=>!previous)}
       playbackLabel={translate(paused?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
@@ -206,10 +216,12 @@ function Clip({item,isCurrent,playback,liveRooms,onVisitLive,onAuthor,onCommentA
       {label:translate('نسخ رابط الفيديو'),onPress:copyLink},
       {label:translate('إهداء الفيديو'),onPress:openGifts},
       ...(canDelete?[{label:translate('حذف الفيديو'),onPress:openDelete,destructive:true}]:[]),
-      ...(onReport?[{label:translate('إبلاغ عن الفيديو'),onPress:()=>{setDialog('');onReport(item.id);}}]:[])
+      ...(canDelete?[{label:translate('إحصاءات الفيديو'),onPress:()=>setDialog('insights')}]:onHide?[{label:translate('غير مهتم'),onPress:hide}]:[]),
+        ...(onReport?[{label:translate('إبلاغ عن الفيديو'),onPress:()=>{setDialog('');onReport(item.id);}}]:[])
     ]}/>}
     </>}
     {dialog==='delete'&&<DeleteVideoDialog translate={translate} busy={busyDelete} error={message} onCancel={cancelDelete} onConfirm={confirmDelete}/>}
+    {dialog==='insights'&&isCurrent&&<VideoInsights request={request} clip={item.id} onClose={()=>setDialog('')}/>}
     {showing&&<ShortCommentsSheet onProfile={onCommentAuthor?row=>{
       closeComments();
       onCommentAuthor(row.uid,row.name||appText('مستخدم كليبي'),item.id,row.uid===viewer?.uid,row.avatar);
@@ -281,7 +293,7 @@ function useAndroidVideoPaging({list,active,setActive,height,count,locked,onPull
   return {manual,handlers:manual?responder.panHandlers:{}};
 }
 
-export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
+export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],onVisitLive,onAuthor,onCommentAuthor=onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onRooms,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
   const fromProfile=!!profileFeed;
   const [homeItems,setItems]=useState(null),[active,setActiveIndex]=useState(0),[height,setHeight]=useState(0),[error,setError]=useState('');
@@ -356,14 +368,19 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
     }catch{if(mounted.current)setError(appText('تعذّر تحميل المقاطع الجديدة'));}
     finally{loading.current=false;}
   }
-  function onDeleted(id){
+  function hideFromFeed(id){
+    if(fromProfile)profileFeed.onClose();
+    else onDeleted(id,true);
+    onHiddenClip?.(id);
+  }
+  function onDeleted(id,hidden=false){
     if(fromProfile){profileFeed.onDeleted(id);return;}
     removed.current.add(id);
     if(!mounted.current)return;
     const next=items.filter(c=>c.id!==id);
     const index=Math.max(0,Math.min(active,next.length-1));
     setViewMode('');setActive(index);
-    setItems(old=>old.filter(c=>c.id!==id));setNotice(translate('تم حذف الفيديو'));
+    setItems(old=>old.filter(c=>c.id!==id));setNotice(translate(hidden?'تم إخفاء الفيديو من الرئيسية':'تم حذف الفيديو'));
     if(index!==active)requestAnimationFrame(()=>list.current?.scrollToOffset({offset:index*height,animated:false}));
   }
   const paging=useAndroidVideoPaging({list,active,setActive,height,count:items.length,locked,onLeavePage:()=>playback.select(null),onPull:canRefresh?refresh:null});
@@ -381,7 +398,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
       refreshing={refreshing} onRefresh={!paging.manual&&canRefresh?refresh:undefined}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={32} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} isCurrent={index===active} playback={playback} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active&&index<=active+2&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted,translate}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}
@@ -394,6 +411,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,onC
         style={({pressed})=>[s.goLive,s.accountPill,pressed&&s.pressed]}>
         <Text style={s.liveLabel} numberOfLines={2}>{roomLabels.otherAccount}</Text>
       </Pressable>
+      {onSearch&&<SearchButton onPress={onSearch}/>}
       <Pressable accessibilityRole="button" accessibilityLabel={goLiveLabel} accessibilityState={{expanded:liveMenu}} onPress={()=>setLiveMenu(true)} style={({pressed})=>[s.goLive,pressed&&s.pressed]}>
         <Image accessible={false} source={liveBroadcastIcon} style={{width:20,height:20}}/>
         <Text style={s.liveLabel}>{goLiveLabel}</Text>
