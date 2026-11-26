@@ -277,7 +277,7 @@ async function mediaRequest(path,body,signal){
   const response=await fetch(MEDIA_ENDPOINT+path,{
     method:'POST',signal,
     headers:{'X-Clipi-Client':'pi-browser',Authorization:'Bearer '+idToken,'Content-Type':'application/json'},
-    body:JSON.stringify(body),
+    body:JSON.stringify(body?.op?.startsWith('short')?{...body,includePhotos:true}:body),
   });
   if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(ui(data.error)||ui("تعذر الاتصال بخدمة البث (")+response.status+')')}
   return response.json();

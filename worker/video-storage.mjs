@@ -1,3 +1,4 @@
+import {albumFile} from './photo-album.mjs';
 import {fastStartLayout, mediaSpans} from './mp4-fast-start.mjs';
 import {checkShortVideo, maxShortBytes, sizeError} from '../pi-web/short-upload-limits.mjs';
 
@@ -98,11 +99,15 @@ export class ClipiVideo {
   }
 
   async fetch(request) {
+    const url=new URL(request.url);
+    const slide=/^\/album\/(\d+)$/.exec(url.pathname);
+    if(slide&&['GET','HEAD','PUT'].includes(request.method))return albumFile(request,this.storage,Number(url.searchParams.get('count')),Number(slide[1]));
     if (request.method === 'DELETE') {
       this.layout = null;
       this.storage.transactionSync(() => {
         this.sql.exec('INSERT OR IGNORE INTO deletion(id) VALUES(1)');
         this.sql.exec('DELETE FROM parts');
+        this.sql.exec('DROP TABLE IF EXISTS album_slide');
       });
       return new Response(null, {status: 204});
     }

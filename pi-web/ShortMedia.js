@@ -134,7 +134,7 @@ export function pickShort(){
     input.click();
   });
 }
-export const releaseDraft=draft=>URL.revokeObjectURL(draft.uri);
+export const releaseDraft=draft=>{if(draft.uri)URL.revokeObjectURL(draft.uri);};
 export async function uploadFile(url,draft,token){
   const response=await fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'video/mp4'},body:draft.file});
   if(!response.ok)throw Error((await response.json().catch(()=>({}))).error||'تعذّر رفع الفيديو');
@@ -159,4 +159,4 @@ export async function shareShort(url){
   if(navigator.share)await navigator.share({url});
   else await copyShortLink(url);
 }
-export function saveShort(id,url){const a=document.createElement('a');a.href=url;a.download='Clipi-'+id+'.mp4';document.body.appendChild(a);a.click();a.remove();}
+export function saveShort(id,url,photo=false){const a=document.createElement('a');a.href=url;a.download='Clipi-'+id+(photo?'.jpg':'.mp4');document.body.appendChild(a);a.click();a.remove();}

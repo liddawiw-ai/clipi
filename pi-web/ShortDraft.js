@@ -18,11 +18,12 @@ async function transaction(uid,mode,operation){
 export async function readShortDraft(uid){
   const saved=await transaction(uid,'readonly',(store,key)=>store.get(key));
   if(!saved)return null;
-  const {file,...metadata}=saved;
+  const {file,photos,...metadata}=saved;
+  if(photos)return {...metadata,draft:{photos}};
   return {...metadata,draft:{file,uri:URL.createObjectURL(file)}};
 }
 export async function saveShortDraft(uid,draft,metadata){
-  await transaction(uid,'readwrite',(store,key)=>store.put({...metadata,file:draft.file},key));
+  await transaction(uid,'readwrite',(store,key)=>store.put({...metadata,...(draft.photos?{photos:draft.photos}:{file:draft.file})},key));
   return draft;
 }
 export const clearShortDraft=uid=>transaction(uid,'readwrite',(store,key)=>store.delete(key));

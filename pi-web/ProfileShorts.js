@@ -123,12 +123,12 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
       if (video.readyState>=1 && video.currentTime!==0) video.currentTime=0;
       videos.set(clip.id,video);
     }
-    videos.set(chosen.id,startProfileVideo(source(chosen),poster,playerProps?.playable!==false,videos.get(chosen.id)));
+    if(!chosen.photoCount)videos.set(chosen.id,startProfileVideo(source(chosen),poster,playerProps?.playable!==false,videos.get(chosen.id)));
     setSelected({id:chosen.id,videos});
   }
   return <section className="clipi-profile-gallery">
     <h2>{translate(authorUid?'الفيديوهات':'فيديوهاتي')}</h2>
-    <div className="clipi-profile-grid">{clips.map((clip,index)=><ClipTile key={clip.id}
+    <div className="clipi-profile-grid">{clips.map((clip,index)=>clip.photoCount?<button key={clip.id} type="button" className="clipi-profile-tile" aria-label={translate('فتح الصور')+' '+(clip.title||index+1)} onClick={()=>open(index,'')}><img alt="" src={source(clip)}/></button>:<ClipTile key={clip.id}
       previews={previews} warm={index < (ahead===2 ? 3 : 1)} suspended={!!selected} source={source(clip)} label={translate('تشغيل الفيديو')+' '+(clip.title||index+1)} onOpen={poster=>open(index,poster)}/>)}</div>
     {loading && <p role="status">{translate('جارٍ تحميل الفيديوهات…')}</p>}
     {!loading && !!error && <><p role="alert">{appText(error)}</p><button type="button" onClick={()=>load(cursor)}>{translate('إعادة المحاولة')}</button></>}

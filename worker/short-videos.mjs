@@ -1,3 +1,4 @@
+import {albumCall,validNotes} from './photo-album.mjs';
 import {discoverySchema,discoveryQuery,watchAction} from './discovery.mjs';
 import {bucketPlayback} from './bucket-playback.mjs';
 import {getVideo,putVideo,removeVideo,readMp4,playback} from './video-storage.mjs';
@@ -6,6 +7,11 @@ import {giftBalance} from './diamond-wallet.mjs';
 import {diamondGifts} from './diamond-gifts.mjs';
 
 const publishedId = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+function feedItem(row){
+  const {object_key,...item}=row;
+  if(object_key?.startsWith('album/'))item.photoCount=Number(object_key.split('/')[1]);
+  return item;
+}
 export const shortSchema = [
   'CREATE TABLE IF NOT EXISTS short_clip(id TEXT PRIMARY KEY, owner TEXT NOT NULL, title TEXT NOT NULL, object_key TEXT)',
   'CREATE INDEX IF NOT EXISTS published_shorts_by_owner ON short_clip(owner) WHERE object_key IS NOT NULL',
@@ -14,6 +20,8 @@ export const shortSchema = [
   'CREATE INDEX IF NOT EXISTS short_comment_by_clip ON short_comment(clip)',
   'CREATE TABLE IF NOT EXISTS short_captions(clip TEXT PRIMARY KEY,cues TEXT NOT NULL)',
   'CREATE TRIGGER IF NOT EXISTS remove_clip_captions AFTER DELETE ON short_clip BEGIN DELETE FROM short_captions WHERE clip=OLD.id; END',
+  'CREATE TABLE IF NOT EXISTS short_design(clip TEXT PRIMARY KEY,overlay TEXT NOT NULL,photos TEXT NOT NULL)',
+  'CREATE TRIGGER IF NOT EXISTS remove_short_design AFTER DELETE ON short_clip BEGIN DELETE FROM short_design WHERE clip=OLD.id; END',
   ...socialSchema,
   ...discoverySchema,
   `CREATE TRIGGER IF NOT EXISTS short_clip_cleanup AFTER DELETE ON short_clip BEGIN
@@ -23,8 +31,9 @@ export const shortSchema = [
     DELETE FROM short_like WHERE clip=OLD.id;
   END`
 ];
-export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false) {
+export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false, albumStorage=hasStorage) {
   const {op,clip} = input;
+  const visible=input.includePhotos===true?'object_key IS NOT NULL':"object_key IS NOT NULL AND object_key NOT LIKE 'album/%'";
   if(op==='shortIndexProfile'){
     const name=typeof input.name==='string'?input.name.trim().slice(0,35):'';
     if(!name)return json({error:'طلب غير صالح'},400);
@@ -44,37 +53,41 @@ export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false
     if (typeof owner !== 'string' || !owner || owner.length > 128 ||
         !Number.isSafeInteger(before) || before < 1) return json({error:'طلب غير صالح'},400);
     const {results} = await q(
-      'SELECT rowid AS cursor,id,title FROM short_clip WHERE owner=? AND object_key IS NOT NULL AND rowid<? ORDER BY rowid DESC LIMIT 31',
+      `SELECT rowid AS cursor,id,title,object_key FROM short_clip WHERE owner=? AND ${visible} AND rowid<? ORDER BY rowid DESC LIMIT 31`,
       owner,before
     ).all();
     const clips = results.slice(0,30);
-    return json({clips,canDelete:uid === owner,nextCursor:results.length > 30 ? clips.at(-1).cursor : null});
+    return json({clips:clips.map(feedItem),canDelete:uid === owner,nextCursor:results.length > 30 ? clips.at(-1).cursor : null});
   }
   if (op === 'shortList') {
     const before = Number(input.before) || Number.MAX_SAFE_INTEGER;
-    const rows = await q('SELECT rowid AS cursor,id,title,owner FROM short_clip WHERE object_key IS NOT NULL AND rowid<? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY rowid DESC LIMIT 30', before,uid).all();
-    return json({clips: rows.results.map(row => ({...row,canDelete:row.owner === uid}))});
+    const rows = await q(`SELECT rowid AS cursor,id,title,owner,object_key FROM short_clip WHERE ${visible} AND rowid<? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY rowid DESC LIMIT 30`, before,uid).all();
+    return json({clips: rows.results.map(row => ({...feedItem(row),canDelete:row.owner === uid}))});
   }
   if (op === 'shortRandom') {
     const exclude=input.exclude??'';
     if(typeof exclude!=='string'||(exclude&&!publishedId.test(exclude)))return json({error:'طلب غير صالح'},400);
-    const row=await q(`SELECT id,title,owner FROM short_clip WHERE rowid=(
-      SELECT rowid FROM short_clip WHERE object_key IS NOT NULL AND id<>? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY random() LIMIT 1
+    const row=await q(`SELECT id,title,owner,object_key FROM short_clip WHERE rowid=(
+      SELECT rowid FROM short_clip WHERE ${visible} AND id<>? AND NOT EXISTS(SELECT 1 FROM short_hidden h WHERE h.viewer=? AND h.clip=short_clip.id) ORDER BY random() LIMIT 1
     )`,exclude,uid).first();
-    return json({clip:row?{...row,canDelete:row.owner===uid}:null});
+    return json({clip:row?{...feedItem(row),canDelete:row.owner===uid}:null});
   }
   if (op === 'shortLookup') {
-    const row = publishedId.test(clip) && await q('SELECT id,title,owner FROM short_clip WHERE id=? AND object_key IS NOT NULL',clip).first();
-    return json({clip: row ? {...row,canDelete:row.owner === uid} : null});
+    const row = publishedId.test(clip) && await q(`SELECT id,title,owner,object_key FROM short_clip WHERE id=? AND ${visible}`,clip).first();
+    return json({clip: row ? {...feedItem(row),canDelete:row.owner === uid} : null});
   }
   if (op === 'shortPrepare') {
     if (!hasStorage) return json({error:'تخزين الفيديوهات غير مفعّل بعد'},503);
+    const notes=input.photos??null,overlay=input.overlay??'';
+    if(notes!==null&&(!validNotes(notes)||!albumStorage))return json({error:'تعذّر نشر ألبوم الصور'},400);
+    if(typeof overlay!=='string'||overlay.length>160)return json({error:'النص طويل جدًا'},400);
     const cues=input.cues??[];
     if(!Array.isArray(cues)||cues.length>80||cues.some((c,i)=>!c||!Number.isFinite(c.at)||c.at<0||c.at>3600||(i>0&&c.at<=cues[i-1].at)||typeof c.text!=='string'||!c.text.trim()||c.text.length>160))return json({error:'تحقّق من توقيت النص'},400);
     await saveShortProfile(q,uid,input.profile);
     const id = crypto.randomUUID();
     const title = String(input.title || '').trim().slice(0,100);
     await q('INSERT INTO short_clip(id,owner,title) VALUES(?,?,?)',id,uid,title).run();
+    if(notes||overlay)await q('INSERT INTO short_design VALUES(?,?,?)',id,overlay,JSON.stringify(notes)).run();
     if(cues.length)await q('INSERT INTO short_captions VALUES(?,?)',id,JSON.stringify(cues.map(c=>({at:c.at,text:c.text.trim()})))).run();
     return json({id});
   }
@@ -90,7 +103,8 @@ export async function shortAccount(q, uid, input, json, hasStorage, piOnly=false
     const state = await q('SELECT COUNT(*) AS likes, COALESCE(MAX(uid=?),0) AS liked FROM short_like WHERE clip=?',uid,clip).first();
     if(op==='shortLike' && input.likeOnly===true)return json({likes:state.likes,liked:Boolean(state.liked)});
     const captions=op==='shortState'?await q('SELECT cues FROM short_captions WHERE clip=?',clip).first():null;
-    return json({...state,...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
+    const design=op==='shortState'?await q('SELECT overlay,photos FROM short_design WHERE clip=?',clip).first():null;
+    return json({...state,...(design?{overlay:design.overlay,photos:JSON.parse(design.photos)}:{}),...(captions?{cues:JSON.parse(captions.cues)}:{}),canDelete:owner===uid,liked:Boolean(state.liked),...await authorState(q,uid,clip,owner)});
   }
   if (['shortComment','shortComments','shortCommentLike','shortFollow'].includes(op))return socialComments(q,uid,input,json,owner);
   if (op === 'shortGift') {
@@ -114,9 +128,9 @@ export async function deleteShort(q, uid, id, json, bucket, videos) {
   if (row.owner !== uid) return json({error:'يمكن لصاحب الفيديو فقط حذفه'},403);
   if (!row.object_key) return json({error:'الفيديو غير منشور'},409);
   try {
-    if (row.object_key.startsWith('cloud/')) {
+    if (row.object_key.startsWith('album/')||row.object_key.startsWith('cloud/')) {
       if (!videos) return json({error:'التخزين غير متاح'},503);
-      const result = await removeVideo(videos, row.object_key);
+      const result = await removeVideo(videos,row.object_key.startsWith('album/')?'album/'+id:row.object_key);
       if (!result.ok) return json({error:'تعذّر حذف الفيديو. حاول مجددًا'},503);
     } else {
       if (!bucket) return json({error:'التخزين غير متاح'},503);
@@ -134,8 +148,15 @@ export async function receiveShort(request, bucket, q, uid, id, json, videos) {
   const row=await q('SELECT object_key FROM short_clip WHERE owner=? AND id=?',uid,id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
   if (row.object_key) return json({id});
+  const design=await q('SELECT photos FROM short_design WHERE clip=?',id).first();
+  const notes=design&&JSON.parse(design.photos);
   let key;
-  if (videos) {
+  if(notes){
+    if(!videos)return json({error:'تخزين الصور غير متاح'},503);
+    const result=await albumCall(videos,id,request,notes.length);
+    if(!result.ok)return result;
+    key='album/'+notes.length+'/'+id;
+  }else if (videos) {
     key = 'cloud/' + id;
     const stored = await putVideo(videos, key, request);
     if (!stored.ok) return stored;
@@ -154,6 +175,11 @@ export async function serveShort(request, bucket, q, id, json, videos) {
   if (!bucket && !videos) return json({error:'التخزين غير متاح'},503);
   const row=await q('SELECT object_key FROM short_clip WHERE id=? AND object_key IS NOT NULL',id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
+  if(row.object_key.startsWith('album/')){
+    const index=Number(new URL(request.url).searchParams.get('photo')||0),count=Number(row.object_key.split('/')[1]);
+    if(!videos||!Number.isInteger(index)||index<0||index>=count)return json({error:'الصورة غير موجودة'},404);
+    return albumCall(videos,id,request,count,index);
+  }
   if (row.object_key.startsWith('cloud/')) {
     if (!videos) return json({error:'التخزين غير متاح'},503);
     const stored = await getVideo(videos, row.object_key, request);

@@ -10,7 +10,7 @@ export async function discoveryQuery(q,uid,input,json){
   if(input.op==='shortHistory'){
     if(!lastId(input.before))return json({error:'طلب غير صالح'},400);
     const rows=await q(`SELECT c.id,c.title,MAX(e.rowid) AS cursor FROM short_view_event e JOIN short_clip c ON c.id=e.clip
-      WHERE e.viewer=? AND c.object_key IS NOT NULL GROUP BY c.id HAVING MAX(e.rowid)<? ORDER BY cursor DESC LIMIT 31`,
+      WHERE e.viewer=? AND c.object_key IS NOT NULL ${input.includePhotos===true?'':"AND c.object_key NOT LIKE 'album/%'"} GROUP BY c.id HAVING MAX(e.rowid)<? ORDER BY cursor DESC LIMIT 31`,
       uid,input.before??Number.MAX_SAFE_INTEGER).all();
     return page(rows.results,json);
   }
@@ -19,7 +19,7 @@ export async function discoveryQuery(q,uid,input,json){
   const query=text.trim(),number=query.replace(/[٠-٩۰-۹]/g,c=>String(c.charCodeAt(0)&15));
   const offset=input.offset??0;
   if(!Number.isSafeInteger(offset)||offset<0)return json({error:'طلب غير صالح'},400);
-  const rows=input.kind==='videos'?await q(`SELECT id,title FROM short_clip WHERE object_key IS NOT NULL
+  const rows=input.kind==='videos'?await q(`SELECT id,title FROM short_clip WHERE object_key IS NOT NULL ${input.includePhotos===true?'':"AND object_key NOT LIKE 'album/%'"}
     AND (id=?1 OR instr(lower(title),lower(?1))>0) ORDER BY rowid DESC LIMIT 31 OFFSET ?2`,query,offset).all():
     await q(`WITH accounts(uid) AS (SELECT uid FROM short_profile UNION SELECT uid FROM public_numbers WHERE cost=0)
     SELECT a.uid,p.name,p.avatar,COALESCE(n.number,b.number) AS number FROM accounts a LEFT JOIN short_profile p ON p.uid=a.uid

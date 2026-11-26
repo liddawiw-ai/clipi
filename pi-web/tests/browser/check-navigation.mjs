@@ -54,6 +54,18 @@ export async function checkNavigation(browser) {
       lang
     );
     const isOwner = width === 390;
+    const albumId='d1fce192-0bc3-40eb-93ca-38eeb1be1a12';
+    let preparedAlbum,albumPhotos;
+    if(isOwner)await p.addInitScript(()=>{
+      const canvas=document.createElement('canvas');canvas.width=96;canvas.height=128;
+      const ctx=canvas.getContext('2d');
+      const streams=[];window.studioTracks=streams;
+      Object.defineProperty(navigator.mediaDevices,'getUserMedia',{value:async()=>{
+        const stream=canvas.captureStream(12);streams.push(...stream.getTracks());
+        let i=0;const timer=setInterval(()=>{ctx.fillStyle=i++%2?'#124':'#481';ctx.fillRect(0,0,96,128);if(!stream.active)clearInterval(timer);},70);
+        return stream;
+      }});
+    });
     let giftDiamonds=0, approved=false, completed=false, sentGifts=0;
     if(isOwner)await p.addInitScript(()=>{
       window.Pi={
@@ -89,6 +101,10 @@ export async function checkNavigation(browser) {
           Buffer.from(bundle.get(name))
         );
       if(['/shorts/media/fixture','/shorts/media/random-fixture','/shorts/media/second','/shorts/media/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
+      if(name==='/shorts/media/'+albumId){
+        if(route.request().method()==='PUT'){albumPhotos=route.request().postDataJSON();return route.fulfill({json:{id:albumId}});}
+        return send('image/jpeg',Buffer.from(albumPhotos[Number(url.searchParams.get('photo')||0)],'base64'));
+      }
       if(name.startsWith('/room-covers/'))return send('image/jpeg',readFileSync(new URL('../../assets/shorts/palace.jpg',import.meta.url)));
       if(name.startsWith('/pi-gifts/')&&isOwner){
         const data=route.request().postDataJSON();
@@ -110,6 +126,9 @@ export async function checkNavigation(browser) {
         return route.fulfill({json:{uid:'target-fixture',number:body.number,name:'Fixture user',admin:assigned,owner:false}});
       }
       const body=route.request().postDataJSON()||{};
+      if(op==='shortPrepare'&&body.photos){preparedAlbum=body;return route.fulfill({json:{id:albumId}});}
+      if(op==='shortLookup'&&body.clip===albumId)return route.fulfill({json:{clip:{id:albumId,photoCount:2,title:'Album'}}});
+      if(op==='shortState'&&body.clip===albumId)return route.fulfill({json:{photos:preparedAlbum.photos,likes:0,social:true}});
       if(op==='shortGift'){
         assert.ok(completed&&giftDiamonds>=10);assert.equal(body.gift,'وردة حمراء');
         sentGifts++;giftDiamonds-=10;return route.fulfill({json:{sent:true}});
@@ -155,6 +174,7 @@ export async function checkNavigation(browser) {
       home = () => dock.getByRole('tab').nth(0).click();
     const pageFull = async (name) => {
       await p.locator('[data-clipi-page="' + name + '"]').waitFor();
+      if(name==='uploadShort')await p.getByRole('button',{name:lang==='ar'?'بدء التسجيل':'Record video'}).waitFor();
       for (const element of [root, root.locator(':scope > :first-child')]) {
         const box = await element.boundingBox();
         assert.ok(
@@ -249,7 +269,38 @@ export async function checkNavigation(browser) {
         }
       }
       if (name === 'uploadShort') {
-        assert.equal(await p.locator('video').count(), 0);
+        await p.getByRole('button',{name:lang==='ar'?'بدء التسجيل':'Record video'}).waitFor();
+        assert.equal(await p.locator('video[src]').count(),0);
+        if(isOwner){
+          const btn=name=>p.getByRole('button',{name,exact:true});
+          await p.waitForFunction(()=>{const v=document.querySelector('video');return v?.srcObject?.active&&v.videoWidth>0&&!v.paused;});
+          if(await p.evaluate(()=>globalThis.MediaRecorder?.isTypeSupported('video/mp4'))){
+            await btn('بدء التسجيل').click();await btn('إيقاف التسجيل').waitFor();
+            await p.waitForTimeout(1250);await btn('إيقاف التسجيل').click();
+            await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فيديو تجريبي');
+            await p.getByText('فيديو تجريبي',{exact:true}).first().waitFor();
+            assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
+            await btn('رجوع للكاميرا').click();
+          }
+          const chooser=p.waitForEvent('filechooser');
+          await btn('رفع صور').click();
+          await (await chooser).setFiles(['palace.jpg','aurora.jpg'].map(f=>new URL('../../assets/shorts/'+f,import.meta.url).pathname));
+          const field=p.getByRole('textbox',{name:'النص على الصورة'});await field.fill('الصورة الأولى');
+          await btn('الصورة التالية').click();await field.fill('الصورة الثانية');
+          await btn('تقديم الصورة').click();await btn('حفظ المسودة').click();
+          await p.getByText('تم حفظ المسودة على هذا الجهاز',{exact:true}).waitFor();
+          await btn('رجوع للكاميرا').click();await btn('رجوع').click();
+          await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();
+          assert.equal(await field.inputValue(),'الصورة الثانية');
+          await p.getByRole('checkbox').click();await btn('نشر').click();await pageFull('home');
+          await p.getByText('الصورة الثانية',{exact:true}).waitFor();
+          await btn('الصورة التالية').click();await p.getByText('الصورة الأولى',{exact:true}).waitFor();
+          assert.deepEqual(preparedAlbum.photos,['الصورة الثانية','الصورة الأولى']);assert.equal(albumPhotos.length,2);
+          assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
+          // Return to the original feed fixture for the other navigation checks.
+          await p.goto('https://clipi.local/room');await pageFull('home');
+          continue;
+        }
         await p
           .getByRole('button', {
             name: lang === 'ar' ? 'رجوع' : 'Back',
