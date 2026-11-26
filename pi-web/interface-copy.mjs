@@ -1,5 +1,8 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "صور": "Photos",
+  "التقاط صورة": "Take photo",
+  "الكتابة على الشاشة": "Add text",
   "متابعة المسودة": "Continue draft",
   "الصور": "Photos",
   "فتح الصور": "Open photos",

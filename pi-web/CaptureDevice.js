@@ -15,18 +15,21 @@ async function preparedVideo(file){
   const error=await checkShortVideo(file);if(error)throw Error(error.error);
   return {file,uri:URL.createObjectURL(file)};
 }
-async function compressedPhoto(file){
-  const url=URL.createObjectURL(file);
-  try{
-    const img=new Image();img.src=url;await img.decode();
-    const scale=Math.min(1,1440/Math.max(img.width,img.height));
-    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.width*scale));canvas.height=Math.max(1,Math.round(img.height*scale));
-    const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
+function photoFrame(source,width,height){
+    const scale=Math.min(1,1440/Math.max(width,height));
+    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));
+    const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(source,0,0,canvas.width,canvas.height);
     for(const quality of [.82,.65,.46,.3]){
       const data=canvas.toDataURL('image/jpeg',quality).split(',')[1];
       if(data&&data.length<=4*Math.floor(640*1024/3))return data;
     }
     throw Error('حجم الصور كبير جدًا');
+}
+async function compressedPhoto(file){
+  const url=URL.createObjectURL(file);
+  try{
+    const img=new Image();img.src=url;await img.decode();
+    return photoFrame(img,img.width,img.height);
   }finally{URL.revokeObjectURL(url);}
 }
 export async function pickPhotos(){
@@ -36,7 +39,7 @@ export async function pickPhotos(){
   const photos=[];for(const f of files)photos.push(await compressedPhoto(f));
   return {photos};
 }
-export function CaptureDevice({control,facing,muted,torch,onState,onReady,onError}){
+export function CaptureDevice({control,mode='video',facing,muted,torch,onState,onReady,onError}){
   const mounted=useRef(true);
   useEffect(()=>{mounted.current=true;return ()=>{mounted.current=false;};},[]);
   const host=useRef(null),stream=useRef(null),rec=useRef(null),actions=useRef(null),stopTimer=useRef(null);
@@ -91,15 +94,20 @@ export function CaptureDevice({control,facing,muted,torch,onState,onReady,onErro
       if(filePicker.current)return;
       if(rec.current?.state==='recording'){rec.current.stop();return;}
       const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4'].find(t=>globalThis.MediaRecorder?.isTypeSupported(t));
-      if(!available||!mime){
+      const photo=mode==='photos';
+      if(photo&&available&&host.current?.videoWidth&&host.current?.videoHeight){
+        actions.current.onReady({photos:[photoFrame(host.current,host.current.videoWidth,host.current.videoHeight)]});
+        return;
+      }
+      if(photo||!available||!mime){
         filePicker.current=true;camera.current?.release();setAvailable(false);
         actions.current.onState({processing:true});
         let selected=false;
         try{
-          const [file]=await selectFile('video/*',false,facing);
-          const result=await preparedVideo(file);
+          const [file]=await selectFile(photo?'image/*':'video/*',false,facing);
+          const result=photo&&file?{photos:[await compressedPhoto(file)]}:await preparedVideo(file);
           if(result&&mounted.current){selected=true;actions.current.onReady(result);}
-          else if(result)URL.revokeObjectURL(result.uri);
+          else if(result?.uri)URL.revokeObjectURL(result.uri);
         }finally{
           filePicker.current=false;
           if(mounted.current){
@@ -126,6 +134,6 @@ export function CaptureDevice({control,facing,muted,torch,onState,onReady,onErro
       stopTimer.current=setTimeout(()=>{if(recorder.state==='recording')recorder.stop();},179750);
     };
     return ()=>{control.current=null;};
-  },[available,control,facing]);
+  },[available,control,facing,mode]);
   return <video ref={host} autoPlay muted playsInline style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',transform:facing==='user'?'scaleX(-1)':undefined}}/>;
 }

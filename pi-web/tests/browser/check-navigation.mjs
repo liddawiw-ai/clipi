@@ -281,13 +281,49 @@ export async function checkNavigation(browser) {
       if (name === 'uploadShort') {
         await p.getByRole('button',{name:lang==='ar'?'بدء التسجيل':'Record video'}).waitFor();
         assert.equal(await p.locator('video[src]').count(),0);
+        const en=lang==='en';
+        const shutter=p.getByRole('button',{name:en?'Record video':'بدء التسجيل',exact:true});
+        const photos=p.getByRole('tab',{name:en?'Photos':'صور',exact:true});
+        const videos=p.getByRole('tab',{name:en?'Video':'فيديو',exact:true});
+        const flip=p.getByRole('button',{name:en?'Switch camera':'تبديل الكاميرا',exact:true});
+        const addText=p.getByRole('button',{name:en?'Add text':'الكتابة على الشاشة',exact:true});
+        const [circle,photoTab,videoTab,edge,type,stage]=await Promise.all([shutter,photos,videos,flip,addText,root].map(el=>el.boundingBox()));
+        assert.ok(circle.y+circle.height/2>stage.y+stage.height*.75);
+        assert.ok(photoTab.x>circle.x+circle.width&&videoTab.x+videoTab.width<circle.x);
+        assert.ok(Math.abs(edge.x-type.x)<1&&edge.x>stage.x+stage.width-64&&type.y>edge.y);
+        assert.equal((await flip.innerText()).trim(),'');assert.equal((await addText.innerText()).trim(),'T');
+
         if(isOwner){
+          const tab=name=>p.getByRole('tab',{name,exact:true});
           const btn=name=>p.getByRole('button',{name,exact:true});
           await p.waitForFunction(()=>{const v=document.querySelector('video');return v?.srcObject?.active&&v.videoWidth>0&&!v.paused;});
+          let pickerEvents=0;
+          const countChooser=()=>pickerEvents++;
+          p.on('filechooser',countChooser);
+          const touch=await p.context().newCDPSession(p);
+          async function swipe(from,to,y){
+            await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:from,y}]});
+            for(let step=1;step<=7;step++)
+              await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:from+(to-from)*step/7,y}]});
+            await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+          }
+          await swipe(275,85,circle.y+circle.height/2);await btn('التقاط صورة').waitFor();
+          assert.equal(await tab('صور').getAttribute('aria-selected'),'true');
+          await swipe(85,275,300);await btn('بدء التسجيل').waitFor();
+          assert.equal(await tab('فيديو').getAttribute('aria-selected'),'true');
+          assert.equal(pickerEvents,0);p.off('filechooser',countChooser);await touch.detach();
+          await tab('صور').click();await addText.click();
+          await p.getByRole('textbox',{name:'الكتابة على الشاشة'}).fill('من الكاميرا');await btn('تم').click();
+          await btn('التقاط صورة').click();
+          await p.getByText('من الكاميرا',{exact:true}).waitFor();
+          await addText.click();
+          assert.equal(await p.getByRole('textbox',{name:'النص على الصورة'}).inputValue(),'من الكاميرا');
+          await btn('تم').click();await btn('رجوع للكاميرا').click();
+          await p.waitForFunction(()=>document.querySelector('video')?.videoWidth>0);
           if(await p.evaluate(()=>globalThis.MediaRecorder?.isTypeSupported('video/mp4'))){
             await btn('بدء التسجيل').click();await btn('إيقاف التسجيل').waitFor();
             await p.waitForTimeout(1250);await btn('إيقاف التسجيل').click();
-            await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فيديو تجريبي');
+            await addText.click();await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فيديو تجريبي');await btn('تم').click();
             await p.getByText('فيديو تجريبي',{exact:true}).first().waitFor();
             assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
             await btn('رجوع للكاميرا').click();
@@ -304,7 +340,7 @@ export async function checkNavigation(browser) {
           assert.ok(await p.evaluate(()=>window.studioTracks.every(t=>t.readyState==='ended')));
           await p.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'));});
           await systemCamera.setFiles(new URL('./feed-fixture.mp4',import.meta.url).pathname);
-          await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فوق الفيديو');
+          await addText.click();await p.getByRole('textbox',{name:'النص على الفيديو'}).fill('فوق الفيديو');await btn('تم').click();
           await btn('إضافة نص متزامن').click();
           const cueField=p.getByRole('textbox',{name:'نص اللقطة'});await cueField.fill('نص اللقطة التجريبية');
           await p.getByText('نص اللقطة التجريبية',{exact:true}).first().waitFor();
@@ -317,16 +353,17 @@ export async function checkNavigation(browser) {
           await p.getByText('فوق الفيديو',{exact:true}).waitFor();
           await p.getByText('نص اللقطة التجريبية',{exact:true}).waitFor();
           await dock.getByRole('tab').nth(2).click();
+          await tab('صور').click();
           const chooser=p.waitForEvent('filechooser');
           await btn('رفع صور').click();
           await (await chooser).setFiles(['palace.jpg','aurora.jpg'].map(f=>new URL('../../assets/shorts/'+f,import.meta.url).pathname));
-          const field=p.getByRole('textbox',{name:'النص على الصورة'});await field.fill('الصورة الأولى');
-          await btn('الصورة التالية').click();await field.fill('الصورة الثانية');
+          const field=p.getByRole('textbox',{name:'النص على الصورة'});await addText.click();await field.fill('الصورة الأولى');await btn('تم').click();
+          await btn('الصورة التالية').click();await addText.click();await field.fill('الصورة الثانية');await btn('تم').click();
           await btn('تقديم الصورة').click();await btn('حفظ المسودة').click();
           await p.getByText('تم حفظ المسودة على هذا الجهاز',{exact:true}).waitFor();
           await btn('رجوع للكاميرا').click();await btn('رجوع').click();
           await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();
-          assert.equal(await field.inputValue(),'الصورة الثانية');
+          await addText.click();assert.equal(await field.inputValue(),'الصورة الثانية');await btn('تم').click();
           await p.getByRole('checkbox').click();await btn('نشر').click();
           await btn('إعادة المحاولة').waitFor();await btn('رجوع للكاميرا').click();await btn('رجوع').click();
           await dock.getByRole('tab').nth(2).click();await btn('متابعة المسودة').click();await btn('إعادة المحاولة').click();await pageFull('home');
