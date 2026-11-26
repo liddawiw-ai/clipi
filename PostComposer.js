@@ -1,3 +1,4 @@
+import {useShortCaption} from './useShortCaption';
 import React,{useEffect,useRef,useState} from 'react';
 import {ActivityIndicator,Modal,Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import CaptureStudio from './CaptureStudio';
@@ -19,14 +20,16 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   const [cues,setCues]=useState([]),[cue,setCue]=useState(null),[accepted,setAccepted]=useState(false),[muted,setMuted]=useState(true);
   const [notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[policy,setPolicy]=useState(null);
   const uid=viewer?.uid,life=useRef(true),job=useRef(null),cached=useRef(null),lock=useRef(false),player=useRef(null);
-  const photos=draft?.photos,editable=!busy&&!job.current,playback=useShortPlayback(draft?.uri,!!draft?.uri&&!studio);
+  const studioBack=useRef(null);
+  const photos=draft?.photos,editable=!busy&&!job.current,playback=useShortPlayback(draft?.uri,!!draft?.uri&&!studio&&!cue&&!policy);
+  const timedText=useShortCaption(player,cues,!!draft?.uri&&!studio);
   useEffect(()=>()=>{if(draft?.uri)releaseDraft(draft);},[draft]);
   useEffect(()=>{
     let current=true;life.current=true;
     if(uid)readShortDraft(uid).then(saved=>{
       if(!current){if(saved?.draft?.uri)releaseDraft(saved.draft);return;}
       if(saved){setDraft(saved.draft);cached.current=saved.draft;job.current=saved.job||null;
-        setTitle(saved.title||'');setOverlay(saved.overlay||'');setNotes(saved.notes||[]);setCues(saved.cues||[]);setAccepted(!!saved.accepted);}
+        setTitle(saved.title||'');setOverlay(saved.overlay||'');setNotes(saved.notes||[]);setCues(saved.cues||[]);setCue(saved.cue||null);setAccepted(!!saved.accepted);}
     }).catch(()=>{if(current)setNotice(ui('تعذّرت قراءة المسودة المحلية'));}).finally(()=>{if(current)setReady(true);});
     else setReady(true);
     return ()=>{current=false;life.current=false;};
@@ -45,8 +48,12 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
     if(!editable||photos.length<=1)return;
     cached.current=null;setDraft({photos:photos.filter((_,i)=>i!==index)});setNotes(notes.filter((_,i)=>i!==index));setIndex(Math.min(index,photos.length-2));
   }
-  async function save(attempted){
-    cached.current=await saveShortDraft(uid,cached.current||draft,{title,cues,overlay,notes,accepted,job:job.current,attempted});
+  function withCue(){
+    if(!cue?.text.trim())return cues;
+    return [...cues.filter(c=>c.at!==cue.at),{at:cue.at,text:cue.text.trim()}].sort((a,b)=>a.at-b.at);
+  }
+  async function save(attempted,finalCues=cues){
+    cached.current=await saveShortDraft(uid,cached.current||draft,{title,cues:finalCues,cue:attempted?null:cue,overlay,notes,accepted,job:job.current,attempted});
   }
   async function perform(action){
     if(lock.current)return;
@@ -57,9 +64,11 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   function publish(){
     if(!accepted||!draft)return;
     void perform(async()=>{
-      await save(true);const token=await getToken();
-      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,overlay,photos:photos?notes:null,profile:await shortProfile(viewer)})).id;
-      await save(true);
+      const finalCues=withCue();
+      setCue(null);setCues(finalCues);
+      await save(true,finalCues);const token=await getToken();
+      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues:finalCues,overlay,photos:photos?notes:null,profile:await shortProfile(viewer)})).id;
+      await save(true,finalCues);
       const url=endpoint+'/shorts/media/'+job.current;
       if(photos){
         const response=await fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(photos)});
@@ -70,10 +79,10 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
   }
   function content(){
   if(!ready)return <View style={s.screen}><ActivityIndicator color="#fff"/></View>;
-  if(studio||!draft)return <CaptureStudio onMedia={selectMedia} hasDraft={!!draft} onRestore={()=>setStudio(false)} onClose={onClose}/>;
+  if(studio||!draft)return <CaptureStudio backAction={studioBack} onMedia={selectMedia} hasDraft={!!draft} onRestore={()=>setStudio(false)} onClose={onClose}/>;
   return <View style={s.screen}>
     <View style={s.preview}>{photos?<Album count={photos.length} uri={'data:image/jpeg;base64,'+photos[index]} notes={notes} index={index} setIndex={setIndex}/>:
-      <><Player playback={playback} source={draft.uri} muted={muted} fit="contain" playerRef={player} onMuteRequired={setMuted}/><Overlay text={overlay}/>
+      <><Player playback={playback} source={draft.uri} muted={muted} fit="contain" playerRef={player} onMuteRequired={setMuted}/><Overlay text={overlay}/><Overlay text={cue?.text||timedText} timed/>
         <View style={s.audio}><Action label={muted?'تشغيل الصوت':'كتم الصوت'} onPress={()=>setMuted(!muted)}/></View></>}</View>
     <ScrollView style={s.panel} keyboardShouldPersistTaps="handled" contentContainerStyle={s.content}>
       {photos&&photos.length>1&&<View style={s.row}><Action label="تقديم الصورة" disabled={!editable||index===0} onPress={()=>changeOrder(-1)}/>
@@ -81,9 +90,9 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
       <Text style={s.label}>{ui(photos?'النص على الصورة':'النص على الفيديو')}</Text>
       <TextInput accessibilityLabel={ui(photos?'النص على الصورة':'النص على الفيديو')} placeholder={ui('اكتب هنا')} placeholderTextColor="#a4afa9" maxLength={160}
         multiline editable={editable} style={s.field} value={photos?(notes[index]||''):overlay} onChangeText={t=>photos?setNotes(v=>v.map((x,i)=>i===index?t:x)):setOverlay(t)}/>
-      {!photos&&<Action label="إضافة نص متزامن" disabled={!editable} onPress={()=>{setCue({at:Math.round((player.current?.currentTime||0)*10)/10,text:''});player.current?.pause?.();}}/>}
+      {!photos&&<Action label="إضافة نص متزامن" disabled={!editable||!!cue||cues.length>=80} onPress={()=>{setCue({at:Math.round((player.current?.currentTime||0)*10)/10,text:''});}}/>}
       {cue&&<><TextInput accessibilityLabel={ui('نص اللقطة')} value={cue.text} style={s.field} maxLength={160} onChangeText={text=>setCue({...cue,text})}/>
-        <Action label="تثبيت النص عند هذه اللقطة" disabled={!editable||!cue.text.trim()||cues.length>=80} onPress={()=>{setCues(v=>[...v.filter(c=>c.at!==cue.at),{...cue,text:cue.text.trim()}].sort((a,b)=>a.at-b.at));setCue(null);player.current?.play?.();}}/></>}
+        <Action label="تثبيت النص عند هذه اللقطة" disabled={!editable||!cue.text.trim()||cues.length>=80} onPress={()=>{setCues(withCue());setCue(null);}}/><Action label="إلغاء" onPress={()=>setCue(null)}/></>}
       {cues.map(c=><Action key={c.at} label={ui('حذف')+' · '+c.at+'s · '+c.text} disabled={!editable} onPress={()=>setCues(v=>v.filter(x=>x.at!==c.at))}/>)}
       <TextInput accessibilityLabel={ui('وصف المنشور')} placeholder={ui('وصف المنشور')} maxLength={100} editable={editable} value={title} style={s.field} placeholderTextColor="#a4afa9" onChangeText={setTitle}/>
       <View style={s.row}><Action label="شروط الخدمة" onPress={()=>setPolicy('terms')}/><Action label="سياسة الخصوصية" onPress={()=>setPolicy('privacy')}/></View>
@@ -95,7 +104,12 @@ export default function PostComposer({endpoint,request,getToken,onDone,onClose,v
         <Action label="رجوع للكاميرا" disabled={busy} onPress={()=>setStudio(true)}/></View>
     </ScrollView>{policy&&<PolicyModal page={policy} endpoint={endpoint} onClose={()=>setPolicy(null)}/>}</View>;
   }
-  return <Modal visible presentationStyle="fullScreen" animationType="slide" onRequestClose={()=>{if(!lock.current)onClose();}}>{content()}</Modal>;
+  return <Modal visible presentationStyle="fullScreen" animationType="slide" onRequestClose={()=>{
+    if(lock.current)return;
+    if(policy)setPolicy(null);
+    else if(studio)studioBack.current?.();
+    else setStudio(true);
+  }}>{content()}</Modal>;
 }
 const s=StyleSheet.create({screen:{flex:1,backgroundColor:'#141a1b'},preview:{flex:1,minHeight:115,backgroundColor:'#080a0b',overflow:'hidden'},
   panel:{flexGrow:0,maxHeight:'53%',backgroundColor:'#202828'},content:{padding:14,gap:7},label:{color:'#fff',fontSize:15,fontWeight:'600'},

@@ -1,3 +1,4 @@
+import {useShortCaption} from './useShortCaption';
 import {PublishedAlbum,Overlay} from './Album';
 import {SearchButton,VideoInsights} from './DiscoveryScreens';
 import {useWatchVisit} from './useWatchVisit';
@@ -77,18 +78,7 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
   const deleting=useRef(false);
   const [busyDelete,setBusyDelete]=useState(false);
   const ownerUid=item.owner || stats?.owner;
-  const [caption,setCaption]=useState('');
-  useEffect(()=>{
-    if(!isCurrent||!playable||!stats?.cues?.length){setCaption('');return}
-    function update(){
-      const time=playerRef.current?.currentTime||0;
-      const cues=stats.cues;
-      let text='';
-      for(let i=cues.length-1;i>=0;i--)if(time>=cues[i].at){text=time<cues[i].at+5?cues[i].text:'';break}
-      setCaption(text);
-    }
-    update();const timer=setInterval(update,150);return()=>clearInterval(timer);
-  },[isCurrent,playable,stats?.cues]);
+  const caption=useShortCaption(playerRef,stats?.cues,isCurrent&&playable);
   const liveRoom=ownerUid&&liveRooms?.find(room=>room.ownerUid===ownerUid);
   const canDelete=stats?.canDelete ?? item.canDelete ?? (!!viewer?.uid && ownerUid===viewer.uid);
   function openDelete(){
@@ -113,7 +103,7 @@ function Clip({item,isCurrent,playback,onHide,liveRooms,onVisitLive,onAuthor,onC
   }
   const source=shortVideoUrl(endpoint,item.id);
   const [slide,setSlide]=useState(0);
-  const shareUrl=item.photoCount?endpoint+'/#short='+encodeURIComponent(item.id):source;
+  const shareUrl=item.photoCount||!stats||stats.overlay||stats.cues?.length?endpoint+'/#short='+encodeURIComponent(item.id):source;
   const api=(op,body={})=>request('/account-number',{op,clip:item.id,...body});
   const {liked,likes,like,initialize}=useClipLike(
     wanted=>api('shortLike',{liked:wanted,likeOnly:true}),

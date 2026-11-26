@@ -3,8 +3,8 @@ import {Image,PanResponder,Pressable,StyleSheet,Text,View} from 'react-native';
 import {ui} from './interface-language.mjs';
 import {nonce} from './ShortMedia';
 
-export function Overlay({text}){
-  return text?<View pointerEvents="none" style={s.overlay}><Text style={s.words}>{text}</Text></View>:null;
+export function Overlay({text,timed=false}){
+  return text?<View pointerEvents="none" style={[s.overlay,timed&&s.timed]}><Text style={s.words}>{text}</Text></View>:null;
 }
 export function Album({count,uri,notes,index,setIndex,onSeen}){
   const latest=useRef();latest.current={index,count,setIndex};
@@ -40,5 +40,5 @@ export function PublishedAlbum({item,source,notes,active,request,onIndex}){
   return <Album count={item.photoCount} uri={source+'?photo='+index} notes={notes} index={index}
     setIndex={i=>{setIndex(i);onIndex(i);}} onSeen={setLoaded}/>;
 }
-const s=StyleSheet.create({overlay:{position:'absolute',left:'8%',right:'8%',top:'40%',alignItems:'center'},words:{color:'white',fontSize:22,fontWeight:'700',textAlign:'center',backgroundColor:'rgba(0,0,0,.55)',borderRadius:8,paddingHorizontal:9,paddingVertical:4},
+const s=StyleSheet.create({timed:{top:undefined,bottom:'10%'},overlay:{position:'absolute',left:'8%',right:'8%',top:'40%',alignItems:'center'},words:{color:'white',fontSize:22,fontWeight:'700',textAlign:'center',backgroundColor:'rgba(0,0,0,.55)',borderRadius:8,paddingHorizontal:9,paddingVertical:4},
   pager:{position:'absolute',bottom:'13%',flexDirection:'row',direction:'ltr',width:144,justifyContent:'space-around',alignItems:'center',backgroundColor:'rgba(0,0,0,.65)',borderRadius:18},arrow:{minHeight:44,minWidth:42,alignItems:'center',justifyContent:'center'},num:{color:'#fff',fontWeight:'700',fontSize:16}});

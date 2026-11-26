@@ -8,7 +8,7 @@ function Control({glyph,label,action,disabled,selected}){
   return <Pressable accessibilityRole="button" accessibilityLabel={ui(label)} accessibilityState={{disabled,selected}} disabled={disabled} onPress={action}
     style={[s.control,selected&&{borderWidth:1,borderColor:'#fff'},disabled&&{opacity:.45}]}><Text style={s.glyph}>{glyph}</Text><Text style={s.small}>{ui(label)}</Text></Pressable>;
 }
-export default function CaptureStudio({onMedia,onClose,hasDraft,onRestore}){
+export default function CaptureStudio({backAction,onMedia,onClose,hasDraft,onRestore}){
   const [facing,setFacing]=useState('user'),[muted,setMuted]=useState(false),[torch,setTorch]=useState(false);
   const [device,setDevice]=useState({recording:false,torch:false,audio:true}),[seconds,setSeconds]=useState(0);
   const [loading,setLoading]=useState(false),[error,setError]=useState('');
@@ -29,7 +29,15 @@ export default function CaptureStudio({onMedia,onClose,hasDraft,onRestore}){
     }catch(e){if(live.current)setError(e.message);}
     finally{lock.current=false;if(live.current)setLoading(false);}
   }
-  current.current={choose,unavailable};
+  current.current={choose,unavailable,onClose,recording:device.recording};
+  useEffect(()=>{
+    backAction.current=()=>{
+      if(current.current.recording){
+        Promise.resolve(control.current?.()).catch(e=>{if(live.current)setError(e.message);});
+      }else if(!current.current.unavailable)current.current.onClose();
+    };
+    return ()=>{backAction.current=null;};
+  },[backAction]);
   const swipe=useRef(PanResponder.create({
     onMoveShouldSetPanResponder:(_,g)=>!current.current.unavailable&&Math.abs(g.dx)>24&&Math.abs(g.dx)>Math.abs(g.dy)*1.4,
     onPanResponderRelease:(_,g)=>{if(Math.abs(g.dx)>45)void current.current.choose(g.dx<0?'photos':'video');}
