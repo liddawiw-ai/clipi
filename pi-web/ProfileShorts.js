@@ -2,7 +2,7 @@ import {ui as appText} from './interface-language.mjs';
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {Modal} from 'react-native';
 import {ShortVideoHome} from './ShortVideoHome';
-import {shortsLookahead, startProfileVideo} from './ShortMedia';
+import {shortsLookahead, shortPlaybackUrl, startProfileVideo} from './ShortMedia';
 
 
 function ClipTile({source, label, onOpen, previews, suspended, warm}) {
@@ -112,7 +112,7 @@ export default function ProfileShorts({playerProps,request, endpoint, authorUid,
     setSelected(null);
   }
 
-  const source = clip => endpoint + '/shorts/media/' + clip.id;
+  const source = clip => clip.photoCount?endpoint+'/shorts/media/'+clip.id:shortPlaybackUrl(endpoint,clip.id);
   function open(index,poster) {
     const chosen=clips[index], videos=new Map();
     for (const clip of clips.slice(Math.max(0,index-1),index+ahead+1)) {

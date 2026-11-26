@@ -64,22 +64,23 @@ export class ClipiVideo {
     this.sql = ctx.storage.sql;
     this.sql.exec('CREATE TABLE IF NOT EXISTS deletion (id INTEGER PRIMARY KEY)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS parts(part INTEGER PRIMARY KEY, bytes BLOB NOT NULL)');
+    this.sql.exec('CREATE TABLE IF NOT EXISTS browser_parts(part INTEGER PRIMARY KEY, bytes BLOB NOT NULL)');
   }
 
-  size() {
-    const [tail] = this.sql.exec('SELECT part, length(bytes) AS length FROM parts ORDER BY part DESC LIMIT 1');
+  size(browser=false) {
+    const [tail] = this.sql.exec('SELECT part, length(bytes) AS length FROM '+(browser?'browser_parts':'parts')+' ORDER BY part DESC LIMIT 1');
     return tail ? tail.part * chunkBytes + tail.length : 0;
   }
 
   // SQLite substr uses one-based offsets. A small metadata/range probe reads only
   // those bytes, including when the requested range crosses a stored part.
-  readBytes(offset, length) {
+  readBytes(offset, length, browser=false) {
     const bytes = new Uint8Array(length);
     let written = 0;
     while (written < length) {
       const from = offset % chunkBytes;
       const take = Math.min(chunkBytes - from, length - written);
-      const row = this.sql.exec('SELECT substr(bytes, ?, ?) AS bytes FROM parts WHERE part = ?',
+      const row = this.sql.exec('SELECT substr(bytes, ?, ?) AS bytes FROM '+(browser?'browser_parts':'parts')+' WHERE part = ?',
         from + 1, take, Math.floor(offset / chunkBytes)).one();
       const piece = new Uint8Array(row.bytes);
       if (piece.length !== take) throw Error('Incomplete video part');
@@ -100,27 +101,28 @@ export class ClipiVideo {
 
   async fetch(request) {
     const url=new URL(request.url);
+    const browser=url.pathname==='/browser';
     const slide=/^\/album\/(\d+)$/.exec(url.pathname);
     if(slide&&['GET','HEAD','PUT'].includes(request.method))return albumFile(request,this.storage,Number(url.searchParams.get('count')),Number(slide[1]));
     if (request.method === 'DELETE') {
       this.layout = null;
       this.storage.transactionSync(() => {
         this.sql.exec('INSERT OR IGNORE INTO deletion(id) VALUES(1)');
-        this.sql.exec('DELETE FROM parts');
+        this.sql.exec('DELETE FROM parts');this.sql.exec('DELETE FROM browser_parts');
         this.sql.exec('DROP TABLE IF EXISTS album_slide');
       });
       return new Response(null, {status: 204});
     }
     if (request.method === 'PUT') {
-      if (!this.size()) {
+      if (!this.size(browser)) {
         const bytes = await readMp4(request);
         if (bytes instanceof Response) return bytes;
         // Recheck after the body arrived so a late upload cannot restore a removed clip.
         const retired = this.storage.transactionSync(() => {
           if (this.sql.exec('SELECT id FROM deletion').toArray().length) return true;
-          if (this.size()) return false;
+          if (this.size(browser)) return false;
           for (let offset = 0; offset < bytes.length; offset += chunkBytes) {
-            this.sql.exec('INSERT INTO parts(part, bytes) VALUES(?, ?)', offset / chunkBytes,
+            this.sql.exec('INSERT INTO '+(browser?'browser_parts':'parts')+'(part, bytes) VALUES(?, ?)', offset / chunkBytes,
               bytes.slice(offset, offset + chunkBytes).buffer);
           }
           return false;
@@ -130,20 +132,21 @@ export class ClipiVideo {
       return new Response(null, {status: 204});
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') return failure('Method not allowed', 405);
-    const size = this.size();
+    const useBrowser=browser&&this.size(true)>0;
+    const size = this.size(useBrowser);
     if (!size) return failure('الفيديو غير موجود', 404);
     const spec = playback(request, size);
     if (spec instanceof Response) return spec;
     const {headers, status, offset, length} = spec;
     if (request.method === 'HEAD') return new Response(null, {status, headers});
-    const layout = offset + length <= 8 ? null : await this.readLayout(size);
+    const layout = useBrowser || offset + length <= 8 ? null : await this.readLayout(size);
     const spans = mediaSpans(layout, size, offset, length);
     let spanIndex = 0, used = 0;
     const body = new ReadableStream({
       pull: controller => {
         const span = spans[spanIndex], from = span.offset + used;
         const take = Math.min(span.length - used, chunkBytes - from % chunkBytes);
-        const bytes = span.index ? span.index.subarray(from, from+take) : this.readBytes(from,take);
+        const bytes = span.index ? span.index.subarray(from, from+take) : this.readBytes(from,take,useBrowser);
         controller.enqueue(bytes);
         used += bytes.length;
         if (used === span.length) {spanIndex++; used=0;}
@@ -154,18 +157,18 @@ export class ClipiVideo {
   }
 }
 
-export function putVideo(namespace, key, request) {
+export function putVideo(namespace, key, request, browser=false) {
   const headers = new Headers({'Content-Type': 'video/mp4'});
   if (request.headers.has('Content-Length')) headers.set('Content-Length', request.headers.get('Content-Length'));
-  return namespace.getByName(key).fetch(internalUrl, {method: 'PUT', headers, body: request.body});
+  return namespace.getByName(key).fetch(browser?'https://video.internal/browser':internalUrl, {method: 'PUT', headers, body: request.body});
 }
 
 export function removeVideo(namespace, key) {
   return namespace.getByName(key).fetch(internalUrl, {method: 'DELETE'});
 }
 
-export function getVideo(namespace, key, request) {
+export function getVideo(namespace, key, request, browser=false) {
   const headers = new Headers();
   if (request.headers.has('Range')) headers.set('Range', request.headers.get('Range'));
-  return namespace.getByName(key).fetch(internalUrl, {method: request.method, headers});
+  return namespace.getByName(key).fetch(browser?'https://video.internal/browser':internalUrl, {method: request.method, headers});
 }

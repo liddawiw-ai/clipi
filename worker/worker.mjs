@@ -1,3 +1,4 @@
+import {maintainBrowserVideo} from './browser-renditions.mjs';
 import {manageAppAdmin} from './app-admins.mjs';
 import {hostEarnings} from './host-earnings.mjs';
 import {saveCover,saveHelpCover,coverResponse} from './room-cover.mjs';
@@ -55,6 +56,7 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path==='/internal/browser-renditions')return maintainBrowserVideo(request,env);
     if(request.method==='GET'&&(path==='/device-install/android'||path==='/device-install/ios'))return deviceInstall(request,path.split('/').pop());
     if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
     if((path==='/external-checkout/'||path==='/external-checkout.html')&&request.method==='GET'&&env.CLIPI_APP){
@@ -88,19 +90,19 @@ export default {
       if(!row?.image)return json({error:'Not found'},404);
       return new Response(Uint8Array.from(atob(row.image.split(',')[1]),v=>v.charCodeAt(0)),{headers:{'Content-Type':'image/jpeg','Cache-Control':'private,max-age=3600'}});
     }
-    const shortFile=/^\/shorts\/media\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
+    const shortFile=/^\/shorts\/(?:media|play)\/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$/.exec(path);
     if (shortFile && ['GET','HEAD'].includes(request.method)) {
       // A published clip already has a catalog row. Cold playback does not need room migrations.
       const query = (sql,...args) => env.PI_GIFTS_DB.prepare(sql).bind(...args);
       try {
-        return await serveShort(request,env.SHORT_VIDEOS,query,shortFile[1],json,env.CLIP_MEDIA);
+        return await serveShort(request,env.SHORT_VIDEOS,query,shortFile[1],json,env.CLIP_MEDIA,path.startsWith('/shorts/play/'));
       } catch (error) {
         if (/no such table: (?:main\.)?short_clip\b/i.test(error.message))
           return json({error:'الفيديو غير موجود'},404);
         throw error;
       }
     }
-    if((path==='/account-number'&&request.method==='POST')||(shortFile&&request.method==='PUT')){
+    if((path==='/account-number'&&request.method==='POST')||(shortFile&&path.startsWith('/shorts/media/')&&request.method==='PUT')){
       const token=(request.headers.get('Authorization')||'').match(/^Bearer ([^ ]{1,8192})$/)?.[1];
       if(!token)return json({error:'سجل الدخول'},401);
       const check=await fetch('https://identitytoolkit.googleapis.com/v1/accounts:lookup?key='+firebaseWebApiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({idToken:token})});

@@ -171,7 +171,7 @@ export async function receiveShort(request, bucket, q, uid, id, json, videos) {
   return json({id});
 }
 
-export async function serveShort(request, bucket, q, id, json, videos) {
+export async function serveShort(request, bucket, q, id, json, videos, browser=false) {
   if (!bucket && !videos) return json({error:'التخزين غير متاح'},503);
   const row=await q('SELECT object_key FROM short_clip WHERE id=? AND object_key IS NOT NULL',id).first();
   if (!row) return json({error:'الفيديو غير موجود'},404);
@@ -182,7 +182,7 @@ export async function serveShort(request, bucket, q, id, json, videos) {
   }
   if (row.object_key.startsWith('cloud/')) {
     if (!videos) return json({error:'التخزين غير متاح'},503);
-    const stored = await getVideo(videos, row.object_key, request);
+    const stored = await getVideo(videos, row.object_key, request, browser);
     const response = new Response(stored.body, stored);
     response.headers.set('Cache-Control', 'private, no-store');
     return response;

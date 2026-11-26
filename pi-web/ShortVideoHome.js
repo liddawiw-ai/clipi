@@ -12,7 +12,7 @@ import {ActivityIndicator,FlatList,Platform,Pressable,StyleSheet,Text,TextInput,
 import ShortCommentsSheet,{ShortAvatar} from './ShortCommentsSheet';
 import VideoTapSurface from './VideoTapSurface';
 import DeleteVideoDialog from './DeleteVideoDialog';
-import {Player,shareShort,shortVideoUrl,copyShortLink,saveShort,nonce} from './ShortMedia';
+import {Player,shareShort,shortPlaybackUrl,shortVideoUrl,copyShortLink,saveShort,nonce} from './ShortMedia';
 import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
@@ -33,11 +33,12 @@ function SoundControl({muted,setMuted}){
     <FeedIcon name={muted?'muted':'sound'} size={18}/>{muted?appText('تشغيل الصوت'):appText('كتم الصوت')}
   </button>;
 }
-function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
+function Clip({item,isCurrent,playback,onHide,preload,onFirstPlaying,initialVideo,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}){
   const [stats,setStats]=useState(null),[dialog,setDialog]=useState(''),[message,setMessage]=useState('');
   const playerRef=useRef(null);
   const [paused,setPaused]=useState(false);
-  const [playing,setPlaying]=useState(false);
+  const [playing,setPlaying]=useState(false),[blocked,setBlocked]=useState(false);
+  function playbackChanged(value){setPlaying(value);if(value){setBlocked(false);if(isCurrent)onFirstPlaying?.();}}
   useWatchVisit({clip:item.id,viewer:viewer?.uid,active:!item.photoCount&&isCurrent&&playable,playing,playerRef,playback,request});
   async function hide(){
     if(lock.current)return;
@@ -46,13 +47,13 @@ function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onV
     catch(e){if(alive.current){setDialog('');setMessage(uiError(e));}}
     finally{lock.current=false;}
   }
-  const showPlay=paused||!playing;
-  useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
+  const showPlay=paused||blocked;
+  useEffect(()=>{if(!isCurrent){setPaused(false);setBlocked(false);}},[isCurrent]);
   function togglePlayback(){
     if(!isCurrent||!playable||!playback.isSelected(item.id))return;
     const player=playerRef.current;
     if(!player)return;
-    if(player.paused||paused){
+    if(player.paused||paused||blocked){
       setPaused(false);
       player.play().catch(()=>{if(playback.isSelected(item.id)&&playerRef.current===player&&player.paused)setPaused(true)});
     }else{
@@ -170,13 +171,13 @@ function Clip({item,isCurrent,playback,onHide,preload,initialVideo,liveRooms,onV
     return ()=>{current=false;};
   },[dialog,item.id]);
   return <View style={s.fill}>
-    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={source} initialVideo={initialVideo} preload={preload} onPlayingChange={setPlaying} fit={showing?'contain':'cover'} onPlayBlocked={()=>setPlaying(false)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
+    <View style={showing?[s.compactVideo,{height:visibleVideoHeight??topHeight}]:StyleSheet.absoluteFill}>{item.photoCount?<PublishedAlbum item={item} source={source} notes={stats?.photos} active={isCurrent&&playable} request={request} onIndex={setSlide}/>:<><Player playback={playback} clipId={item.id} source={shortPlaybackUrl(endpoint,item.id)} initialVideo={initialVideo} preload={preload} onPlayingChange={playbackChanged} fit={showing?'contain':'cover'} onPlayBlocked={()=>setBlocked(true)} active={isCurrent&&playable&&!paused&&(!dialog||dialog==='comments'||dialog==='more')} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/><Overlay text={stats?.overlay}/></>}
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
     </View>
     {isCurrent&&!showing&&<>
-    {!item.photoCount&&<VideoTapSurface clipId={item.id} paused={showPlay} playing={playing} onPlaybackPress={togglePlayback}
+    {!item.photoCount&&<VideoTapSurface clipId={item.id} loading={!showPlay&&!playing} paused={showPlay} playing={playing} onPlaybackPress={togglePlayback}
       playbackLabel={translate(showPlay?'استئناف الفيديو':'إيقاف الفيديو مؤقتًا')}
       onDoubleTap={confirm=>like(true,confirm)}/>}
     <div aria-hidden="true" className="clipi-clip-shade"/>
@@ -268,7 +269,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
   const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
   const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
-  const [homeItems,setItems]=useState(null),[active,setActiveIndex]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState(null),[active,setActiveIndex]=useState(firstIndex),[height,setHeight]=useState(windowHeight),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const items=profileFeed?.clips ?? homeItems ?? [];
   const playback=useShortPlayback(items[active]?.id,playable);
@@ -284,6 +285,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
     const timer=setTimeout(()=>setNotice(''),4000);
     return ()=>clearTimeout(timer);
   },[notice]);
+  const [feedStarted,setFeedStarted]=useState(false);
   const [muted,setMuted]=useState(true);
   const [viewMode,setViewModeState]=useState('');
   const locked=useRef(''),openedHeight=useRef(0);
@@ -362,7 +364,7 @@ export function ShortVideoHome({onSearch,onHiddenClip,roomLabels,liveRooms=[],on
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
       scrollEventThrottle={16} onEndReached={more} onEndReachedThreshold={0.5}
-      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} preload={index>=active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
+      renderItem={({item,index})=><View style={[{height},Platform.OS==='web'&&{scrollSnapAlign:'start'}]}>{index>=active-1&&index<=active+ahead&&<Clip key={item.id} onHide={hideFromFeed} isCurrent={index===active} playback={playback} onFirstPlaying={()=>setFeedStarted(true)} preload={index===active?'auto':!feedStarted&&!fromProfile&&!items[active]?.photoCount?'none':index>active?'auto':'metadata'} initialVideo={profileFeed?.initialVideos?.get(item.id)} {...{item:fromProfile?{...item,canDelete:profileFeed.canDelete}:item,liveRooms,onVisitLive,onAuthor,onCommentAuthor,followRevision,onFollowChange,followLabels,endpoint,request,gifts,onWallet,onShop,playable,onReport,translate,muted,setMuted,viewer,viewMode,setViewMode,topHeight,onDeleted}}/>}</View>}/>}
     {refreshing&&!viewMode&&<View pointerEvents="none" style={s.refreshStatus} accessibilityLiveRegion="polite">
       <ActivityIndicator color="#fff" size="small"/><Text style={{color:'#fff'}}>{translate('جارٍ تحميل الفيديوهات…')}</Text>
     </View>}

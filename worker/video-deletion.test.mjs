@@ -31,11 +31,18 @@ test('deleting a cloud clip is owner-only and a late upload cannot restore its b
   q('INSERT INTO short_clip(id,owner,title) VALUES(?,?,?)',id,'author','Video').run();
   const response=await receiveShort(new Request(url,{method:'PUT',body:file}),null,q,'author',id,json,videos);
   assert.equal(response.status,200);
+  const rendition=await readFile(new URL('../pi-web/tests/browser/feed-fixture.mp4',import.meta.url));
+  assert.equal((await object.fetch(new Request('https://internal/browser',{method:'PUT',body:rendition}))).status,204);
+  const ranged=await serveShort(new Request(url,{headers:{Range:'bytes=0-63'}}),null,q,id,json,videos,true);
+  assert.equal(ranged.status,206);assert.equal(ranged.headers.get('content-range'),'bytes 0-63/'+rendition.byteLength);
+  assert.deepEqual(Buffer.from(await ranged.arrayBuffer()),rendition.subarray(0,64));
   assert.equal((await deleteShort(q,'viewer',id,json,null,videos)).status,403);
   assert.equal((await serveShort(new Request(url),null,q,id,json,videos)).status,200);
   assert.equal((await deleteShort(q,'author',id,json,null,videos)).status,200);
   assert.equal((await deleteShort(q,'author',id,json,null,videos)).status,200);
   assert.equal(media.prepare('SELECT count(*) AS n FROM parts').get().n,0);
+  assert.equal(media.prepare('SELECT count(*) AS n FROM browser_parts').get().n,0);
+  assert.equal((await object.fetch(new Request('https://internal/browser',{method:'PUT',body:rendition}))).status,404);
   assert.equal((await object.fetch(new Request(url,{method:'PUT',body:file}))).status,404);
   assert.equal((await serveShort(new Request(url),null,q,id,json,videos)).status,404);
 });

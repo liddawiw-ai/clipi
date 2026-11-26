@@ -101,14 +101,14 @@ export async function checkNavigation(browser) {
           name.endsWith('.js') ? 'application/javascript' : 'text/css',
           Buffer.from(bundle.get(name))
         );
-      if(['/shorts/media/fixture','/shorts/media/random-fixture','/shorts/media/second','/shorts/media/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
+      if(['/shorts/play/fixture','/shorts/play/random-fixture','/shorts/play/second','/shorts/play/third'].includes(name))return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       if(name==='/shorts/media/'+albumId){
         if(route.request().method()==='PUT'){
           if(++albumUploads===1)return route.abort('internetdisconnected');
           albumPhotos=route.request().postDataJSON();return route.fulfill({json:{id:albumId}});}
         return send('image/jpeg',Buffer.from(albumPhotos[Number(url.searchParams.get('photo')||0)],'base64'));
       }
-      if(name==='/shorts/media/'+annotatedId){
+      if(name==='/shorts/play/'+annotatedId||name==='/shorts/media/'+annotatedId){
         if(route.request().method()==='PUT')return route.fulfill({json:{id:annotatedId}});
         return send('video/mp4',readFileSync(new URL('./feed-fixture.mp4',import.meta.url)));
       }

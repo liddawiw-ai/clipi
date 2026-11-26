@@ -1,0 +1,27 @@
+name: Prepare Pi video playback
+on:
+  push:
+    branches: [work/clipi-testnet-gifts]
+    paths: ['worker/**', 'pi-web/**', 'deploy/pi-video-compat.py', '.github/workflows/pi-video-compat.yml']
+  workflow_dispatch: {}
+concurrency:
+  group: clipi-pi-video-compat
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare compatible video streams
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends ffmpeg
+          fi
+          python3 deploy/pi-video-compat.py

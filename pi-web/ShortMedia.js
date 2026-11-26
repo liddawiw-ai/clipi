@@ -5,8 +5,15 @@ import {checkShortVideo} from './short-upload-limits.mjs';
 
 export const shortsLookahead = () => 2;
 export const nonce=()=>crypto.randomUUID();
+function inlineVideo(video){
+  video.playsInline=true;
+  video.setAttribute('playsinline','');
+  video.setAttribute('webkit-playsinline','');
+  video.defaultMuted=video.muted=true;
+  return video;
+}
 export function startProfileVideo(source, poster, playable, preparedVideo) {
-  const video = preparedVideo || document.createElement('video');
+  const video = inlineVideo(preparedVideo || document.createElement('video'));
   video.defaultMuted = video.muted = true;
   video.playsInline = true;
   video.preload = 'auto';
@@ -27,7 +34,7 @@ export function startProfileVideo(source, poster, playable, preparedVideo) {
 export function Player({source, clipId, playback, initialVideo, active=true, muted=true, preload='auto', playerRef,
   onMuteRequired, onPlayBlocked, poster, onTimeUpdate, onPlayingChange, fit='cover'}) {
   const container = useRef(null);
-  const [video] = useState(() => initialVideo || document.createElement('video'));
+  const [video] = useState(() => inlineVideo(initialVideo || document.createElement('video')));
   const callbacks = useRef({});
   const audio=useRef(null);
   callbacks.current = {muted,onMuteRequired, onPlayBlocked, onPlayingChange, onTimeUpdate};
@@ -66,37 +73,55 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
   }, [video, preload, poster, source]);
 
   useLayoutEffect(() => {
-    let gestureRequired=false, pageVisible=!document.hidden;
-    function selected(){return pageVisible&&!document.hidden&&playback.owns(control);}
+    let pageVisible=!document.hidden, inFlight=null, disposed=false, mutedFallback=false;
+    let deniedWhenReady=false, denialTimer;
+    function selected(){return !disposed&&pageVisible&&!document.hidden&&playback.owns(control);}
     function allowed(){return active&&selected();}
-    function stop(){video.autoplay=false;video.defaultMuted=video.muted=true;video.pause();}
-    function applyVolume(){video.defaultMuted=video.muted=!selected()||callbacks.current.muted;}
+    function stop(){
+      clearTimeout(denialTimer);deniedWhenReady=false;inFlight=null;video.autoplay=false;
+      video.defaultMuted=video.muted=true;video.pause();
+    }
+    function applyVolume(){video.defaultMuted=video.muted=!selected()||mutedFallback||callbacks.current.muted;}
     function start(){
       if(!allowed()){stop();return;}
-      applyVolume();
-      if(!video.paused)return;
-      video.play().catch(error=>{
-        if(!allowed()||error.name!=='NotAllowedError')return;
-        if(video.muted){gestureRequired=true;callbacks.current.onPlayBlocked?.();return;}
-        video.defaultMuted=video.muted=true;
-        callbacks.current.onMuteRequired?.(true);
-        video.play().catch(retry=>{
-          if(allowed()&&retry.name==='NotAllowedError'){gestureRequired=true;callbacks.current.onPlayBlocked?.();}
-        });
-      });
+      applyVolume();video.autoplay=true;
+      if(!video.paused||inFlight||deniedWhenReady)return;
+      const attempt={};inFlight=attempt;
+      video.play().then(()=>{if(!disposed&&!allowed())stop();},error=>{
+        if(inFlight!==attempt||!allowed())return;
+        inFlight=null;
+        if(error.name!=='NotAllowedError')return;
+        if(!video.muted){
+          mutedFallback=true;callbacks.current.onMuteRequired?.(true);
+          start();return;
+        }
+        const rect=video.getBoundingClientRect();
+        if(video.readyState>=2&&rect.bottom>0&&rect.top<window.innerHeight&&rect.height>0){
+          deniedWhenReady=true;
+          callbacks.current.onPlayBlocked?.();
+        }else{
+          clearTimeout(denialTimer);
+          denialTimer=setTimeout(()=>{if(allowed()&&video.paused)callbacks.current.onPlayBlocked?.();},1300);
+        }
+      }).finally(()=>{if(inFlight===attempt)inFlight=null;});
     }
     const control={start,stop};
-    const ready=()=>{if(allowed()&&!gestureRequired)start();};
+    const ready=()=>{if(allowed())start();};
+    const visibilityObserver=typeof IntersectionObserver==='function'?new IntersectionObserver(entries=>{
+      if(entries.some(entry=>entry.isIntersecting))ready();
+    }):null;
     const guard=()=>{if(!allowed())stop();};
-    const visibility=()=>{pageVisible=!document.hidden;if(allowed())start();else stop();};
+    const visibility=()=>{deniedWhenReady=false;pageVisible=!document.hidden;if(allowed())start();else stop();};
     const hide=()=>{pageVisible=false;stop();};
-    audio.current=applyVolume;
+    audio.current=()=>{mutedFallback=false;applyVolume();};
     video.autoplay=false;
     if(!active)stop();
     const detach=playback.attach(clipId??source,control);
     applyVolume();
     video.addEventListener('play',guard);
     video.addEventListener('playing',guard);
+    visibilityObserver?.observe(video);
+    video.addEventListener('loadeddata',ready);
     video.addEventListener('canplay',ready);
     document.addEventListener('visibilitychange',visibility);
     window.addEventListener('pagehide',hide);
@@ -104,6 +129,9 @@ export function Player({source, clipId, playback, initialVideo, active=true, mut
     return ()=>{
       video.removeEventListener('play',guard);
       video.removeEventListener('playing',guard);
+      disposed=true;clearTimeout(denialTimer);
+      visibilityObserver?.disconnect();
+      video.removeEventListener('loadeddata',ready);
       video.removeEventListener('canplay',ready);
       document.removeEventListener('visibilitychange',visibility);
       window.removeEventListener('pagehide',hide);
@@ -127,6 +155,9 @@ export const releaseDraft=draft=>{if(draft.uri)URL.revokeObjectURL(draft.uri);};
 export async function uploadFile(url,draft,token){
   const response=await fetch(url,{method:'PUT',headers:{Authorization:'Bearer '+token,'Content-Type':'video/mp4'},body:draft.file});
   if(!response.ok)throw Error((await response.json().catch(()=>({}))).error||'تعذّر رفع الفيديو');
+}
+export function shortPlaybackUrl(endpoint,id){
+  return endpoint.replace(/\/+$/,'')+'/shorts/play/'+encodeURIComponent(id);
 }
 export function shortVideoUrl(endpoint,id) {
   return endpoint.replace(/\/+$/,'')+'/shorts/media/'+encodeURIComponent(id);

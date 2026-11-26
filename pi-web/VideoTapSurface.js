@@ -1,11 +1,11 @@
 import React, {useLayoutEffect, useRef, useState} from 'react';
-import {Image, Platform, Pressable, StyleSheet, Text, View} from 'react-native';
+import {ActivityIndicator,Image, Platform, Pressable, StyleSheet, Text, View} from 'react-native';
 
 const heartSize = 40;
 const nearby = (point, x, y, radius) => Math.hypot(point.x - x, point.y - y) <= radius;
 const activeHeart = require('./assets/actions/like-on.png');
 
-export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, playbackLabel, paused, playing}) {
+export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, playbackLabel, paused, playing, loading=false}) {
   const start = useRef(null);
   const firstTap = useRef(null);
   const generation = useRef(0);
@@ -117,6 +117,7 @@ export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, p
           style={[styles.heart, heart]} />}
       </View>
       <View pointerEvents={visible ? "box-none" : "none"} style={[StyleSheet.absoluteFill, styles.center]}>
+        {loading?<View pointerEvents="none" accessibilityRole="progressbar"><ActivityIndicator color="#fff"/></View>:
         <Pressable testID="short-video-playback" accessibilityRole="button" accessibilityLabel={playbackLabel}
           pointerEvents={visible ? "auto" : "none"} onFocus={revealControls} onPress={onPlaybackPress}
           style={[styles.playback, !visible && styles.hidden]}>
@@ -125,7 +126,7 @@ export default function VideoTapSurface({clipId, onDoubleTap, onPlaybackPress, p
             : <View pointerEvents="none" style={styles.pauseIcon}>
                 <View style={styles.bar}/><View style={styles.bar}/>
               </View>}
-        </Pressable>
+        </Pressable>}
       </View>
     </>
   );

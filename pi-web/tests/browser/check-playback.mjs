@@ -3,6 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {createServer} from 'node:http';
 import {createRequire} from 'node:module';
 import {build} from 'esbuild';
+import {checkFirstStart} from './check-first-start.mjs';
 import {checkProfilePlayback} from './check-profile-playback.mjs';
 import {checkNavigation} from './check-navigation.mjs';
 
@@ -12,11 +13,11 @@ const entry=new URL('short-feed.jsx',import.meta.url).pathname;
 const output=await build({entryPoints:[entry],bundle:true,write:false,minify:true,outfile:'feed.js',
   alias:{'react-native':'react-native-web'},loader:{'.js':'jsx','.png':'dataurl','.jpg':'dataurl','.gif':'dataurl','.mp3':'dataurl'},
   define:{global:'globalThis',__DEV__:'false','process.env.NODE_ENV':'"production"'}});
-const video=await readFile(new URL('./feed-fixture.mp4',import.meta.url));
+const video=await readFile(process.env.CLIPI_PLAYBACK_TEST_MP4||new URL('./feed-fixture.mp4',import.meta.url));
 const files=new Map(output.outputFiles.map(file=>['/'+file.path.split('/').pop(),file.contents]));
 const server=createServer((req,res)=>{
   const url=new URL(req.url,'http://localhost');
-  if(/^\/shorts\/media\/(fixture|one|two|three)$/.test(url.pathname)){
+  if(/^\/shorts\/play\/(fixture|one|two|three)$/.test(url.pathname)){
     const offset=Number(/^bytes=(\d+)-/.exec(req.headers.range||'')?.[1]||0);
     res.writeHead(req.headers.range?206:200,{'Content-Type':'video/mp4','Accept-Ranges':'bytes',
       ...(req.headers.range?{'Content-Range':`bytes ${offset}-${video.length-1}/${video.length}`}:{})});
@@ -33,6 +34,7 @@ const server=createServer((req,res)=>{
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const browser=await chromium.launch({channel:'chrome',headless:true});
 try{
+  await checkFirstStart(browser,'http://127.0.0.1:'+server.address().port);
   await checkProfilePlayback(browser, 'http://127.0.0.1:'+server.address().port);
   for(const locale of ['ar','en'])for(const role of ['host','admin','user']){
     const page=await browser.newPage({viewport:{width:390,height:844}});
@@ -108,11 +110,14 @@ try{
   }
   const restricted=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
   await restricted.addInitScript(()=>{
+    // Require a real input event. Browser automation can set transient activation while locating controls.
+    let touched=false;
+    document.addEventListener('touchend',()=>{touched=true;},{capture:true,once:true});
     // Model a browser that blocks both declarative and scripted autoplay.
     Object.defineProperty(HTMLMediaElement.prototype,'autoplay',{get(){return false;},set(){}});
     const play=HTMLMediaElement.prototype.play;
     HTMLMediaElement.prototype.play=function(){
-      return navigator.userActivation.isActive ? play.call(this)
+      return touched&&navigator.userActivation.isActive ? play.call(this)
         : Promise.reject(new DOMException('Gesture required','NotAllowedError'));
     };
   });

@@ -14,7 +14,7 @@ async function request(path,input){
     case 'shortProfileList':
       if(input.owner!=='host'||uid!=='user') throw Error('Expected a visitor viewing the host');
       return {clips:['one','two','three'].map(id=>({...clip,id,title:id})),canDelete:false,nextCursor:null};
-    case 'shortList': return {clips:[clip]};
+    case 'shortList': return {clips:params.has('pair')?[clip,{...clip,id:'two'}]:[clip]};
     case 'shortLike': return {liked:input.liked,likes:Number(input.liked)};
     case 'shortState': return {owner:'host',authorName:'إغلاق',canDelete:clip.canDelete,social:true,commentCount:1};
     case 'shortComments': return {comments:[{id:'1',uid:'guest',name:'مشاركة',body:'حفظ',created:Date.now()}],social:true};
