@@ -40,14 +40,14 @@ function GiftRecipientChoice({person,selected,own,onSelect,request}) {
   </TouchableOpacity>;
 }
 
-export function GiftRecipients({people,target,userId,act,onSelect}) {
+export function GiftRecipients({people,target,userId,act,onSelect,allowSelf=false}) {
   const request=useRef(act);
   request.current=act;
   return <FlatList horizontal testID="room-gift-recipients" style={s.recipients}
     keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false}
     data={people} extraData={target} initialNumToRender={6} maxToRenderPerBatch={5} windowSize={3}
     keyExtractor={person=>person.uid} renderItem={({item})=>
-      <GiftRecipientChoice person={item} selected={item.uid===target} own={item.uid===userId}
+      <GiftRecipientChoice person={item} selected={item.uid===target} own={item.uid===userId&&!allowSelf}
         request={request} onSelect={onSelect}/>}/>;
 }
 
