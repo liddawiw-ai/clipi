@@ -15,7 +15,8 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   const q=await roomStore(db),json=(body,status=200)=>({status,...body});
   const api=(uid,op,extras,configured=true)=>shortAccount(q,uid,{op,...extras},json,configured);
   assert.equal((await api('owner','shortPrepare',{},false)).status,503);
-  const {id}=await api('owner','shortPrepare',{title:'مقطعي'});
+  assert.equal((await api('owner','shortPrepare',{overlay:'x'.repeat(161)})).status,400);
+  const {id}=await api('owner','shortPrepare',{title:'مقطعي',overlay:'نص الاختبار'});
   assert.equal((await api('other','shortList',{})).clips.length,0);
   const bytes=await readFile(new URL('./fixtures/short-180s.mp4',import.meta.url));
   const objects=new Map(),bucket={
@@ -39,6 +40,7 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   for(let n=0;n<3;n++)assert.equal((await api('viewer','shortLike',{...clip,liked:true})).likes,1);
   assert.deepEqual(await api('viewer','shortLike',{...clip,liked:true,likeOnly:true}),{status:200,likes:1,liked:true});
   const state=await api('viewer2','shortState',clip);
+  assert.equal(state.overlay,'نص الاختبار');
   assert.equal(state.likes,1);assert.equal(state.liked,false);assert.equal(state.commentCount,0);assert.equal(state.owner,'owner');
   assert.equal((await api('viewer','shortLike',{...clip,liked:false})).likes,0);
   const comment={...clip,nonce:crypto.randomUUID(),body:'أهلًا'};
@@ -81,7 +83,7 @@ test('video uploads, playback ranges, likes, comments and non-cash gifts',async(
   assert.equal((await api('owner','shortLookup',clip)).clip,null);
   assert.equal((await api('viewer','shortList',{})).clips.length,0);
   assert.equal((await api('viewer','shortState',clip)).status,404);
-  for(const table of ['short_comment','short_comment_meta','short_comment_heart','short_like']){
+  for(const table of ['short_comment','short_comment_meta','short_comment_heart','short_like','short_overlay']){
     assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM '+table).get().n,0);
   }
   assert.equal((await readWallet(q,'viewer')).diamonds,20);
