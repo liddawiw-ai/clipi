@@ -39,7 +39,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
   const [paused,setPaused]=useState(false);
   const [playing,setPlaying]=useState(false);
   const showPlay=paused||!playing;
-  useEffect(()=>{if(!isCurrent)setPaused(false);},[isCurrent]);
+  useEffect(()=>{if(!isCurrent){setPaused(false);setDialog('');setVisibleVideoHeight(null);}},[isCurrent]);
   function togglePlayback(){
     if(!playable)return;
     const player=playerRef.current;
@@ -155,7 +155,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
     finally{lock.current=false;}
   }
   function openGifts(){
-    setDialog('gift');
+    setViewMode('gift');setDialog('gift');
     setMessage('');
   }
   useEffect(()=>{
@@ -194,7 +194,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
 
       <FeedAction icon="share" label={appText("مشاركة الفيديو")} onClick={()=>run(()=>shareShort(videoLink))}/>
       <FeedAction icon="download" label={appText("تنزيل الفيديو")} onClick={()=>run(()=>saveShort(item.id,source))}/>
-      <FeedAction icon="more" label={translate('المزيد')} onClick={()=>setDialog('more')}/>
+      <FeedAction icon="more" label={translate('المزيد')} onClick={()=>{setViewMode('more');setDialog('more')}}/>
     </div>
     <div className="clipi-caption">{!!caption&&<span dir="auto" style={{alignSelf:"flex-start",background:"#111b",color:"white",padding:"2px 6px",whiteSpace:"pre-wrap"}}>{caption}</span>}
       <h2 dir="auto">{authorName}</h2>{!!item.title&&<p dir="auto">{official?appText(item.title):item.title}</p>}
@@ -206,19 +206,19 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       {!!message&&!dialog&&<p role="status">{appText(message)}</p>}
     </div>
     <div className="clipi-progress" aria-hidden="true"><span ref={progress}/></div>
-    {dialog==='more'&&<FeedSheet title={translate('المزيد')} closeLabel={translate('إغلاق')} onClose={()=>setDialog('')}
+    {dialog==='more'&&<FeedSheet title={translate('المزيد')} closeLabel={translate('إغلاق')} onClose={()=>{setDialog('');setViewMode('')}}
       choices={[
         {icon:'share',label:translate('نسخ رابط الفيديو'),onClick:copyLink},
         {icon:'gift',label:appText('إهداء الفيديو'),onClick:openGifts},
         ...(canDelete?[{icon:'trash',label:translate('حذف الفيديو'),onClick:openDelete}]:[]),
-        ...(onReport?[{icon:'flag',label:appText('إبلاغ عن الفيديو'),onClick:()=>{setDialog('');onReport(item.id);}}]:[])
+        ...(onReport?[{icon:'flag',label:appText('إبلاغ عن الفيديو'),onClick:()=>{setDialog('');setViewMode('');onReport(item.id);}}]:[])
       ]}/>}
     </>}
     {showing&&<ShortCommentsSheet onReportComment={onReport?row=>{closeComments();onReport(item.id,row)}:undefined} firstComments={firstComments} invalidateComments={()=>{firstPage.current=null;}} clip={item.id} owner={stats?.owner} viewer={viewer} request={request} count={commentCount}
       onVisibleHeight={setVisibleVideoHeight} onCount={setCommentCount} topHeight={topHeight} expanded={viewMode==='expanded'} onExpand={()=>setViewMode(viewMode==='expanded'?'half':'expanded')} onClose={closeComments}/>}
     {dialog==='gift'&&<RoomGiftSheet visible recipientReady={confirmedClip===item.id} gifts={gifts} allLabel="الكل" translate={appText} copy={copy}
-      recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');}}
-      onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setMessage(appText('تم إرسال الهدية'));})}>
+      recipient={official?appText(item.title):item.title||appText('الفيديو')} balance={balance} onWallet={onWallet} onShop={onShop} onClose={()=>{setConfirmedClip(null);setDialog('');setViewMode('');}}
+      onSend={gift=>submit('shortGift',gift[1],()=>{setDialog('');setViewMode('');setMessage(appText('تم إرسال الهدية'));})}>
       <Text style={s.label}>{message||appText('دعم للمقطع بالماس المشترى. الهدية ما إلها عائد نقدي لصاحب الفيديو.')}</Text>
     </RoomGiftSheet>}
   </View>;
@@ -312,7 +312,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode&&!storeChoiceOpen} initialNumToRender={3} maxToRenderPerBatch={3} windowSize={5} removeClippedSubviews={false} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
