@@ -18,7 +18,7 @@ export const walletSchema=[
   'CREATE INDEX IF NOT EXISTS paid_room_gift_host ON paid_room_gift(host)',
   `CREATE TRIGGER IF NOT EXISTS announce_paid_gift AFTER INSERT ON paid_room_gift BEGIN INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),'🎁 '||NEW.gift||' · '||NEW.cost||' 💎 → '||(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.host)); END`
 ];
-export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
+export async function linkHostWallet(q, accountUid, piUid, accessToken, json, env, requestedAddress) {
   if (!piUid || typeof accessToken !== 'string' || !/^\S{1,4096}$/.test(accessToken))
     return json({error:'ادخل بحساب PI نفسه'}, 403);
   let identity;
@@ -36,7 +36,30 @@ export async function linkHostWallet(q, accountUid, piUid, accessToken, json) {
   }
   if (typeof identity?.uid !== 'string' || 'pi:' + identity.uid !== piUid)
     return json({error:'حساب Pi المفتوح مختلف عن حساب التطبيق.'}, 409);
-  const address = identity.wallet_address;
+  let address = identity.wallet_address;
+  // When Pi does not expose the address in /me, verify an explicitly selected
+  // address against an already settled, account-owned Mainnet purchase.
+  if (!/^G[A-Z2-7]{55}$/.test(address || '') &&
+      env?.PI_GIFTS_NETWORK === 'mainnet' && env.PI_NETWORK_API_KEY &&
+      typeof requestedAddress === 'string' && /^G[A-Z2-7]{55}$/.test(requestedAddress)) {
+    const receipts = await q('SELECT payment,txid FROM diamond_purchase WHERE uid=? ORDER BY rowid DESC LIMIT 5',accountUid).all();
+    for (const receipt of receipts.results || []) {
+      try {
+        const response = await fetch('https://api.minepi.com/v2/payments/'+encodeURIComponent(receipt.payment),{
+          headers:{Authorization:'Key '+env.PI_NETWORK_API_KEY},signal:AbortSignal.timeout(3000)
+        });
+        if (!response.ok) continue;
+        const p=await response.json();
+        if (p.identifier===receipt.payment && p.user_uid===identity.uid &&
+            p.direction==='user_to_app' && p.network==='Pi Network' &&
+            p.status?.developer_completed===true && p.status?.transaction_verified===true &&
+            !p.status.cancelled && !p.status.user_cancelled &&
+            p.transaction?.txid===receipt.txid && p.from_address===requestedAddress) {
+          address=requestedAddress;break;
+        }
+      } catch {}
+    }
+  }
   if (typeof address !== 'string' || !/^G[A-Z2-7]{55}$/.test(address))
     return json({error:'لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.'}, 422);
   await q('INSERT INTO host_pi_wallet(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address', accountUid, address).run();
