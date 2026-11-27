@@ -42,6 +42,15 @@ test('wallet linking uses the verified Pi identity and keeps accounts separate',
   assert.equal((await link('second','expired')).status,401);
   assert.equal((await link('second','missing',{walletAddress:addresses.first})).status,422);
   assert.equal(await status('second'),null);
+  assert.equal((await request('pi:second','saveHostWalletDraft',{walletAddress:addresses.second})).status,200);
+  const secondWallet=await (await request('pi:second','wallet')).json();
+  assert.equal(secondWallet.walletDraftAddress,addresses.second);
+  assert.equal(secondWallet.walletAddress,null);
+  const firstWallet=await (await request('pi:first','wallet')).json();
+  assert.equal(firstWallet.walletDraftAddress,null);
+  assert.equal(firstWallet.walletAddress,addresses.first);
+  assert.equal((await request('pi:second','saveHostWalletDraft',{walletAddress:'invalid'})).status,400);
+  assert.equal((await request('unlinked-email','saveHostWalletDraft',{walletAddress:addresses.second})).status,403);
   for(let i=0;i<2;i++)assert.equal((await link('second','second',{uid:'pi:first',walletAddress:addresses.first})).status,200);
   assert.equal(await status('second'),addresses.second);
   assert.equal(await status('first'),addresses.first);
