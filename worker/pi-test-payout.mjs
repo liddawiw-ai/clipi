@@ -8,7 +8,7 @@ export async function payoutTestReward(env,uid){
  if(source!==env.PI_TEST_WALLET_ADDRESS.trim())throw Error('wallet');
  async function api(path,body){
   const r=await fetch('https://api.minepi.com/v2'+path,{method:body?'POST':'GET',headers:{Authorization:'Key '+env.PI_NETWORK_API_KEY,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
-  if(!r.ok)throw Error('pi:'+r.status);
+  if(!r.ok){const stage=path==='/payments/incomplete_server_payments'?'recover':path==='/payments'?'create':path.endsWith('/complete')?'complete':'lookup';throw Error('PI_'+stage+'_'+r.status);}
   return r.json();
  }
  async function chain(path,body){
@@ -26,23 +26,23 @@ export async function payoutTestReward(env,uid){
    if((await q('SELECT COUNT(*) AS n FROM test_reward_payout').first()).n>=5)return {state:'limit',message:'اكتملت قائمة الاختبار.'};
    await q("INSERT INTO test_reward_payout(uid,state) VALUES(?,'creating')",uid).run();
    const p=await api('/payments',{payment:{uid,amount:1,memo:'Clipi Testnet reward',metadata:{kind:'clipi_test_reward_v1'}}});
-   if(!valid(p,uid,source)||p.transaction||!p.identifier||! /^[A-Za-z0-9_-]{1,28}$/.test(p.identifier))throw Error('payment mismatch');
+   if(!valid(p,uid,source)||p.transaction||!p.identifier||! /^[A-Za-z0-9_-]{1,28}$/.test(p.identifier))throw Error('PI_PAYMENT_MISMATCH');
    await q("UPDATE test_reward_payout SET payment=?,destination=?,state='created' WHERE uid=?",p.identifier,p.to_address,uid).run();
    row=await q('SELECT * FROM test_reward_payout WHERE uid=?',uid).first();
   }
   if(!row.payment){
    const pending=await api('/payments/incomplete_server_payments');
-   if(!Array.isArray(pending.incomplete_server_payments))throw Error('invalid incomplete payment response');
+   if(!Array.isArray(pending.incomplete_server_payments))throw Error('PI_RECOVERY_FORMAT');
    const candidates=pending.incomplete_server_payments.filter(p=>valid(p,uid,source)&&!p.status?.cancelled&&!p.status?.user_cancelled&&typeof p.identifier==='string'&&/^[A-Za-z0-9_-]{1,28}$/.test(p.identifier));
    if(candidates.length!==1)return {state:'review',message:candidates.length?'توجد عدة معاملات معلقة؛ يلزم فحصها.':'لم نجد معاملة مطابقة لدى Pi. يلزم مراجعة إعدادات API وصلاحية المحفظة قبل إنشاء طلب بديل.'};
    const p=await api('/payments/'+candidates[0].identifier);
-   if(!valid(p,uid,source)||p.identifier!==candidates[0].identifier||p.status?.cancelled||p.status?.user_cancelled)throw Error('recovery mismatch');
+   if(!valid(p,uid,source)||p.identifier!==candidates[0].identifier||p.status?.cancelled||p.status?.user_cancelled)throw Error('PI_RECOVERY_MISMATCH');
    if(p.transaction)return {state:'review',message:'وجدنا معاملة سابقة على الشبكة تحتاج مراجعة؛ لن نرسل مبلغًا آخر.'};
    await q("UPDATE test_reward_payout SET payment=?,destination=?,state='created' WHERE uid=? AND payment IS NULL AND txid IS NULL",p.identifier,p.to_address,uid).run();
    row=await q('SELECT * FROM test_reward_payout WHERE uid=?',uid).first();
   }
   const p=await api('/payments/'+row.payment);
-  if(!valid(p,uid,source)||p.to_address!==row.destination||p.identifier!==row.payment)throw Error('payment mismatch');
+  if(!valid(p,uid,source)||p.to_address!==row.destination||p.identifier!==row.payment)throw Error('PI_PAYMENT_MISMATCH');
   if(p.status?.cancelled||p.status?.user_cancelled)throw Error('cancelled');
   if(!row.txid){
    if(p.transaction)throw Error('unexpected transaction');
@@ -72,10 +72,10 @@ export async function payoutTestReward(env,uid){
   const tx=await lookup.json();
   if(tx.hash!==row.txid||tx.successful!==true)throw Error('chain mismatch');
   const done=p.status?.developer_completed?p:await api('/payments/'+row.payment+'/complete',{txid:row.txid});
-  if(!valid(done,uid,source)||done.identifier!==row.payment||done.to_address!==row.destination||done.transaction?.txid!==row.txid||done.status?.developer_completed!==true||done.status?.transaction_verified!==true)throw Error('completion pending');
+  if(!valid(done,uid,source)||done.identifier!==row.payment||done.to_address!==row.destination||done.transaction?.txid!==row.txid||done.status?.developer_completed!==true||done.status?.transaction_verified!==true)throw Error('PI_COMPLETION_PENDING');
   await q("UPDATE test_reward_payout SET state='complete',envelope=NULL WHERE uid=?",uid).run();
   await q("UPDATE test_reward_requests SET state='complete' WHERE uid=?",uid).run();
   return {state:'complete',txid:row.txid,message:'تم تحويل 1 Test-Pi وتأكيده لدى Pi.'};
- }finally{await q('DELETE FROM test_reward_lock WHERE id=1 AND holder=?',holder).run()}
+ }catch(error){const code=String(error?.message||'');const safe=/^PI_[A-Za-z0-9_]{1,60}$/.test(code)?code:'TEST_PAYOUT_INTERNAL';console.warn('Clipi Testnet payout stage',safe);return {state:'review',code:safe,message:'توقف التحقق عند المرحلة: '+safe+' . لم نؤكد الصرف.'};}finally{await q('DELETE FROM test_reward_lock WHERE id=1 AND holder=?',holder).run()}
 }
 function valid(p,uid,source){return p?.network==='Pi Testnet'&&p.direction==='app_to_user'&&p.user_uid===uid&&p.amount===1&&p.from_address===source&&typeof p.to_address==='string'&&/^G[A-Z2-7]{55}$/.test(p.to_address)&&p.to_address!==source&&p.metadata?.kind==='clipi_test_reward_v1'}
