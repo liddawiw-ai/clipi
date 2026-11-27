@@ -1,0 +1,23 @@
+# Wallet verification deployment profile for the existing Testnet Worker.
+# The full R2 configuration remains in wrangler.testnet.toml.
+# This profile does not provision or require an R2 bucket.
+name = "clipi-pi-testnet"
+main = "worker/worker.mjs"
+compatibility_date = "2025-10-01"
+workers_dev = true
+keep_vars = true
+
+[vars]
+CLIPI_WEB_ENTRY = "room"
+PI_GIFTS_TESTNET = "1"
+
+[[d1_databases]]
+binding = "PI_GIFTS_DB"
+database_name = "clipi-pi-testnet-gifts"
+database_id = "6ba719ff-1708-4151-b6b9-f95f5871cf6b"
+
+[ai]
+binding = "AI"
+
+[build]
+command = "npm ci --prefix pi-web --no-audit --no-fund"
