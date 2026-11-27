@@ -52,7 +52,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
       const token=await user.getIdToken();
       const response=await fetch('/account-number',{method:'POST',
         headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken})});
+        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken,walletAddress:walletDraft||data?.walletDraftAddress||undefined})});
       const result=await response.json();
       if(response.status===422&&typeof sdk.Wallet?.getUserMigratedWalletAddresses==='function'){
         try{
@@ -138,6 +138,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
           }catch(e){setLinkMessage(uiError(e))}finally{lock.current=false;setBusy(false)}
         }}>{appText('حفظ العنوان للمراجعة')}</button>
       </div>}
+      <p role="status">{data?.walletAddress?appText('تم ربط محفظتك.'):data?.walletDraftAddress?appText('تم حفظ العنوان للمراجعة فقط'):appText('المحفظة غير مرتبطة')}</p>
       {linkMessage&&<p role="status">{linkMessage}</p>}
     </>}
     <p>{appText('التقدّم نحو المكافأة التالية')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>
