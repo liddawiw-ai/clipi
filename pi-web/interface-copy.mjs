@@ -1,5 +1,16 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "أدخل عنوان محفظة صالحًا": "Enter a valid wallet address",
+  "فتح محفظة Pi": "Open Pi Wallet",
+  "تغيير عنوان المحفظة": "Change wallet address",
+  "يبقى العنوان الحالي معتمدًا حتى التحقق من العنوان الجديد.": "Your current address remains active until the new address is verified.",
+  "عنوان محفظة Pi": "Pi wallet address",
+  "العنوان اليدوي غير موثق ولا يُستخدم للسحب حتى التحقق من Pi.": "A manually entered address cannot receive withdrawals until verified by Pi.",
+  "تعذر حفظ العنوان": "Could not save the address",
+  "تم حفظ العنوان للمراجعة فقط": "Address saved for review only",
+  "حفظ العنوان للمراجعة": "Save address for review",
+  "المحفظة غير مرتبطة": "Wallet not linked",
+  "التحويل إلى محفظة Pi غير متاح حاليًا. المكافآت المعروضة محتسبة داخل كليبي وليست رصيدًا مؤكدًا للسحب.": "Transfers to Pi Wallet are currently unavailable. Rewards shown are calculated in Clipi and are not confirmed withdrawable funds.",
   "تأكيد بريد الاستلام": "Verify payout email",
   "راجع بريدك ثم حدّث حالة الطلب لربط جهة الاستلام": "Check your email, then refresh the request status to link your verified contact.",
   "النقاط المتاحة": "Available points",
