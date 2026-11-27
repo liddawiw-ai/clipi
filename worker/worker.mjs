@@ -1,3 +1,4 @@
+import {testWalletStatus} from './pi-test-wallet.mjs';
 import {maintainBrowserVideo} from './browser-renditions.mjs';
 import {manageAppAdmin} from './app-admins.mjs';
 import {hostEarnings} from './host-earnings.mjs';
@@ -61,6 +62,7 @@ async function signToken(env, payload) {
 export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
+    if(path==='/test-wallet-status')return testWalletStatus(request,env);
     if(path==='/internal/browser-renditions')return maintainBrowserVideo(request,env);
     if(request.method==='GET'&&(path==='/device-install/android'||path==='/device-install/ios'))return deviceInstall(request,path.split('/').pop());
     if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
