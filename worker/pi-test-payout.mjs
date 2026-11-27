@@ -30,7 +30,17 @@ export async function payoutTestReward(env,uid){
    await q("UPDATE test_reward_payout SET payment=?,destination=?,state='created' WHERE uid=?",p.identifier,p.to_address,uid).run();
    row=await q('SELECT * FROM test_reward_payout WHERE uid=?',uid).first();
   }
-  if(!row.payment)return {state:'review',message:'طلب سابق يحتاج مراجعة قبل إعادة المحاولة.'};
+  if(!row.payment){
+   const pending=await api('/payments/incomplete_server_payments');
+   if(!Array.isArray(pending.incomplete_server_payments))throw Error('invalid incomplete payment response');
+   const candidates=pending.incomplete_server_payments.filter(p=>valid(p,uid,source)&&!p.status?.cancelled&&!p.status?.user_cancelled&&typeof p.identifier==='string'&&/^[A-Za-z0-9_-]{1,28}$/.test(p.identifier));
+   if(candidates.length!==1)return {state:'review',message:candidates.length?'توجد عدة معاملات معلقة؛ يلزم فحصها.':'لم نجد معاملة مطابقة لدى Pi. يلزم مراجعة إعدادات API وصلاحية المحفظة قبل إنشاء طلب بديل.'};
+   const p=await api('/payments/'+candidates[0].identifier);
+   if(!valid(p,uid,source)||p.identifier!==candidates[0].identifier||p.status?.cancelled||p.status?.user_cancelled)throw Error('recovery mismatch');
+   if(p.transaction)return {state:'review',message:'وجدنا معاملة سابقة على الشبكة تحتاج مراجعة؛ لن نرسل مبلغًا آخر.'};
+   await q("UPDATE test_reward_payout SET payment=?,destination=?,state='created' WHERE uid=? AND payment IS NULL AND txid IS NULL",p.identifier,p.to_address,uid).run();
+   row=await q('SELECT * FROM test_reward_payout WHERE uid=?',uid).first();
+  }
   const p=await api('/payments/'+row.payment);
   if(!valid(p,uid,source)||p.to_address!==row.destination||p.identifier!==row.payment)throw Error('payment mismatch');
   if(p.status?.cancelled||p.status?.user_cancelled)throw Error('cancelled');
