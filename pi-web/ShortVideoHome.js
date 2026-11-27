@@ -13,7 +13,6 @@ import {RoomGiftSheet} from './RoomControls';
 
 import {FeedAction,FeedIcon,FeedSheet} from './FeedControls';
 import {shortsLookahead, starterPoster} from './ShortMedia';
-const samples=[{id:'palace',title:'القصر'},{id:'aurora',title:'الشفق'},{id:'dunes',title:'الكثبان'}];
 const asVideo=(item,endpoint)=>starters[item.id]||endpoint+'/shorts/media/'+item.id;
 const copy={title:'صندوق الهدايا',close:'إغلاق',balance:'الماس المشترى',wallet:'المحفظة',shop:'شراء الماس',send:'إرسال'};
 
@@ -239,7 +238,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
   const [firstIndex] = useState(() => Math.max(0, profileFeed?.clips.findIndex(clip => clip.id === initialId) ?? 0));
-  const [homeItems,setItems]=useState(samples),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
+  const [homeItems,setItems]=useState([]),[active,setActive]=useState(firstIndex),[height,setHeight]=useState(fromProfile?windowHeight:0),[error,setError]=useState('');
   const [retry,setRetry]=useState(0),[notice,setNotice]=useState('');
   const items=profileFeed?.clips ?? homeItems;
   const removed=useRef(new Set()),list=useRef(null);
@@ -265,7 +264,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
         const {clips}=await request('/account-number',{op:'shortList'});
         if(!current)return;
         page.current=clips.length===30?clips.at(-1).cursor:null;
-        const all=[...clips.filter(c=>!removed.current.has(c.id)),...samples];
+        const all=clips.filter(c=>!removed.current.has(c.id));
         const selected=all.find(c=>c.id===initialId);
         if(initialId&&!selected&&!removed.current.has(initialId)&&/^[0-9a-f-]{36}$/i.test(initialId)){
           const {clip}=await request('/account-number',{op:'shortLookup',clip:initialId});
