@@ -20,6 +20,8 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
   const [walletDraft,setWalletDraft]=useState(''),[walletChoices,setWalletChoices]=useState([]);
   const lock=useRef(false);
   const revision=useRef(0);
+  useEffect(()=>{setWalletDraft('');setWalletChoices([]);setLinkMessage('');setData(null)},[uid]);
+  useEffect(()=>{if(data?.walletDraftAddress)setWalletDraft(previous=>previous||data.walletDraftAddress)},[data?.walletDraftAddress]);
   const paymentPiUid=uid.startsWith('pi:')?uid:(window.Pi&&data?.linkedPiUid);
   async function refresh(){
     const ticket=++revision.current;
@@ -132,7 +134,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
             const token=await user.getIdToken();
             const response=await fetch('/account-number',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op:'saveHostWalletDraft',walletAddress:walletDraft})});
             if(!response.ok)throw Error(appText('تعذر حفظ العنوان'));
-            if(auth().currentUser?.uid===uid)setLinkMessage(appText('تم حفظ العنوان للمراجعة فقط'));
+            if(auth().currentUser?.uid===uid){setLinkMessage(appText('تم حفظ العنوان للمراجعة فقط'));await refresh()}
           }catch(e){setLinkMessage(uiError(e))}finally{lock.current=false;setBusy(false)}
         }}>{appText('حفظ العنوان للمراجعة')}</button>
       </div>}
