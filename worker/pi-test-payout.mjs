@@ -34,7 +34,16 @@ export async function payoutTestReward(env,uid){
    const pending=await api('/payments/incomplete_server_payments');
    if(!Array.isArray(pending.incomplete_server_payments))throw Error('PI_RECOVERY_FORMAT');
    const candidates=pending.incomplete_server_payments.filter(p=>valid(p,uid,source)&&!p.status?.cancelled&&!p.status?.user_cancelled&&typeof p.identifier==='string'&&/^[A-Za-z0-9_-]{1,28}$/.test(p.identifier));
-   if(candidates.length!==1)return {state:'review',message:candidates.length?'توجد عدة معاملات معلقة؛ يلزم فحصها.':'لم نجد معاملة مطابقة لدى Pi. يلزم مراجعة إعدادات API وصلاحية المحفظة قبل إنشاء طلب بديل.'};
+   if(candidates.length===0){
+    // Only recover an unsigned local placeholder when Pi reports no unfinished
+    // payment at all. A signed or identified transaction must never be replaced.
+    if(pending.incomplete_server_payments.length!==0||row.state!=='creating'||row.txid||row.envelope||row.destination)
+     return {state:'review',message:'توجد معاملة سابقة غير مطابقة؛ يلزم فحصها قبل الصرف.'};
+    const fresh=await api('/payments',{payment:{uid,amount:1,memo:'Clipi Testnet reward',metadata:{kind:'clipi_test_reward_v1'}}});
+    if(!valid(fresh,uid,source)||fresh.transaction||typeof fresh.identifier!=='string'||! /^[A-Za-z0-9_-]{1,28}$/.test(fresh.identifier))throw Error('PI_PAYMENT_MISMATCH');
+    candidates.push(fresh);
+   }
+   if(candidates.length!==1)return {state:'review',message:'توجد عدة معاملات معلقة؛ يلزم فحصها.'};
    const p=await api('/payments/'+candidates[0].identifier);
    if(!valid(p,uid,source)||p.identifier!==candidates[0].identifier||p.status?.cancelled||p.status?.user_cancelled)throw Error('PI_RECOVERY_MISMATCH');
    if(p.transaction)return {state:'review',message:'وجدنا معاملة سابقة على الشبكة تحتاج مراجعة؛ لن نرسل مبلغًا آخر.'};
