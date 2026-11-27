@@ -16,8 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs
       - run: npm ci --no-audit --no-fund
         working-directory: pi-web
+      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs
       - run: npm run build
         working-directory: pi-web
