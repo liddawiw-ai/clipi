@@ -1984,11 +1984,11 @@ export default function App(){
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>
-    <div data-clipi-page={page} style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden',backgroundColor:theme.canvas}}>
+    <div key={page} data-clipi-page={page} inert={Boolean(activeRoom&&!mini)} aria-hidden={Boolean(activeRoom&&!mini)} style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden',isolation:'isolate',zIndex:0,visibility:activeRoom&&!mini?'hidden':'visible',pointerEvents:activeRoom&&!mini?'none':'auto',backgroundColor:theme.canvas}}>
       {renderPage()}
     </div>
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
-    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:StyleSheet.absoluteFillObject}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
+    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:[StyleSheet.absoluteFillObject,{zIndex:10,backgroundColor:theme.canvas,overflow:'hidden'}]}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
       onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
       if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
