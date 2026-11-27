@@ -181,7 +181,9 @@ export default {
         if(input.op==='linkHostWallet')
           return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json);
         const wallet=await readWallet(q,uid,env.CLIPI_OWNER_UID);
-        return json({...wallet,linkedPiUid});
+        await q('CREATE TABLE IF NOT EXISTS host_pi_wallet_draft(uid TEXT PRIMARY KEY NOT NULL,address TEXT NOT NULL)').run();
+         const draft=await q('SELECT address FROM host_pi_wallet_draft WHERE uid=?',uid).first();
+         return json({...wallet,linkedPiUid,walletDraftAddress:draft?.address??null});
       }
       if(!input||!['read','buy','equip'].includes(input.op))return json({error:'طلب غير صالح'},400);
       const q=await roomStore(env.PI_GIFTS_DB);
