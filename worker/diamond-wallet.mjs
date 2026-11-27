@@ -18,7 +18,7 @@ export const walletSchema=[
   'CREATE INDEX IF NOT EXISTS paid_room_gift_host ON paid_room_gift(host)',
   `CREATE TRIGGER IF NOT EXISTS announce_paid_gift AFTER INSERT ON paid_room_gift BEGIN INSERT INTO room_chat(room,uid,name,text) VALUES(NEW.room,NEW.sender,(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.sender),'🎁 '||NEW.gift||' · '||NEW.cost||' 💎 → '||(SELECT name FROM room_member WHERE room=NEW.room AND uid=NEW.host)); END`
 ];
-export async function linkHostWallet(q, accountUid, piUid, accessToken, json, env, requestedAddress) {
+export async function linkHostWallet(q, accountUid, piUid, accessToken, json, env, requestedAddress, replaceWallet=false) {
   if (!piUid || typeof accessToken !== 'string' || !/^\S{1,4096}$/.test(accessToken))
     return json({error:'ادخل بحساب PI نفسه'}, 403);
   let identity;
@@ -36,7 +36,9 @@ export async function linkHostWallet(q, accountUid, piUid, accessToken, json, en
   }
   if (typeof identity?.uid !== 'string' || 'pi:' + identity.uid !== piUid)
     return json({error:'حساب Pi المفتوح مختلف عن حساب التطبيق.'}, 409);
+  if (replaceWallet && (typeof requestedAddress !== 'string' || !/^G[A-Z2-7]{55}$/.test(requestedAddress))) return json({error:'Invalid wallet address'},400);
   let address = identity.wallet_address;
+  if (replaceWallet && address !== requestedAddress) address = null;
   // When Pi does not expose the address in /me, verify an explicitly selected
   // address against an already settled, account-owned Mainnet purchase.
   if (!/^G[A-Z2-7]{55}$/.test(address || '') &&
@@ -62,6 +64,7 @@ export async function linkHostWallet(q, accountUid, piUid, accessToken, json, en
   }
   if (typeof address !== 'string' || !/^G[A-Z2-7]{55}$/.test(address))
     return json({error:'لم يشارك Pi عنوان محفظتك. افتح محفظتك ثم أعد المحاولة.'}, 422);
+  if (replaceWallet && address !== requestedAddress) return json({error:'تعذّر التحقق من العنوان الجديد'},422);
   await q('INSERT INTO host_pi_wallet(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address', accountUid, address).run();
   return json({walletAddress:address});
 }
