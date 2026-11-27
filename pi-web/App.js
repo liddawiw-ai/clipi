@@ -1748,15 +1748,23 @@ export default function App(){
     <Small title={terms} onPress={()=>setPolicy('terms')}/>
   </View>}
   function signInFrame(children){
-    return <div lang={locale} dir={appText(words.direction)} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
-      <View style={{flexGrow:1,flexShrink:0,justifyContent:'center',backgroundColor:theme.canvas,padding:22}}><LoginCover image={brandIcon}/><View style={{backgroundColor:theme.paper,padding:18,borderRadius:24,gap:5}}>
+    return <div className="clipi-pearl-login" lang={locale} dir={appText(words.direction)} style={{flex:1,display:'flex',flexDirection:'column',overflow:'auto'}}>
+      <style>{`
+        .clipi-pearl-login {background:radial-gradient(ellipse at 15% 8%,#ffffff 0%,transparent 48%),radial-gradient(ellipse at 92% 70%,#d6f0e9 0%,transparent 52%),linear-gradient(145deg,#fff,#edf4f5 40%,#fff 64%,#e7f6f0);font-family:system-ui,sans-serif}
+        .clipi-pearl-login .clipi-pearl-cover {border-radius:30px;overflow:hidden;box-shadow:0 10px 28px #47796e25,0 0 0 2px #fff,inset 0 0 15px #fff;position:relative}
+        .clipi-pearl-cover::after {content:'';position:absolute;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(135deg,#ffffff80 0%,transparent 38%,#ffffff25 70%,transparent);box-shadow:inset 0 2px 5px #fff}
+        .clipi-pearl-login .clipi-pearl-card {background:linear-gradient(150deg,#fff 8%,#f7fafb 42%,#fff 64%,#edf6f3 92%)!important;border:1px solid #fff;box-shadow:0 12px 32px #417d6f25,0 0 0 1px #d5e5df,inset 0 0 0 3px #ffffff99}
+        .clipi-pearl-card [role=button]:not([role=checkbox]) {box-shadow:0 4px 10px #276e6026,inset 0 2px 3px #ffffff8c;border-radius:18px}
+        .clipi-pearl-card .clipi-language-trigger {border:1px solid #b3dbd2}
+      `}</style>
+      <View style={{flexGrow:1,flexShrink:0,justifyContent:'center',backgroundColor:'transparent',padding:22}}><div className="clipi-pearl-cover"><LoginCover image={brandIcon}/></div><View style={{backgroundColor:'transparent',marginTop:14}}><div className="clipi-pearl-card" style={{display:'flex',flexDirection:'column',padding:18,borderRadius:30,gap:5}}>
         {location.pathname==='/delete-account'&&<Text style={S.white}>{ui('سجّل الدخول لطلب حذف حسابك وبياناته.')} · Liddawiw@gmail.com</Text>}
         <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{checked:accepted}} onPress={()=>setAccepted(value=>!value)}>
           <Text style={S.white}>{accepted?'☑':'☐'} {ui('أوافق على شروط الخدمة وقواعد المجتمع')}</Text></TouchableOpacity>
         {children}
         {!!authError&&<Text accessibilityLiveRegion="polite" style={S.white}>{uiError(authError,words.error)}</Text>}
         <LanguageDropdown selected={locale} onPick={pickLocale} label={appText(words.change)}/>
-        {policyLinks(words.privacy,words.terms)}</View>
+        {policyLinks(words.privacy,words.terms)}</div></View>
       </View>
     </div>;
   }
