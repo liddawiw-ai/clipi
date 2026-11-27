@@ -1,5 +1,5 @@
 import {ui as appText} from './interface-language.mjs';
-import React, {useEffect, useMemo, useState} from 'react';
+import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Image, Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {choices, trackPos} from './TableRules.mjs';
 
@@ -98,7 +98,22 @@ function Piece({tone,diameter:d,piece,selected,available,stacked}){
 // A stack of identical square positions opens large, individually labeled selectors.
 export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null}){
   const {width}=useWindowDimensions();
-  const [size,setSize]=useState(0),[open,setOpen]=useState(null);
+  const [size,setSize]=useState(0),[open,setOpen]=useState(null),[motion,setMotion]=useState([]);
+  const previous=useRef(game);
+  useEffect(()=>{
+    const old=previous.current;previous.current=game;
+    if(old.kind!==game.kind||old.count!==game.count||window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)return;
+    const changed=[];
+    game.pieces.forEach((row,seat)=>row.forEach((p,piece)=>{
+      const before=old.pieces[seat][piece];if(before===p)return;
+      const route=[spot(old,seat,piece,before)];
+      if(before>=0&&p>before&&p-before<=13){for(let step=before+1;step<=p;step++)route.push(spot(game,seat,piece,step));}
+      else route.push(spot(game,seat,piece,p));
+      changed.push({seat,piece,route});
+    }));
+    if(!changed.length)return;
+    setMotion(changed);const timer=setTimeout(()=>setMotion([]),480);return()=>clearTimeout(timer);
+  },[game]);
   const ludo=game.kind==='ludo',seat=activeSeat(game);
   const groups=useMemo(()=>tokenGroups(game),[game]);
   const options=useMemo(()=>legalOptions??choices(game),[legalOptions,game]);
@@ -135,6 +150,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
           onPress={()=>legal.length===1?select(legal[0]):setOpen(old=>old===group.key?null:group.key)}
           style={[s.spot,pos,{zIndex:2}]}>{glyph}</Pressable>;
       })}
+      {motion.map(({seat,piece,route})=><MotionPawn key={seat+'/'+piece} {...{seat,piece,route,game,pixels}}/>)}
       {targets.map(([x,y],i)=>{
         const d=pixels*(ludo?.050:.041);
         return <View key={'hint'+i} pointerEvents="none" style={[s.destination,{left:x*pixels-d/2,top:y*pixels-d/2,width:d,height:d,borderRadius:d/2}]}/>;
@@ -148,6 +164,16 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
       </Pressable>)}
     </View>}
   </View>;
+}
+function MotionPawn({seat,piece,route,game,pixels}){
+  const node=useRef(null);
+  useEffect(()=>{
+    if(!node.current?.animate)return;
+    const animation=node.current.animate(route.map(([x,y])=>({transform:'translate('+x*pixels+'px,'+y*pixels+'px)'})),{duration:420,easing:'ease-out',fill:'forwards'});
+    return()=>animation.cancel();
+  },[route,pixels]);
+  const d=pixels*(game.kind==='ludo'?.060:.044);
+  return <div ref={node} aria-hidden="true" style={{position:'absolute',left:-d/2,top:-d/2,zIndex:5,pointerEvents:'none'}}><Piece tone={seats[corner(game,seat)]} diameter={d} piece={piece}/></div>;
 }
 export const RaceBoard=Board;
 const s=StyleSheet.create({
