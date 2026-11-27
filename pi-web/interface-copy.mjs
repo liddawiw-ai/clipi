@@ -1,5 +1,8 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "النص على الفيديو": "Text on video",
+  "نص الفيديو غير صالح": "Invalid video text",
+  "تحقق من العنوان الجديد": "Verify the new address",
   "أدخل عنوان محفظة صالحًا": "Enter a valid wallet address",
   "فتح محفظة Pi": "Open Pi Wallet",
   "تغيير عنوان المحفظة": "Change wallet address",
