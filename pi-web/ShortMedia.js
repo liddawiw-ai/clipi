@@ -105,10 +105,11 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
 
   return <span ref={container}/>;
 }
-export function pickShort(){
+export function pickShort(capture=false){
   return new Promise((resolve,reject)=>{
     const input=document.createElement('input');
-    input.type='file';input.accept='video/mp4,.mp4';
+    input.type='file';input.accept=capture?'video/*':'video/mp4,.mp4';
+    if(capture)input.setAttribute('capture','environment');
     input.oncancel=()=>resolve(null);
     input.onchange=async()=>{
       const file=input.files[0];
