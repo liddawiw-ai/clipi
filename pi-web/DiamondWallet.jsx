@@ -121,7 +121,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     {paymentPiUid&&<>
       {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
       <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
-      <a href="https://wallet.pinet.com" target="_self">{appText('فتح محفظة Pi')}</a>
+      <a href="pi://wallet.pinet.com" target="_top">{appText('فتح محفظة Pi')}</a>
       {!data?.walletAddress&&<div>
         {walletChoices.map(a=><button type="button" key={a} onClick={()=>setWalletDraft(a)}><bdi>{a.slice(0,8)}…{a.slice(-8)}</bdi></button>)}
         <input dir="ltr" autoComplete="off" spellCheck={false} maxLength={56} aria-label={appText('عنوان محفظة Pi')} placeholder="G…" value={walletDraft} onChange={e=>setWalletDraft(e.target.value.trim().toUpperCase())}/>
