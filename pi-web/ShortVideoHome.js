@@ -385,8 +385,8 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     }catch(e){if(alive.current)setNotice(uiError(e))}
     finally{lock.current=false;if(alive.current)setBusy(false)}
   }
-  async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setOverlay('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
+  async function choose(capture=false){
+    try{const file=await pickShort(capture===true);if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setOverlay('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
@@ -406,7 +406,8 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} fit="contain" active={!editingCues&&!policy} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/>{!!overlay&&<div dir="auto" style={{position:'absolute',top:'36%',left:'10%',right:'10%',textAlign:'center',whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 6px #000',pointerEvents:'none'}}>{overlay}</div>}<div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Text style={s.label}>{appText("MP4 · حتى ٣ دقائق و٥٠ ميغابايت")}</Text>
-    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>
+    <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={()=>choose(false)}/>
+    <Button label={appText('تصوير فيديو')} disabled={busy||restoring} onPress={()=>choose(true)}/>
     {draft&&<><Button label={appText('حفظ المسودة')} disabled={busy} onPress={keepDraft}/>
       <Button label={appText('حذف المسودة')} disabled={busy} onPress={discard}/></>}
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
