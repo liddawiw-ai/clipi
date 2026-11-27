@@ -7,6 +7,7 @@ import BilliardTable from './BilliardTable';
 import {credits} from './vendor/table-notices.mjs';
 import {practiceAction} from './PracticeOpponent.mjs';
 import {Die,PlayingCard,LastCard} from './TableArt';
+import {gameSound,unlockGameAudio,soundEnabled,setGameSound} from './GameAudio';
 
 const practice=new Map();
 const colors={surface:'#F4EEE2',ink:'#282D29',line:'#CDBEAA',green:'#164C41'};
@@ -24,6 +25,17 @@ const rules={ludo:'نزّل الحجر بالستة. ارجع حجر الخصم 
 function Play({g,me,names,send,busy}){
   const [cardIndex,setCardIndex]=useState(null),[piece,setPiece]=useState(null),[rollKey,setRollKey]=useState(0);
   const card=cardIndex===null?null:g.hands?.[me]?.[cardIndex];
+  const previous=useRef(g);
+  useEffect(()=>{
+    const old=previous.current;previous.current=g;
+    if(old.winner===null&&g.winner!==null){gameSound('win');return;}
+    if(g.kind==='pool')return;
+    if(JSON.stringify(old.pieces)!==JSON.stringify(g.pieces)){
+      const captured=g.pieces.some((row,s)=>row.some((p,i)=>p===-1&&old.pieces[s][i]>=0));gameSound(captured?'capture':'piece');
+    }else if(g.kind==='jackaroo'&&JSON.stringify(old.lastCard)!==JSON.stringify(g.lastCard))gameSound('card');
+    else if(g.kind==='ludo'&&g.note!==old.note&&g.note?.startsWith('نتيجة النرد')){gameSound('dice');setRollKey(n=>n+1);}
+    else if(old.turn!==g.turn&&g.turn===me)gameSound('turn');
+  },[g,me]);
   const jack=g.kind==='jackaroo',pool=g.kind==='pool',myTurn=me===g.turn&&g.winner===null,locked=busy||!myTurn;
   useEffect(()=>{setCardIndex(null);setPiece(null);},[g.turn,g.die,g.note,g.winner,!!g.exchange]);
   const valid=React.useMemo(()=>myTurn?choices(g):[],[myTurn,g]);
@@ -41,9 +53,9 @@ function Play({g,me,names,send,busy}){
   }
   const lastDie=g.die||Number(g.note?.match(/نتيجة النرد ([1-6])/)?.[1])||0;
   return <View style={{gap:10}}>
-    <Text accessibilityLiveRegion="polite" style={styles.heading}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
+    <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:12,borderRadius:12,backgroundColor:g.winner!==null?'#f4d77c':myTurn?'#d4ebd5':'#e5ded1'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
     {pool?<BilliardTable game={g} me={me} locked={locked} send={send}/>:<>
-      <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,backgroundColor:i===g.turn?'#e5e8d9':'#f7f3e9'}}>
+      <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
       <Board game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
       {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
@@ -65,7 +77,7 @@ function Table({kind,uid,name,request,onBack}){
   const [solo,setSolo]=useState(()=>!!practice.get(soloKey)),[onlineMenu,setOnlineMenu]=useState(false);
   const [table,setTable]=useState(null),[lobbies,setLobbies]=useState([]),[code,setCode]=useState('');
   const [issue,setIssue]=useState(''),[offline,setOffline]=useState(false),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[showRules,setShowRules]=useState(false);
-  const [creditsOpen,setCreditsOpen]=useState(false);
+  const [creditsOpen,setCreditsOpen]=useState(false),[sound,setSound]=useState(soundEnabled);
   const active=useRef(true),lock=useRef(false),sequence=useRef(0);
   function update(data){
     if(!data||!Object.hasOwn(data,'table'))throw Error(appText('خدمة الطاولات غير متاحة الآن'));
@@ -90,7 +102,7 @@ function Table({kind,uid,name,request,onBack}){
   },[!!local]);
   async function command(op,extra={}){
     if(lock.current)return;
-    lock.current=true;sequence.current++;setBusy(true);setIssue('');
+    unlockGameAudio();lock.current=true;sequence.current++;setBusy(true);setIssue('');
     try{
       const data=await request('/account-number',{kind,op,name,code:table?.code,rev:table?.rev,...extra});
       if(active.current){update(data);setConfirm(false);}
@@ -100,13 +112,14 @@ function Table({kind,uid,name,request,onBack}){
   }
   function localSave(g){if(g)practice.set(localKey,g);else practice.delete(localKey);setLocal(g);setConfirm(false);}
   function send(action){
+    unlockGameAudio();if(action.type==='roll')gameSound('dice');
     if(!local){void command('tableMove',{action});return;}
     if(solo&&local.turn!==0)return;
     try{const next=move(local,action);if(!solo&&next.turn!==local.turn)setPrivateTurn(true);localSave(next);setIssue('');}
     catch(e){setIssue(uiError(e));}
   }
   function startLocal(withBot){
-    setIssue('');setSolo(withBot);practice.set(soloKey,withBot);setPrivateTurn(!withBot);localSave(match(kind,count,Math.random,{partnerExchange:kind==='jackaroo'}));
+    unlockGameAudio();setIssue('');setSolo(withBot);practice.set(soloKey,withBot);setPrivateTurn(!withBot);localSave(match(kind,count,Math.random,{partnerExchange:kind==='jackaroo'}));
   }
   useEffect(()=>{
     if(!local||!solo||local.turn===0||local.winner!==null||confirm)return;
@@ -119,7 +132,7 @@ function Table({kind,uid,name,request,onBack}){
   const game=local||table?.game,me=local?(solo?0:local.turn):table?.me;
   const names=local?Array.from({length:local.count},(_,i)=>!solo?'لاعب '+(i+1):i===0?'أنت':kind==='jackaroo'&&i===2?'شريكك':'الكمبيوتر '+i):table?.players||[];
   return <View style={styles.panel}>
-    <View style={styles.row}><Action onPress={onBack}>{appText("رجوع للألعاب")}</Action><Action onPress={()=>setShowRules(!showRules)}>{appText("قواعد الطاولة")}</Action></View>
+    <View style={styles.row}><Action onPress={onBack}>{appText("رجوع للألعاب")}</Action><Action onPress={()=>setShowRules(!showRules)}>{appText("قواعد الطاولة")}</Action><Action selected={sound} onPress={()=>{setGameSound(!sound);setSound(!sound)}}>{appText(sound?'كتم أصوات اللعبة':'تشغيل أصوات اللعبة')}</Action></View>
     <Text style={styles.heading}>{appText(games[kind])}</Text>{showRules&&<><Text style={styles.text}>{appText(rules[kind])}</Text>
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
       {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
