@@ -170,6 +170,8 @@ function Remaining({balls,group}) {
   </View>;
 }
 
+import {gameSound} from './GameAudio';
+
 export default function BilliardTable({game, me, locked, send}) {
   const screen=useWindowDimensions(), [available,setAvailable]=useState(null);
   const [angle,setAngle]=useState(-Math.PI/2),[power,setPower]=useState(82),[placing,setPlacing]=useState(false);
@@ -181,9 +183,18 @@ export default function BilliardTable({game, me, locked, send}) {
     clearTimeout(timer.current);
     const {frames}=replayShot(record);
     playback.current=true;
-    let i=0;
+    let i=0,lastCollision=-10;
+    gameSound('shot');
     function step(){
       if (i>=frames.length) {playback.current=false;setFrame(null);return;}
+      const next=frames[i],before=frames[i-1];
+      if(before){
+        if(next.length<before.length)gameSound('pocket');
+        else if(i-lastCollision>5&&next.some((b,j)=>next.slice(j+1).some(a=>{
+          const oldA=before.find(v=>v.n===a.n),oldB=before.find(v=>v.n===b.n);
+          return oldA&&oldB&&Math.hypot(a.x-b.x,a.y-b.y)<ballRadius*2+.4&&Math.hypot(oldA.x-oldB.x,oldA.y-oldB.y)>ballRadius*2+.4;
+        }))){gameSound('collision');lastCollision=i;}
+      }
       setFrame(frames[i++]);timer.current=setTimeout(step,20);
     }
     step();
