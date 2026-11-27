@@ -32,6 +32,16 @@ export async function profileTables(q,uid,input,json){
   }
   const name=String(input.name||'لاعب').trim().slice(0,30)||'لاعب';
   const player={uid,name};
+  if(op==='tableMatch'){
+    if(active)return json({table:present(active,uid)});
+    const {results}=await q("SELECT code FROM game_tables WHERE kind=? AND phase='lobby' AND changed>=? AND json_array_length(data,'$.players')<? ORDER BY changed ASC LIMIT 12",kind,now-300000,Math.max(...seatsFor(kind))).all();
+    for(const lobby of results){
+      const joined=await profileTables(q,uid,{...input,op:'tableJoin',code:lobby.code},(body,status=200)=>({body,status}));
+      if(joined.status===200)return json(joined.body);
+      if(joined.status!==409&&joined.status!==404)return json(joined.body,joined.status);
+    }
+    return profileTables(q,uid,{...input,op:'tableCreate'},json);
+  }
   if(op==='tableCreate'){
     if(active)return json({table:present(active,uid)});
     const code=crypto.randomUUID().replaceAll('-','').slice(0,10).toUpperCase();
