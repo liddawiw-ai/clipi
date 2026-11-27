@@ -167,9 +167,17 @@ export default {
       }
       if(['hostEarnings','saveReceivingMethod','linkReceivingContact','requestWithdrawalReview'].includes(input?.op))
         return hostEarnings(await roomStore(env.PI_GIFTS_DB),uid,input,json,env,identity);
-      if(input?.op==='wallet'||input?.op==='linkHostWallet'){
+      if(input?.op==='wallet'||input?.op==='linkHostWallet'||input?.op==='saveHostWalletDraft'){
         const q=await roomStore(env.PI_GIFTS_DB);
         const linkedPiUid=uid.startsWith('pi:')?null:await linkedPi(await linkStore(env),uid);
+        if(input.op==='saveHostWalletDraft'){
+          if(!uid.startsWith('pi:')&&!linkedPiUid)return json({error:'Pi account required'},403);
+          const address=input.walletAddress;
+          if(typeof address!=='string'||!/^G[A-Z2-7]{55}$/.test(address))return json({error:'Invalid wallet address'},400);
+          await q('CREATE TABLE IF NOT EXISTS host_pi_wallet_draft(uid TEXT PRIMARY KEY NOT NULL,address TEXT NOT NULL)').run();
+          await q('INSERT INTO host_pi_wallet_draft(uid,address) VALUES(?,?) ON CONFLICT(uid) DO UPDATE SET address=excluded.address',uid,address).run();
+          return json({pending:true});
+        }
         if(input.op==='linkHostWallet')
           return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json);
         const wallet=await readWallet(q,uid,env.CLIPI_OWNER_UID);
