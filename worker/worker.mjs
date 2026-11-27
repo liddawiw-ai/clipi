@@ -1,3 +1,4 @@
+import {testReward} from './pi-test-reward.mjs';
 import {testWalletStatus} from './pi-test-wallet.mjs';
 import {maintainBrowserVideo} from './browser-renditions.mjs';
 import {manageAppAdmin} from './app-admins.mjs';
@@ -63,6 +64,7 @@ export default {
   async fetch(request, env) {
     const path = new URL(request.url).pathname;
     if(path==='/test-wallet-status')return testWalletStatus(request,env);
+    if(path==='/test-reward')return testReward(request,env);
     if(path==='/internal/browser-renditions')return maintainBrowserVideo(request,env);
     if(request.method==='GET'&&(path==='/device-install/android'||path==='/device-install/ios'))return deviceInstall(request,path.split('/').pop());
     if(path.startsWith('/interface-copy/')&&request.method==='GET')return interfaceCopy(path,env);
