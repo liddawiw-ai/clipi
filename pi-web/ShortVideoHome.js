@@ -175,6 +175,7 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
       onTimeUpdate={e=>{const v=e.currentTarget;if(progress.current&&v.duration>0)progress.current.style.transform='scaleX('+v.currentTime/v.duration+')';}}/>
       {dialog==='delete' && <DeleteVideoDialog translate={translate} busy={busyDelete} error={message}
         onCancel={cancelDelete} onConfirm={confirmDelete}/>}
+      {!!stats?.overlay&&<div dir="auto" style={{position:'absolute',top:'36%',left:'10%',right:'10%',textAlign:'center',whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 6px #000',pointerEvents:'none'}}>{stats.overlay}</div>}
     </View>
     {isCurrent&&!showing&&<>
     <VideoTapSurface clipId={item.id} paused={showPlay} playing={playing} onPlaybackPress={togglePlayback}
@@ -342,7 +343,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
 export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
   const [cues,setCues]=useState([]),[cueText,setCueText]=useState(''),[editingCues,setEditingCues]=useState(false),[cueAt,setCueAt]=useState(0);
   const [draft,setDraft]=useState(null),[title,setTitle]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
-  const [muted,setMuted]=useState(true);
+  const [muted,setMuted]=useState(true),[overlay,setOverlay]=useState('');
   const playerRef=useRef(null);
   const [accepted,setAccepted]=useState(false),[policy,setPolicy]=useState(null);
   const job=useRef(null),lock=useRef(false),alive=useRef(true);
@@ -357,7 +358,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     readShortDraft(uid).then(value=>{
       if(!current){if(value?.draft)releaseDraft(value.draft);return;}
       if(value){
-        cached.current=value.draft;setDraft(value.draft);setTitle(value.title||'');setCues(value.cues||[]);
+        cached.current=value.draft;setDraft(value.draft);setTitle(value.title||'');setCues(value.cues||[]);setOverlay(value.overlay||'');
         job.current=value.job||null;setAccepted(!!value.accepted);setRetryUpload(!!value.attempted);
         setNotice(appText('تم استرجاع مسودتك'));
       }
@@ -365,7 +366,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     return ()=>{current=false};
   },[uid]);
   async function persist(attempted){
-    const media=await saveShortDraft(uid,cached.current||draft,{title,cues,accepted,job:job.current,attempted});
+    const media=await saveShortDraft(uid,cached.current||draft,{title,cues,overlay,accepted,job:job.current,attempted});
     cached.current=media;
   }
   async function keepDraft(){
@@ -380,12 +381,12 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     lock.current=true;setBusy(true);
     try{
       await clearShortDraft(uid);
-      if(alive.current){cached.current=null;job.current=null;setDraft(null);setTitle('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setRetryUpload(false);setNotice('');}
+      if(alive.current){cached.current=null;job.current=null;setDraft(null);setTitle('');setOverlay('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setRetryUpload(false);setNotice('');}
     }catch(e){if(alive.current)setNotice(uiError(e))}
     finally{lock.current=false;if(alive.current)setBusy(false)}
   }
   async function choose(){
-    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
+    try{const file=await pickShort();if(file){if(!alive.current){releaseDraft(file);return;}cached.current=null;setRetryUpload(false);job.current=null;setOverlay('');setCues([]);setCueText('');setEditingCues(false);setAccepted(false);setDraft(file);setNotice('');}}
     catch(e){if(alive.current)setNotice(uiError(e));}
   }
   async function publish(){
@@ -394,7 +395,7 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     try{
       await persist(true);
       const token=await getToken();
-      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,profile:await shortProfile(viewer)})).id;
+      if(!job.current)job.current=(await request('/account-number',{op:'shortPrepare',title,cues,overlay,profile:await shortProfile(viewer)})).id;
       await persist(true);
       await uploadFile(endpoint+'/shorts/media/'+job.current,cached.current||draft,token);
       await clearShortDraft(uid);
@@ -402,13 +403,14 @@ export function ShortUpload({endpoint,request,getToken,onDone,onClose,viewer}){
     }catch(e){if(alive.current){setRetryUpload(true);setNotice(uiError(e,'تعذّر نشر الفيديو'));}}
     finally{lock.current=false;if(alive.current)setBusy(false);}
   }
-  return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/><div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
+  return <View style={s.screen}>{draft&&<View style={[s.screen,s.preview]}><Player source={draft.uri} fit="contain" active={!editingCues&&!policy} muted={muted} playerRef={playerRef} onMuteRequired={setMuted}/>{!!overlay&&<div dir="auto" style={{position:'absolute',top:'36%',left:'10%',right:'10%',textAlign:'center',whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:22,fontWeight:700,color:'#fff',textShadow:'0 2px 6px #000',pointerEvents:'none'}}>{overlay}</div>}<div className="clipi-upload-audio"><SoundControl {...{playerRef,muted,setMuted}}/></div></View>}
     <View style={[s.panel,!draft&&s.emptyUpload]}><Text style={s.lightTitle}>{appText("رفع فيديو قصير")}</Text>
     <Text style={s.label}>{appText("MP4 · حتى ٣ دقائق و٥٠ ميغابايت")}</Text>
     <Button label={draft?appText('اختيار فيديو آخر'):appText('اختيار فيديو من الجهاز')} disabled={busy||restoring} onPress={choose}/>
     {draft&&<><Button label={appText('حفظ المسودة')} disabled={busy} onPress={keepDraft}/>
       <Button label={appText('حذف المسودة')} disabled={busy} onPress={discard}/></>}
     {draft&&<><TextInput style={s.input} value={title} maxLength={100} editable={!busy&&!job.current} onChangeText={setTitle} placeholderTextColor="#aaa" placeholder={appText("عنوان الفيديو")}/>
+      <TextInput style={s.input} accessibilityLabel={appText('النص على الفيديو')} placeholder={appText('النص على الفيديو')} placeholderTextColor="#aaa" value={overlay} maxLength={160} editable={!busy&&!job.current} onChangeText={setOverlay}/>
       <Button label={appText('إضافة نص متزامن')} disabled={busy||!!job.current} onPress={()=>{
         setEditingCues(!editingCues);setCueAt(Math.round((playerRef.current?.currentTime||0)*10)/10);
         if(!editingCues)playerRef.current?.pause?.();else playerRef.current?.play?.();
