@@ -18,6 +18,6 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
         working-directory: pi-web
-      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs worker/short-videos.test.mjs
+      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs worker/short-videos.test.mjs worker/profile-tables.test.mjs
       - run: node build.mjs
         working-directory: pi-web
