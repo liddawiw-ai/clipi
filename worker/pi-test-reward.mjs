@@ -1,3 +1,4 @@
+import {payoutTestReward} from './pi-test-payout.mjs';
 import {walletMatches} from './pi-test-wallet.mjs';
 const host='clipi-pi-testnet.liddawiw.workers.dev';
 const reply=(data,status=200)=>Response.json(data,{status,headers:{'Cache-Control':'no-store'}});
@@ -19,6 +20,7 @@ export async function testReward(request,env){
   await db.prepare('CREATE TABLE IF NOT EXISTS test_reward_requests(uid TEXT PRIMARY KEY,created INTEGER NOT NULL,state TEXT NOT NULL DEFAULT \'pending\')').run();
   await db.prepare("INSERT OR IGNORE INTO test_reward_requests(uid,created,state) SELECT ?,?,'pending' WHERE (SELECT COUNT(*) FROM test_reward_requests)<5").bind(me.uid,Date.now()).run();
   const row=await db.prepare('SELECT state FROM test_reward_requests WHERE uid=?').bind(me.uid).first();
-  return row?reply({state:row.state,message:'تم تسجيل طلب المكافأة التجريبية. التحويل لم ينفذ بعد.'}):reply({message:'اكتملت قائمة طلبات الاختبار الخمسة'},409);
- }catch{return reply({message:'تعذر تسجيل الطلب التجريبي'},503)}
+  if(!row)return reply({message:'اكتملت قائمة طلبات الاختبار الخمسة'},409);
+  return reply(await payoutTestReward(env,me.uid));
+ }catch{return reply({message:'تعذر إكمال التحويل التجريبي. لم يتم تأكيد الصرف؛ أعد المحاولة للتحقق من نفس المعاملة.'},503)}
 }
