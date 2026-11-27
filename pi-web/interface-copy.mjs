@@ -1,5 +1,7 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "بحث عن لاعبين أونلاين": "Find online players",
+  "تصوير فيديو": "Record video",
   "النص على الفيديو": "Text on video",
   "نص الفيديو غير صالح": "Invalid video text",
   "تحقق من العنوان الجديد": "Verify the new address",
