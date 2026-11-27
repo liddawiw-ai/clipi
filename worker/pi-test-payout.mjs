@@ -7,8 +7,24 @@ export async function payoutTestReward(env,uid){
  const wallet=Keypair.fromSecret(env.PI_WALLET_PRIVATE_SEED.trim()), source=wallet.publicKey();
  if(source!==env.PI_TEST_WALLET_ADDRESS.trim())throw Error('wallet');
  async function api(path,body){
-  const r=await fetch('https://api.minepi.com/v2'+path,{method:body?'POST':'GET',headers:{Authorization:'Key '+env.PI_NETWORK_API_KEY,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
-  if(!r.ok){const stage=path==='/payments/incomplete_server_payments'?'recover':path==='/payments'?'create':path.endsWith('/complete')?'complete':'lookup';throw Error('PI_'+stage+'_'+r.status);}
+  const r=await fetch('https://api.minepi.com/v2'+path,{method:body?'POST':'GET',headers:{Authorization:'Key '+env.PI_NETWORK_API_KEY.trim(),'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000)});
+  if(!r.ok){
+   const stage=path==='/payments/incomplete_server_payments'?'recover':path==='/payments'?'create':path.endsWith('/complete')?'complete':'lookup';
+   const raw=await r.text().catch(()=> '');
+   // Classify the upstream response, never expose arbitrary upstream text or credentials.
+   const hints=[
+    ['USER_APP_MISMATCH',/user.{0,100}(not (?:found|associated|registered|authorized)|does not belong|different app|not part of|not linked)|(?:uid|user).{0,80}(?:invalid|unknown|mismatch)|(?:app|application).{0,80}(?:user mismatch|different user)/i],
+    ['WALLET_UNAVAILABLE',/wallet.{0,100}(not found|not configured|not connected|not activated|missing|invalid|not approved)|(?:missing|invalid|inactive|unapproved).{0,40}wallet/i],
+    ['A2U_PERMISSION',/(?:app.to.user|a2u|outgoing|server.payment).{0,100}(?:disabled|not enabled|not allowed|not authorized|permission|not approved)|(?:permission|not allowed|not authorized|disabled).{0,70}(?:payment|payout|app.to.user)/i],
+    ['KEY_REJECTED',/(?:api.key|server.key).{0,100}(?:invalid|missing|expired|revoked|not found|unauthorized)|(?:invalid|missing|expired|revoked).{0,40}(?:api.key|server.key)/i],
+    ['NETWORK_MISMATCH',/(?:network|testnet|mainnet|sandbox).{0,70}(?:mismatch|wrong|invalid|not supported|not allowed)/i],
+    ['USER_WALLET',/(?:user|recipient|destination).{0,100}(?:no wallet|wallet address|wallet not|wallet missing)/i]
+   ];
+   const hint=hints.find(([,pattern])=>pattern.test(raw))?.[0]||'NO_SPECIFIC_REASON';
+   const err=Error('PI_'+stage+'_'+r.status+'_'+hint);
+   console.warn('Pi upstream rejection',{stage,status:r.status,hint});
+   throw err;
+  }
   return r.json();
  }
  async function chain(path,body){
