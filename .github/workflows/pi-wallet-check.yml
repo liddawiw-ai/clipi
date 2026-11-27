@@ -1,0 +1,23 @@
+name: Pi wallet verification
+on:
+  push:
+    branches: [work/pi-host-wallet-link]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs
+      - run: npm ci --no-audit --no-fund
+        working-directory: pi-web
+      - run: npm run build
+        working-directory: pi-web
