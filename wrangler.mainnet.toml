@@ -39,3 +39,5 @@ keep_bindings = ["plain_text", "json", "secret_text", "secret_key", "r2_bucket"]
 
 [ai]
 binding = "AI"
+
+# Production deployment requested after successful wallet verification.
