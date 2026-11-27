@@ -179,7 +179,7 @@ export default {
           return json({pending:true});
         }
         if(input.op==='linkHostWallet')
-          return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json);
+          return linkHostWallet(q,uid,uid.startsWith('pi:')?uid:linkedPiUid,input.accessToken,json,env,input.walletAddress);
         const wallet=await readWallet(q,uid,env.CLIPI_OWNER_UID);
         await q('CREATE TABLE IF NOT EXISTS host_pi_wallet_draft(uid TEXT PRIMARY KEY NOT NULL,address TEXT NOT NULL)').run();
          const draft=await q('SELECT address FROM host_pi_wallet_draft WHERE uid=?',uid).first();
