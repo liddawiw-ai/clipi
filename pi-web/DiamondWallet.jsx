@@ -17,10 +17,11 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
   const [linkMessage,setLinkMessage]=useState('');
+  const [editingWallet,setEditingWallet]=useState(false);
   const [walletDraft,setWalletDraft]=useState(''),[walletChoices,setWalletChoices]=useState([]);
   const lock=useRef(false);
   const revision=useRef(0);
-  useEffect(()=>{setWalletDraft('');setWalletChoices([]);setLinkMessage('');setData(null)},[uid]);
+  useEffect(()=>{setWalletDraft('');setWalletChoices([]);setLinkMessage('');setEditingWallet(false);setData(null)},[uid]);
   useEffect(()=>{if(data?.walletDraftAddress)setWalletDraft(previous=>previous||data.walletDraftAddress)},[data?.walletDraftAddress]);
   const paymentPiUid=uid.startsWith('pi:')?uid:(window.Pi&&data?.linkedPiUid);
   async function refresh(){
@@ -40,6 +41,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     return ()=>{active=false;revision.current++;clearInterval(timer);document.removeEventListener('visibilitychange',sync)};
   },[uid]);
   async function linkWallet(){
+    if(editingWallet&&!/^G[A-Z2-7]{55}$/.test(walletDraft)){setLinkMessage(appText('أدخل عنوان محفظة صالحًا'));return}
     if(lock.current)return;
     lock.current=true;setBusy(true);setLinkMessage('');
     try{
@@ -52,7 +54,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
       const token=await user.getIdToken();
       const response=await fetch('/account-number',{method:'POST',
         headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken,walletAddress:walletDraft||data?.walletDraftAddress||undefined})});
+        body:JSON.stringify({op:'linkHostWallet',accessToken:session.accessToken,walletAddress:editingWallet?walletDraft:(walletDraft||data?.walletDraftAddress||undefined),replaceWallet:editingWallet})});
       const result=await response.json();
       if(response.status===422&&typeof sdk.Wallet?.getUserMigratedWalletAddresses==='function'){
         try{
@@ -68,6 +70,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
       if(auth().currentUser?.uid===uid){
         revision.current++;
         setData(previous=>({...previous,walletAddress:result.walletAddress}));
+        setEditingWallet(false);setWalletDraft('');setWalletChoices([]);
         setLinkMessage(appText('تم ربط محفظتك.'));
       }
     }catch(error){setLinkMessage(uiError(error,'تعذّر ربط المحفظة. حاول مجددًا.'))}
@@ -120,9 +123,11 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     <button type="button" onClick={onEarnings}>{appText('محفظة المضيف')}</button>
     {paymentPiUid&&<>
       {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
-      <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
+      <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(editingWallet?'تحقق من العنوان الجديد':data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
       <a href="pi://wallet.pinet.com" target="_top">{appText('فتح محفظة Pi')}</a>
-      {!data?.walletAddress&&<div>
+      {data?.walletAddress&&!editingWallet&&<button type="button" disabled={busy} onClick={()=>{setWalletDraft('');setWalletChoices([]);setLinkMessage('');setEditingWallet(true)}}>{appText('تغيير عنوان المحفظة')}</button>}
+      {(!data?.walletAddress||editingWallet)&&<div>
+        {editingWallet&&<><p>{appText('يبقى العنوان الحالي معتمدًا حتى التحقق من العنوان الجديد.')}</p><button type="button" disabled={busy} onClick={()=>{setEditingWallet(false);setWalletDraft('');setLinkMessage('')}}>{appText('إلغاء')}</button></>}
         {walletChoices.map(a=><button type="button" key={a} onClick={()=>setWalletDraft(a)}><bdi>{a.slice(0,8)}…{a.slice(-8)}</bdi></button>)}
         <input dir="ltr" autoComplete="off" spellCheck={false} maxLength={56} aria-label={appText('عنوان محفظة Pi')} placeholder="G…" value={walletDraft} onChange={e=>setWalletDraft(e.target.value.trim().toUpperCase())}/>
         <p>{appText('العنوان اليدوي غير موثق ولا يُستخدم للسحب حتى التحقق من Pi.')}</p>
