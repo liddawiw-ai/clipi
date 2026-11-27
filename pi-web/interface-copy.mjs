@@ -1,5 +1,7 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "كتم أصوات اللعبة": "Mute game sounds",
+  "تشغيل أصوات اللعبة": "Enable game sounds",
   "بحث عن لاعبين أونلاين": "Find online players",
   "تصوير فيديو": "Record video",
   "النص على الفيديو": "Text on video",
