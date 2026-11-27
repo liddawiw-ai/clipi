@@ -17,6 +17,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
   const [data,setData]=useState(null),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [receipt,setReceipt]=useState('');
   const [linkMessage,setLinkMessage]=useState('');
+  const [walletDraft,setWalletDraft]=useState('');
   const lock=useRef(false);
   const revision=useRef(0);
   const paymentPiUid=uid.startsWith('pi:')?uid:(window.Pi&&data?.linkedPiUid);
@@ -42,7 +43,7 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     try{
       const user=auth().currentUser;
       if(user?.uid!==uid)throw Error(appText('تغيّر الحساب المفتوح. أعد التحقق.'));
-      const session=await piSdk().authenticate(['wallet_address'],()=>{});
+      const session=await piSdk().authenticate(['username','wallet_address'],()=>{});
       if(auth().currentUser?.uid!==uid||'pi:'+session.user.uid!==paymentPiUid)
         throw Error(appText('حساب Pi المفتوح مختلف عن حساب التطبيق.'));
       const token=await user.getIdToken();
@@ -107,6 +108,22 @@ export function DiamondWallet({uid,onHelp,onEarnings}){
     {paymentPiUid&&<>
       {data?.walletAddress&&<p>{appText('محفظة Pi المرتبطة')} · <bdi dir="ltr">{data.walletAddress.slice(0,6)}…{data.walletAddress.slice(-6)}</bdi></p>}
       <button type="button" disabled={busy||!data} onClick={linkWallet}>{appText(data?.walletAddress?'تحديث ربط المحفظة':'اربط محفظتي')}</button>
+      <a href="https://wallet.pinet.com" target="_blank" rel="noopener noreferrer">{appText('فتح محفظة Pi')}</a>
+      {!data?.walletAddress&&<div>
+        <input dir="ltr" autoComplete="off" spellCheck={false} maxLength={56} aria-label={appText('عنوان محفظة Pi')} placeholder="G…" value={walletDraft} onChange={e=>setWalletDraft(e.target.value.trim().toUpperCase())}/>
+        <p>{appText('العنوان اليدوي غير موثق ولا يُستخدم للسحب حتى التحقق من Pi.')}</p>
+        <button type="button" disabled={busy||!/^G[A-Z2-7]{55}$/.test(walletDraft)} onClick={async()=>{
+          if(lock.current)return;
+          lock.current=true;setBusy(true);
+          try{
+            const user=auth().currentUser;if(user?.uid!==uid)throw Error('Account changed');
+            const token=await user.getIdToken();
+            const response=await fetch('/account-number',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({op:'saveHostWalletDraft',walletAddress:walletDraft})});
+            if(!response.ok)throw Error(appText('تعذر حفظ العنوان'));
+            if(auth().currentUser?.uid===uid)setLinkMessage(appText('تم حفظ العنوان للمراجعة فقط'));
+          }catch(e){setLinkMessage(uiError(e))}finally{lock.current=false;setBusy(false)}
+        }}>{appText('حفظ العنوان للمراجعة')}</button>
+      </div>}
       {linkMessage&&<p role="status">{linkMessage}</p>}
     </>}
     <p>{appText('التقدّم نحو المكافأة التالية')} · <bdi>{data?.progress??'…'} / 10,000 💎</bdi></p>
