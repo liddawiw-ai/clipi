@@ -99,3 +99,11 @@ test('partners exchange four selected physical cards simultaneously, then return
   }
   assert.ok(choices(game).length>0);
 });
+
+for(const kind of ['ludo','jackaroo','pool'])test(kind+' quick match finds existing lobby and is idempotent',async()=>{
+ const call=api(kind);
+ const a=await call('a','tableMatch');assert.equal(a.status,200);
+ const b=await call('b','tableMatch');assert.equal(b.status,200);assert.equal(b.table.code,a.table.code);
+ assert.equal((await call('b','tableMatch')).table.code,a.table.code);
+ assert.equal((await call('a','tableList')).table.players.length,2);
+});
