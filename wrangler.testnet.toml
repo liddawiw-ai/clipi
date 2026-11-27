@@ -22,3 +22,5 @@ binding = "AI"
 
 [build]
 command = "npm ci --prefix pi-web --no-audit --no-fund"
+
+# Rebuild after provisioning the Testnet video bucket.
