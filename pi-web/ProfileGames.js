@@ -130,7 +130,7 @@ function Table({kind,uid,name,request,onBack}){
       <Action selected onPress={()=>startLocal(true)}>{appText("تدريب ضد الكمبيوتر")}</Action>
       <Action onPress={()=>startLocal(false)}>{appText("العب مع أصحابك على نفس الجهاز")}</Action>
       <Action selected={onlineMenu} onPress={()=>setOnlineMenu(v=>!v)}>{appText("طاولات الأونلاين")}</Action>
-      {onlineMenu&&<><View style={styles.row}><Action selected disabled={busy||!request} onPress={()=>command('tableCreate')}>{appText("إنشاء طاولة")}</Action></View>
+      {onlineMenu&&<><Action selected disabled={busy||!request} onPress={()=>command('tableMatch')}>{appText('بحث عن لاعبين أونلاين')}</Action><View style={styles.row}><Action selected disabled={busy||!request} onPress={()=>command('tableCreate')}>{appText("إنشاء طاولة")}</Action></View>
       <TextInput value={code} autoCapitalize="characters" autoCorrect={false} maxLength={10} onChangeText={setCode} placeholder={appText("رمز الطاولة")} accessibilityLabel={appText("رمز الطاولة")} style={styles.input}/>
       <Action disabled={busy||!request||code.trim().length!==10} onPress={()=>command('tableJoin',{code})}>{appText("انضم بالرمز")}</Action>
       {lobbies.map(t=><Action key={t.code} disabled={busy} onPress={()=>command('tableJoin',{code:t.code})}>{appText('انضم إلى ')+t.host+' · '+t.seats+' / '+Math.max(...seatsFor(kind))}</Action>)}</>}
