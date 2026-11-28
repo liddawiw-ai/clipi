@@ -92,14 +92,12 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
       });
     }
     const ready=()=>sync();
-    const gesture=()=>{if(current&&active&&!document.hidden&&video.paused&&!pending){attempts=0;try{video.play()?.catch(()=>{});}catch{}}};
+
     const visible=()=>{attempts=0;sync()};
     sync();
     for(const event of ['loadedmetadata','loadeddata','canplay','canplaythrough'])video.addEventListener(event,ready);
     document.addEventListener('visibilitychange',visible);
     window.addEventListener('pageshow',visible);
-    document.addEventListener('pointerdown',gesture,true);
-    document.addEventListener('touchend',gesture,true);
     return () => {
       current=false;clearTimeout(timer);
       video.autoplay=false;
@@ -107,8 +105,6 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
       for(const event of ['loadedmetadata','loadeddata','canplay','canplaythrough'])video.removeEventListener(event,ready);
       document.removeEventListener('visibilitychange',visible);
       window.removeEventListener('pageshow',visible);
-      document.removeEventListener('pointerdown',gesture,true);
-      document.removeEventListener('touchend',gesture,true);
       video.pause();
     };
   }, [video, source, active]);
