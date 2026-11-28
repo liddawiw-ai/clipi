@@ -111,7 +111,7 @@ export function AccountPhoto({avatar,label,onPress}){
 }
 
 function IdentityCard({name,avatar,number,onPhoto,photoLabel,followAction,children}){
-  return <View style={s.account}><GoldFrame tone="apricot"/>
+  return <View style={s.account}><View pointerEvents="none" style={s.royalHalo}/><View pointerEvents="none" style={s.royalRing}/><View style={s.royalBrand}><Text style={s.royalCrown}>♛</Text><Text style={s.royalWordmark}>Clipi Live</Text></View>
     <View style={s.identity}>
       <View style={s.photoColumn}><AccountPhoto avatar={avatar} onPress={onPhoto} label={photoLabel}/>{followAction}</View>
       <View style={{flex:1}}>
@@ -214,10 +214,10 @@ const s = StyleSheet.create({
   photoColumn:{alignItems:'center'},
   socialCounts:{flexDirection:'row',alignItems:'flex-start',marginTop:14},
   socialCount:{flex:1,minHeight:44,minWidth:0,alignItems:'center',paddingHorizontal:2},
-  socialValue:{color:ink,fontSize:20,fontWeight:'800',textAlign:'center'},
-  socialLabel:{color:ink,fontSize:14,textAlign:'center'},
+  socialValue:{color:'#F6D78A',fontSize:20,fontWeight:'800',textAlign:'center'},
+  socialLabel:{color:'#F0E6FC',fontSize:14,textAlign:'center'},
   followAction:{minHeight:44,minWidth:52,alignItems:'center',justifyContent:'center',backgroundColor:'transparent'},
-  followText:{fontWeight:'700',color:accent,textAlign:'center'},
+  followText:{fontWeight:'700',color:'#F6D78A',textAlign:'center'},
   photoButton:{alignSelf:'center',position:'relative'},
   editBadge:{position:'absolute',bottom:-2,right:-2,width:23,height:23,borderRadius:12,alignItems:'center',justifyContent:'center',backgroundColor:theme.mint,borderWidth:2,borderColor:theme.paper},
   editGlyph:{color:theme.ink,fontWeight:'900',fontSize:13},
@@ -260,14 +260,17 @@ const s = StyleSheet.create({
   dockIcon:{color:muted,fontSize:22,lineHeight:27,fontWeight:'700'},
   dockLabel:{color:muted,fontWeight:'600',fontSize:12,lineHeight:17},
   createIcon:{backgroundColor:theme.mint,color:theme.accent,borderRadius:11,minWidth:34,textAlign:'center'},
-  profileName:{color:theme.ink,fontWeight:'800',fontSize:22},profileId:{color:theme.secondary,marginTop:3},account:{overflow:'hidden',backgroundColor:theme.paper,borderRadius:22,padding:19,marginBottom:12,minHeight:172},
+  profileName:{color:'#FFF6E0',fontWeight:'800',fontSize:24},profileId:{color:'#D6C2E9',marginTop:3},account:{overflow:'hidden',backgroundColor:'#28163F',borderRadius:24,padding:19,marginBottom:12,minHeight:172,borderWidth:1.5,borderColor:'#D6AA54',shadowColor:'#24132F',shadowOpacity:.22,shadowRadius:12,shadowOffset:{width:0,height:5},elevation:4},
+  royalHalo:{position:'absolute',width:240,height:240,borderRadius:120,top:-110,right:-70,backgroundColor:'#583776'},
+  royalRing:{position:'absolute',width:220,height:220,borderRadius:110,top:-88,right:-53,borderWidth:1,borderColor:'#927049'},
+  royalBrand:{flexDirection:'row',alignItems:'center',gap:8,marginBottom:13},royalCrown:{color:'#F5D17B',fontSize:25},royalWordmark:{color:'#F5D17B',fontSize:16,fontWeight:'800',letterSpacing:1},
   identity:{flexDirection:'row',alignItems:'center',gap:11},
   avatar:{width:64,height:64,borderRadius:32,borderWidth:2,borderColor:theme.brass,backgroundColor:theme.paper,justifyContent:'center',alignItems:'center'},
   avatarIcon:{fontSize:28},
-  balance:{marginTop:12,borderRadius:12,backgroundColor:theme.glass,padding:11},
+  balance:{marginTop:12,borderRadius:12,backgroundColor:'#FFF5DD',padding:11},
   balanceValue:{color:ink,fontWeight:'800',fontSize:18,marginTop:3},
   shortcuts:{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:12},
-  shortcut:{flexGrow:1,flexBasis:'22%',backgroundColor:theme.paper,borderRadius:13,padding:9,alignItems:'center',minHeight:66,justifyContent:'center',borderWidth:1,borderColor:theme.line},
+  shortcut:{flexGrow:1,flexBasis:'22%',backgroundColor:'#FFF8EA',borderRadius:15,padding:9,alignItems:'center',minHeight:66,justifyContent:'center',borderWidth:1,borderColor:'#D6AA54'},
   compactShortcuts:{gap:4},
   compactShortcut:{flexBasis:'14.5%',minWidth:44,paddingHorizontal:2},
   shortcutIcon:{fontSize:20,color:accent,fontWeight:'800'},
