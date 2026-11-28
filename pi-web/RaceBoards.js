@@ -78,6 +78,8 @@ function tokenGroups(game){
   }));
   return [...clusters.values()];
 }
+const hopMs=210;
+const motionDuration=(kind,route)=>kind==='ludo'?(route.length-1)*hopMs:420;
 const disk = (size,color) => ({width:size,height:size,borderRadius:size/2,backgroundColor:color});
 function Piece({tone,diameter:d,piece,selected,available,stacked,sculpted=false}){
   if(sculpted)return <View pointerEvents="none" style={{width:d,height:d,position:'relative'}}><div style={{position:'absolute',inset:'-32% -5% -12%',pointerEvents:'none'}}><svg viewBox="0 0 100 138" width="100%" height="100%" aria-hidden="true"><ellipse cx="50" cy="119" rx="39" ry="13" fill="#000" opacity=".35"/><ellipse cx="50" cy="110" rx="42" ry="18" fill={selected||available?'#ffe58a':tone.shadow}/><ellipse cx="50" cy="105" rx="36" ry="14" fill={tone.color} stroke={tone.light} strokeWidth="3"/><path d="M20 99 Q35 80 39 54 Q50 46 61 54 Q65 80 80 99 Q50 117 20 99Z" fill={tone.color} stroke={tone.shadow} strokeWidth="2"/><path d="M29 97 Q43 76 44 55 L50 55 Q47 80 42 102Z" fill={tone.light} opacity=".65"/><circle cx="50" cy="36" r="28" fill={tone.shadow}/><circle cx="48" cy="31" r="25" fill={tone.color}/><ellipse cx="39" cy="20" rx="11" ry="7" fill={tone.light}/><ellipse cx="35" cy="17" rx="5" ry="3" fill="#fff" opacity=".8"/><text x="50" y="42" fontSize="22" fontWeight="900" fill="white" textAnchor="middle">{piece+1}</text></svg></div>{stacked>1&&<View style={[s.counter,s.center,{right:-d*.25,top:-d*.22,minWidth:d*.64,height:d*.64,borderRadius:d*.32}]}><Text style={[s.count,{fontSize:Math.max(8,d*.38)}]}>{stacked}</Text></View>}</View>;
@@ -113,13 +115,13 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
       changed.push({seat,piece,route});
     }));
     if(!changed.length){setMotion([]);return;}
-    setMotion(changed);const timer=setTimeout(()=>setMotion([]),480);return()=>clearTimeout(timer);
-  },[game]);
+    setMotion(changed);const timer=setTimeout(()=>setMotion([]),Math.max(...changed.map(m=>motionDuration(game.kind,m.route)))+45);return()=>clearTimeout(timer);
+  },[game.kind,game.count,JSON.stringify(game.pieces)]);
   const ludo=game.kind==='ludo',seat=activeSeat(game);
   const groups=useMemo(()=>tokenGroups(game),[game]);
   const options=useMemo(()=>legalOptions??choices(game),[legalOptions,game]);
   const selectable=new Set(options.map(o=>o.id.split('/')[2]).filter(i=>i!==undefined).map(Number));
-  const permitted=p=>!!onPiece && p.seat===seat && selectable.has(p.piece);
+  const permitted=p=>!motion.length && !!onPiece && p.seat===seat && selectable.has(p.piece);
   const owner=seats[corner(game,seat)];
   const pixels=size||Math.min(520,Math.max(1,width-56));
   const hint=typeof hintOption==='string'?hintOption:hintOption?.id;
@@ -171,11 +173,14 @@ function MotionPawn({seat,piece,route,game,pixels}){
   const node=useRef(null);
   useEffect(()=>{
     if(!node.current?.animate)return;
-    const animation=node.current.animate(route.map(([x,y])=>({transform:'translate('+x*pixels+'px,'+y*pixels+'px)'})),{duration:420,easing:'ease-out',fill:'forwards'});
+    const transform=(x,y,lift=0)=>'translate('+x*pixels+'px,'+(y*pixels-lift)+'px)';
+    const hops=route.length-1;
+    const frames=game.kind==='ludo'&&hops>0?[{transform:transform(...route[0]),offset:0},...route.slice(1).flatMap(([x,y],i)=>{const [px,py]=route[i];return [{transform:transform((px+x)/2,(py+y)/2,pixels*.038),offset:(i+.5)/hops},{transform:transform(x,y),offset:(i+1)/hops}];})]:route.map(([x,y])=>({transform:transform(x,y)}));
+    const animation=node.current.animate(frames,{duration:motionDuration(game.kind,route),easing:'linear',fill:'forwards'});
     return()=>animation.cancel();
-  },[route,pixels]);
+  },[route,pixels,game.kind]);
   const d=pixels*(game.kind==='ludo'?.060:.044);
-  return <div ref={node} aria-hidden="true" style={{position:'absolute',left:-d/2,top:-d/2,zIndex:5,pointerEvents:'none'}}><Piece sculpted={game.kind==='ludo'} tone={seats[corner(game,seat)]} diameter={d} piece={piece}/></div>;
+  return <div ref={node} aria-hidden="true" style={{position:'absolute',left:-d/2,top:-d/2,transform:'translate('+route[0][0]*pixels+'px,'+route[0][1]*pixels+'px)',zIndex:5,pointerEvents:'none'}}><Piece sculpted={game.kind==='ludo'} tone={seats[corner(game,seat)]} diameter={d} piece={piece}/></div>;
 }
 export const RaceBoard=Board;
 const s=StyleSheet.create({
