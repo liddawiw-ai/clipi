@@ -124,3 +124,20 @@ test('ranking records finished matches once, including both Jackaroo partners',a
   assert.equal(rank.ranking.reduce((n,r)=>n+r.wins,0),kind==='jackaroo'?2:1);
  }
 });
+
+test('cosmetics are owned across games, cannot overspend or charge twice',async()=>{
+ const {walletSchema,paidBalance}=await import('./diamond-wallet.mjs');
+ const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE room_chat(room,uid,name,text); CREATE TABLE room_member(room,uid,name);');
+ [...walletSchema,...tableSchema].forEach(s=>db.exec(s));
+ const q=(sql,...p)=>{const s=db.prepare(sql);return {first:()=>s.get(...p),all:()=>({results:s.all(...p)}),run:()=>({meta:s.run(...p)})};};
+ const call=(op,item,kind='ludo',uid='a')=>profileTables(q,uid,{op,item,kind},(v,status=200)=>({status,...v}));
+ db.prepare('INSERT INTO diamond_purchase VALUES(?,?,?,?)').run('p','a',1000,'tx');
+ assert.equal((await call('tableEquipCosmetic','royal')).status,409);
+ assert.equal((await call('tableBuyCosmetic','royal')).diamonds,500);
+ assert.equal((await call('tableBuyCosmetic','royal')).diamonds,500);
+ assert.equal((await call('tableBuyCosmetic','sapphire')).status,409);
+ assert.equal((await call('tableEquipCosmetic','royal','pool')).equipped,'royal');
+ assert.equal((await call('tableEquipCosmetic','royal','pool','b')).status,409);
+ assert.equal((await call('tableEquipCosmetic','classic')).diamonds,500);
+ assert.equal(q('SELECT '+paidBalance+' AS balance','a','a').first().balance,500);
+});
