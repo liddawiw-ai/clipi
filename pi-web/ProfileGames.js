@@ -22,7 +22,7 @@ function Action({children,onPress,disabled,selected}){
 }
 const about={ludo:'من لاعبين إلى أربعة · نرد وأربعة أحجار لكل لاعب',jackaroo:'أربعة لاعبين · كل لاعبين متقابلين فريق',pool:'لاعبان · بلياردو الثماني كرات'};
 const rules={ludo:'نزّل الحجر بالستة. ارجع حجر الخصم إذا وصلت لخانته خارج الخانات الآمنة. الستة تعطي رمية إضافية. يلزم العدد الدقيق لإيصال الأحجار الأربعة.',jackaroo:'على نفس الجهاز، اختر ورقة تمرّرها لشريكك عند التوزيع. الآس والملك ينزّلان حجرًا أو يتحركان ١ و١٣. الأربعة ترجع للخلف، السبعة تُقسَم بين حجرين، والجاك يبدّل حجرين. باقي الأوراق تتحرك بقيمتها والملكة ١٢. بعد تأمين أحجارك تلعب بأحجار زميلك.',pool:'المس القماش لتوجيه العصا، واختر القوة ثم اضرب. أول كرة ملوّنة تدخل بضربة صحيحة تحدد مجموعتك. بعد إنهاء مجموعتك أدخل الثمانية. الخطأ يعطي الخصم الكرة البيضاء باليد. إدخال الثمانية مبكرًا يخسّر الجولة.'};
-function Play({g,me,names,send,busy}){
+function Play({g,me,names,send,busy,theme}){
   const [cardIndex,setCardIndex]=useState(null),[piece,setPiece]=useState(null),[rollKey,setRollKey]=useState(0);
   const card=cardIndex===null?null:g.hands?.[me]?.[cardIndex];
   const previous=useRef(g);
@@ -54,10 +54,10 @@ function Play({g,me,names,send,busy}){
   const lastDie=g.die||Number(g.note?.match(/نتيجة النرد ([1-6])/)?.[1])||0;
   return <View style={{gap:10}}>
     <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:12,borderRadius:12,backgroundColor:g.winner!==null?'#f4d77c':myTurn?'#d4ebd5':'#e5ded1'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
-    {pool?<BilliardTable game={g} me={me} locked={locked} send={send}/>:<>
+    {pool?<BilliardTable theme={theme} game={g} me={me} locked={locked} send={send}/>:<>
       <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
-      <Board game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
+      <Board theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
       {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
         {myTurn&&!g.die&&<Action selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}>{appText("ارمِ النرد")}</Action>}
         {!!g.die&&myTurn&&<Text style={styles.text}>{appText("المس الحجر المضيء لتحريكه")}</Text>}</View>}
@@ -191,7 +191,7 @@ function Table({kind,uid,name,request,onBack}){
     {!!table&&!local&&<><Text selectable style={styles.text}>{appText('رمز الطاولة · ')+table.code}</Text><Text style={styles.text}>{names.join('  ·  ')}</Text>
       {table.phase==='lobby'&&(table.me===0?<Action selected disabled={busy||offline||!seatsFor(kind).includes(names.length)} onPress={()=>command('tableStart')}>{appText("ابدأ الجولة")}</Action>:<Text style={styles.text}>{appText("بانتظار المضيف لبدء الجولة")}</Text>)}</>}
     {!!game&&(local&&!solo&&kind==='jackaroo'&&privateTurn&&game.winner===null?<Action selected onPress={()=>setPrivateTurn(false)}>{appText('مرّر الجهاز إلى ')+names[me]+appText(' · اعرض أوراقي')}</Action>:
-      <Play g={game} me={me} names={names} send={send} busy={busy||(!local&&offline)}/>)}
+      <Play theme={theme} g={game} me={me} names={names} send={send} busy={busy||(!local&&offline)}/>)}
     {(local||table)&&<>{confirm?<><Text style={styles.text}>{game?appText('إنهاء الجولة لكل اللاعبين؟'):appText('مغادرة الطاولة؟')}</Text><View style={styles.row}><Action onPress={()=>setConfirm(false)}>{appText("متابعة اللعب")}</Action><Action disabled={busy} onPress={()=>local?localSave(null):command('tableLeave')}>{appText("تأكيد المغادرة")}</Action></View></>:<Action onPress={()=>setConfirm(true)}>{appText("مغادرة الطاولة")}</Action>}</>}
   </View>;
 }
