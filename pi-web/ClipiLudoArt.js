@@ -16,7 +16,7 @@ export function LudoBoardArt(){
  </g></svg>;
 }
 export function LudoBadge(){return <svg aria-hidden="true" viewBox="0 0 160 160" style={{width:'100%',height:'100%'}}>
- <defs><linearGradient id="clipiLudoBlue" x2="0" y2="1"><stop stopColor="#2265dc"/><stop offset="1" stopColor="#222276"/></linearGradient></defs>
+ <defs><linearGradient id="clipiLudoBlue" x2="0%" y2="100%"><stop stopColor="#2265dc"/><stop offset="1" stopColor="#222276"/></linearGradient></defs>
  <rect x="3" y="3" width="154" height="154" rx="28" fill="url(#clipiLudoBlue)" stroke="#ffd16a" strokeWidth="5"/>
  <g transform="translate(34 65) scale(.092)"><rect width="1000" height="1000" rx="90" fill="#fff8de"/>{colors.map((c,i)=><rect key={i} x="45" y="45" width="360" height="360" rx="55" fill={c} transform={'rotate('+i*90+' 500 500)'}/>)}</g>
  <text x="80" y="30" textAnchor="middle" fontSize="23" fontWeight="900" fill="#fff">Clipi</text>
