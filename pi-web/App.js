@@ -1283,7 +1283,7 @@ export default function App(){
   const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
-  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game'].includes(p))return;pageRef.current=p;setPage(p)};
+  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game','linkPiAccount'].includes(p))return;pageRef.current=p;setPage(p)};
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
@@ -1943,7 +1943,7 @@ export default function App(){
       <LanguageDropdown selected={locale} onPick={pickLocale} label={menu.changeLanguage}/>
       <HubRows items={[
         {label:menu.edit,onPress:()=>go('profileEdit')},
-        ...(window.Pi&&visibleNumber?.piLoginLink?[{label:ui('ربط حساب Pi بحساب البريد'),onPress:()=>go('linkPiAccount')}]:[]),
+
         {label:ui('صندوق الوارد والدعم'),onPress:()=>go('help')},
         {label:ui('طلب حذف الحساب'),destructive:true,onPress:deleteAccount},
         {label:ui('سياسة الخصوصية'),onPress:()=>setPolicy('privacy')},
