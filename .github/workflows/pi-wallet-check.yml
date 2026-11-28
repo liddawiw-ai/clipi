@@ -8,7 +8,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -18,6 +18,11 @@ jobs:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
         working-directory: pi-web
-      - run: node --test worker/host-wallet-link.test.mjs worker/host-earnings.test.mjs worker/external-checkout.test.mjs worker/short-videos.test.mjs worker/profile-tables.test.mjs
+      - run: node --test worker/*.test.mjs
+      - run: node --test tests/*.test.mjs room-invitations.test.mjs
+        working-directory: pi-web
       - run: node build.mjs
+        working-directory: pi-web
+      - run: npm install --prefix "$RUNNER_TEMP/browser-test" playwright-core@1.56.1 --no-audit --no-fund
+      - run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/browser-test/node_modules/playwright-core" node tests/browser/check-playback.mjs
         working-directory: pi-web
