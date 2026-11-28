@@ -79,6 +79,14 @@ function Table({kind,uid,name,request,onBack}){
   const [issue,setIssue]=useState(''),[offline,setOffline]=useState(false),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[showRules,setShowRules]=useState(false);
   const [creditsOpen,setCreditsOpen]=useState(false),[sound,setSound]=useState(soundEnabled);
   const active=useRef(true),lock=useRef(false),sequence=useRef(0);
+  const [ranking,setRanking]=useState(null),[rankOpen,setRankOpen]=useState(false),[rankError,setRankError]=useState(false);
+  useEffect(()=>{
+    if(!rankOpen||!request)return;
+    let live=true;setRankError(false);
+    request('/account-number',{op:'tableRanking',kind}).then(value=>{if(live)setRanking(value)}).catch(()=>{if(live)setRankError(true)});
+    return()=>{live=false};
+  },[rankOpen,kind,request,table?.phase]);
+
   function update(data){
     if(!data||!Object.hasOwn(data,'table'))throw Error(appText('خدمة الطاولات غير متاحة الآن'));
     setTable(data.table);if(data.lobbies)setLobbies(data.lobbies);setOffline(false);
@@ -136,6 +144,15 @@ function Table({kind,uid,name,request,onBack}){
     <Text style={styles.heading}>{appText(games[kind])}</Text>{showRules&&<><Text style={styles.text}>{appText(rules[kind])}</Text>
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
       {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
+    <Action selected={rankOpen} onPress={()=>setRankOpen(v=>!v)}>{appText('التصنيف العالمي')}</Action>
+    {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#fffdf8'}}>
+      {rankError?<Text style={styles.text}>{appText('تعذّر تحميل التصنيف')}</Text>:!ranking?<Text style={styles.text}>…</Text>:<>
+        <Text style={styles.heading}>{appText('مستواك')} {1+Math.floor(ranking.personal.xp/100)} · {ranking.personal.xp} XP</Text>
+        <Text style={styles.text}>{appText('المباريات')} {ranking.personal.played} · {appText('الانتصارات')} {ranking.personal.wins}</Text>
+        {ranking.ranking.map((row,i)=><View key={i} style={[styles.row,{justifyContent:'space-between',padding:8,borderRadius:8,backgroundColor:row.me?'#e5ebd9':i<3?'#f9e8af':'#f4eee2'}]}><Text style={styles.text}>{i+1}. {row.name}</Text><Text style={styles.text}>{row.xp} XP</Text></View>)}
+        {!ranking.ranking.length&&<Text style={styles.text}>{appText('لا توجد نتائج بعد')}</Text>}
+      </>}
+    </View>}
     {(issue&&(local?!offline:onlineMenu||table))?<Text accessibilityLiveRegion="polite" style={styles.text}>{appText(issue)}</Text>:null}
     {offline&&!local&&(onlineMenu||table)&&<Action onPress={refresh}>{appText("إعادة الاتصال")}</Action>}
     {!local&&!table&&<>
