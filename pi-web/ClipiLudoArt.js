@@ -3,13 +3,13 @@ import React from 'react';
 const colors=['#ed343e','#24a94a','#f5bd12','#1689e7'];
 export function LudoBoardArt(){
  return <svg aria-hidden="true" viewBox="0 0 1000 1000" style={{position:'absolute',inset:0,width:'100%',height:'100%',pointerEvents:'none'}}>
- <rect width="1000" height="1000" rx="34" fill="#bd8b32"/><rect x="12" y="12" width="976" height="976" rx="24" fill="#ffe4a0"/>
+ <defs><linearGradient id="ludoGold" x2=".85" y2="1"><stop stopColor="#fff0b5"/><stop offset=".25" stopColor="#e9bc51"/><stop offset=".55" stopColor="#936025"/><stop offset=".8" stopColor="#fce3a0"/><stop offset="1" stopColor="#82521e"/></linearGradient><linearGradient id="ludoTile" x2=".25" y2="1"><stop stopColor="#fff"/><stop offset=".75" stopColor="#fff3d7"/><stop offset="1" stopColor="#d7c8a6"/></linearGradient><radialGradient id="ludoSocket"><stop stopColor="#4a291c" stopOpacity=".45"/><stop offset=".78" stopColor="#fff" stopOpacity=".15"/><stop offset="1" stopColor="#fff" stopOpacity=".85"/></radialGradient>{colors.map((color,i)=><linearGradient key={i} id={'ludoZone'+i} x2=".4" y2="1"><stop stopColor="#fff" stopOpacity=".85"/><stop offset=".24" stopColor={color}/><stop offset="1" stopColor={color} stopOpacity=".65"/></linearGradient>)}</defs><rect width="1000" height="1000" rx="34" fill="#65431d"/><rect x="2" y="2" width="996" height="980" rx="32" fill="url(#ludoGold)"/><rect x="20" y="20" width="960" height="960" rx="20" fill="#d7ab51" stroke="#fff1b0" strokeWidth="5"/>
  <g transform="translate(32 32) scale(62.4)">
  {colors.map((color,i)=><g key={i} transform={'rotate('+i*90+' 7.5 7.5)'}>
- <rect width="6" height="6" rx=".12" fill={color}/><rect x=".8" y=".8" width="4.4" height="4.4" rx=".65" fill="#fff" fillOpacity=".85"/>
- {[1.95,4.05].flatMap(x=>[1.95,4.05].map(y=><circle key={x+'/'+y} cx={x} cy={y} r=".62" fill={color} fillOpacity=".24" stroke="#fff" strokeWidth=".035"/>))}
- {Array.from({length:6},(_,x)=>[6,7,8].map(y=><rect key={x+'/'+y} x={x} y={y} width="1" height="1" rx=".045" fill={y===7&&x>0||y===6&&x===1?color:'#fffdf7'} stroke="#8e99a3" strokeWidth=".017"/>))}
- <path d="M6 6 L7.5 7.5 L6 9 Z" fill={color} stroke="#fff" strokeWidth=".025"/>
+ <rect width="6" height="6" rx=".12" fill={'url(#ludoZone'+i+')'} stroke={color} strokeWidth=".08"/><rect x=".8" y=".8" width="4.4" height="4.4" rx=".65" fill="url(#ludoTile)" stroke="#ffffff" strokeWidth=".06"/>
+ {[1.95,4.05].flatMap(x=>[1.95,4.05].map(y=><circle key={x+'/'+y} cx={x} cy={y} r=".62" fill="url(#ludoSocket)" stroke="#fff" strokeWidth=".035"/>))}
+ {Array.from({length:6},(_,x)=>[6,7,8].map(y=><rect key={x+'/'+y} x={x} y={y} width="1" height="1" rx=".045" fill={y===7&&x>0||y===6&&x===1?'url(#ludoZone'+i+')':'url(#ludoTile)'} stroke="#a99a7c" strokeWidth=".035"/>))}
+ <path d="M6 6 L7.5 7.5 L6 9 Z" fill={'url(#ludoZone'+i+')'} stroke="#fff" strokeWidth=".025"/>
  <text x="1.5" y="6.7" textAnchor="middle" fill="#fff" fontSize=".58">★</text>
  <text x="2.5" y="8.7" textAnchor="middle" fill="#a0a9b5" fontSize=".58">★</text>
  </g>)}
