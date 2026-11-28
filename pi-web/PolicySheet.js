@@ -1,4 +1,4 @@
-import {ui as appText,isRTL} from './interface-language.mjs';
+import {ui as appText} from './interface-language.mjs';
 import {theme} from './ClipiTheme';
 import React,{useState} from 'react';
 import {Clipboard,Modal,Platform,ScrollView,Share,StyleSheet,Text,TouchableOpacity,View} from 'react-native';
@@ -22,7 +22,7 @@ export function PolicySheet({page,endpoint,onClose}){
     try{
       if(Platform.OS==='web'){
         if(!navigator.share){setStatus(url);return}
-        await navigator.share({title:appText(document.ar[0]),url});
+        await navigator.share({title:document.en[0]+' / '+document.ar[0],url});
       }else await Share.share({message:url});
     }catch(error){if(error.name!=='AbortError')setStatus(url)}
   }
@@ -33,8 +33,10 @@ export function PolicySheet({page,endpoint,onClose}){
         <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText('إغلاق')} onPress={onClose} style={s.close}><Text style={s.cross}>×</Text></TouchableOpacity>
       </View>
       <ScrollView key={page} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <View style={s.section}>{document.ar.map((line,index)=><Text key={line} selectable accessibilityRole={index===0?'header':undefined}
-          style={[index===0?s.title:s.text,{textAlign:isRTL()?'right':'left',writingDirection:isRTL()?'rtl':'ltr'}]}>{appText(line)}</Text>)}</View>
+        {['en','ar'].map(lang=><View key={lang} style={[s.section,lang==='ar'&&{borderTopWidth:1,borderTopColor:theme.line,paddingTop:18}]}>
+          {document[lang].map((line,index)=><Text key={index} selectable accessibilityRole={index===0?'header':undefined}
+            style={[index===0?s.title:s.text,{textAlign:lang==='ar'?'right':'left',writingDirection:lang==='ar'?'rtl':'ltr',direction:lang==='ar'?'rtl':'ltr'}]}>{line}</Text>)}
+        </View>)}
       </ScrollView>
       <View style={s.actions}>{[['مشاركة',share],['نسخ الرابط',copy]].map(([label,press])=>
         <TouchableOpacity key={label} accessibilityRole="button" onPress={press} style={s.action}><Text style={s.actionText}>{appText(label)}</Text></TouchableOpacity>)}</View>
