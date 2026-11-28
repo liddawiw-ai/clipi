@@ -210,9 +210,14 @@ export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
   if(kind)return <Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/>;
   const covers={jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
-  return <View style={{gap:15,backgroundColor:'#101a29',padding:12,borderRadius:22}}><View style={{padding:18,borderRadius:18,borderWidth:1,borderColor:'#a88951',backgroundColor:'#1c2b40'}}><Text style={{fontSize:12,color:'#dbb66e',letterSpacing:3,textAlign:'center',fontWeight:'800'}}>CLIPI ARENA</Text><Text style={{fontSize:28,color:'#fff0cc',fontWeight:'900',textAlign:'center',marginTop:7}}>{appText('ساحة الأبطال')}</Text><Text style={{color:'#c5cddd',textAlign:'center',marginTop:6}}>{appText('نافس لاعبين من حول العالم')}</Text></View>{Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{minHeight:144,overflow:'hidden',backgroundColor:['#203c34','#3a2920','#123d3d'][i],borderWidth:1,borderColor:'#a78c60',borderRadius:15,alignItems:'center',flexDirection:'row',direction:'ltr'}}>
-    <View accessible={false} style={{width:'38%',height:144,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-      {key==='ludo'?<View style={{width:132,height:132}}><LudoBadge/></View>:covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:158,height:158,transform:[{rotate:'-12deg'}]}}/>:<View style={{width:85,height:134,transform:[{rotate:'-24deg'}],backgroundColor:'#117966',borderWidth:6,borderRadius:8,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}>
-        <View style={{width:24,height:24,borderRadius:12,backgroundColor:'#171921',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'bold'}}>8</Text></View><View style={{marginTop:14,marginLeft:20,width:14,height:14,borderRadius:7,backgroundColor:'#fffbe8'}}/></View>}
-    </View><View style={{flex:1,paddingHorizontal:12,gap:5}}><Text style={[styles.heading,{color:'#fff4dc',fontSize:25}]}>{appText(label)}</Text><Text style={[styles.text,{color:'#e7ddca',fontSize:14}]}>{appText(about[key])}</Text></View></Pressable>)}</View>;
+  return <View style={{gap:12,backgroundColor:'#101a29',padding:12,borderRadius:22}}>
+    <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'flex-start',gap:8}}>
+      {Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{flex:1,minWidth:0,alignItems:'center',gap:6,paddingVertical:6}}>
+        <View accessible={false} style={{width:64,height:64,overflow:'hidden',borderRadius:15,borderWidth:1,borderColor:'#a78c60',backgroundColor:['#203c34','#3a2920','#123d3d'][i],alignItems:'center',justifyContent:'center'}}>
+          {key==='ludo'?<View style={{width:58,height:58}}><LudoBadge/></View>:covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:64,height:64}}/>:<View style={{width:36,height:52,backgroundColor:'#117966',borderWidth:3,borderRadius:5,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}><View style={{width:22,height:22,borderRadius:11,backgroundColor:'#171921',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'bold'}}>8</Text></View></View>}
+        </View>
+        <Text numberOfLines={2} style={{fontSize:13,color:'#fff4dc',fontWeight:'700',textAlign:'center'}}>{appText(label)}</Text>
+      </Pressable>)}
+    </View>
+  </View>;
 }
