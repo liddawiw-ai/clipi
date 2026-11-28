@@ -79,7 +79,8 @@ function tokenGroups(game){
   return [...clusters.values()];
 }
 const disk = (size,color) => ({width:size,height:size,borderRadius:size/2,backgroundColor:color});
-function Piece({tone,diameter:d,piece,selected,available,stacked}){
+function Piece({tone,diameter:d,piece,selected,available,stacked,sculpted=false}){
+  if(sculpted)return <View pointerEvents="none" style={{width:d,height:d,position:'relative'}}><div style={{position:'absolute',inset:'-32% -5% -12%',pointerEvents:'none'}}><svg viewBox="0 0 100 138" width="100%" height="100%" aria-hidden="true"><ellipse cx="50" cy="119" rx="39" ry="13" fill="#000" opacity=".35"/><ellipse cx="50" cy="110" rx="42" ry="18" fill={selected||available?'#ffe58a':tone.shadow}/><ellipse cx="50" cy="105" rx="36" ry="14" fill={tone.color} stroke={tone.light} strokeWidth="3"/><path d="M20 99 Q35 80 39 54 Q50 46 61 54 Q65 80 80 99 Q50 117 20 99Z" fill={tone.color} stroke={tone.shadow} strokeWidth="2"/><path d="M29 97 Q43 76 44 55 L50 55 Q47 80 42 102Z" fill={tone.light} opacity=".65"/><circle cx="50" cy="36" r="28" fill={tone.shadow}/><circle cx="48" cy="31" r="25" fill={tone.color}/><ellipse cx="39" cy="20" rx="11" ry="7" fill={tone.light}/><ellipse cx="35" cy="17" rx="5" ry="3" fill="#fff" opacity=".8"/><text x="50" y="42" fontSize="22" fontWeight="900" fill="white" textAnchor="middle">{piece+1}</text></svg></div>{stacked>1&&<View style={[s.counter,s.center,{right:-d*.25,top:-d*.22,minWidth:d*.64,height:d*.64,borderRadius:d*.32}]}><Text style={[s.count,{fontSize:Math.max(8,d*.38)}]}>{stacked}</Text></View>}</View>;
   return <View pointerEvents="none" style={[disk(d,selected?'#F9DD88':available?'#FCF2CE':tone.shadow),s.center,{
     borderColor:selected?'#6A4A24':available?'#836641':'#523E31',borderWidth:available||selected?1.15:.7,
   }]}>
@@ -111,7 +112,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
       else route.push(spot(game,seat,piece,p));
       changed.push({seat,piece,route});
     }));
-    if(!changed.length)return;
+    if(!changed.length){setMotion([]);return;}
     setMotion(changed);const timer=setTimeout(()=>setMotion([]),480);return()=>clearTimeout(timer);
   },[game]);
   const ludo=game.kind==='ludo',seat=activeSeat(game);
@@ -142,13 +143,14 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
         const d=pixels*(ludo ? (top.progress<0?.089:.060) : (top.progress<0?.061:.044));
         const target=Math.max(ludo?.062*pixels:.046*pixels,d);
         const pos={left:group.x*pixels-target/2,top:group.y*pixels-target/2,width:target,height:target};
-        const glyph=<Piece tone={tone} diameter={d} piece={top.piece} stacked={group.pieces.length}
+        const moving=motion.some(m=>m.seat===top.seat&&m.piece===top.piece);
+        const glyph=<Piece sculpted={ludo} tone={tone} diameter={d} piece={top.piece} stacked={group.pieces.length}
           available={legal.length>0} selected={!!selected}/>;
-        if(!legal.length)return <View key={group.key} accessible accessibilityLabel={label(top)} pointerEvents="none" style={[s.spot,pos]}>{glyph}</View>;
+        if(!legal.length)return <View key={group.key} accessible accessibilityLabel={label(top)} pointerEvents="none" style={[s.spot,pos,moving&&group.pieces.length===1&&{opacity:0}]}>{glyph}</View>;
         return <Pressable key={group.key} accessibilityRole="button" accessibilityState={{selected:!!selected,expanded:legal.length>1?open===group.key:undefined}}
           accessibilityLabel={legal.length>1?appText('اختيار حجر من ')+legal.length+appText(' أحجار في الخانة'):label(legal[0])}
           onPress={()=>legal.length===1?select(legal[0]):setOpen(old=>old===group.key?null:group.key)}
-          style={[s.spot,pos,{zIndex:2}]}>{glyph}</Pressable>;
+          style={[s.spot,pos,{zIndex:2},moving&&group.pieces.length===1&&{opacity:0}]}>{glyph}</Pressable>;
       })}
       {motion.map(({seat,piece,route})=><MotionPawn key={seat+'/'+piece} {...{seat,piece,route,game,pixels}}/>)}
       {targets.map(([x,y],i)=>{
@@ -159,7 +161,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
     {stack&&<View style={s.stackChoices}>
       {stack.pieces.filter(permitted).map(p=><Pressable key={p.piece} accessibilityRole="button" accessibilityLabel={label(p)}
         accessibilityState={{selected:selectedPiece===p.piece}} onPress={()=>select(p)} style={s.stackButton}>
-        <Piece tone={owner} diameter={22} piece={p.piece} available selected={selectedPiece===p.piece}/>
+        <Piece sculpted={ludo} tone={owner} diameter={22} piece={p.piece} available selected={selectedPiece===p.piece}/>
         <Text style={s.stackText}>{appText('حجر ')+arabic[p.piece]}</Text>
       </Pressable>)}
     </View>}
@@ -173,7 +175,7 @@ function MotionPawn({seat,piece,route,game,pixels}){
     return()=>animation.cancel();
   },[route,pixels]);
   const d=pixels*(game.kind==='ludo'?.060:.044);
-  return <div ref={node} aria-hidden="true" style={{position:'absolute',left:-d/2,top:-d/2,zIndex:5,pointerEvents:'none'}}><Piece tone={seats[corner(game,seat)]} diameter={d} piece={piece}/></div>;
+  return <div ref={node} aria-hidden="true" style={{position:'absolute',left:-d/2,top:-d/2,zIndex:5,pointerEvents:'none'}}><Piece sculpted={game.kind==='ludo'} tone={seats[corner(game,seat)]} diameter={d} piece={piece}/></div>;
 }
 export const RaceBoard=Board;
 const s=StyleSheet.create({
