@@ -141,3 +141,39 @@ test('cosmetics are owned across games, cannot overspend or charge twice',async(
  assert.equal((await call('tableEquipCosmetic','classic')).diamonds,500);
  assert.equal(q('SELECT '+paidBalance+' AS balance','a','a').first().balance,500);
 });
+
+test('rematch requires every participant and generates a new result identifier',async()=>{
+ const db=new DatabaseSync(':memory:');tableSchema.forEach(s=>db.exec(s));
+ const q=(sql,...p)=>{const s=db.prepare(sql);return {first:()=>s.get(...p),all:()=>({results:s.all(...p)}),run:()=>({meta:s.run(...p)})};};
+ const call=(uid,op,extras={})=>profileTables(q,uid,{kind:'ludo',op,...extras},(v,status=200)=>({status,...v}));
+ let {table}=await call('a','tableCreate');const code=table.code;
+ ({table}=await call('b','tableJoin',{code}));
+ ({table}=await call('a','tableStart',{code,rev:table.rev}));
+ let data=JSON.parse(db.prepare('SELECT data FROM game_tables WHERE code=?').get(code).data);
+ data.game.winner=0;
+ db.prepare("UPDATE game_tables SET phase='finished',data=? WHERE code=?").run(JSON.stringify(data),code);
+ ({table}=await call('a','tableRematch',{code,rev:table.rev}));
+ assert.equal(table.rematchCount,1);assert.equal(table.rematchReady,true);assert.equal(table.phase,'finished');
+ assert.equal((await call('other','tableRematch',{code,rev:table.rev})).status,403);
+ ({table}=await call('b','tableRematch',{code,rev:table.rev}));
+ assert.equal(table.phase,'playing');assert.equal(table.game.winner,null);
+ data=JSON.parse(db.prepare('SELECT data FROM game_tables WHERE code=?').get(code).data);
+ assert.ok(data.matchId);data.game.winner=1;
+ db.prepare("UPDATE game_tables SET phase='finished',data=? WHERE code=?").run(JSON.stringify(data),code);
+ assert.equal((await call('a','tableRanking')).personal.played,2);
+ assert.equal((await call('a','tableRanking')).personal.wins,1);
+});
+test('expired turn is closed without recording fake results',async()=>{
+ const db=new DatabaseSync(':memory:');tableSchema.forEach(s=>db.exec(s));
+ const q=(sql,...p)=>{const s=db.prepare(sql);return {first:()=>s.get(...p),all:()=>({results:s.all(...p)}),run:()=>({meta:s.run(...p)})};};
+ const call=(uid,op,extras={})=>profileTables(q,uid,{kind:'ludo',op,...extras},(v,status=200)=>({status,...v}));
+ let {table}=await call('a','tableCreate');const code=table.code;
+ ({table}=await call('b','tableJoin',{code}));
+ ({table}=await call('a','tableStart',{code,rev:table.rev}));
+ const data=JSON.parse(db.prepare('SELECT data FROM game_tables WHERE code=?').get(code).data);
+ data.deadline=Date.now()-1000;
+ db.prepare('UPDATE game_tables SET data=? WHERE code=?').run(JSON.stringify(data),code);
+ assert.equal((await call('a','tableMove',{code,rev:table.rev,action:{type:'roll'}})).status,409);
+ assert.equal((await call('b','tableList')).table,null);
+ assert.equal((await call('a','tableRanking')).personal.played,0);
+});
