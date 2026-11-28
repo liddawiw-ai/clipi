@@ -64,16 +64,19 @@ function Play({g,me,names,send,busy,theme}){
       <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
       <View style={{flex:1,minHeight:0,justifyContent:"center",alignItems:"center"}}><Board fitHeight viewerSeat={me} theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/></View>
-      {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
-        {myTurn&&!g.die&&<IconAction symbol="⚄" label={appText("ارمِ النرد")} selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}/>}
-        {!!g.die&&myTurn&&<Text style={styles.text}>{appText("المس الحجر المضيء لتحريكه")}</Text>}</View>}
+      {!jack&&<View style={{flexDirection:'row-reverse',alignItems:'center',gap:6,height:68,flexShrink:0,overflow:'hidden'}}>
+        <View style={{width:70,height:68,flexShrink:0,alignItems:'center',justifyContent:'center'}}><Die value={lastDie} rollKey={rollKey}/></View>
+        <View style={{flex:1,minWidth:0,height:68,justifyContent:'center',alignItems:'flex-start'}}>
+          {myTurn&&!g.die&&<IconAction symbol="⚄" label={appText("ارمِ النرد")} selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}/>}
+          {!!g.die&&myTurn&&<Text numberOfLines={2} style={[styles.text,{fontSize:13,lineHeight:18}]}>{appText("المس الحجر المضيء لتحريكه")}</Text>}
+        </View></View>}
       {jack&&<>{!!g.lastCard&&<LastCard card={g.lastCard} player={names[g.lastCard.seat]}/>}<Text style={styles.text}>{myTurn?(g.exchange?appText('اختر ورقة تمرّرها إلى شريكك'):card==null?appText('اختر ورقة من يدك'):eligible.some(o=>o.id.endsWith('/pass'))?appText('مرّر الورقة لإنهاء الدور'):appText('المس الحجر المضيء لاختيار الحركة')):appText('أوراقك')}</Text>
         <View style={styles.row}>{(g.hands[me]||[]).map((c,i)=><PlayingCard width={cardWidth} key={i} rank={c} suit={g.handSuits?.[me]?.[i]} selected={cardIndex===i} enabled={!locked&&(!!g.exchange||valid.some(o=>Number(o.id.split('/')[0])===c))} onPress={()=>{
           if(g.exchange){send({type:'exchange',cardIndex:i});return;}
           setCardIndex(i);setPiece(null);}}/>)}</View></>}
       {jack&&card!=null&&<View style={styles.row}>{matches.filter(o=>piece!=null||o.id.endsWith('/pass')).map(o=><Action key={o.id} disabled={locked} onPress={()=>playOption(o.id)}>{moveLabel(o.label)}</Action>)}</View>}
     </>}
-    {!!g.note&&<Text accessibilityLiveRegion="polite" style={styles.text}>{moveLabel(appText(g.note))}</Text>}
+    {g.kind==='ludo'?<View style={{height:38,flexShrink:0,justifyContent:'center',overflow:'hidden'}}><Text accessibilityLiveRegion="polite" numberOfLines={2} style={[styles.text,{fontSize:13,lineHeight:18}]}>{g.note?moveLabel(appText(g.note)):''}</Text></View>:!!g.note&&<Text accessibilityLiveRegion="polite" style={styles.text}>{moveLabel(appText(g.note))}</Text>}
   </View>;
 }
 function GameOverlay({children,onClose}){
