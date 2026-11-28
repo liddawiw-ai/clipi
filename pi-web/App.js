@@ -52,8 +52,6 @@ const SHOW_UNRELEASED_DEMOS=__DEV__;
 const GIFTS=[["🌹","وردة حمراء",10,"rose","رومانسي"],["💙","وردة زرقاء",30,"rose","رومانسي"],["💖","قلب",50,"heart","رومانسي"],["🫶","قلب الأصابع",100,"heart","رومانسي"],["💋","قبلة",150,"kiss","رومانسي"],["💞","أحبك",200,"heart","رومانسي"],["💘","قفل الحب",80,"heart","رومانسي"],["👏","تصفيق",5,"clap","تفاعل"],["🍭","مصاص",100,"candy","تفاعل"],["🧊","برودة الصيف",105,"ice","تفاعل"],["🔥","نسر ناري",120,"phoenix","تفاعل"],["🎂","كيكة",100,"cake","تفاعل"],["🍰","كعكة ماكرون",150,"cake","تفاعل"],["🧸","دبدوب",300,"bear","تفاعل"],["🎁","صندوق الكنز",100,"treasure","تفاعل"],["💰","حقيبة ذهبية",500,"gold","تفاعل"],["🪄","صولجان",2000,"magic","فاخر"],["👑","تاج الجواهر",60,"crown","فاخر"],["👑","تاج ملكي",5000,"crown","فاخر"],["👑","التاج الأعلى",5000,"crown","فاخر"],["💍","خاتم",500,"ring","فاخر"],["🧚","مرافقة مدى الحياة",190000,"fairy","فاخر"],["🏰","قصر",10000,"castle","فاخر"],["🗼","صاروخ أعلى",10000,"rocket","فاخر"],["🛸","مركبة فضائية",3000,"spaceship","مركبات"],["🚁","مروحية الماس",9990,"helicopter","مركبات"],["✈️","الطائرات الماسية",19990,"plane","مركبات"],["🚀","هدية الصاروخ",100,"rocket","مركبات"],["🚀","صاروخ",2500,"rocket","مركبات"],["🏎️","سيارة سباق ذهبية",1000,"car","مركبات"],["🚙","سيارة لينكولن بيضاء",7000,"car","مركبات"],["🚘","رولز رويس الماسية",19990,"car","مركبات"],["🏎️","سيارة فاخرة",1000,"car","مركبات"],["🐉","تنين ذهبي",25000,"dragon","أسطوري"],["🦅","نسر",120,"phoenix","أسطوري"],["🤖","روبوت خارق",1000,"robot","أسطوري"],["🐈‍⬛","قطة تحت النجوم",500,"cat","أسطوري"],["🦆","بطة ساحرة",300,"duck","أسطوري"],["🐹","Capybara",1000,"animal","أسطوري"],["🎊","Happy",3000,"party","تفاعل"],["🎉","حفلة البخت",50000,"party","فاخر"],["🌸","أزهار الكرز",200,"flower","رومانسي"],["🌺","زهرة بيضاء",200,"flower","رومانسي"],["🍓","عصير فواكه",100,"fruit","تفاعل"],["🌵","نرقص سويا",300,"dance","تفاعل"],["🔫","مسدس الماء",1700,"water","تفاعل"],["💸","طابع الأموال",1350,"money","فاخر"],["🪙","نيزك",10,"meteor","تفاعل"],["🧑‍🚀","مسافر الفضاء",2000,"space","مركبات"],["🐑","غنم",2000,"animal","أسطوري"],["🏳️","علم",50,"flag","تفاعل"],["🍽️","طاولة الوجبات",50,"dinner","تفاعل"],["🎀","حزمة حمراء",100,"bundle","تفاعل"],["🧁","Pistachio",20,"candy","تفاعل"],["💐","باقة ورد",500,"flower","رومانسي"],["🧴","عطر",50,"perfume","رومانسي"],["🎸","سيجارة",50,"smoke","تفاعل"],["🪅","علم الوطن",50,"flag","تفاعل"],["🦋","فراشة لامعة",500,"butterfly","أسطوري"],["💎","نيرز",10,"gem","تفاعل"]];
 // Decorative luck previews only: no paid stakes, prizes, points, wallet changes or cash value.
 const GOODS=[['👑','👑 إطار فاخر',0,'frame'],['🏎️','🏎️ دخول سيارة فاخرة',0,'ride'],['🖼️','إطار فضي',250,'frame'],['💜','إطار بنفسجي',1200,'frame'],['👑','إطار أسطوري',5000,'frame'],['🚙','دخول بسيارة',1500,'ride'],['🏎️','دخول رياضي',4000,'ride'],['🚀','دخول بصاروخ',9000,'ride']];
-const greedyStarCover=require('./assets/greedy-star.jpg');
-const FOOD=[['🥕','جزر',5],['🦐','جمبري',10],['🥦','بروكلي',5],['🥩','لحم',15],['🥬','خضار',5],['🍗','دجاج',25],['🌽','ذرة',5],['🐟','سمك',45]];
 const COUNTRIES=[['🇯🇴 الأردن','+962'],['🇸🇦 السعودية','+966'],['🇦🇪 الإمارات','+971'],['🇵🇸 فلسطين','+970'],['🇪🇬 مصر','+20'],['🇱🇧 لبنان','+961'],['🇸🇾 سوريا','+963'],['🇮🇶 العراق','+964']];
 const AVATARS=['👤','😎','👩','👨','🧑','👸','🤴','🦁','🐼','🦊','🌸','⭐'];
 // Pricing preview: USD 1 = 1,000 diamonds; PI USD-equivalent 1 = 1,200 diamonds.
@@ -117,153 +115,7 @@ function WindowControl({label,icon,onPress,style}){
 
 
 
-/* Global visual preview: UTC clock drives identical rounds in every room.
-   No server bets, balances, or cash rewards. Production requires authoritative backend. */
-const GLOBAL_BET_MS=30000;
-const GLOBAL_SPIN_MS=6000;
-const GLOBAL_ROUND_MS=GLOBAL_BET_MS+GLOBAL_SPIN_MS+4000;
 const AUDIO_GUEST_SEATS=8;
-function globalRoundAt(now){
-  const round=Math.floor(now/GLOBAL_ROUND_MS);
-  const elapsed=now%GLOBAL_ROUND_MS;
-  // Deterministic display result shared across devices with synchronized clocks.
-  let hash=(Math.imul(round,1664525)+1013904223)>>>0;
-  hash^=hash>>>16;
-  const phase=elapsed<GLOBAL_BET_MS?'betting':elapsed<GLOBAL_BET_MS+GLOBAL_SPIN_MS?'spinning':'result';
-  const deadline=phase==='betting'?GLOBAL_BET_MS:phase==='spinning'?GLOBAL_BET_MS+GLOBAL_SPIN_MS:GLOBAL_ROUND_MS;
-  return {round,elapsed,winner:(hash>>>0)%FOOD.length,phase,betting:phase==='betting',
-    remaining:Math.ceil((deadline-elapsed)/1000)};
-}
-function GlobalGreedyPreview({visible,inRoom=false,topEdge=0,onClose,onRestoreRoom,roomName,diamonds,onBet,onCredit}){
-  const [now,setNow]=useState(Date.now());
-  const {height,width}=useWindowDimensions();
-  const rotation=useRef(new Animated.Value(0)).current;
-  const [chosen,setChosen]=useState({});
-  const roundBets=useRef({round:null,stakes:{},settled:false});
-  const creditRef=useRef(onCredit);
-  creditRef.current=onCredit;
-  const [amount,setAmount]=useState(10);
-  const [roundHistory,setRoundHistory]=useState([]);
-  const lastRound=useRef(globalRoundAt(Date.now()).round);
-  useEffect(()=>{
-    const tick=setInterval(()=>setNow(Date.now()),200);
-    return ()=>clearInterval(tick);
-  },[]);
-  const state=globalRoundAt(now);
-  function settle(current){
-    const bets=roundBets.current;
-    if(bets.round===null||bets.settled||current.round<bets.round||
-      (current.round===bets.round&&current.phase!=='result'))return;
-    bets.settled=true;
-    const {winner}=globalRoundAt(bets.round*GLOBAL_ROUND_MS);
-    const prize=(bets.stakes[winner]||0)*FOOD[winner][2];
-    if(prize>0)creditRef.current(prize);
-  }
-  useEffect(()=>{
-    settle(state);
-    if(state.round!==lastRound.current){
-      const previous=globalRoundAt((state.round-1)*GLOBAL_ROUND_MS);
-      setRoundHistory(h=>[{round:previous.round,winner:previous.winner},...h].slice(0,8));
-      setChosen([]);
-      lastRound.current=state.round;
-    }
-  },[state.round,state.phase]);
-  useEffect(()=>()=>settle(globalRoundAt(Date.now())),[]);
-  const placingTrialBet=useRef(false);
-  const choose=async i=>{
-    if(placingTrialBet.current)return;
-    const current=globalRoundAt(Date.now());
-    if(!current.betting||current.round!==state.round)return;
-    settle(current);
-    if(roundBets.current.round!==current.round)roundBets.current={round:current.round,stakes:{},settled:false};
-    const {stakes}=roundBets.current;
-    if(!stakes[i]&&Object.keys(stakes).length>=6)return Alert.alert(ui("الحد الأقصى"),appText('اختر حتى ست خانات'));
-    placingTrialBet.current=true;
-    try{
-      if(!await onBet(amount,i,current.round))return Alert.alert(appText('اللعب التجريبي'),appText('تعذّر تسجيل الاختيار. تحقق من الرصيد وتوقيت الجولة.'));
-    }finally{placingTrialBet.current=false;}
-    if(globalRoundAt(Date.now()).round!==current.round)return;
-
-    const updated={...stakes,[i]:(stakes[i]||0)+amount};
-    roundBets.current.stakes=updated;
-    setChosen(updated);
-  };
-  useEffect(()=>{
-    const current=globalRoundAt(Date.now());
-    const target=5*360+(360-current.winner*360/FOOD.length)%360;
-    if(!visible||current.phase!=='spinning'){
-      rotation.setValue(current.phase==='result'?target:0);
-      return;
-    }
-    const elapsed=current.elapsed-GLOBAL_BET_MS;
-    const progress=elapsed/GLOBAL_SPIN_MS;
-    rotation.setValue(target*progress);
-    const animation=Animated.timing(rotation,{
-      toValue:target,duration:GLOBAL_SPIN_MS-elapsed,easing:Easing.linear,useNativeDriver:true
-    });
-    animation.start();
-    return()=>animation.stop();
-  },[visible,state.round,state.phase,rotation]);
-  const sheetHeight=inRoom ? height-topEdge : Math.round(height*.52);
-  const size=Math.min(width-28,250,Math.max(145,sheetHeight-155));
-  const foodSize=size*.225,radius=size*.374,mid=size/2,centerSize=size*.34;
-  const angle=rotation.interpolate({inputRange:[0,2160],outputRange:['0deg','2160deg']});
-  const label=state.phase==='betting'?'المراهنة':state.phase==='spinning'?'الدوران':'الجولة التالية';
-  if(!visible)return null;
-  const panel=<View testID="greedy-panel" style={[S.gameSheet,inRoom ? [S.roomGameLayer,{top:topEdge}] : {height:sheetHeight}]} accessibilityViewIsModal={!inRoom}>
-        <View style={S.sheetHandle}/>
-        <View style={S.gameBar}>
-          <WindowControl icon="×" label={ui("إغلاق اللعبة")} onPress={onClose}/>
-          <View style={S.gameHeading}>
-            <Text style={S.gameTitle}>{appText("Greedy Star")}</Text>
-            <Text style={S.gameMeta} numberOfLines={1}>{roomName} · {label} · {state.remaining}{appText(" ث")}</Text>
-          </View>
-          <Text style={S.gameBalance}>💎 {fmt(diamonds)}</Text>
-        </View>
-        <ScrollView style={S.gameScroller} contentContainerStyle={S.gameWheelContent}>
-          <View style={[S.starWheel,{width:size,height:size}]}>
-            <View style={[S.starWheelRing,{width:size*.75,height:size*.75,left:size*.125,top:size*.125,borderRadius:size*.375}]}/>
-            <Animated.View style={[StyleSheet.absoluteFillObject,{transform:[{rotate:angle}]}]}>
-            {FOOD.map((food,i)=>{
-              const position=(i*360/FOOD.length-90)*Math.PI/180;
-              return <TouchableOpacity key={i} accessibilityLabel={appText(food[1])} disabled={!state.betting} onPress={()=>choose(i)}
-                style={[S.starFood,{width:foodSize,height:foodSize,borderRadius:foodSize/2,
-                  left:mid+Math.cos(position)*radius-foodSize/2,top:mid+Math.sin(position)*radius-foodSize/2},
-                  (state.phase==='result'&&state.winner===i||Boolean(chosen[i]))&&S.starFoodLit]}>
-                <Text style={S.gameFood}>{food[0]}</Text>
-                <Text style={S.starFoodLabel}>{chosen[i]?fmt(chosen[i])+' 💎':'×'+food[2]}</Text>
-              </TouchableOpacity>;
-            })}
-            </Animated.View>
-            <View style={[S.starCenter,{width:centerSize,height:centerSize,borderRadius:centerSize/2,
-              left:mid-centerSize/2,top:mid-centerSize/2}]}>
-              <Text style={S.gameClock}>{state.phase==='result'?FOOD[state.winner][0]:state.remaining+appText(' ث')}</Text>
-            </View>
-            {state.phase!=='betting'&&<Text pointerEvents="none" style={[S.gamePointer,{top:0,left:mid-10,zIndex:10,elevation:10}]}>▼</Text>}
-          </View>
-          {roundHistory.map(h=><Text key={h.round} style={S.gameHistory}>#{h.round} · {appText(FOOD[h.winner][1])}</Text>)}
-        </ScrollView>
-        <View style={S.gameFooter}>
-          <Text style={S.gameMeta} accessibilityLiveRegion="polite">
-            {state.phase==='result'?appText('الفائز: ')+appText(FOOD[state.winner][1])+' ×'+FOOD[state.winner][2]:
-              state.betting?appText('اختر حتى 6 خانات · ألماس تجريبي'):appText('العجلة تدور · المراهنة مغلقة')}
-          </Text>
-          <View style={S.gameAmounts}>{[10,100,500,1000,10000].map(n=>
-            <TouchableOpacity key={n} accessibilityRole="button" accessibilityState={{disabled:!state.betting,selected:amount===n}}
-              disabled={!state.betting} onPress={()=>setAmount(n)} style={[S.gameAmount,amount===n&&S.gameAmountSelected]}>
-              <Text style={S.gameAmountText} adjustsFontSizeToFit numberOfLines={1}>{fmt(n)}</Text>
-            </TouchableOpacity>)}</View>
-        </View>
-      </View>;
-  if(inRoom)return panel;
-  return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-    <View style={S.gameOverlay}>
-      <TouchableOpacity accessibilityLabel={appText("إغلاق اللعبة")} style={StyleSheet.absoluteFillObject} onPress={onClose}/>
-      {onRestoreRoom&&<WindowControl label={ui("تكبير الغرفة")} icon="⤢" style={{position:"absolute",right:12,bottom:sheetHeight+8}} onPress={onRestoreRoom}/>}
-      {panel}
-    </View>
-  </Modal>;
-}
 
 async function mediaRequest(path,body,signal){
   if(!MEDIA_CONFIGURED)throw new Error(ui("عنوان خدمة البث غير مضبوط"));
@@ -464,23 +316,7 @@ const mediaStyles=StyleSheet.create({
   guest:{position:'absolute',right:12,bottom:185,width:116,height:150,zIndex:2,overflow:'hidden',borderRadius:12,borderWidth:2,borderColor:GOLD},
 });
 
-function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHostProfile,userId,username,avatar,equipped,diamonds,onBet,onCredit,onExit,onMinimize,onWallet,minimized}){
-  const [gamePanel,setGamePanel]=useState(null);
-  const [micBottom,setMicBottom]=useState(0);
-  const [roomHeight,setRoomHeight]=useState(0);
-  const gameVisible=gamePanel==='playing'&&!minimized;
-  const pickerVisible=gamePanel==='picker'&&!minimized;
-  const rememberMicBottom=({nativeEvent:{layout}})=>setMicBottom(Math.round(layout.y+layout.height));
-  useEffect(()=>{
-    if(minimized)setGamePanel(current=>current===null?null:'closed');
-  },[minimized]);
-  useEffect(()=>{
-    if(!gameVisible&&!pickerVisible)return;
-    const close=()=>{setGamePanel('closed');return true;};
-    const escape=event=>{if(event.key==='Escape'){event.preventDefault();close();}};
-    window.addEventListener('keydown',escape);
-    return ()=>window.removeEventListener('keydown',escape);
-  },[gameVisible,pickerVisible]);
+function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHostProfile,userId,username,avatar,equipped,diamonds,onExit,onMinimize,onWallet,minimized}){
   const [chatVisible,setChatVisible]=useState(true);
   const audio=room.type==='audio';
   const officialHelp=room.id===helpRoom.id;
@@ -934,7 +770,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
       <Small title={ui("رجوع")} onPress={isHost?closeHostedRoom:exitRoomOnce}/>
     </View>;
   }
-  return <KeyboardAvoidingView onLayout={e=>setRoomHeight(e.nativeEvent.layout.height)} style={[S.room,{backgroundColor:audio?theme.canvas:theme.ink}]} behavior={Platform.OS==='ios'?'padding':undefined}>
+  return <KeyboardAvoidingView style={[S.room,{backgroundColor:audio?theme.canvas:theme.ink}]} behavior={Platform.OS==='ios'?'padding':undefined}>
     <StatusBar barStyle="dark-content"/>
     {audio&&(!roomTheme||officialHelp)&&<GoldFrame stage tone="audioRoom"/>}
     {officialHelp&&<Image accessible={false} pointerEvents="none" source={helpCoverImage} resizeMode="contain" style={{position:'absolute',width:'72%',height:'45%',left:'14%',top:'33%'}}/>}
@@ -957,7 +793,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
     </Modal>
     {roomSettings}
     {shareSheet}
-    <View collapsable={false} testID="room-mic-stage" onLayout={rememberMicBottom}>
+    <View collapsable={false} testID="room-mic-stage">
     <View style={S.roomTop} testID="room-header">
       <View style={S.roomHeaderMain}>
         {officialHelp&&!minimized&&<Small plain title={ui('اترك طلب مساعدة')} onPress={()=>startReport('help',room.id)}/>}
@@ -1038,10 +874,6 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
           <RoomAction icon="▤" label={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
         </>}
-        {!keyboardOn&&!gameVisible&&!pickerVisible&&<RoomAction label={(accountLabels[locale]||accountLabels.en).games}
-          onPress={()=>{Keyboard.dismiss();setGiftOpen(false);setGamePanel('picker')}}>
-          <Image accessible={false} source={greedyStarCover} resizeMode="cover" style={S.gameThumbnail}/>
-        </RoomAction>}
         <RoomAction icon="🎁" label={ui("صندوق الهدايا")} active={giftOpen} onPress={()=>openGifts(null)}/>
       </View>
     </View>
@@ -1068,17 +900,6 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
         </View>
       </>}
     </View>
-    {pickerVisible&&<View style={[S.gameSheet,S.roomGamesPicker]}>
-      <View style={S.gameBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={()=>setGamePanel('closed')}/>
-        <Text accessibilityRole="header" style={S.gameTitle}>{ui("ألعاب")}</Text></View>
-      <TouchableOpacity accessibilityRole="button" accessibilityLabel={appText("Greedy Star")} style={S.gameChoice} onPress={()=>setGamePanel('playing')}>
-        <Image accessible={false} source={greedyStarCover} resizeMode="cover" style={S.gameCover}/>
-        <Text style={S.gameCaption}>{appText("Greedy Star")}</Text>
-      </TouchableOpacity>
-    </View>}
-    {gamePanel!==null&&<GlobalGreedyPreview visible={gameVisible} inRoom
-      topEdge={(audio?micBottom:Math.max(micBottom,Math.round(roomHeight*.42)))+8}
-      roomName={room.name} diamonds={diamonds} onBet={onBet} onCredit={onCredit} onClose={()=>setGamePanel('closed')}/>}
   </KeyboardAvoidingView>;
 }
 
@@ -1279,11 +1100,10 @@ export default function App(){
   const [rooms,setRooms]=useState([]),[roomName,setRoomName]=useState('غرفتي'),[roomType,setRoomType]=useState('video'),[activeRoom,setActiveRoom]=useState(null);
   const activeRoomRef=useRef(null);activeRoomRef.current=activeRoom;
   const [paymentMethod,setPaymentMethod]=useState('usd'),[piRate,setPiRate]=useState('');
-  const [bets,setBets]=useState({}),[betAmount,setBetAmount]=useState(10),[seconds,setSeconds]=useState(30),[phase,setPhase]=useState('betting'),[lit,setLit]=useState(-1),[gameResult,setGameResult]=useState(null),[history,setHistory]=useState([]);
-  const betsRef=useRef({}),phaseRef=useRef('betting'),pageRef=useRef('loading'),timerRef=useRef(null);
+  const pageRef=useRef('loading');
   const total=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
   const available=wallet.welcome+wallet.purchased+(ownerDemo?wallet.owner:0);
-  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','games','game','linkPiAccount'].includes(p))return;pageRef.current=p;setPage(p)};
+  const go=p=>{if(!SHOW_UNRELEASED_DEMOS&&['earnings','payout','gifts','linkPiAccount'].includes(p))return;pageRef.current=p;setPage(p)};
   const payoutCountryInfo=PAYOUT_COUNTRIES.find(c=>c[0]===payoutCountry)||PAYOUT_COUNTRIES[0];
   const payoutOptions=PAYOUT_WALLETS[payoutCountry]||PAYOUT_WALLETS.OTHER;
   function choosePayoutCountry(code){
@@ -1352,9 +1172,6 @@ export default function App(){
         setSpent(0);setReceived(0);setSupportLog([]);
         setPayoutDrafts([]);setPayoutAccount('');setPayoutHolder('');
         setPayoutBankName('');setPayoutSwift('');setPayoutAmount('');
-        setHistory([]);setBets({});betsRef.current={};
-        phaseRef.current='betting';setPhase('betting');setSeconds(30);
-        clearTimeout(timerRef.current);
       }
       setUser(u);
       setDraftCover(null);setRooms([]);setActiveRoom(null);setBroadcastName('');setInviteAll(false);setInviteRoomId(null);setRoomProfileUid(null);
@@ -1673,38 +1490,6 @@ export default function App(){
     if(paymentMethod==='usd')Alert.alert(ui("معاينة شراء"),fmt(pack)+ui(' ماسة بسعر $')+usd+ui('. الدفع الحقيقي غير مربوط.'));
     else{const rate=Number(piRate);if(!Number.isFinite(rate)||rate<=0)return Alert.alert(ui("سعر PI"),ui("أدخل سعر PI الحالي بالدولار"));Alert.alert(ui("معاينة PI"),fmt(Math.round(usd*DIAMONDS_PER_PI_USD))+ui(' ماسة مقابل ')+(usd/rate).toFixed(6)+ui(' PI وفق السعر المدخل. يتغير سعر PI من حين إلى آخر، ولا يتم تحصيل أي دفع.'))}
   }
-  function resetGame(){clearTimeout(timerRef.current);betsRef.current={};setBets({});setSeconds(30);setLit(-1);setGameResult(null);phaseRef.current='betting';setPhase('betting')}
-  function placeBet(i){
-    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return Alert.alert(appText('غير متاح'),appText('اللعبة المالية غير مفعلة. المحاكاة للتطوير فقط.'));
-    if(phaseRef.current!=='betting')return;
-    if(!betsRef.current[i]&&Object.keys(betsRef.current).length>=6)return Alert.alert(appText('الحد الأقصى ست خانات'));
-    if(!spend(betAmount))return Alert.alert(ui("رصيد غير كافٍ"));
-    const b={...betsRef.current,[i]:(betsRef.current[i]||0)+betAmount};betsRef.current=b;setBets(b);
-  }
-  function spin(){
-    if(!__DEV__||REAL_GREEDY_STAR_ENABLED)return;
-    if(phaseRef.current!=='betting')return;
-    phaseRef.current='spinning';setPhase('spinning');
-    const placed={...betsRef.current},winner=Math.floor(Math.random()*8),steps=40+winner;let i=0;
-    const tick=()=>{
-      if(pageRef.current!=='game')return;
-      if(i>=steps){
-        const prize=(placed[winner]||0)*FOOD[winner][2];
-        setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});
-        setLit(winner);setGameResult({item:FOOD[winner],prize});setHistory(v=>[{item:FOOD[winner],prize},...v].slice(0,10));
-        phaseRef.current='result';setPhase('result');timerRef.current=setTimeout(()=>{if(pageRef.current==='game')resetGame()},3200);return;
-      }
-      setLit(i%8);i++;timerRef.current=setTimeout(tick,i>35?220:i>25?130:70);
-    };tick();
-  }
-  useEffect(()=>{if(page!=='game'||phase!=='betting')return;const t=setInterval(()=>setSeconds(v=>Math.max(0,v-1)),1000);return()=>clearInterval(t)},[page,phase]);
-  useEffect(()=>{if(page==='game'&&phase==='betting'&&seconds===0)spin()},[page,phase,seconds]);
-  useEffect(()=>()=>clearTimeout(timerRef.current),[]);
-  function leaveGame(){
-    if(phaseRef.current==='spinning')return Alert.alert(appText('انتظر انتهاء الجولة'));
-    if(phaseRef.current==='betting')setBalance({...walletRef.current,welcome:walletRef.current.welcome+Object.values(betsRef.current).reduce((a,b)=>a+b,0)});
-    resetGame();go('games');
-  }
   function header(title,back=()=>go('home')){return <View style={S.header}><TouchableOpacity onPress={back}><Text style={S.white}>{ui("❮ رجوع")}</Text></TouchableOpacity><Text style={S.headerTitle}>{title}</Text>{page!=='wallet'&&page!=='earningsWallet'&&<TouchableOpacity onPress={()=>go('wallet')}><Text style={S.gold}>{SHOW_UNRELEASED_DEMOS?'💎 '+fmt(total):'💎 '+ui('المحفظة')}</Text></TouchableOpacity>}</View>}
   function nav(){
     const items=[
@@ -1950,7 +1735,7 @@ export default function App(){
         {label:ui('شروط الخدمة'),onPress:()=>setPolicy('terms')},
         {label:ui('مشاركة Clipi'),onPress:()=>Share.share({message:location.origin+'/'}).catch(()=>Alert.alert(ui('تعذرت المشاركة')))},
         ...(SHOW_UNRELEASED_DEMOS?[
-          {label:ui('الألعاب'),onPress:()=>go('games')},
+          {label:ui('الألعاب'),onPress:()=>go('profileGames')},
           {label:ui('الهدايا'),onPress:()=>go('gifts')},
           {label:ui('أرباح المضيف'),onPress:()=>go('earnings')}
         ]:[]),
@@ -1959,28 +1744,7 @@ export default function App(){
     </HubScreen>;
   }
   if(page==='profileEdit')return layout(menu.edit,<>{myProfile}<Text style={S.label}>{ui("الاسم")}</Text><TextInput style={S.input} value={name} onChangeText={setName}/><Text style={S.label}>{ui("الصورة الرمزية")}</Text><View style={S.giftGrid}>{AVATARS.map(a=><TouchableOpacity key={a} style={S.avatarChoice} onPress={()=>{if(!pickingPhoto.current){selectedEmoji.current=a;setAvatar(a)}}}><Text style={{fontSize:29}}>{a}</Text></TouchableOpacity>)}</View><Btn title={ui("حفظ الاسم والصورة")} onPress={async()=>{try{if(!name.trim())throw Error(ui("أدخل الاسم"));await saveProfile(user,name.trim(),true);Alert.alert(ui("تم الحفظ"))}catch(e){Alert.alert(ui("خطأ"),uiError(e))}}}/><View style={S.panel}><Text style={S.title}>{ui("🚫 الحسابات المحظورة (")}{blockedUsers.length})</Text>{blockedUsers.length===0?<Text style={S.muted}>{ui("لا توجد حسابات محظورة")}</Text>:blockedUsers.map(uid=><View key={uid} style={{marginBottom:9}}><Text style={S.muted}>{ui("المستخدم: ")}{uid.slice(0,14)}...</Text><Btn title={ui("إلغاء الحظر")} color={theme.sea} onPress={()=>unblockUser(uid)}/></View>)}</View><Text style={S.muted}>{ui("حذف الحساب في هذه النسخة غير شامل للمحادثات والبلاغات القديمة، ويجب تشغيل خدمة حذف بيانات كاملة قبل إطلاق التطبيق للعامة.")}</Text><Btn title={ui("حذف حسابي")} color={theme.peach} onPress={deleteAccount}/><Btn title={ui("تسجيل الخروج")} color={theme.secondary} onPress={logout}/></>,()=>go('accountSettings'));
-  if(page==='games')return layout(appText('الألعاب'),<View style={S.card}><Text style={S.title}>🎰 Greedy Star</Text><Text style={S.muted}>{appText("الماسات والنتائج هنا تجريبية")}</Text><Btn title={appText("العب الآن")} onPress={()=>{resetGame();go('game')}}/></View>);
-  if(page==='game')return <View style={S.starPage}>
-    <StatusBar barStyle="dark-content"/>
-    <View style={S.starTopBar}><WindowControl icon="×" label={ui("إغلاق")} onPress={leaveGame}/><Text style={S.starRules} onPress={()=>Alert.alert(appText('قواعد اللعبة'),appText('محاكاة للتطوير فقط. ثماني خانات، ويمكن اختيار ست خانات كحد أقصى. لا توجد أموال أو جوائز قابلة للسحب.'))}>{appText("📜 قاعدة")}</Text><View style={S.starBrand}><Text style={S.starBrandText}>{appText("Greedy Star")}</Text></View><Text style={S.starRound}>{appText("جولة تجريبية")}</Text></View>
-    <ScrollView contentContainerStyle={S.starScroll}>
-      <View style={S.starWheel}>
-        <View style={S.starWheelRing}/>
-        {FOOD.map((f,i)=>{const angle=(i*45-90)*Math.PI/180;return <TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={[S.starFood,{left:124+Math.cos(angle)*107-39,top:124+Math.sin(angle)*107-39},lit===i&&S.starFoodLit]}>
-          <Text style={S.starFoodEmoji}>{f[0]}</Text>
-          <Text style={S.starFoodLabel}>{f[2]}{appText(" أضعاف")}</Text>
-          {bets[i]?<Text style={S.starStake}>{bets[i]} 💎</Text>:null}
-        </TouchableOpacity>})}
-        <View style={S.starCenter}><Text style={S.starCenterTop}>{phase==='betting'?appText('حدد الوقت'):phase==='spinning'?appText('تدور العجلة'):appText('النتيجة')}</Text><Text style={S.starCenterTime}>{phase==='betting'?seconds+'S':phase==='spinning'?'⭐':gameResult?gameResult.item[0]:'★'}</Text></View>
-      </View>
-      <View style={S.starBanner}><Text style={S.starBannerText}>{gameResult?'🎉 '+appText(gameResult.item[1])+' · '+fmt(gameResult.prize)+appText(' 💎 تجريبي'):appText('اختر مقدار الماسة، ثم اضغط على الطعام')}</Text></View>
-      <View style={S.starBetTray}>{[10000,1000,500,100,10].map(n=><TouchableOpacity key={n} onPress={()=>setBetAmount(n)} style={[S.starBetChip,betAmount===n&&S.starBetActive]}><Text style={S.starBetText}>{n} 💎</Text></TouchableOpacity>)}</View>
-      <View style={S.starInfoRow}><View style={S.starInfoPill}><Text style={S.starInfoText}>{appText("الماس المتبقي")}</Text><Text style={S.starInfoValue}>{fmt(total)}</Text></View><TouchableOpacity style={S.starInfoPill} onPress={()=>Alert.alert(appText('السجل'),history.length?history.map(h=>h.item[0]+' '+appText(h.item[1])+' — '+h.prize+' 💎').join('\n'):appText('لا توجد جولات بعد'))}><Text style={S.starInfoText}>{appText("سجلاتي")}</Text><Text style={S.starInfoValue}>📜</Text></TouchableOpacity><View style={[S.starInfoPill,{backgroundColor:theme.paper}]}><Text style={S.starInfoText}>{appText("مجموع الجولة")}</Text><Text style={S.starInfoValue}>{fmt(Object.values(bets).reduce((x,y)=>x+y,0))}</Text></View></View>
-      <View style={S.starBottomStrip}>{FOOD.map((f,i)=><TouchableOpacity key={i} disabled={phase!=='betting'} onPress={()=>placeBet(i)} style={S.starMiniFood}><Text style={{fontSize:19}}>{f[0]}</Text></TouchableOpacity>)}</View>
-      <Btn title={phase==='betting'?appText('ابدأ الجولة التجريبية'):phase==='result'?appText('جولة جديدة'):appText('العجلة تدور...')} color={theme.mint} disabled={phase==='spinning'} onPress={phase==='result'?resetGame:spin}/>
-      <Text style={S.starDisclaimer}>{appText("نسخة تصميمية مستوحاة من الصورة المرجعية · محاكاة تطويرية فقط، بلا رهانات أو جوائز نقدية.")}</Text>
-    </ScrollView>
-  </View>;
+  if(page==='games'||page==='game')return <HubScreen title={menu.games} action={{label:menu.back,onPress:()=>go('profile')}} dock={nav()}><ProfileGames key={user.uid} uid={user.uid} name={name||user.displayName} request={mediaRequest}/></HubScreen>;
   return <View style={S.page}><Btn title={ui("الرئيسية")} onPress={()=>go('home')}/></View>;
   }
   return <View style={{flex:1}}>
@@ -1988,8 +1752,7 @@ export default function App(){
       {renderPage()}
     </div>
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
-    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:[StyleSheet.absoluteFillObject,{zIndex:10,backgroundColor:theme.canvas,overflow:'hidden'}]}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onBet={spend}
-      onCredit={prize=>{if(auth().currentUser?.uid===user.uid)setBalance({...walletRef.current,welcome:walletRef.current.welcome+prize});}} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
+    {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:[StyleSheet.absoluteFillObject,{zIndex:10,backgroundColor:theme.canvas,overflow:'hidden'}]}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
     {user?.uid&&<InviteInbox key={user.uid} roomId={activeRoom?.id} locale={locale} blocked={blockedUsers} request={mediaRequest} onJoin={async id=>{
       if(activeRoom?.ownerUid===user.uid)throw Error(locale==='ar'?appText('أنهِ بثك الحالي قبل الانضمام إلى غرفة أخرى.'):appText('End your current broadcast before joining another room.'));
       if(id===helpRoom.id){enterRoom(helpRoom);return;}
