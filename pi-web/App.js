@@ -141,15 +141,7 @@ function audioSlot(person,ownerUid){
 }
 
 function RoomMedia(props){
-  const [runtime,setRuntime]=useState(null);
-  const [loadError,setLoadError]=useState(false);
-  useEffect(()=>{
-    try{setRuntime(loadRoomMediaRuntime());}
-    catch(error){console.warn('Room media initialization failed',error);setLoadError(true);}
-  },[]);
-  if(loadError)return <Text style={[mediaStyles.status,!props.audio&&mediaStyles.videoStatus]}>{ui("تعذر تشغيل الصوت والفيديو على هذا الجهاز")}</Text>;
-  if(!runtime)return <Text style={[mediaStyles.status,!props.audio&&mediaStyles.videoStatus]}>{ui("جاري إعداد البث…")}</Text>;
-  return <RoomMediaSession {...props} runtime={runtime}/>;
+  return <RoomMediaSession {...props} runtime={loadRoomMediaRuntime()}/>;
 }
 
 function RoomMediaSession({room,userId,canPublish,guestMedia,audio,blocked,guests,runtime,session,onSeat,lockedSlots,allMicsLocked,people,initialMedia,speakerMuted,onMediaControls}){
@@ -188,7 +180,7 @@ function RoomMediaSession({room,userId,canPublish,guestMedia,audio,blocked,guest
 
   if(!MEDIA_CONFIGURED)return <Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("عنوان خدمة البث غير مضبوط")}</Text>;
   if(error)return <View style={mediaStyles.notice}><Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{appText(error)}</Text><Small title={ui("إعادة الاتصال")} onPress={()=>{setCredentials(null);setError('');setAttempt(v=>v+1)}}/></View>;
-  if(!credentials||credentials.canPublish!==canPublish)return <Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("جاري الاتصال بالبث…")}</Text>;
+  if(!credentials||credentials.canPublish!==canPublish)return null;
   return <LiveKitRoom serverUrl={credentials.serverUrl} token={credentials.token} connect audio={false} video={false} speakerMuted={speakerMuted}
     onError={()=>setError(ui("تعذر الاتصال بالبث"))}
     onDisconnected={()=>setError(ui("انقطع اتصال البث"))}>
@@ -301,10 +293,9 @@ function ConnectedMedia({onMediaControls,room,canPublish,guestMedia,audio,blocke
   return <>
     {!audio&&camera&&!blocked.includes(room.ownerUid)&&<VideoTrack trackRef={camera} style={StyleSheet.absoluteFillObject}/>}
     {!audio&&guestCamera&&<View pointerEvents="none" style={mediaStyles.guest}><VideoTrack trackRef={guestCamera} style={StyleSheet.absoluteFillObject}/></View>}
-    {state!==ConnectionState.Connected?<Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("جاري الاتصال بالبث…")}</Text>:
-      audio?<>{renderMic(0)}
+    {audio?<>{renderMic(0)}
         <View style={S.seatGrid}>{Array.from({length:AUDIO_GUEST_SEATS},(_,i)=>renderMic(i+1))}</View></>:
-        !camera&&<Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("كاميرا المضيف مغلقة")}</Text>}
+        state===ConnectionState.Connected&&!camera&&<Text style={[mediaStyles.status,!audio&&mediaStyles.videoStatus]}>{ui("كاميرا المضيف مغلقة")}</Text>}
   </>;
 }
 
@@ -764,7 +755,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
           inputMode="numeric" secureTextEntry onChangeText={value=>setPin(normalizeRoomPin(value))}
           onSubmitEditing={submitPin} placeholder={ui("رمز الغرفة")}/>
       </>}
-      <Text accessibilityLiveRegion="polite" style={S.white}>{membership.error||ui("جارٍ دخول الغرفة…")}</Text>
+      {!!membership.error&&<Text accessibilityLiveRegion="polite" style={S.white}>{membership.error}</Text>}
       {membership.pinRequired?<Btn title={ui("دخول")} disabled={!validPin||membership.joining} onPress={submitPin}/>:
         membership.error&&<Btn title={ui("دخول")} disabled={membership.joining} onPress={()=>membership.join()}/>}
       <Small title={ui("رجوع")} onPress={isHost?closeHostedRoom:exitRoomOnce}/>
@@ -869,8 +860,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
         </View>
         {!keyboardOn&&<>
           <RoomAction icon="▦" label={ui("إعدادات الغرفة")} onPress={()=>setRoomMenu('settings')}/>
-          <RoomAction icon={speakerMuted?'🔇':'🔊'} label={speakerMuted?ui("تشغيل سماعة الغرفة"):ui("كتم سماعة الغرفة")}
-            active={!speakerMuted} onPress={()=>setSpeakerMuted(value=>!value)}/>
+  
           <RoomAction icon="▤" label={chatVisible?ui("إخفاء الدردشة"):ui("إظهار الدردشة")} active={chatVisible}
             onPress={()=>setChatVisible(value=>!value)}/>
         </>}
