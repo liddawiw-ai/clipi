@@ -30,10 +30,11 @@ export const tableSchema=[
     END`),
   'CREATE TRIGGER IF NOT EXISTS game_remove_members AFTER DELETE ON game_tables BEGIN DELETE FROM game_members WHERE code=OLD.code; END'
 ];
+const turnMs=60000;
 function present(row,uid){
   if(!row)return null;
-  const {players,game}=JSON.parse(row.data),me=players.findIndex(p=>p.uid===uid);
-  return {code:row.code,kind:row.kind,rev:row.rev,phase:row.phase,me,players:players.map(p=>p.name),game:viewFor(game,me)};
+  const {players,game,deadline}=JSON.parse(row.data),me=players.findIndex(p=>p.uid===uid);
+  return {code:row.code,kind:row.kind,rev:row.rev,phase:row.phase,me,players:players.map(p=>p.name),game:viewFor(game,me),deadline:row.phase==='playing'?(deadline||row.changed+turnMs):null,serverTime:Date.now()};
 }
 export async function profileTables(q,uid,input,json){
   const {op,kind}=input;
@@ -57,10 +58,20 @@ export async function profileTables(q,uid,input,json){
     const personal=await q('SELECT COUNT(*) AS played,COALESCE(SUM(won),0) AS wins FROM game_results WHERE kind=? AND uid=?',kind,uid).first();
     return json({ranking:results.map(({uid:player,...row})=>({...row,me:player===uid,xp:row.played*10+row.wins*30})),personal:{...personal,xp:personal.played*10+personal.wins*30}});
   }
-  const active=await q('SELECT t.* FROM game_tables t JOIN game_members m ON m.code=t.code WHERE m.uid=? AND m.kind=?',uid,kind).first();
+  let active=await q('SELECT t.* FROM game_tables t JOIN game_members m ON m.code=t.code WHERE m.uid=? AND m.kind=?',uid,kind).first();
   if(active&&active.changed<expiry){
     await q('DELETE FROM game_tables WHERE code=? AND rev=? AND changed<?',active.code,active.rev,expiry).run();
     return profileTables(q,uid,input,json);
+  }
+  if(active?.phase==='playing'){
+    const data=JSON.parse(active.data);
+    if(now>=(data.deadline||active.changed+turnMs)){
+      // Expired matches are closed without awarding fabricated wins or XP.
+      const result=await q('DELETE FROM game_tables WHERE code=? AND rev=?',active.code,active.rev).run();
+      if(!result.meta.changes)return json({error:'تغيّرت الطاولة، حدّث الدور'},409);
+      active=null;
+      if(op!=='tableList'&&op!=='tableMatch'&&op!=='tableCreate')return json({error:'انتهى وقت الدور'},409);
+    }
   }
   if(op==='tableList'){
     const {results}=await q(`SELECT code,json_array_length(data,'$.players') AS seats,json_extract(data,'$.players[0].name') AS host
@@ -103,11 +114,12 @@ export async function profileTables(q,uid,input,json){
     if(input.rev!==row.rev)return json({error:'تغيّرت الطاولة، حدّث الدور'},409);
     if(op==='tableStart'){
       if(phase!=='lobby'||seat!==0||!seatsFor(kind).includes(data.players.length))return json({error:'انتظر اكتمال اللاعبين وبدء المضيف'},409);
-      data.game=match(kind,data.players.length);phase='playing';
+      data.game=match(kind,data.players.length);data.deadline=now+turnMs;phase='playing';
     }else if(op==='tableMove'){
       if(phase!=='playing'||data.game.turn!==seat)return json({error:'انتظر دورك'},409);
       try{data.game=move(data.game,input.action);}catch(e){return json({error:e.message},400);}
-      if(data.game.winner!==null)phase='finished';
+      if(data.game.winner!==null){phase='finished';delete data.deadline;}
+      else data.deadline=now+turnMs;
     }else if(op==='tableLeave'){
       if(phase!=='lobby'||data.players.length===1){
         const r=await q('DELETE FROM game_tables WHERE code=? AND rev=?',code,row.rev).run();
