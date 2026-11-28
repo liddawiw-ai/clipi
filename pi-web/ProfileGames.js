@@ -148,6 +148,13 @@ function Table({kind,uid,name,request,onBack}){
     },kind==='pool'&&local.shot?2700:650);
     return ()=>clearTimeout(timer);
   },[local,solo,confirm]);
+  const [seconds,setSeconds]=useState(60);
+  useEffect(()=>{
+    if(local||!table?.deadline)return;
+    const end=Date.now()+Math.max(0,table.deadline-table.serverTime);
+    const tick=()=>setSeconds(Math.max(0,Math.ceil((end-Date.now())/1000)));
+    tick();const timer=setInterval(tick,250);return()=>clearInterval(timer);
+  },[local,table?.deadline,table?.serverTime]);
   const game=local||table?.game,me=local?(solo?0:local.turn):table?.me;
   const names=local?Array.from({length:local.count},(_,i)=>!solo?'لاعب '+(i+1):i===0?'أنت':kind==='jackaroo'&&i===2?'شريكك':'الكمبيوتر '+i):table?.players||[];
   return <View style={[styles.panel,theme&&{borderWidth:3,borderColor:theme.color}]}>
@@ -190,8 +197,11 @@ function Table({kind,uid,name,request,onBack}){
     </>}
     {!!table&&!local&&<><Text selectable style={styles.text}>{appText('رمز الطاولة · ')+table.code}</Text><Text style={styles.text}>{names.join('  ·  ')}</Text>
       {table.phase==='lobby'&&(table.me===0?<Action selected disabled={busy||offline||!seatsFor(kind).includes(names.length)} onPress={()=>command('tableStart')}>{appText("ابدأ الجولة")}</Action>:<Text style={styles.text}>{appText("بانتظار المضيف لبدء الجولة")}</Text>)}</>}
+    {!local&&table?.phase==='playing'&&<View style={{padding:10,borderRadius:12,backgroundColor:'#1d2d40',gap:6}}><Text style={styles.heading}>{appText('وقت الدور')} · {seconds}s</Text><View style={{height:6,borderRadius:3,backgroundColor:'#35485e',overflow:'hidden'}}><View style={{height:6,width:(seconds/60*100)+'%',backgroundColor:seconds<=10?'#ec725e':'#e5bd69'}}/></View></View>}
     {!!game&&(local&&!solo&&kind==='jackaroo'&&privateTurn&&game.winner===null?<Action selected onPress={()=>setPrivateTurn(false)}>{appText('مرّر الجهاز إلى ')+names[me]+appText(' · اعرض أوراقي')}</Action>:
-      <Play theme={theme} g={game} me={me} names={names} send={send} busy={busy||(!local&&offline)}/>)}
+      <Play theme={theme} g={game} me={me} names={names} send={send} busy={busy||(!local&&(offline||seconds===0))}/>)}
+    {local&&game?.winner!==null&&game&&<Action selected onPress={()=>startLocal(solo)}>{appText('العب مرة أخرى')}</Action>}
+    {!local&&table?.phase==='finished'&&<Action selected disabled={busy} onPress={()=>command('tableRematch')}>{appText('العب مرة أخرى')}</Action>}
     {(local||table)&&<>{confirm?<><Text style={styles.text}>{game?appText('إنهاء الجولة لكل اللاعبين؟'):appText('مغادرة الطاولة؟')}</Text><View style={styles.row}><Action onPress={()=>setConfirm(false)}>{appText("متابعة اللعب")}</Action><Action disabled={busy} onPress={()=>local?localSave(null):command('tableLeave')}>{appText("تأكيد المغادرة")}</Action></View></>:<Action onPress={()=>setConfirm(true)}>{appText("مغادرة الطاولة")}</Action>}</>}
   </View>;
 }
