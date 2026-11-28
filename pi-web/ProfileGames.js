@@ -21,6 +21,9 @@ function Action({children,onPress,disabled,selected}){
   return <Pressable accessibilityRole="button" accessibilityState={{disabled:!!disabled,selected:!!selected}} disabled={disabled} onPress={onPress} style={{minHeight:44,paddingVertical:12,paddingHorizontal:14,borderRadius:12,backgroundColor:selected?colors.green:'#21354a',borderWidth:1,borderColor:colors.line,opacity:disabled?.52:1}}>
     <Text style={{textAlign:'center',fontWeight:'700',color:selected?'#20170c':colors.ink}}>{children}</Text></Pressable>;
 }
+function IconAction({symbol,label,onPress,selected=false,disabled=false}){
+  return <Pressable accessibilityRole="button" accessibilityLabel={label} accessibilityState={{selected,disabled}} onPress={onPress} disabled={disabled} style={{width:44,height:44,alignItems:'center',justifyContent:'center',borderRadius:12,borderWidth:1,borderColor:colors.line,backgroundColor:selected?colors.green:'#21354a',opacity:disabled?.52:1}}><Text style={{fontSize:19,color:selected?'#20170c':colors.ink}}>{symbol}</Text></Pressable>;
+}
 const about={ludo:'من لاعبين إلى أربعة · نرد وأربعة أحجار لكل لاعب',jackaroo:'أربعة لاعبين · كل لاعبين متقابلين فريق',pool:'لاعبان · بلياردو الثماني كرات'};
 const rules={ludo:'نزّل الحجر بالستة. ارجع حجر الخصم إذا وصلت لخانته خارج الخانات الآمنة. الستة تعطي رمية إضافية. يلزم العدد الدقيق لإيصال الأحجار الأربعة.',jackaroo:'على نفس الجهاز، اختر ورقة تمرّرها لشريكك عند التوزيع. الآس والملك ينزّلان حجرًا أو يتحركان ١ و١٣. الأربعة ترجع للخلف، السبعة تُقسَم بين حجرين، والجاك يبدّل حجرين. باقي الأوراق تتحرك بقيمتها والملكة ١٢. بعد تأمين أحجارك تلعب بأحجار زميلك.',pool:'المس القماش لتوجيه العصا، واختر القوة ثم اضرب. أول كرة ملوّنة تدخل بضربة صحيحة تحدد مجموعتك. بعد إنهاء مجموعتك أدخل الثمانية. الخطأ يعطي الخصم الكرة البيضاء باليد. إدخال الثمانية مبكرًا يخسّر الجولة.'};
 function Play({g,me,names,send,busy,theme}){
@@ -60,7 +63,7 @@ function Play({g,me,names,send,busy,theme}){
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
       <Board viewerSeat={me} theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
       {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
-        {myTurn&&!g.die&&<Action selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}>{appText("ارمِ النرد")}</Action>}
+        {myTurn&&!g.die&&<IconAction symbol="⚄" label={appText("ارمِ النرد")} selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}/>}
         {!!g.die&&myTurn&&<Text style={styles.text}>{appText("المس الحجر المضيء لتحريكه")}</Text>}</View>}
       {jack&&<>{!!g.lastCard&&<LastCard card={g.lastCard} player={names[g.lastCard.seat]}/>}<Text style={styles.text}>{myTurn?(g.exchange?appText('اختر ورقة تمرّرها إلى شريكك'):card==null?appText('اختر ورقة من يدك'):eligible.some(o=>o.id.endsWith('/pass'))?appText('مرّر الورقة لإنهاء الدور'):appText('المس الحجر المضيء لاختيار الحركة')):appText('أوراقك')}</Text>
         <View style={styles.row}>{(g.hands[me]||[]).map((c,i)=><PlayingCard key={i} rank={c} suit={g.handSuits?.[me]?.[i]} selected={cardIndex===i} enabled={!locked&&(!!g.exchange||valid.some(o=>Number(o.id.split('/')[0])===c))} onPress={()=>{
@@ -159,11 +162,16 @@ function Table({kind,uid,name,request,onBack}){
   const game=local||table?.game,me=local?(solo?0:local.turn):table?.me;
   const names=local?Array.from({length:local.count},(_,i)=>!solo?'لاعب '+(i+1):i===0?'أنت':kind==='jackaroo'&&i===2?'شريكك':'الكمبيوتر '+i):table?.players||[];
   return <View style={[styles.panel,theme&&{borderWidth:3,borderColor:theme.color}]}>
-    <View style={styles.row}><Action onPress={onBack}>{appText("رجوع للألعاب")}</Action><Action onPress={()=>setShowRules(!showRules)}>{appText("قواعد الطاولة")}</Action><Action selected={sound} onPress={()=>{setGameSound(!sound);setSound(!sound)}}>{appText(sound?'كتم أصوات اللعبة':'تشغيل أصوات اللعبة')}</Action></View>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:4}}>
+      <IconAction symbol="×" label={appText("رجوع للألعاب")} onPress={onBack}/>
+      <IconAction symbol="?" label={appText("قواعد الطاولة")} selected={showRules} onPress={()=>{setShowRules(v=>!v);setShopOpen(false);setRankOpen(false);}}/>
+      <IconAction symbol={sound?'🔊':'🔇'} label={appText(sound?'كتم أصوات اللعبة':'تشغيل أصوات اللعبة')} selected={sound} onPress={()=>{setGameSound(!sound);setSound(!sound)}}/>
+      <IconAction symbol="🛍" label={appText('متجر ثيمات الألعاب')} selected={shopOpen} onPress={()=>{setShopOpen(v=>!v);setShowRules(false);setRankOpen(false);void shopAction('tableCosmetics')}}/>
+      <IconAction symbol="🏆" label={appText('التصنيف العالمي')} selected={rankOpen} onPress={()=>{setRankOpen(v=>!v);setShowRules(false);setShopOpen(false);}}/>
+    </View>
     <Text style={styles.heading}>{appText(games[kind])}</Text>{showRules&&<><Text style={styles.text}>{appText(rules[kind])}</Text>
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
       {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
-    <Action selected={shopOpen} onPress={()=>{setShopOpen(v=>!v);void shopAction('tableCosmetics')}}>{appText('متجر ثيمات الألعاب')}</Action>
     {shopOpen&&<View style={{gap:8,padding:12,backgroundColor:'#18283b',borderRadius:12}}>
       {!!shopError&&<Text style={styles.text}>{shopError}</Text>}
       {shop&&<><Text style={styles.heading}>💎 {shop.diamonds}</Text>
@@ -175,7 +183,6 @@ function Table({kind,uid,name,request,onBack}){
         </View>;
       })}</>}
     </View>}
-    <Action selected={rankOpen} onPress={()=>setRankOpen(v=>!v)}>{appText('التصنيف العالمي')}</Action>
     {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#18283b'}}>
       {rankError?<Text style={styles.text}>{appText('تعذّر تحميل التصنيف')}</Text>:!ranking?<Text style={styles.text}>…</Text>:<>
         <Text style={styles.heading}>{appText('مستواك')} {1+Math.floor(ranking.personal.xp/100)} · {ranking.personal.xp} XP</Text>
