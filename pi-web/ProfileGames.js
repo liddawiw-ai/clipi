@@ -10,15 +10,15 @@ import {Die,PlayingCard,LastCard} from './TableArt';
 import {gameSound,unlockGameAudio,soundEnabled,setGameSound} from './GameAudio';
 
 const practice=new Map();
-const colors={surface:'#F4EEE2',ink:'#282D29',line:'#CDBEAA',green:'#164C41'};
-const styles={panel:{backgroundColor:colors.surface,padding:14,gap:10,borderRadius:14},row:{flexDirection:'row-reverse',flexWrap:'wrap',gap:6,alignItems:'center'},heading:{fontSize:20,fontWeight:'800',color:colors.ink,textAlign:'right'},text:{fontSize:15,color:colors.ink,textAlign:'right'},input:{backgroundColor:'#FFFCF6',borderColor:colors.line,borderWidth:1,borderRadius:8,padding:10,textAlign:'center',color:colors.ink}};
+const colors={surface:'#101a29',ink:'#f8e8c6',line:'#785d35',green:'#e5bd69'};
+const styles={panel:{backgroundColor:colors.surface,padding:14,gap:12,borderRadius:22,borderWidth:1,borderColor:'#785d35'},row:{flexDirection:'row-reverse',flexWrap:'wrap',gap:6,alignItems:'center'},heading:{fontSize:20,fontWeight:'800',color:colors.ink,textAlign:'right'},text:{fontSize:15,color:colors.ink,textAlign:'right'},input:{backgroundColor:'#1b2b3f',borderColor:colors.line,borderWidth:1,borderRadius:8,padding:10,textAlign:'center',color:colors.ink}};
 // The game engine sends these labels as fixed move tokens plus card and piece numbers.
 function moveLabel(label){
   return typeof label==='string'?label.replace(/نتيجة النرد|إنزال حجر|حجر|تمرير/g,part=>appText(part)):label;
 }
 function Action({children,onPress,disabled,selected}){
-  return <Pressable accessibilityRole="button" accessibilityState={{disabled:!!disabled,selected:!!selected}} disabled={disabled} onPress={onPress} style={{paddingVertical:10,paddingHorizontal:13,borderRadius:8,backgroundColor:selected?colors.green:'#FFFDF8',borderWidth:1,borderColor:colors.line,opacity:disabled?.52:1}}>
-    <Text style={{textAlign:'center',fontWeight:'700',color:selected?'#FFFDF8':colors.ink}}>{children}</Text></Pressable>;
+  return <Pressable accessibilityRole="button" accessibilityState={{disabled:!!disabled,selected:!!selected}} disabled={disabled} onPress={onPress} style={{minHeight:44,paddingVertical:12,paddingHorizontal:14,borderRadius:12,backgroundColor:selected?colors.green:'#21354a',borderWidth:1,borderColor:colors.line,opacity:disabled?.52:1}}>
+    <Text style={{textAlign:'center',fontWeight:'700',color:selected?'#20170c':colors.ink}}>{children}</Text></Pressable>;
 }
 const about={ludo:'من لاعبين إلى أربعة · نرد وأربعة أحجار لكل لاعب',jackaroo:'أربعة لاعبين · كل لاعبين متقابلين فريق',pool:'لاعبان · بلياردو الثماني كرات'};
 const rules={ludo:'نزّل الحجر بالستة. ارجع حجر الخصم إذا وصلت لخانته خارج الخانات الآمنة. الستة تعطي رمية إضافية. يلزم العدد الدقيق لإيصال الأحجار الأربعة.',jackaroo:'على نفس الجهاز، اختر ورقة تمرّرها لشريكك عند التوزيع. الآس والملك ينزّلان حجرًا أو يتحركان ١ و١٣. الأربعة ترجع للخلف، السبعة تُقسَم بين حجرين، والجاك يبدّل حجرين. باقي الأوراق تتحرك بقيمتها والملكة ١٢. بعد تأمين أحجارك تلعب بأحجار زميلك.',pool:'المس القماش لتوجيه العصا، واختر القوة ثم اضرب. أول كرة ملوّنة تدخل بضربة صحيحة تحدد مجموعتك. بعد إنهاء مجموعتك أدخل الثمانية. الخطأ يعطي الخصم الكرة البيضاء باليد. إدخال الثمانية مبكرًا يخسّر الجولة.'};
@@ -53,7 +53,7 @@ function Play({g,me,names,send,busy,theme}){
   }
   const lastDie=g.die||Number(g.note?.match(/نتيجة النرد ([1-6])/)?.[1])||0;
   return <View style={{gap:10}}>
-    <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:12,borderRadius:12,backgroundColor:g.winner!==null?'#f4d77c':myTurn?'#d4ebd5':'#e5ded1'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
+    <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:12,borderRadius:12,backgroundColor:g.winner!==null?'#805c20':myTurn?'#176348':'#28394f'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
     {pool?<BilliardTable theme={theme} game={g} me={me} locked={locked} send={send}/>:<>
       <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
@@ -156,7 +156,7 @@ function Table({kind,uid,name,request,onBack}){
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
       {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
     <Action selected={shopOpen} onPress={()=>{setShopOpen(v=>!v);void shopAction('tableCosmetics')}}>{appText('متجر ثيمات الألعاب')}</Action>
-    {shopOpen&&<View style={{gap:8,padding:12,backgroundColor:'#fffdf8',borderRadius:12}}>
+    {shopOpen&&<View style={{gap:8,padding:12,backgroundColor:'#18283b',borderRadius:12}}>
       {!!shopError&&<Text style={styles.text}>{shopError}</Text>}
       {shop&&<><Text style={styles.heading}>💎 {shop.diamonds}</Text>
       {[{id:'classic',label:'كلاسيكي',cost:0,color:'#cdbeaa'},...shop.catalog].map(item=>{
@@ -168,11 +168,11 @@ function Table({kind,uid,name,request,onBack}){
       })}</>}
     </View>}
     <Action selected={rankOpen} onPress={()=>setRankOpen(v=>!v)}>{appText('التصنيف العالمي')}</Action>
-    {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#fffdf8'}}>
+    {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#18283b'}}>
       {rankError?<Text style={styles.text}>{appText('تعذّر تحميل التصنيف')}</Text>:!ranking?<Text style={styles.text}>…</Text>:<>
         <Text style={styles.heading}>{appText('مستواك')} {1+Math.floor(ranking.personal.xp/100)} · {ranking.personal.xp} XP</Text>
         <Text style={styles.text}>{appText('المباريات')} {ranking.personal.played} · {appText('الانتصارات')} {ranking.personal.wins}</Text>
-        {ranking.ranking.map((row,i)=><View key={i} style={[styles.row,{justifyContent:'space-between',padding:8,borderRadius:8,backgroundColor:row.me?'#e5ebd9':i<3?'#f9e8af':'#f4eee2'}]}><Text style={styles.text}>{i+1}. {row.name}</Text><Text style={styles.text}>{row.xp} XP</Text></View>)}
+        {ranking.ranking.map((row,i)=><View key={i} style={[styles.row,{justifyContent:'space-between',padding:8,borderRadius:8,backgroundColor:row.me?'#1d604c':i<3?'#594422':'#26384c'}]}><Text style={styles.text}>{i+1}. {row.name}</Text><Text style={styles.text}>{row.xp} XP</Text></View>)}
         {!ranking.ranking.length&&<Text style={styles.text}>{appText('لا توجد نتائج بعد')}</Text>}
       </>}
     </View>}
@@ -199,9 +199,9 @@ export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
   if(kind)return <Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/>;
   const covers={ludo:require('./assets/tables37/ludo-inlay.jpg'),jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
-  return <View style={{gap:12}}>{Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{minHeight:108,overflow:'hidden',backgroundColor:['#203c34','#3a2920','#123d3d'][i],borderWidth:1,borderColor:'#a78c60',borderRadius:15,alignItems:'center',flexDirection:'row',direction:'ltr'}}>
-    <View accessible={false} style={{width:'34%',height:108,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-      {covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:132,height:132,transform:[{rotate:'-12deg'}]}}/>:<View style={{width:85,height:134,transform:[{rotate:'-24deg'}],backgroundColor:'#117966',borderWidth:6,borderRadius:8,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}>
+  return <View style={{gap:15,backgroundColor:'#101a29',padding:12,borderRadius:22}}><View style={{padding:18,borderRadius:18,borderWidth:1,borderColor:'#a88951',backgroundColor:'#1c2b40'}}><Text style={{fontSize:12,color:'#dbb66e',letterSpacing:3,textAlign:'center',fontWeight:'800'}}>CLIPI ARENA</Text><Text style={{fontSize:28,color:'#fff0cc',fontWeight:'900',textAlign:'center',marginTop:7}}>{appText('ساحة الأبطال')}</Text><Text style={{color:'#c5cddd',textAlign:'center',marginTop:6}}>{appText('نافس لاعبين من حول العالم')}</Text></View>{Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{minHeight:144,overflow:'hidden',backgroundColor:['#203c34','#3a2920','#123d3d'][i],borderWidth:1,borderColor:'#a78c60',borderRadius:15,alignItems:'center',flexDirection:'row',direction:'ltr'}}>
+    <View accessible={false} style={{width:'38%',height:144,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+      {covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:158,height:158,transform:[{rotate:'-12deg'}]}}/>:<View style={{width:85,height:134,transform:[{rotate:'-24deg'}],backgroundColor:'#117966',borderWidth:6,borderRadius:8,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}>
         <View style={{width:24,height:24,borderRadius:12,backgroundColor:'#171921',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'bold'}}>8</Text></View><View style={{marginTop:14,marginLeft:20,width:14,height:14,borderRadius:7,backgroundColor:'#fffbe8'}}/></View>}
     </View><View style={{flex:1,paddingHorizontal:12,gap:5}}><Text style={[styles.heading,{color:'#fff4dc',fontSize:25}]}>{appText(label)}</Text><Text style={[styles.text,{color:'#e7ddca',fontSize:14}]}>{appText(about[key])}</Text></View></Pressable>)}</View>;
 }
