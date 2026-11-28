@@ -79,6 +79,17 @@ function Table({kind,uid,name,request,onBack}){
   const [issue,setIssue]=useState(''),[offline,setOffline]=useState(false),[busy,setBusy]=useState(false),[confirm,setConfirm]=useState(false),[showRules,setShowRules]=useState(false);
   const [creditsOpen,setCreditsOpen]=useState(false),[sound,setSound]=useState(soundEnabled);
   const active=useRef(true),lock=useRef(false),sequence=useRef(0);
+  const [shopOpen,setShopOpen]=useState(false),[shop,setShop]=useState(null),[shopBusy,setShopBusy]=useState(false),[shopError,setShopError]=useState('');
+  const shopLock=useRef(false);
+  async function shopAction(op,item){
+    if(!request||shopLock.current)return;
+    shopLock.current=true;setShopBusy(true);setShopError('');
+    try{const v=await request('/account-number',{op,kind,item});if(active.current)setShop(v);}
+    catch(e){if(active.current)setShopError(uiError(e,'تعذّر تحميل متجر الألعاب'));}
+    finally{shopLock.current=false;if(active.current)setShopBusy(false);}
+  }
+  useEffect(()=>{void shopAction('tableCosmetics');},[kind]);
+  const theme=shop?.catalog?.find(x=>x.id===shop.equipped);
   const [ranking,setRanking]=useState(null),[rankOpen,setRankOpen]=useState(false),[rankError,setRankError]=useState(false);
   useEffect(()=>{
     if(!rankOpen||!request)return;
@@ -139,11 +150,23 @@ function Table({kind,uid,name,request,onBack}){
   },[local,solo,confirm]);
   const game=local||table?.game,me=local?(solo?0:local.turn):table?.me;
   const names=local?Array.from({length:local.count},(_,i)=>!solo?'لاعب '+(i+1):i===0?'أنت':kind==='jackaroo'&&i===2?'شريكك':'الكمبيوتر '+i):table?.players||[];
-  return <View style={styles.panel}>
+  return <View style={[styles.panel,theme&&{borderWidth:3,borderColor:theme.color}]}>
     <View style={styles.row}><Action onPress={onBack}>{appText("رجوع للألعاب")}</Action><Action onPress={()=>setShowRules(!showRules)}>{appText("قواعد الطاولة")}</Action><Action selected={sound} onPress={()=>{setGameSound(!sound);setSound(!sound)}}>{appText(sound?'كتم أصوات اللعبة':'تشغيل أصوات اللعبة')}</Action></View>
     <Text style={styles.heading}>{appText(games[kind])}</Text>{showRules&&<><Text style={styles.text}>{appText(rules[kind])}</Text>
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
       {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
+    <Action selected={shopOpen} onPress={()=>{setShopOpen(v=>!v);void shopAction('tableCosmetics')}}>{appText('متجر ثيمات الألعاب')}</Action>
+    {shopOpen&&<View style={{gap:8,padding:12,backgroundColor:'#fffdf8',borderRadius:12}}>
+      {!!shopError&&<Text style={styles.text}>{shopError}</Text>}
+      {shop&&<><Text style={styles.heading}>💎 {shop.diamonds}</Text>
+      {[{id:'classic',label:'كلاسيكي',cost:0,color:'#cdbeaa'},...shop.catalog].map(item=>{
+        const owned=item.id==='classic'||shop.owned.includes(item.id);
+        return <View key={item.id} style={{padding:8,borderWidth:2,borderColor:item.color,borderRadius:10,gap:5}}>
+          <Text style={styles.heading}>{appText(item.label)} · {item.cost} 💎</Text>
+          <Action disabled={shopBusy||shop.equipped===item.id||(!owned&&shop.diamonds<item.cost)} selected={shop.equipped===item.id} onPress={()=>shopAction(owned?'tableEquipCosmetic':'tableBuyCosmetic',item.id)}>{appText(shop.equipped===item.id?'مفعّل':owned?'تفعيل الثيم':'شراء وتفعيل الثيم')}</Action>
+        </View>;
+      })}</>}
+    </View>}
     <Action selected={rankOpen} onPress={()=>setRankOpen(v=>!v)}>{appText('التصنيف العالمي')}</Action>
     {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#fffdf8'}}>
       {rankError?<Text style={styles.text}>{appText('تعذّر تحميل التصنيف')}</Text>:!ranking?<Text style={styles.text}>…</Text>:<>
