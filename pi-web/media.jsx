@@ -1,5 +1,4 @@
-import {ui} from './interface-language.mjs';
-import React,{useEffect,useState} from 'react';
+import React,{useEffect} from 'react';
 import {LiveKitRoom as BrowserRoom,RoomAudioRenderer,useAudioPlayback,VideoTrack as Video} from '@livekit/components-react';
 export {useConnectionState,useLocalParticipant,useParticipants,useTracks,isTrackReference} from '@livekit/components-react';
 export {ConnectionState,Track} from 'livekit-client';
@@ -7,17 +6,17 @@ export const AudioSession={startAudioSession:async()=>{},stopAudioSession:async(
 
 function RoomSpeaker({muted}){
   const {canPlayAudio,startAudio}=useAudioPlayback();
-  const [failed,setFailed]=useState(false);
-  const unlock=()=>startAudio().then(()=>setFailed(false)).catch(()=>setFailed(true));
   useEffect(()=>{
     if(canPlayAudio||muted)return;
-    const resume=()=>{void unlock()};
-    document.addEventListener('pointerdown',resume,{once:true,capture:true});
-    return()=>document.removeEventListener('pointerdown',resume,true);
+    let pending=false;
+    const resume=()=>{if(pending)return;pending=true;Promise.resolve().then(()=>startAudio()).catch(()=>{}).finally(()=>{pending=false});};
+    resume();
+    document.addEventListener('pointerdown',resume,true);
+    document.addEventListener('touchend',resume,true);
+    window.addEventListener('pageshow',resume);
+    return()=>{document.removeEventListener('pointerdown',resume,true);document.removeEventListener('touchend',resume,true);window.removeEventListener('pageshow',resume);};
   },[canPlayAudio,muted,startAudio]);
-  return <><RoomAudioRenderer muted={muted}/>{!muted&&(!canPlayAudio||failed)&&
-    <button style={{position:'absolute',left:8,top:'43%',zIndex:4,borderRadius:12,padding:8,background:'#244741',color:'white'}}
-      onClick={()=>void unlock()}>{ui("🔊 تشغيل الصوت")}</button>}</>;
+  return <RoomAudioRenderer muted={muted}/>;
 }
 export function LiveKitRoom({children,speakerMuted,...props}){
  return <BrowserRoom {...props}><RoomSpeaker muted={speakerMuted}/>{children}</BrowserRoom>;
