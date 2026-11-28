@@ -33,6 +33,9 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
     video.defaultMuted = video.muted = true;
     video.setAttribute('muted','');
     video.loop = true;
+    video.preload = 'auto';
+    video.autoplay = active;
+    if(active)video.setAttribute('autoplay','');
     video.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
     host.appendChild(video);
     const playing = () => callbacks.current.onPlayingChange?.(true);
@@ -64,13 +67,14 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
   useLayoutEffect(() => {
     let current = true, pending = false, attempts = 0, timer;
     video.autoplay = active;
-    if(active && video.muted) video.setAttribute('muted','');
+    if(active){video.setAttribute('autoplay','');if(video.muted)video.setAttribute('muted','');}
+    else video.removeAttribute('autoplay');
     function sync() {
       if(!current)return;
       if (!active || document.hidden) {video.pause(); return;}
       if (!video.paused || pending) return;
       pending=true;
-      Promise.resolve(video.play()).catch(error => {
+      Promise.resolve().then(()=>current&&active&&!document.hidden?video.play():undefined).catch(error => {
         if (!current || document.hidden) return;
         if(error.name==='NotAllowedError'&&!video.muted){
           video.defaultMuted=video.muted=true;
@@ -81,24 +85,30 @@ export function Player({source, initialVideo, active=true, muted=true, preload='
         }
       }).finally(()=>{
         pending=false;
-        if(current&&active&&!document.hidden&&video.paused&&attempts<4){
+        if(current&&active&&!document.hidden&&video.paused&&attempts<8){
           clearTimeout(timer);
-          timer=setTimeout(()=>{attempts++;sync()},[150,350,750,1500][attempts]);
+          timer=setTimeout(()=>{attempts++;sync()},[80,150,300,600,1000,1500,2000,2500][attempts]);
         }
       });
     }
     const ready=()=>sync();
+    const gesture=()=>{if(current&&active&&!document.hidden&&video.paused&&!pending){attempts=0;try{video.play()?.catch(()=>{});}catch{}}};
     const visible=()=>{attempts=0;sync()};
     sync();
     for(const event of ['loadedmetadata','loadeddata','canplay','canplaythrough'])video.addEventListener(event,ready);
     document.addEventListener('visibilitychange',visible);
     window.addEventListener('pageshow',visible);
+    document.addEventListener('pointerdown',gesture,true);
+    document.addEventListener('touchend',gesture,true);
     return () => {
       current=false;clearTimeout(timer);
       video.autoplay=false;
+      video.removeAttribute('autoplay');
       for(const event of ['loadedmetadata','loadeddata','canplay','canplaythrough'])video.removeEventListener(event,ready);
       document.removeEventListener('visibilitychange',visible);
       window.removeEventListener('pageshow',visible);
+      document.removeEventListener('pointerdown',gesture,true);
+      document.removeEventListener('touchend',gesture,true);
       video.pause();
     };
   }, [video, source, active]);
