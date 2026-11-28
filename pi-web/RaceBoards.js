@@ -96,7 +96,7 @@ function Piece({tone,diameter:d,piece,selected,available,stacked}){
 }
 
 // A stack of identical square positions opens large, individually labeled selectors.
-export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null}){
+export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null,theme}){
   const {width}=useWindowDimensions();
   const [size,setSize]=useState(0),[open,setOpen]=useState(null),[motion,setMotion]=useState([]);
   const previous=useRef(game);
@@ -133,7 +133,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
     onPiece?.(p.seat,p.piece);
   }
   return <View style={s.container}>
-    <View style={s.frame} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
+    <View style={[s.frame,theme&&{borderWidth:5,borderColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
       <Image accessible={false} source={ludo?ludoArt:jackarooArt} resizeMode="stretch" style={s.art}/>
       {groups.map(group=>{
         const legal=group.pieces.filter(permitted);
