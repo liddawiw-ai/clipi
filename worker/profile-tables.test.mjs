@@ -107,3 +107,20 @@ for(const kind of ['ludo','jackaroo','pool'])test(kind+' quick match finds exist
  assert.equal((await call('b','tableMatch')).table.code,a.table.code);
  assert.equal((await call('a','tableList')).table.players.length,2);
 });
+
+test('ranking records finished matches once, including both Jackaroo partners',async()=>{
+ const db=new DatabaseSync(':memory:');tableSchema.forEach(s=>db.exec(s));
+ const q=(sql,...p)=>{const s=db.prepare(sql);return {first:()=>s.get(...p),all:()=>({results:s.all(...p)}),run:()=>({meta:s.run(...p)})};};
+ for(const kind of ['ludo','jackaroo','pool']){
+  const count=kind==='jackaroo'?4:2;
+  const data={players:Array.from({length:count},(_,i)=>({uid:'u'+i,name:'Player '+i})),game:{winner:null}};
+  db.prepare('INSERT INTO game_tables VALUES(?,?,1,?,?,?)').run(kind,kind,Date.now(),'playing',JSON.stringify(data));
+  data.game.winner=0;
+  db.prepare("UPDATE game_tables SET phase='finished',data=? WHERE code=?").run(JSON.stringify(data),kind);
+  db.prepare("UPDATE game_tables SET phase='finished' WHERE code=?").run(kind);
+  const rank=await profileTables(q,'u0',{kind,op:'tableRanking'},(v)=>v);
+  assert.equal(rank.personal.xp,40);assert.equal(rank.personal.played,1);
+  assert.equal(rank.ranking.length,count);
+  assert.equal(rank.ranking.reduce((n,r)=>n+r.wins,0),kind==='jackaroo'?2:1);
+ }
+});
