@@ -1,4 +1,5 @@
 import {uiError,ui as appText} from './interface-language.mjs';
+import {LudoBadge} from './ClipiLudoArt';
 import React,{useEffect,useRef,useState} from 'react';
 import {Image,Pressable,Text,TextInput,View} from 'react-native';
 import {games,seatsFor,match,move,choices} from './TableRules.mjs';
@@ -201,17 +202,17 @@ function Table({kind,uid,name,request,onBack}){
     {!!game&&(local&&!solo&&kind==='jackaroo'&&privateTurn&&game.winner===null?<Action selected onPress={()=>setPrivateTurn(false)}>{appText('مرّر الجهاز إلى ')+names[me]+appText(' · اعرض أوراقي')}</Action>:
       <Play theme={theme} g={game} me={me} names={names} send={send} busy={busy||(!local&&(offline||seconds===0))}/>)}
     {local&&game?.winner!==null&&game&&<Action selected onPress={()=>startLocal(solo)}>{appText('العب مرة أخرى')}</Action>}
-    {!local&&table?.phase==='finished'&&<Action selected disabled={busy} onPress={()=>command('tableRematch')}>{appText('العب مرة أخرى')}</Action>}
+    {!local&&table?.phase==='finished'&&<Action selected disabled={busy||table.rematchReady} onPress={()=>command('tableRematch')}>{appText('العب مرة أخرى')} · {table.rematchCount||0}/{table.players.length}</Action>}
     {(local||table)&&<>{confirm?<><Text style={styles.text}>{game?appText('إنهاء الجولة لكل اللاعبين؟'):appText('مغادرة الطاولة؟')}</Text><View style={styles.row}><Action onPress={()=>setConfirm(false)}>{appText("متابعة اللعب")}</Action><Action disabled={busy} onPress={()=>local?localSave(null):command('tableLeave')}>{appText("تأكيد المغادرة")}</Action></View></>:<Action onPress={()=>setConfirm(true)}>{appText("مغادرة الطاولة")}</Action>}</>}
   </View>;
 }
 export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
   if(kind)return <Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/>;
-  const covers={ludo:require('./assets/tables37/ludo-inlay.jpg'),jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
+  const covers={jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
   return <View style={{gap:15,backgroundColor:'#101a29',padding:12,borderRadius:22}}><View style={{padding:18,borderRadius:18,borderWidth:1,borderColor:'#a88951',backgroundColor:'#1c2b40'}}><Text style={{fontSize:12,color:'#dbb66e',letterSpacing:3,textAlign:'center',fontWeight:'800'}}>CLIPI ARENA</Text><Text style={{fontSize:28,color:'#fff0cc',fontWeight:'900',textAlign:'center',marginTop:7}}>{appText('ساحة الأبطال')}</Text><Text style={{color:'#c5cddd',textAlign:'center',marginTop:6}}>{appText('نافس لاعبين من حول العالم')}</Text></View>{Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{minHeight:144,overflow:'hidden',backgroundColor:['#203c34','#3a2920','#123d3d'][i],borderWidth:1,borderColor:'#a78c60',borderRadius:15,alignItems:'center',flexDirection:'row',direction:'ltr'}}>
     <View accessible={false} style={{width:'38%',height:144,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-      {covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:158,height:158,transform:[{rotate:'-12deg'}]}}/>:<View style={{width:85,height:134,transform:[{rotate:'-24deg'}],backgroundColor:'#117966',borderWidth:6,borderRadius:8,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}>
+      {key==='ludo'?<View style={{width:132,height:132}}><LudoBadge/></View>:covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:158,height:158,transform:[{rotate:'-12deg'}]}}/>:<View style={{width:85,height:134,transform:[{rotate:'-24deg'}],backgroundColor:'#117966',borderWidth:6,borderRadius:8,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}>
         <View style={{width:24,height:24,borderRadius:12,backgroundColor:'#171921',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'bold'}}>8</Text></View><View style={{marginTop:14,marginLeft:20,width:14,height:14,borderRadius:7,backgroundColor:'#fffbe8'}}/></View>}
     </View><View style={{flex:1,paddingHorizontal:12,gap:5}}><Text style={[styles.heading,{color:'#fff4dc',fontSize:25}]}>{appText(label)}</Text><Text style={[styles.text,{color:'#e7ddca',fontSize:14}]}>{appText(about[key])}</Text></View></Pressable>)}</View>;
 }
