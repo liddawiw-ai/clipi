@@ -1,5 +1,11 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "التصنيف العالمي": "Global leaderboard",
+  "تعذّر تحميل التصنيف": "Could not load rankings",
+  "مستواك": "Your level",
+  "المباريات": "Matches",
+  "الانتصارات": "Wins",
+  "لا توجد نتائج بعد": "No results yet",
   "كتم أصوات اللعبة": "Mute game sounds",
   "تشغيل أصوات اللعبة": "Enable game sounds",
   "بحث عن لاعبين أونلاين": "Find online players",
