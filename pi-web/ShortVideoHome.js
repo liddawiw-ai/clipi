@@ -227,14 +227,6 @@ function Clip({item,isCurrent,preload,initialVideo,liveRooms,onVisitLive,onAutho
 
 export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,followRevision,onFollowChange,followLabels,playable=true,dock,onOpenLive,translate=appText,endpoint,request,gifts,onWallet,onShop,initialId,onReport,viewer,profileFeed}){
   const goLiveLabel=['ar','en'].includes(interfaceLocale())?'Go Live':roomLabels?.startBroadcast||translate('ابدأ البث');
-  const [storeChoiceOpen,setStoreChoiceOpen]=useState(false);
-  useEffect(()=>{
-    const url=new URL(location.href);
-    if(url.searchParams.get('deviceStore')!=='unavailable')return;
-    url.searchParams.delete('deviceStore');
-    history.replaceState(history.state,'',url);
-    setNotice(roomLabels.deviceStoreNotice);
-  },[]);
   const fromProfile=!!profileFeed;
   const ahead=shortsLookahead();
   const windowHeight=useWindowDimensions().height;
@@ -313,7 +305,7 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
   return <div className="clipi-feed-shell">
     <div className="clipi-ambient" aria-hidden="true" style={poster?{'--scene':'url('+poster+')'}:undefined}/>
     <div className="clipi-feed-stage"><View style={s.screen} onLayout={e=>{if(!locked.current)setHeight(Math.round(e.nativeEvent.layout.height));}}>
-    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode&&!storeChoiceOpen} initialNumToRender={3} maxToRenderPerBatch={3} windowSize={5} removeClippedSubviews={false} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
+    {height>0&&<FlatList ref={list} initialScrollIndex={firstIndex || undefined} data={items} scrollEnabled={!viewMode} initialNumToRender={3} maxToRenderPerBatch={3} windowSize={5} removeClippedSubviews={false} extraData={[active,muted,playable,viewMode]} keyExtractor={x=>x.id} pagingEnabled snapToInterval={height} decelerationRate="fast"
       showsVerticalScrollIndicator={false} style={Platform.OS==='web'?{scrollSnapType:'y mandatory'}:null}
       getItemLayout={(_,i)=>({length:height,offset:i*height,index:i})} onViewableItemsChanged={Platform.OS==='web'?undefined:visible} viewabilityConfig={visibility}
       onScroll={e=>{if(!locked.current&&Platform.OS==='web')setActive(Math.max(0,Math.min(items.length-1,Math.round(e.nativeEvent.contentOffset.y/height))));}}
@@ -322,19 +314,11 @@ export function ShortVideoHome({roomLabels,liveRooms=[],onVisitLive,onAuthor,fol
     {fromProfile ? !viewMode && <Pressable accessibilityRole="button" accessibilityLabel={translate('رجوع')}
       onPress={profileFeed.onClose} style={s.back}><Text style={s.backIcon}>‹</Text></Pressable> : (
       <div className="clipi-feed-header" style={viewMode?{visibility:'hidden'}:undefined}>
-      <button type="button" className="clipi-download-app" aria-haspopup="dialog" onClick={()=>setStoreChoiceOpen(true)}>
-        <bdi>{roomLabels.downloadApp}</bdi>
-      </button>
       <button type="button" onClick={()=>onOpenLive(items[active]?.id)} className="clipi-feed-live">
         <FeedIcon name="live" size={21}/>{goLiveLabel}
       </button>
     </div>
     )}
-    {storeChoiceOpen&&<FeedSheet title={roomLabels.downloadApp} closeLabel={translate('إغلاق')}
-      onClose={()=>setStoreChoiceOpen(false)} choices={[
-        {icon:'download',label:'Google Play',href:'/device-install/android'},
-        {icon:'download',label:'App Store',href:'/device-install/ios'}
-      ]}/>}
     {!!notice&&<div className="clipi-feed-notice" role="status">{appText(notice)}</div>}
     {!viewMode&&!!error&&<Pressable accessibilityRole="button" onPress={()=>setRetry(n=>n+1)} style={s.retry}><Text style={s.count}>{appText(error)}{appText(" · إعادة المحاولة")}</Text></Pressable>}
   </View><div style={viewMode?{visibility:'hidden'}:undefined}>{dock}</div></div></div>;
