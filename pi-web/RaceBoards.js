@@ -3,7 +3,7 @@ import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {Image, Pressable, StyleSheet, Text, View, useWindowDimensions} from 'react-native';
 import {choices, trackPos} from './TableRules.mjs';
 
-const ludoArt = require('./assets/tables37/ludo-inlay.jpg');
+import {LudoBoardArt} from './ClipiLudoArt';
 const jackarooArt = require('./assets/tables37/jackaroo-walnut.jpg');
 const seats = [
   {color:'#C94E43', shadow:'#7C2D29', light:'#FB9C83', name:'الأحمر'},
@@ -133,8 +133,8 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
     onPiece?.(p.seat,p.piece);
   }
   return <View style={s.container}>
-    <View style={[s.frame,theme&&{borderWidth:5,borderColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
-      <Image accessible={false} source={ludo?ludoArt:jackarooArt} resizeMode="stretch" style={s.art}/>
+    <View style={[s.frame,theme&&{outlineStyle:'solid',outlineWidth:3,outlineColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
+      {ludo?<LudoBoardArt/>:<Image accessible={false} source={jackarooArt} resizeMode="stretch" style={s.art}/>}
       {groups.map(group=>{
         const legal=group.pieces.filter(permitted);
         const selected=group.pieces.find(p=>p.seat===seat && p.piece===selectedPiece);
