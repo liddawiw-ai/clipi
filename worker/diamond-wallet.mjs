@@ -8,6 +8,8 @@ export function validPack(metadata,amount,allowLegacy){
   return allowLegacy&&metadata.rate===undefined&&[10,100,500,1000].includes(metadata.diamonds)&&amount===metadata.diamonds/10;
 }
 export const walletSchema=[
+  'CREATE TABLE IF NOT EXISTS game_cosmetic_purchase(uid TEXT NOT NULL,item TEXT NOT NULL,cost INTEGER NOT NULL CHECK(cost>0),PRIMARY KEY(uid,item))',
+  'CREATE TABLE IF NOT EXISTS game_cosmetic_equipped(uid TEXT NOT NULL,kind TEXT NOT NULL,item TEXT NOT NULL,PRIMARY KEY(uid,kind))',
   'CREATE TABLE IF NOT EXISTS host_pi_wallet(uid TEXT PRIMARY KEY NOT NULL, address TEXT NOT NULL)',
   'CREATE TABLE IF NOT EXISTS diamond_checkout(payment TEXT PRIMARY KEY,uid TEXT NOT NULL)',
   'CREATE INDEX IF NOT EXISTS diamond_checkout_user ON diamond_checkout(uid)',
@@ -69,7 +71,7 @@ export async function linkHostWallet(q, accountUid, piUid, accessToken, json, en
   return json({walletAddress:address});
 }
 // Pi amounts in the ledger use twentieths of Pi (one half of a diamond).
-export const paidBalance='(SELECT COALESCE(SUM(p.diamonds-COALESCE(r.diamonds,0)),0) FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE uid=?) - (SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE sender=?)';
+export const paidBalance='(SELECT COALESCE(SUM(p.diamonds-COALESCE(r.diamonds,0)),0) FROM diamond_purchase p LEFT JOIN native_purchase_reversal r ON r.payment=p.payment WHERE uid=?) - (SELECT COALESCE(SUM(cost),0) FROM (SELECT sender,cost FROM paid_room_gift UNION ALL SELECT uid AS sender,cost FROM game_cosmetic_purchase) WHERE sender=?)';
 export async function readWallet(q,uid,ownerUid){
   const totals=await q(`SELECT ${paidBalance} AS diamonds,(SELECT COALESCE(SUM(CAST(ROUND(hostUnits*100) AS INTEGER)),0)/100.0 FROM paid_room_gift WHERE host=?) AS earningsUnits,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=? AND hostUnits=0) AS collected,(SELECT COALESCE(SUM(cost),0) FROM paid_room_gift WHERE host=?) AS receivedDiamonds`,uid,uid,uid,uid,uid).first();
   const history=await q(`SELECT nonce AS receipt,gift,cost,hostUnits AS units,host,sender,room FROM paid_room_gift WHERE sender=? OR host=? ORDER BY rowid DESC LIMIT 25`,uid,uid).all();
