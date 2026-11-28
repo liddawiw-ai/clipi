@@ -30,7 +30,7 @@ import {choosePhoto} from './photo';
 import {Image} from 'react-native';
 import {useRoomSession} from './useRoomSession';
 import {copyRoomInvitation,roomInvitationId,roomInvitationUrl,shareRoomInvitation} from './room-invitations.mjs';
-import React,{useEffect,useRef,useState,useSyncExternalStore} from 'react';
+import React,{useEffect,useMemo,useRef,useState,useSyncExternalStore} from 'react';
 import {View,Text,TextInput,TouchableOpacity,ScrollView,StyleSheet,Animated,Keyboard,KeyboardAvoidingView,Platform,StatusBar,useWindowDimensions,Easing,Share,Modal} from 'react-native';
 import LinkPiAccount from './LinkPiAccount';
 import {auth,firestore,piLogin,Alert} from './services';
@@ -391,8 +391,8 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
   const hostSummary=useRoomHost(membership.act,!officialHelp&&!!membership.state&&!minimized,lastGiftId);
   const hostPhoto=isHost?avatar:hostSummary.avatar;
   const displayHostName=room.ownerName||room.host||hostSummary.profileName||'';
-  const people=(membership.state?.people||[]).map(person=>person.uid===room.ownerUid?{...person,avatar:hostPhoto}:person);
-  const guests=Object.fromEntries(people.filter(p=>p.uid!==room.ownerUid&&p.seat>0).map(p=>[p.uid,p.name]));
+  const people=useMemo(()=>(membership.state?.people||[]).map(person=>person.uid===room.ownerUid?{...person,avatar:hostPhoto}:person),[membership.state?.people,room.ownerUid,hostPhoto]);
+  const guests=useMemo(()=>Object.fromEntries(people.filter(p=>p.uid!==room.ownerUid&&p.seat>0).map(p=>[p.uid,p.name])),[people,room.ownerUid]);
   const self=people.find(p=>p.uid===userId);
   const onStage=audio?audioSlot(self,room.ownerUid)!==null:!!self?.seat;
   const isGuest=Boolean(self?.seat&&!self?.muted);
@@ -535,7 +535,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
   const admitted=Boolean(membership.state);
   useEffect(()=>{
     if(!admitted||officialHelp)return;
-    return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(100).onSnapshot(snapshot=>{
+    return roomRef.collection('messages').orderBy('createdAt','asc').limitToLast(50).onSnapshot(snapshot=>{
       setLegacyChat(snapshot.docs.map(d=>({...d.data(),id:d.id,legacy:true})));
     },()=>{});
   },[room.id,admitted]);
@@ -831,7 +831,7 @@ function Room({room,helpCoverImage,onHelpCoverChange,inviteFriends,locale,onHost
         <Text style={S.gold} numberOfLines={2}>{ui('رسالة مثبّتة')} · {membership.state.pinned.text}</Text>
       </TouchableOpacity>}
     {chatVisible&&membership.state.slow>0&&<Text style={S.tiny}>{ui('مهلة الدردشة')} · {membership.state.slow} {ui('ثانية')}</Text>}
-    {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
+    {chatVisible&&!keyboardOn&&<ScrollView ref={chatRef} style={S.chat} contentContainerStyle={{padding:7}}><Text style={S.tiny}>{ui("اضغط مطولًا للإبلاغ أو الحظر أو حذف رسالتك، ويستطيع المضيف حذف رسائل الغرفة.")}</Text>{[...legacyChat,...(membership.state?.chat||[])].filter(m=>!blocked.includes(m.userUid)).slice(-60).map(m=><TouchableOpacity key={m.id} onLongPress={()=>moderateMessage(m)} style={S.bubble}><Text style={S.white}><Text style={{color:GOLD}}>{m.userName||ui("مستخدم")}: </Text>{m.text}</Text></TouchableOpacity>)}</ScrollView>}
     <RoomGiftSheet recipientPicker={<GiftRecipients people={giftPeople} target={recipientUid} userId={userId} allowSelf={isHost}
         act={membership.act} onSelect={openGifts}/>} visible={giftOpen&&!minimized} recipientReady={recipientReady}
       gifts={GIFTS} allLabel="الكل" translate={ui}
@@ -1739,7 +1739,7 @@ export default function App(){
   }
   return <View style={{flex:1}}>
     <div key={page} data-clipi-page={page} inert={Boolean(activeRoom&&!mini)} aria-hidden={Boolean(activeRoom&&!mini)} style={{position:'absolute',inset:0,display:'flex',flexDirection:'column',overflow:'hidden',isolation:'isolate',zIndex:0,visibility:activeRoom&&!mini?'hidden':'visible',pointerEvents:activeRoom&&!mini?'none':'auto',backgroundColor:theme.canvas}}>
-      {renderPage()}
+      {(!activeRoom||mini)&&renderPage()}
     </div>
     <PolicyModal page={policy} endpoint={MEDIA_ENDPOINT} onClose={()=>setPolicy(null)}/>
     {activeRoom&&user&&<View style={mini?{position:'absolute',width:1,height:1,overflow:'hidden',opacity:0,pointerEvents:'none'}:[StyleSheet.absoluteFillObject,{zIndex:10,backgroundColor:theme.canvas,overflow:'hidden'}]}><Room key={activeRoom.id} helpCoverImage={helpCoverImage} onHelpCoverChange={setHelpCover} inviteFriends={inviteRoomId===activeRoom.id} room={activeRoom} onHostProfile={openHostProfile} locale={locale} userId={user.uid} username={name||'مستخدم'} avatar={avatar} equipped={equipped} diamonds={available} onWallet={()=>{setMini(true);go("wallet")}} minimized={mini} onMinimize={()=>setMini(true)} onExit={()=>{setActiveRoom(null);setMini(false)}}/></View>}
