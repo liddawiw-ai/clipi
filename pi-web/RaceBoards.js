@@ -99,9 +99,10 @@ function Piece({tone,diameter:d,piece,selected,available,stacked,sculpted=false}
 }
 
 // A stack of identical square positions opens large, individually labeled selectors.
-export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null,theme}){
+export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null,theme,viewerSeat=0}){
   const {width}=useWindowDimensions();
   const [size,setSize]=useState(0),[open,setOpen]=useState(null),[motion,setMotion]=useState([]);
+  const quarter=((game.kind==='ludo'?3:1)-corner(game,viewerSeat)+4)%4;
   const previous=useRef(game);
   useEffect(()=>{
     const old=previous.current;previous.current=game;
@@ -118,14 +119,14 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
     setMotion(changed);const timer=setTimeout(()=>setMotion([]),Math.max(...changed.map(m=>motionDuration(game.kind,m.route)))+45);return()=>clearTimeout(timer);
   },[game.kind,game.count,JSON.stringify(game.pieces)]);
   const ludo=game.kind==='ludo',seat=activeSeat(game);
-  const groups=useMemo(()=>tokenGroups(game),[game]);
+  const groups=useMemo(()=>tokenGroups(game).map(group=>{const [x,y]=rotate([group.x,group.y],quarter);return {...group,x,y};}),[game,quarter]);
   const options=useMemo(()=>legalOptions??choices(game),[legalOptions,game]);
   const selectable=new Set(options.map(o=>o.id.split('/')[2]).filter(i=>i!==undefined).map(Number));
   const permitted=p=>!motion.length && !!onPiece && p.seat===seat && selectable.has(p.piece);
   const owner=seats[corner(game,seat)];
   const pixels=size||Math.min(520,Math.max(1,width-56));
   const hint=typeof hintOption==='string'?hintOption:hintOption?.id;
-  const targets=options.some(o=>o.id===hint)?destinations(game,hint,seat):[];
+  const targets=options.some(o=>o.id===hint)?destinations(game,hint,seat).map(p=>rotate(p,quarter)):[];
   const stack=groups.find(g=>g.key===open && g.pieces.filter(permitted).length>1);
   useEffect(()=>{setOpen(null);},[game.turn,game.die,game.note,game.winner]);
   function label(p){
@@ -137,7 +138,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
   }
   return <View style={s.container}>
     <View style={[s.frame,theme&&{outlineStyle:'solid',outlineWidth:3,outlineColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
-      {ludo?<LudoBoardArt/>:<Image accessible={false} source={jackarooArt} resizeMode="stretch" style={s.art}/>}
+      <View pointerEvents="none" style={[s.art,{transform:[{rotate:(quarter*90)+'deg'}]}]}>{ludo?<LudoBoardArt/>:<Image accessible={false} source={jackarooArt} resizeMode="stretch" style={s.art}/>}</View>
       {groups.map(group=>{
         const legal=group.pieces.filter(permitted);
         const selected=group.pieces.find(p=>p.seat===seat && p.piece===selectedPiece);
@@ -154,7 +155,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
           onPress={()=>legal.length===1?select(legal[0]):setOpen(old=>old===group.key?null:group.key)}
           style={[s.spot,pos,{zIndex:2},moving&&group.pieces.length===1&&{opacity:0}]}>{glyph}</Pressable>;
       })}
-      {motion.map(({seat,piece,route})=><MotionPawn key={seat+'/'+piece} {...{seat,piece,route,game,pixels}}/>)}
+      {motion.map(({seat,piece,route})=><MotionPawn key={seat+'/'+piece} {...{seat,piece,route:route.map(p=>rotate(p,quarter)),game,pixels}}/>)}
       {targets.map(([x,y],i)=>{
         const d=pixels*(ludo?.050:.041);
         return <View key={'hint'+i} pointerEvents="none" style={[s.destination,{left:x*pixels-d/2,top:y*pixels-d/2,width:d,height:d,borderRadius:d/2}]}/>;
