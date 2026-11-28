@@ -99,9 +99,9 @@ function Piece({tone,diameter:d,piece,selected,available,stacked,sculpted=false}
 }
 
 // A stack of identical square positions opens large, individually labeled selectors.
-export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null,theme,viewerSeat=0}){
+export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=null,theme,viewerSeat=0,fitHeight=false}){
   const {width}=useWindowDimensions();
-  const [size,setSize]=useState(0),[open,setOpen]=useState(null),[motion,setMotion]=useState([]);
+  const [space,setSpace]=useState(0),[size,setSize]=useState(0),[open,setOpen]=useState(null),[motion,setMotion]=useState([]);
   const quarter=((game.kind==='ludo'?3:1)-corner(game,viewerSeat)+4)%4;
   const previous=useRef(game);
   useEffect(()=>{
@@ -124,7 +124,8 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
   const selectable=new Set(options.map(o=>o.id.split('/')[2]).filter(i=>i!==undefined).map(Number));
   const permitted=p=>!motion.length && !!onPiece && p.seat===seat && selectable.has(p.piece);
   const owner=seats[corner(game,seat)];
-  const pixels=size||Math.min(520,Math.max(1,width-56));
+  const limit=Math.max(1,Math.min(520,width-24,fitHeight&&space>0?space-8:520));
+  const pixels=size||limit;
   const hint=typeof hintOption==='string'?hintOption:hintOption?.id;
   const targets=options.some(o=>o.id===hint)?destinations(game,hint,seat).map(p=>rotate(p,quarter)):[];
   const stack=groups.find(g=>g.key===open && g.pieces.filter(permitted).length>1);
@@ -136,8 +137,8 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
     setOpen(null);
     onPiece?.(p.seat,p.piece);
   }
-  return <View style={s.container}>
-    <View style={[s.frame,theme&&{outlineStyle:'solid',outlineWidth:3,outlineColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
+  return <View style={[s.container,fitHeight&&{flex:1,minHeight:0,justifyContent:'center',alignItems:'center'}]} onLayout={e=>setSpace(e.nativeEvent.layout.height)}>
+    <View style={[s.frame,fitHeight&&{width:limit,height:limit,flexShrink:0},theme&&{outlineStyle:'solid',outlineWidth:3,outlineColor:theme.color}]} onLayout={event=>{const w=event.nativeEvent.layout.width;if(w>0)setSize(w);}}>
       <View pointerEvents="none" style={[s.art,{transform:[{rotate:(quarter*90)+'deg'}]}]}>{ludo?<LudoBoardArt/>:<Image accessible={false} source={jackarooArt} resizeMode="stretch" style={s.art}/>}</View>
       {groups.map(group=>{
         const legal=group.pieces.filter(permitted);
@@ -161,7 +162,7 @@ export function Board({game,onPiece,legalOptions,selectedPiece=null,hintOption=n
         return <View key={'hint'+i} pointerEvents="none" style={[s.destination,{left:x*pixels-d/2,top:y*pixels-d/2,width:d,height:d,borderRadius:d/2}]}/>;
       })}
     </View>
-    {stack&&<View style={s.stackChoices}>
+    {stack&&<View style={[s.stackChoices,fitHeight&&{position:'absolute',bottom:0,left:0,right:0,zIndex:10,backgroundColor:'#29251f',padding:4}]}>
       {stack.pieces.filter(permitted).map(p=><Pressable key={p.piece} accessibilityRole="button" accessibilityLabel={label(p)}
         accessibilityState={{selected:selectedPiece===p.piece}} onPress={()=>select(p)} style={s.stackButton}>
         <Piece sculpted={ludo} tone={owner} diameter={22} piece={p.piece} available selected={selectedPiece===p.piece}/>

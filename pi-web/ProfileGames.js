@@ -55,24 +55,29 @@ function Play({g,me,names,send,busy,theme}){
     if(available.length===1){playOption(available[0].id);return;}
     if(available.length)setPiece(index);
   }
+  const {width}=useWindowDimensions();
+  const cardWidth=Math.max(18,Math.min(49,Math.floor((width-48)/Math.max(1,g.hands?.[me]?.length||1))-6));
   const lastDie=g.die||Number(g.note?.match(/نتيجة النرد ([1-6])/)?.[1])||0;
-  return <View style={{gap:10}}>
-    <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:12,borderRadius:12,backgroundColor:g.winner!==null?'#805c20':myTurn?'#176348':'#28394f'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
+  return <View style={{flex:1,minHeight:0,gap:4}}>
+    <Text accessibilityLiveRegion="polite" style={[styles.heading,{padding:5,fontSize:14,borderRadius:12,backgroundColor:g.winner!==null?'#805c20':myTurn?'#176348':'#28394f'}]}>{g.winner!==null?appText('فاز ')+winning:g.turn===me?appText('دورك · ')+names[me]:appText('الدور · ')+names[g.turn]}</Text>
     {pool?<BilliardTable theme={theme} game={g} me={me} locked={locked} send={send}/>:<>
       <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
-      <Board viewerSeat={me} theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
+      <View style={{flex:1,minHeight:0,justifyContent:"center",alignItems:"center"}}><Board fitHeight viewerSeat={me} theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/></View>
       {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
         {myTurn&&!g.die&&<IconAction symbol="⚄" label={appText("ارمِ النرد")} selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}/>}
         {!!g.die&&myTurn&&<Text style={styles.text}>{appText("المس الحجر المضيء لتحريكه")}</Text>}</View>}
       {jack&&<>{!!g.lastCard&&<LastCard card={g.lastCard} player={names[g.lastCard.seat]}/>}<Text style={styles.text}>{myTurn?(g.exchange?appText('اختر ورقة تمرّرها إلى شريكك'):card==null?appText('اختر ورقة من يدك'):eligible.some(o=>o.id.endsWith('/pass'))?appText('مرّر الورقة لإنهاء الدور'):appText('المس الحجر المضيء لاختيار الحركة')):appText('أوراقك')}</Text>
-        <View style={styles.row}>{(g.hands[me]||[]).map((c,i)=><PlayingCard key={i} rank={c} suit={g.handSuits?.[me]?.[i]} selected={cardIndex===i} enabled={!locked&&(!!g.exchange||valid.some(o=>Number(o.id.split('/')[0])===c))} onPress={()=>{
+        <View style={styles.row}>{(g.hands[me]||[]).map((c,i)=><PlayingCard width={cardWidth} key={i} rank={c} suit={g.handSuits?.[me]?.[i]} selected={cardIndex===i} enabled={!locked&&(!!g.exchange||valid.some(o=>Number(o.id.split('/')[0])===c))} onPress={()=>{
           if(g.exchange){send({type:'exchange',cardIndex:i});return;}
           setCardIndex(i);setPiece(null);}}/>)}</View></>}
       {jack&&card!=null&&<View style={styles.row}>{matches.filter(o=>piece!=null||o.id.endsWith('/pass')).map(o=><Action key={o.id} disabled={locked} onPress={()=>playOption(o.id)}>{moveLabel(o.label)}</Action>)}</View>}
     </>}
     {!!g.note&&<Text accessibilityLiveRegion="polite" style={styles.text}>{moveLabel(appText(g.note))}</Text>}
   </View>;
+}
+function GameOverlay({children,onClose}){
+  return <Modal transparent visible animationType="fade" onRequestClose={onClose}><View style={{flex:1,justifyContent:'center',padding:16,backgroundColor:'rgba(0,0,0,.65)'}}><Pressable accessibilityLabel={appText('رجوع للألعاب')} onPress={onClose} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/><View style={{maxHeight:'85%',backgroundColor:colors.surface,borderRadius:16,padding:10}}><IconAction symbol="×" label={appText('رجوع للألعاب')} onPress={onClose}/><ScrollView>{children}</ScrollView></View></View></Modal>;
 }
 function Table({kind,uid,name,request,onBack}){
   const localKey=uid+'/'+kind;
@@ -161,7 +166,7 @@ function Table({kind,uid,name,request,onBack}){
   },[local,table?.deadline,table?.serverTime]);
   const game=local||table?.game,me=local?(solo?0:local.turn):table?.me;
   const names=local?Array.from({length:local.count},(_,i)=>!solo?'لاعب '+(i+1):i===0?'أنت':kind==='jackaroo'&&i===2?'شريكك':'الكمبيوتر '+i):table?.players||[];
-  return <View style={[styles.panel,theme&&{borderWidth:3,borderColor:theme.color}]}>
+  return <View style={[styles.panel,{flex:1,minHeight:0,padding:6,gap:4},theme&&{borderWidth:3,borderColor:theme.color}]}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:4}}>
       <IconAction symbol="×" label={appText("رجوع للألعاب")} onPress={onBack}/>
       <IconAction symbol="?" label={appText("قواعد الطاولة")} selected={showRules} onPress={()=>{setShowRules(v=>!v);setShopOpen(false);setRankOpen(false);}}/>
@@ -169,10 +174,10 @@ function Table({kind,uid,name,request,onBack}){
       <IconAction symbol="🛍" label={appText('متجر ثيمات الألعاب')} selected={shopOpen} onPress={()=>{setShopOpen(v=>!v);setShowRules(false);setRankOpen(false);void shopAction('tableCosmetics')}}/>
       <IconAction symbol="🏆" label={appText('التصنيف العالمي')} selected={rankOpen} onPress={()=>{setRankOpen(v=>!v);setShowRules(false);setShopOpen(false);}}/>
     </View>
-    <Text style={styles.heading}>{appText(games[kind])}</Text>{showRules&&<><Text style={styles.text}>{appText(rules[kind])}</Text>
+    {!game&&<Text style={styles.heading}>{appText(games[kind])}</Text>}{showRules&&<GameOverlay onClose={()=>setShowRules(false)}><><Text style={styles.text}>{appText(rules[kind])}</Text>
       {!!credits[kind]&&<Action onPress={()=>setCreditsOpen(v=>!v)}>{appText("حقوق ملفات اللعبة")}</Action>}
-      {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</>}
-    {shopOpen&&<View style={{gap:8,padding:12,backgroundColor:'#18283b',borderRadius:12}}>
+      {creditsOpen&&!!credits[kind]&&<Text selectable style={[styles.text,{fontSize:12,textAlign:'left',writingDirection:'ltr'}]}>{'Kenney Boardgame Pack (CC0)\n'+credits[kind]}</Text>}</></GameOverlay>}
+    {shopOpen&&<GameOverlay onClose={()=>setShopOpen(false)}><View style={{gap:8,padding:12,backgroundColor:'#18283b',borderRadius:12}}>
       {!!shopError&&<Text style={styles.text}>{shopError}</Text>}
       {shop&&<><Text style={styles.heading}>💎 {shop.diamonds}</Text>
       {[{id:'classic',label:'كلاسيكي',cost:0,color:'#cdbeaa'},...shop.catalog].map(item=>{
@@ -182,15 +187,16 @@ function Table({kind,uid,name,request,onBack}){
           <Action disabled={shopBusy||shop.equipped===item.id||(!owned&&shop.diamonds<item.cost)} selected={shop.equipped===item.id} onPress={()=>shopAction(owned?'tableEquipCosmetic':'tableBuyCosmetic',item.id)}>{appText(shop.equipped===item.id?'مفعّل':owned?'تفعيل الثيم':'شراء وتفعيل الثيم')}</Action>
         </View>;
       })}</>}
-    </View>}
-    {rankOpen&&<View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#18283b'}}>
+    </View></GameOverlay>}
+    {rankOpen&&<GameOverlay onClose={()=>setRankOpen(false)}><View style={{gap:8,padding:12,borderRadius:12,backgroundColor:'#18283b'}}>
       {rankError?<Text style={styles.text}>{appText('تعذّر تحميل التصنيف')}</Text>:!ranking?<Text style={styles.text}>…</Text>:<>
         <Text style={styles.heading}>{appText('مستواك')} {1+Math.floor(ranking.personal.xp/100)} · {ranking.personal.xp} XP</Text>
         <Text style={styles.text}>{appText('المباريات')} {ranking.personal.played} · {appText('الانتصارات')} {ranking.personal.wins}</Text>
         {ranking.ranking.map((row,i)=><View key={i} style={[styles.row,{justifyContent:'space-between',padding:8,borderRadius:8,backgroundColor:row.me?'#1d604c':i<3?'#594422':'#26384c'}]}><Text style={styles.text}>{i+1}. {row.name}</Text><Text style={styles.text}>{row.xp} XP</Text></View>)}
         {!ranking.ranking.length&&<Text style={styles.text}>{appText('لا توجد نتائج بعد')}</Text>}
       </>}
-    </View>}
+    </View></GameOverlay>}
+    <GameBody playing={!!game}>
     {(issue&&(local?!offline:onlineMenu||table))?<Text accessibilityLiveRegion="polite" style={styles.text}>{appText(issue)}</Text>:null}
     {offline&&!local&&(onlineMenu||table)&&<Action onPress={refresh}>{appText("إعادة الاتصال")}</Action>}
     {!local&&!table&&<>
@@ -203,7 +209,7 @@ function Table({kind,uid,name,request,onBack}){
       <Action disabled={busy||!request||code.trim().length!==10} onPress={()=>command('tableJoin',{code})}>{appText("انضم بالرمز")}</Action>
       {lobbies.map(t=><Action key={t.code} disabled={busy} onPress={()=>command('tableJoin',{code:t.code})}>{appText('انضم إلى ')+t.host+' · '+t.seats+' / '+Math.max(...seatsFor(kind))}</Action>)}</>}
     </>}
-    {!!table&&!local&&<><Text selectable style={styles.text}>{appText('رمز الطاولة · ')+table.code}</Text><Text style={styles.text}>{names.join('  ·  ')}</Text>
+    {!!table&&!local&&!game&&<><Text selectable style={styles.text}>{appText('رمز الطاولة · ')+table.code}</Text><Text style={styles.text}>{names.join('  ·  ')}</Text>
       {table.phase==='lobby'&&(table.me===0?<Action selected disabled={busy||offline||!seatsFor(kind).includes(names.length)} onPress={()=>command('tableStart')}>{appText("ابدأ الجولة")}</Action>:<Text style={styles.text}>{appText("بانتظار المضيف لبدء الجولة")}</Text>)}</>}
     {!local&&table?.phase==='playing'&&<View style={{padding:10,borderRadius:12,backgroundColor:'#1d2d40',gap:6}}><Text style={styles.heading}>{appText('وقت الدور')} · {seconds}s</Text><View style={{height:6,borderRadius:3,backgroundColor:'#35485e',overflow:'hidden'}}><View style={{height:6,width:(seconds/60*100)+'%',backgroundColor:seconds<=10?'#ec725e':'#e5bd69'}}/></View></View>}
     {!!game&&(local&&!solo&&kind==='jackaroo'&&privateTurn&&game.winner===null?<Action selected onPress={()=>setPrivateTurn(false)}>{appText('مرّر الجهاز إلى ')+names[me]+appText(' · اعرض أوراقي')}</Action>:
@@ -211,11 +217,13 @@ function Table({kind,uid,name,request,onBack}){
     {local&&game?.winner!==null&&game&&<Action selected onPress={()=>startLocal(solo)}>{appText('العب مرة أخرى')}</Action>}
     {!local&&table?.phase==='finished'&&<Action selected disabled={busy||table.rematchReady} onPress={()=>command('tableRematch')}>{appText('العب مرة أخرى')} · {table.rematchCount||0}/{table.players.length}</Action>}
     {(local||table)&&<>{confirm?<><Text style={styles.text}>{game?appText('إنهاء الجولة لكل اللاعبين؟'):appText('مغادرة الطاولة؟')}</Text><View style={styles.row}><Action onPress={()=>setConfirm(false)}>{appText("متابعة اللعب")}</Action><Action disabled={busy} onPress={()=>local?localSave(null):command('tableLeave')}>{appText("تأكيد المغادرة")}</Action></View></>:<Action onPress={()=>setConfirm(true)}>{appText("مغادرة الطاولة")}</Action>}</>}
+    </GameBody>
   </View>;
 }
+function GameBody({playing,children}){return playing?<View style={{flex:1,minHeight:0,gap:4}}>{children}</View>:<ScrollView style={{flex:1}} contentContainerStyle={{gap:6}} keyboardShouldPersistTaps="handled">{children}</ScrollView>;}
 export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
-  if(kind)return <Modal visible animationType="fade" onRequestClose={()=>setKind(null)}><View style={{flex:1,backgroundColor:colors.surface}}><ScrollView contentContainerStyle={{flexGrow:1,padding:8}}><Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/></ScrollView></View></Modal>;
+  if(kind)return <Modal visible animationType="fade" onRequestClose={()=>setKind(null)}><View style={{flex:1,backgroundColor:colors.surface}}><View style={{flex:1,minHeight:0,padding:4}}><Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/></View></View></Modal>;
   const covers={jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
   return <View style={{gap:12,backgroundColor:'#101a29',padding:12,borderRadius:22}}>
     <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'flex-start',gap:8}}>

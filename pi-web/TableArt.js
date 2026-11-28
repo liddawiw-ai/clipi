@@ -36,11 +36,11 @@ export function LastCard({card,player}){
     <Text style={{color:'#48544D',fontSize:13,fontWeight:'600'}}>{label}</Text>
   </View>;
 }
-export function PlayingCard({rank,suit,enabled,selected,onPress}){
+export function PlayingCard({rank,suit,enabled,selected,onPress,width=49}){
   return <Pressable accessibilityRole="button" accessibilityLabel={cardLabel(rank,suit)}
     accessibilityState={{selected,disabled:!enabled}} disabled={!enabled} onPress={onPress}
     style={[styles.cardFrame,{borderColor:selected?'#BB872F':'transparent',opacity:enabled?1:.71}]}>
-    <CardFace rank={rank} suit={suit}/>
+    <CardFace rank={rank} suit={suit} width={width}/>
   </Pressable>;
 }
 

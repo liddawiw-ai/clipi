@@ -210,8 +210,8 @@ export default function BilliardTable({game, me, locked, send,theme}) {
   const disabled=!!locked||!!frame||game.winner!=null;
   const myTurn=game.turn===me&&game.winner==null;
   const canAim=!disabled&&myTurn;
-  const maxHeight=Math.max(323,Math.min(685,screen.height*.59));
-  const u=Math.max(.6,Math.min(((available??Math.max(100,screen.width-50))-4)/(tableWidth+2*rails),maxHeight/(tableHeight+2*rails)));
+  const maxHeight=Math.max(100,Math.min(685,screen.height-330));
+  const u=Math.max(.1,Math.min(((available??Math.max(100,screen.width-50))-4)/(tableWidth+2*rails),maxHeight/(tableHeight+2*rails)));
   const point=(event,release=false)=>{
     if (!canAim||playback.current) return;
     const [px,py]=localPoint(event),x=px/u,y=py/u;
