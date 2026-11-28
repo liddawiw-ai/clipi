@@ -9,7 +9,7 @@ function RoomSpeaker({muted}){
   useEffect(()=>{
     if(canPlayAudio||muted)return;
     let pending=false;
-    const resume=()=>{if(pending)return;pending=true;Promise.resolve().then(()=>startAudio()).catch(()=>{}).finally(()=>{pending=false});};
+    const resume=()=>{if(pending)return;pending=true;try{Promise.resolve(startAudio()).catch(()=>{}).finally(()=>{pending=false});}catch{pending=false;}};
     resume();
     document.addEventListener('pointerdown',resume,true);
     document.addEventListener('touchend',resume,true);
