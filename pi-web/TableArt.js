@@ -70,7 +70,7 @@ export function Die({value,rollKey}){
   const [face,rotation,rise]=step<0?[value,0,0]:tumbleFrames[step];
   return <View accessible accessibilityLabel={value?ui('نتيجة النرد')+' '+value:ui('جارٍ رمي النرد')}
     style={{transform:[{translateY:rise},{rotate:rotation+'deg'}]}}>
-    <Sprite source={dice} frame={face-1} columns={3} rows={2} width={41} height={41}/>
+    <svg aria-hidden="true" width="60" height="62" viewBox="0 0 100 104"><ellipse cx="50" cy="93" rx="39" ry="8" fill="#000" opacity=".35"/><path d="M12 20 L68 8 L91 27 L91 78 L70 95 L12 81Z" fill="#b9c3d2" stroke="#78879d" strokeWidth="2"/><path d="M68 8 L91 27 L70 41 L12 20Z" fill="#fffdf5"/><path d="M70 41 L91 27 L91 78 L70 95Z" fill="#9baec3"/><path d="M12 20 L70 41 L70 95 L12 81Z" fill="#fff" stroke="#e0d6bd" strokeWidth="2"/>{({1:[[1,1]],2:[[0,0],[2,2]],3:[[0,0],[1,1],[2,2]],4:[[0,0],[2,0],[0,2],[2,2]],5:[[0,0],[2,0],[1,1],[0,2],[2,2]],6:[[0,0],[2,0],[0,1],[2,1],[0,2],[2,2]]}[face]||[]).map(([x,y],i)=><ellipse key={i} cx={24+x*16} cy={39+y*15+x*5} rx="4.8" ry="5.5" fill="#c82b3f"/>)}<path d="M16 25 L65 43" stroke="#fff" strokeWidth="3" strokeLinecap="round"/></svg>
   </View>;
 }
 const styles=StyleSheet.create({
