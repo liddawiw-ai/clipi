@@ -72,7 +72,7 @@ export function useRoomHost(act,enabled,lastGiftId){
       }catch{ /* Keep the last confirmed total while reconnecting. */ }
       if(active)timer=setTimeout(refresh,15000);
     }
-    refresh();
+    timer=setTimeout(refresh,lastGiftId?0:800);
     return ()=>{active=false;clearTimeout(timer)};
   },[enabled,lastGiftId]);
   return summary;
