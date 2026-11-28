@@ -5,6 +5,16 @@ export const tableSchema=[
   'CREATE INDEX IF NOT EXISTS game_lobbies ON game_tables(kind,phase,changed)',
   'CREATE TABLE IF NOT EXISTS game_members(uid TEXT,kind TEXT,code TEXT,PRIMARY KEY(uid,kind))',
   'CREATE INDEX IF NOT EXISTS game_members_by_code ON game_members(code)',
+  'CREATE TABLE IF NOT EXISTS game_results(code TEXT,kind TEXT,uid TEXT,name TEXT,won INTEGER NOT NULL,PRIMARY KEY(code,uid))',
+  'CREATE INDEX IF NOT EXISTS game_results_kind ON game_results(kind,uid)',
+  `CREATE TRIGGER IF NOT EXISTS game_record_result AFTER UPDATE ON game_tables
+    WHEN NEW.phase='finished' AND OLD.phase='playing' BEGIN
+    INSERT OR IGNORE INTO game_results
+    SELECT NEW.code,NEW.kind,json_extract(value,'$.uid'),json_extract(value,'$.name'),
+    CASE WHEN NEW.kind='jackaroo' THEN CAST(key AS INTEGER)%2=json_extract(NEW.data,'$.game.winner')
+    ELSE CAST(key AS INTEGER)=json_extract(NEW.data,'$.game.winner') END
+    FROM json_each(NEW.data,'$.players');
+    END`,
   ...['INSERT','UPDATE'].map(action=>`CREATE TRIGGER IF NOT EXISTS game_seats_${action} AFTER ${action} ON game_tables BEGIN
     DELETE FROM game_members WHERE code=NEW.code;
     INSERT INTO game_members SELECT json_extract(value,'$.uid'),NEW.kind,NEW.code FROM json_each(NEW.data,'$.players');
@@ -20,6 +30,11 @@ export async function profileTables(q,uid,input,json){
   const {op,kind}=input;
   if(typeof kind!=='string'||!Object.hasOwn(games,kind))return json({error:'لعبة غير متاحة'},400);
   const now=Date.now(),expiry=now-86400000;
+  if(op==='tableRanking'){
+    const {results}=await q('SELECT uid,MAX(name) AS name,COUNT(*) AS played,SUM(won) AS wins FROM game_results WHERE kind=? GROUP BY uid ORDER BY SUM(won)*3+COUNT(*) DESC,uid LIMIT 50',kind).all();
+    const personal=await q('SELECT COUNT(*) AS played,COALESCE(SUM(won),0) AS wins FROM game_results WHERE kind=? AND uid=?',kind,uid).first();
+    return json({ranking:results.map(({uid:player,...row})=>({...row,me:player===uid,xp:row.played*10+row.wins*30})),personal:{...personal,xp:personal.played*10+personal.wins*30}});
+  }
   const active=await q('SELECT t.* FROM game_tables t JOIN game_members m ON m.code=t.code WHERE m.uid=? AND m.kind=?',uid,kind).first();
   if(active&&active.changed<expiry){
     await q('DELETE FROM game_tables WHERE code=? AND rev=? AND changed<?',active.code,active.rev,expiry).run();
