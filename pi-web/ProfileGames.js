@@ -224,6 +224,10 @@ function Table({kind,uid,name,request,onBack}){
   </View>;
 }
 function GameBody({playing,children}){return playing?<View style={{flex:1,minHeight:0,gap:4}}>{children}</View>:<ScrollView style={{flex:1}} contentContainerStyle={{gap:6}} keyboardShouldPersistTaps="handled">{children}</ScrollView>;}
+// Original Clipi vector badge, inspired by the supplied visual references.
+function PoolBadge(){
+  return <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><defs><linearGradient id="clipiPoolBlue" x2="0" y2="1"><stop stopColor="#13b9ec"/><stop offset="1" stopColor="#034879"/></linearGradient><radialGradient id="clipiPoolGloss" cx=".28" cy=".2" r=".85"><stop stopColor="#fff" stopOpacity=".85"/><stop offset=".32" stopColor="#fff" stopOpacity="0"/><stop offset="1" stopColor="#000" stopOpacity=".45"/></radialGradient></defs><rect width="64" height="64" rx="12" fill="url(#clipiPoolBlue)"/>{[[19,24,14,'#ffcc29',1],[44,22,14,'#e22532',3],[34,36,18,'#13171e',8]].map(([x,y,r,color,n])=><g key={n}><ellipse cx={x+1} cy={y+r*.8} rx={r} ry={r*.45} fill="#002d47" opacity=".4"/><circle cx={x} cy={y} r={r} fill={color}/><circle cx={x} cy={y} r={r} fill="url(#clipiPoolGloss)"/><circle cx={x} cy={y} r={r*.5} fill="#fff9e5"/><text x={x} y={y+r*.22} textAnchor="middle" fontSize={r*.78} fontWeight="900" fill="#13171e">{n}</text></g>)}<path d="M-3 62 L22 44" stroke="#bc782b" strokeWidth="8" strokeLinecap="round"/><path d="M14 50 L24 42" stroke="#d9b873" strokeWidth="5" strokeLinecap="round"/><path d="M23 43 L26 41" stroke="#a7dded" strokeWidth="4"/></svg>;
+}
 export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
   if(kind)return <Modal visible animationType="fade" onRequestClose={()=>setKind(null)}><View style={{flex:1,backgroundColor:colors.surface}}><View style={{flex:1,minHeight:0,padding:4}}><Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/></View></View></Modal>;
@@ -232,7 +236,7 @@ export default function ProfileGames({uid,name,request}){
     <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'flex-start',gap:8}}>
       {Object.entries(games).map(([key,label],i)=><Pressable key={key} accessibilityRole="button" accessibilityLabel={appText(label)} onPress={()=>setKind(key)} style={{flex:1,minWidth:0,alignItems:'center',gap:6,paddingVertical:6}}>
         <View accessible={false} style={{width:64,height:64,overflow:'hidden',borderRadius:15,borderWidth:1,borderColor:'#a78c60',backgroundColor:['#203c34','#3a2920','#123d3d'][i],alignItems:'center',justifyContent:'center'}}>
-          {key==='ludo'?<View style={{width:58,height:58}}><LudoBadge/></View>:covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:64,height:64}}/>:<View style={{width:36,height:52,backgroundColor:'#117966',borderWidth:3,borderRadius:5,borderColor:'#956640',alignItems:'center',justifyContent:'center'}}><View style={{width:22,height:22,borderRadius:11,backgroundColor:'#171921',alignItems:'center',justifyContent:'center'}}><Text style={{color:'white',fontWeight:'bold'}}>8</Text></View></View>}
+          {key==='ludo'?<View style={{width:58,height:58}}><LudoBadge/></View>:covers[key]?<Image source={covers[key]} resizeMode="cover" style={{width:64,height:64}}/>:<PoolBadge/>}
         </View>
         <Text numberOfLines={2} style={{fontSize:13,color:'#fff4dc',fontWeight:'700',textAlign:'center'}}>{appText(label)}</Text>
       </Pressable>)}
