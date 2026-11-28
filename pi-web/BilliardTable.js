@@ -57,7 +57,7 @@ function aimGeometry(cue, balls, angle, power) {
   return {x, y, dx, dy, distance, kind, extension};
 }
 
-const TableSurface = memo(function TableSurface({unit:u}) {
+const TableSurface = memo(function TableSurface({unit:u,theme}) {
   const w=(tableWidth+2*rails)*u, h=(tableHeight+2*rails)*u;
   const marks=[];
   const inlay=(key,x,y)=>marks.push(<View key={key} style={[rect((x+rails)*u-.51*u,(y+rails)*u-.51*u,1.02*u,1.02*u),{backgroundColor:'#e2c992',transform:[{rotate:'45deg'}]}]}/>);
@@ -67,7 +67,7 @@ const TableSurface = memo(function TableSurface({unit:u}) {
     <View style={[rect(0,0,w,h),{borderRadius:6*u,backgroundColor:'#542e23',borderWidth:1.1*u,borderColor:'#251d1c'}]}/>
     <View style={[rect(1.15*u,1.15*u,w-2.3*u,h-2.3*u),{borderRadius:4.8*u,borderWidth:.5*u,borderColor:'#a16e4c'}]}/>
     <View style={[rect((rails-1.45)*u,(rails-1.45)*u,(tableWidth+2.9)*u,(tableHeight+2.9)*u),{borderRadius:2*u,backgroundColor:'#152f28'}]}/>
-    <View style={[rect(rails*u,rails*u,tableWidth*u,tableHeight*u),{backgroundColor:'#147467'}]}/>
+    <View style={[rect(rails*u,rails*u,tableWidth*u,tableHeight*u),{backgroundColor:theme?.color||'#147467'}]}/>
     <View style={[rect((rails+1.2)*u,(rails+1.2)*u,(tableWidth-2.4)*u,(tableHeight-2.4)*u),{borderWidth:.34*u,borderColor:'#188174'}]}/>
     {[-1,1].map(s=><React.Fragment key={s}>
       {[7,95].map(y=><View key={y} style={[rect((s===-1?rails-1.2:rails+tableWidth-1.45)*u,(y+rails)*u,2.65*u,74*u),{backgroundColor:'#225b4c',borderColor:'#639880',borderWidth:.25*u,borderRadius:1.25*u}]}/>)}
@@ -172,7 +172,7 @@ function Remaining({balls,group}) {
 
 import {gameSound} from './GameAudio';
 
-export default function BilliardTable({game, me, locked, send}) {
+export default function BilliardTable({game, me, locked, send,theme}) {
   const screen=useWindowDimensions(), [available,setAvailable]=useState(null);
   const [angle,setAngle]=useState(-Math.PI/2),[power,setPower]=useState(82),[placing,setPlacing]=useState(false);
   const [frame,setFrame]=useState(null),timer=useRef(null),playback=useRef(false);
@@ -228,7 +228,7 @@ export default function BilliardTable({game, me, locked, send}) {
       <Remaining balls={balls} group="solid"/><View style={styles.divider}/><Remaining balls={balls} group="striped"/>
     </View>
     <View style={{direction:'ltr',alignSelf:'center',width:(tableWidth+2*rails)*u,height:(tableHeight+2*rails)*u}}>
-      <TableSurface unit={u}/>
+      <TableSurface unit={u} theme={theme}/>
       <View style={[rect(rails*u,rails*u,tableWidth*u,tableHeight*u),{direction:'ltr',overflow:'hidden'}]}>
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {!frame&&cue&&canAim&&!placing&&<Aim {...{balls,cue,angle,power}} unit={u}/>}
