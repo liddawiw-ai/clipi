@@ -1,7 +1,7 @@
 import {uiError,ui as appText} from './interface-language.mjs';
 import {LudoBadge} from './ClipiLudoArt';
 import React,{useEffect,useRef,useState} from 'react';
-import {Image,Pressable,Text,TextInput,View} from 'react-native';
+import {Image,Modal,Pressable,ScrollView,Text,TextInput,View,useWindowDimensions} from 'react-native';
 import {games,seatsFor,match,move,choices} from './TableRules.mjs';
 import {Board,colorForSeat} from './RaceBoards';
 import BilliardTable from './BilliardTable';
@@ -58,7 +58,7 @@ function Play({g,me,names,send,busy,theme}){
     {pool?<BilliardTable theme={theme} game={g} me={me} locked={locked} send={send}/>:<>
       <View style={styles.row}>{names.map((name,i)=><View key={i} style={{flexDirection:'row-reverse',alignItems:'center',gap:4,paddingVertical:4,paddingHorizontal:8,borderRadius:9,borderWidth:1,borderColor:i===g.turn?'#BB872F':'#ded6c8',backgroundColor:i===g.turn?'#f9e8af':'#f7f3e9'}}>
         <View style={{width:9,height:9,borderRadius:5,backgroundColor:colorForSeat(g,i)}}/><Text style={{color:'#283d32',fontSize:12}}>{name+'  '+secured(i)+'/4'}</Text></View>)}</View>
-      <Board theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
+      <Board viewerSeat={me} theme={theme} game={g} selectedPiece={piece} legalOptions={locked?[]:eligible} hintOption={piece!=null&&matches.length===1?matches[0].id:null} onPiece={tapPawn}/>
       {!jack&&<View style={styles.row}><Die value={lastDie} rollKey={rollKey}/>
         {myTurn&&!g.die&&<Action selected disabled={busy} onPress={()=>{setRollKey(n=>n+1);send({type:'roll'});}}>{appText("ارمِ النرد")}</Action>}
         {!!g.die&&myTurn&&<Text style={styles.text}>{appText("المس الحجر المضيء لتحريكه")}</Text>}</View>}
@@ -208,7 +208,7 @@ function Table({kind,uid,name,request,onBack}){
 }
 export default function ProfileGames({uid,name,request}){
   const [kind,setKind]=useState(null);
-  if(kind)return <Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/>;
+  if(kind)return <Modal visible animationType="fade" onRequestClose={()=>setKind(null)}><View style={{flex:1,backgroundColor:colors.surface}}><ScrollView contentContainerStyle={{flexGrow:1,padding:8}}><Table key={uid+kind} kind={kind} uid={uid} name={name} request={request} onBack={()=>setKind(null)}/></ScrollView></View></Modal>;
   const covers={jackaroo:require('./assets/tables37/jackaroo-walnut.jpg')};
   return <View style={{gap:12,backgroundColor:'#101a29',padding:12,borderRadius:22}}>
     <View style={{flexDirection:'row',justifyContent:'space-around',alignItems:'flex-start',gap:8}}>
