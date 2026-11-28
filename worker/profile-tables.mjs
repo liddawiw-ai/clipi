@@ -1,4 +1,13 @@
 import {games,seatsFor,match,move,viewFor} from '../pi-web/TableRules.mjs';
+import {paidBalance} from './diamond-wallet.mjs';
+const cosmetics={royal:{cost:500,label:'ذهبي ملكي',color:'#b58a39'},sapphire:{cost:800,label:'ياقوت أزرق',color:'#355ca5'},emerald:{cost:1000,label:'زمرد فاخر',color:'#21745d'}};
+async function cosmeticState(q,uid,kind){
+  const owned=await q('SELECT item FROM game_cosmetic_purchase WHERE uid=?',uid).all();
+  const equipped=await q('SELECT item FROM game_cosmetic_equipped WHERE uid=? AND kind=?',uid,kind).first();
+  const balance=await q('SELECT '+paidBalance+' AS diamonds',uid,uid).first();
+  return {catalog:Object.entries(cosmetics).map(([id,v])=>({id,...v})),owned:owned.results.map(v=>v.item),equipped:equipped?.item||'classic',diamonds:balance.diamonds};
+}
+
 
 export const tableSchema=[
   'CREATE TABLE IF NOT EXISTS game_tables(code TEXT PRIMARY KEY,kind TEXT,rev INTEGER,changed INTEGER,phase TEXT,data TEXT)',
@@ -30,6 +39,19 @@ export async function profileTables(q,uid,input,json){
   const {op,kind}=input;
   if(typeof kind!=='string'||!Object.hasOwn(games,kind))return json({error:'لعبة غير متاحة'},400);
   const now=Date.now(),expiry=now-86400000;
+  if(op==='tableCosmetics')return json(await cosmeticState(q,uid,kind));
+  if(op==='tableBuyCosmetic'||op==='tableEquipCosmetic'){
+    const item=input.item;
+    if(typeof item!=='string'||(item!=='classic'&&!Object.hasOwn(cosmetics,item)))return json({error:'ترقية غير متاحة'},400);
+    if(op==='tableBuyCosmetic'){
+      if(item==='classic')return json({error:'ترقية غير متاحة'},400);
+      await q(`INSERT OR IGNORE INTO game_cosmetic_purchase(uid,item,cost) SELECT ?,?,? WHERE (${paidBalance})>=?`,uid,item,cosmetics[item].cost,uid,uid,cosmetics[item].cost).run();
+    }
+    if(item!=='classic'&&!await q('SELECT item FROM game_cosmetic_purchase WHERE uid=? AND item=?',uid,item).first())return json({error:'الرصيد غير كافٍ أو الترقية غير مملوكة'},409);
+    await q('INSERT INTO game_cosmetic_equipped VALUES(?,?,?) ON CONFLICT(uid,kind) DO UPDATE SET item=excluded.item',uid,kind,item).run();
+    return json(await cosmeticState(q,uid,kind));
+  }
+
   if(op==='tableRanking'){
     const {results}=await q('SELECT uid,MAX(name) AS name,COUNT(*) AS played,SUM(won) AS wins FROM game_results WHERE kind=? GROUP BY uid ORDER BY SUM(won)*3+COUNT(*) DESC,uid LIMIT 50',kind).all();
     const personal=await q('SELECT COUNT(*) AS played,COALESCE(SUM(won),0) AS wins FROM game_results WHERE kind=? AND uid=?',kind,uid).first();
