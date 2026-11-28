@@ -1,5 +1,16 @@
 // Release-owned copy. Identifiers, account names, comments and video titles are never translation inputs.
 export const english = {
+  "ذهبي ملكي": "Royal gold",
+  "ياقوت أزرق": "Blue sapphire",
+  "زمرد فاخر": "Luxury emerald",
+  "كلاسيكي": "Classic",
+  "متجر ثيمات الألعاب": "Game theme shop",
+  "تعذّر تحميل متجر الألعاب": "Could not load game shop",
+  "مفعّل": "Equipped",
+  "تفعيل الثيم": "Equip theme",
+  "شراء وتفعيل الثيم": "Buy and equip theme",
+  "ترقية غير متاحة": "Upgrade unavailable",
+  "الرصيد غير كافٍ أو الترقية غير مملوكة": "Insufficient balance or upgrade not owned",
   "التصنيف العالمي": "Global leaderboard",
   "تعذّر تحميل التصنيف": "Could not load rankings",
   "مستواك": "Your level",
