@@ -16,10 +16,11 @@ export const tableSchema=[
   'CREATE INDEX IF NOT EXISTS game_members_by_code ON game_members(code)',
   'CREATE TABLE IF NOT EXISTS game_results(code TEXT,kind TEXT,uid TEXT,name TEXT,won INTEGER NOT NULL,PRIMARY KEY(code,uid))',
   'CREATE INDEX IF NOT EXISTS game_results_kind ON game_results(kind,uid)',
-  `CREATE TRIGGER IF NOT EXISTS game_record_result AFTER UPDATE ON game_tables
+  'DROP TRIGGER IF EXISTS game_record_result',
+  `CREATE TRIGGER IF NOT EXISTS game_record_result_v2 AFTER UPDATE ON game_tables
     WHEN NEW.phase='finished' AND OLD.phase='playing' BEGIN
     INSERT OR IGNORE INTO game_results
-    SELECT NEW.code,NEW.kind,json_extract(value,'$.uid'),json_extract(value,'$.name'),
+    SELECT COALESCE(json_extract(NEW.data,'$.matchId'),NEW.code),NEW.kind,json_extract(value,'$.uid'),json_extract(value,'$.name'),
     CASE WHEN NEW.kind='jackaroo' THEN CAST(key AS INTEGER)%2=json_extract(NEW.data,'$.game.winner')
     ELSE CAST(key AS INTEGER)=json_extract(NEW.data,'$.game.winner') END
     FROM json_each(NEW.data,'$.players');
@@ -33,8 +34,8 @@ export const tableSchema=[
 const turnMs=60000;
 function present(row,uid){
   if(!row)return null;
-  const {players,game,deadline}=JSON.parse(row.data),me=players.findIndex(p=>p.uid===uid);
-  return {code:row.code,kind:row.kind,rev:row.rev,phase:row.phase,me,players:players.map(p=>p.name),game:viewFor(game,me),deadline:row.phase==='playing'?(deadline||row.changed+turnMs):null,serverTime:Date.now()};
+  const {players,game,deadline,rematch=[]}=JSON.parse(row.data),me=players.findIndex(p=>p.uid===uid);
+  return {code:row.code,kind:row.kind,rev:row.rev,phase:row.phase,me,players:players.map(p=>p.name),game:viewFor(game,me),deadline:row.phase==='playing'?(deadline||row.changed+turnMs):null,serverTime:Date.now(),rematchCount:rematch.length,rematchReady:rematch.includes(uid)};
 }
 export async function profileTables(q,uid,input,json){
   const {op,kind}=input;
@@ -115,6 +116,12 @@ export async function profileTables(q,uid,input,json){
     if(op==='tableStart'){
       if(phase!=='lobby'||seat!==0||!seatsFor(kind).includes(data.players.length))return json({error:'انتظر اكتمال اللاعبين وبدء المضيف'},409);
       data.game=match(kind,data.players.length);data.deadline=now+turnMs;phase='playing';
+    }else if(op==='tableRematch'){
+      if(phase!=='finished')return json({error:'انتظر انتهاء المباراة'},409);
+      data.rematch=[...new Set([...(data.rematch||[]),uid])];
+      if(data.players.every(p=>data.rematch.includes(p.uid))){
+        data.game=match(kind,data.players.length);data.matchId=crypto.randomUUID();data.deadline=now+turnMs;delete data.rematch;phase='playing';
+      }
     }else if(op==='tableMove'){
       if(phase!=='playing'||data.game.turn!==seat)return json({error:'انتظر دورك'},409);
       try{data.game=move(data.game,input.action);}catch(e){return json({error:e.message},400);}
