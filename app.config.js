@@ -38,7 +38,7 @@ if (fbId && fbToken) {
 }
 module.exports = {
   expo: {
-    name: 'Clipi', slug: 'clipi2', version: '1.1.0',
+    name: 'Clipi Live', slug: 'clipi2', version: '1.1.0',
     updates: {
       url: `https://u.expo.dev/${easProjectId}`,
       requestHeaders: {'expo-channel-name': androidUpdateChannel}
