@@ -20,8 +20,8 @@ export default function CaptureStudio({onMedia,onGallery,onPhotos,onClose}){
  if(!type){onGallery(true);return}
  try{const recorder=new MediaRecorder(stream.current,{mimeType:type,videoBitsPerSecond:1800000,audioBitsPerSecond:96000});rec.current=recorder;chunks.current=[];discard.current=false;let bytes=0;
  recorder.ondataavailable=e=>{if(e.data.size){chunks.current.push(e.data);bytes+=e.data.size;if(bytes>48*1024*1024)stop()}};
- recorder.onerror=()=>{discard.current=true;stop();if(alive.current)setError(ui('تعذّر تسجيل الفيديو'));};
- recorder.onstop=async()=>{clearInterval(timer.current);if(!alive.current||discard.current)return;setRecording(false);const file=new File(chunks.current,'clipi-camera.mp4',{type:'video/mp4'});const problem=await checkShortVideo(file);if(!alive.current)return;if(problem){setError(ui(problem.error));return}onMedia({file,uri:URL.createObjectURL(file)});};
+ recorder.onerror=()=>{discard.current=true;stop();clearInterval(timer.current);if(alive.current){setRecording(false);setError(ui('تعذّر تسجيل الفيديو'));}};
+ recorder.onstop=async()=>{clearInterval(timer.current);if(!alive.current||discard.current)return;setRecording(false);const file=new File(chunks.current,'clipi-camera.mp4',{type:'video/mp4'});let problem;try{problem=await checkShortVideo(file)}catch{problem={error:'تعذّر تسجيل الفيديو'}}if(!alive.current)return;if(problem){setError(ui(problem.error));return}onMedia({file,uri:URL.createObjectURL(file)});};
  recorder.start(500);setRecording(true);setSeconds(0);const start=Date.now();timer.current=setInterval(()=>{const elapsed=Math.floor((Date.now()-start)/1000);setSeconds(elapsed);if(elapsed>=179)stop()},250);
  }catch{setError(ui('تعذّر تسجيل الفيديو'));}}
  const button=(glyph,label,action,disabled=false)=><button type="button" aria-label={ui(label)} title={ui(label)} disabled={disabled} onClick={action} style={{border:0,color:'white',background:'#101827b8',borderRadius:22,minWidth:44,minHeight:44,fontSize:23}}>{glyph}</button>;
